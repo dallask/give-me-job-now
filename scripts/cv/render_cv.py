@@ -4,12 +4,15 @@
 from __future__ import annotations
 
 import argparse
+import os
+import platform
 import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
+from xml.sax.saxutils import escape
 
 
 def load_candidate(config_path: Path) -> dict:
@@ -24,12 +27,52 @@ def slug(s: str) -> str:
     return x or "cv"
 
 
-def render_reportlab(candidate: dict, out_path: Path) -> None:
+def repo_root_from_config(config_path: Path) -> Path:
+    return config_path.resolve().parent.parent
+
+
+def photo_raw(candidate: dict) -> str | None:
+    raw = candidate.get("photo")
+    if raw:
+        return str(raw).strip() or None
+    contact = candidate.get("contact")
+    if isinstance(contact, dict) and contact.get("photo"):
+        return str(contact["photo"]).strip() or None
+    return None
+
+
+def photo_path_for(candidate: dict, repo_root: Path) -> Path | None:
+    raw = photo_raw(candidate)
+    if not raw:
+        return None
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        path = (repo_root / path).resolve()
+    else:
+        path = path.resolve()
+    return path if path.is_file() else None
+
+
+def candidate_for_template(candidate: dict, repo_root: Path) -> dict:
+    """Copy candidate dict; drop invalid photo paths so HTML img does not break."""
+    out = dict(candidate)
+    if photo_raw(out) and not photo_path_for(out, repo_root):
+        out.pop("photo", None)
+        c = out.get("contact")
+        if isinstance(c, dict) and "photo" in c:
+            c2 = dict(c)
+            c2.pop("photo", None)
+            out["contact"] = c2
+    return out
+
+
+def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path) -> None:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import mm
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+    from reportlab.platypus import Image as RLImage
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
@@ -76,19 +119,56 @@ def render_reportlab(candidate: dict, out_path: Path) -> None:
     title = candidate.get("title") or ""
     summary = candidate.get("summary") or ""
 
-    story.append(Paragraph(name.replace("&", "&amp;"), title_style))
+    photo_path = photo_path_for(candidate, repo_root)
+    contact = candidate.get("contact") or {}
+    contact_bits: list[str] = []
+    if isinstance(contact, dict):
+        for k in ("phone", "email", "secondary_email", "linkedin", "portfolio", "website", "github", "address"):
+            v = contact.get(k)
+            if v:
+                contact_bits.append(f"{k}: {v}" if k not in ("linkedin", "portfolio", "website", "github") else f"{k}: {v}")
+    contact_html = "<br/>".join(escape(b) for b in contact_bits)
+
+    left_cell: list = [
+        Paragraph(escape(name), title_style),
+    ]
     if title:
-        story.append(Paragraph(title.replace("&", "&amp;"), subtitle_style))
+        left_cell.append(Paragraph(escape(title), subtitle_style))
+    if contact_html:
+        left_cell.append(Paragraph(contact_html.replace("\n", "<br/>"), body_style))
+
+    if photo_path:
+        img = RLImage(str(photo_path), width=28 * mm, height=28 * mm, mask="auto")
+        header = Table(
+            [[left_cell, img]],
+            colWidths=[doc.width - 34 * mm, 30 * mm],
+        )
+        header.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
+        )
+        story.append(header)
+    else:
+        story.extend(left_cell)
+
     if summary:
         story.append(Paragraph("<b>Summary</b>", h2_style))
         story.append(Paragraph(summary.replace("&", "&amp;"), body_style))
 
-    contact = candidate.get("contact") or {}
-    if isinstance(contact, dict) and contact:
+    contact2 = candidate.get("contact") or {}
+    if isinstance(contact2, dict) and contact2 and not contact_html:
         story.append(Paragraph("<b>Contact</b>", h2_style))
         lines = []
         for k in ("email", "phone", "address", "website", "github", "linkedin"):
-            v = contact.get(k)
+            v = contact2.get(k)
             if v:
                 lines.append(f"{k.capitalize()}: {v}")
         story.append(Paragraph("<br/>".join(lines).replace("&", "&amp;"), body_style))
@@ -162,10 +242,55 @@ def render_reportlab(candidate: dict, out_path: Path) -> None:
             else:
                 story.append(Paragraph(str(p).replace("&", "&amp;"), body_style))
 
+    certs = candidate.get("certifications") or []
+    if isinstance(certs, list) and certs:
+        story.append(Paragraph("<b>Courses &amp; certifications</b>", h2_style))
+        for block in certs:
+            if not isinstance(block, dict):
+                continue
+            issuer = escape(str(block.get("issuer") or ""))
+            year = block.get("year")
+            head = f"{issuer} ({year})" if year else issuer
+            story.append(Paragraph(f"<b>{head}</b>", body_style))
+            for line in block.get("credentials") or []:
+                story.append(Paragraph(f"• {escape(str(line))}", body_style))
+            story.append(Spacer(1, 4))
+
+    key_ach = candidate.get("key_achievements") or []
+    if isinstance(key_ach, list) and key_ach:
+        story.append(Paragraph("<b>Key achievements</b>", h2_style))
+        for item in key_ach:
+            if isinstance(item, dict):
+                t = escape(str(item.get("title") or ""))
+                d = escape(str(item.get("description") or ""))
+                story.append(Paragraph(f"• <b>{t}</b> — {d}", body_style))
+            else:
+                story.append(Paragraph(f"• {escape(str(item))}", body_style))
+
     doc.build(story)
 
 
-def render_weasyprint_html(candidate: dict, template_path: Path, out_path: Path) -> None:
+def _prepend_dyld_fallback_for_weasyprint() -> None:
+    """Help WeasyPrint find Homebrew Pango on macOS when launching from GUIs/IDEs."""
+    if platform.system() != "Darwin":
+        return
+    for lib in ("/opt/homebrew/lib", "/usr/local/lib"):
+        if os.path.isdir(lib):
+            cur = os.environ.get("DYLD_FALLBACK_LIBRARY_PATH", "")
+            parts = [p for p in cur.split(os.pathsep) if p]
+            if lib not in parts:
+                os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = lib + (os.pathsep + cur if cur else "")
+            break
+
+
+def render_weasyprint_html(
+    candidate: dict,
+    template_path: Path,
+    out_path: Path,
+    *,
+    repo_root: Path,
+) -> None:
+    _prepend_dyld_fallback_for_weasyprint()
     from jinja2 import Environment, FileSystemLoader, select_autoescape
     from weasyprint import HTML
 
@@ -174,8 +299,13 @@ def render_weasyprint_html(candidate: dict, template_path: Path, out_path: Path)
         autoescape=select_autoescape(["html", "xml"]),
     )
     tpl = env.get_template(template_path.name)
+    br = repo_root.resolve()
+    base_uri = br.as_uri()
+    if not base_uri.endswith("/"):
+        base_uri += "/"
+    # WeasyPrint resolves relative URLs in HTML against base_url (directory)
     html_str = tpl.render(candidate=candidate, now=datetime.now(timezone.utc))
-    HTML(string=html_str, base_url=str(template_path.parent)).write_pdf(str(out_path))
+    HTML(string=html_str, base_url=base_uri).write_pdf(str(out_path))
 
 
 def main() -> int:
@@ -196,13 +326,13 @@ def main() -> int:
 
     config_path = args.config.expanduser().resolve()
     candidate = load_candidate(config_path)
+    repo_root = repo_root_from_config(config_path)
 
     default_name = slug(str(candidate.get("name") or "candidate"))
     date_part = datetime.now(timezone.utc).strftime("%Y%m%d")
     out_path = args.out
     if not out_path:
-        repo_root = config_path.parent.parent
-        out_dir = repo_root / "output" / "cv"
+        out_dir = (repo_root / "output" / "cv").resolve()
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path = out_dir / f"{default_name}-{date_part}.pdf"
     else:
@@ -216,16 +346,17 @@ def main() -> int:
             print(f"Template not found: {tpl}", file=sys.stderr)
             return 1
         try:
-            render_weasyprint_html(candidate, tpl, out_path)
+            cand = candidate_for_template(candidate, repo_root)
+            render_weasyprint_html(cand, tpl, out_path, repo_root=repo_root)
         except ImportError:
             print(
                 "WeasyPrint/Jinja2 HTML path requires: pip install weasyprint\n"
                 "Falling back to ReportLab built-in layout.",
                 file=sys.stderr,
             )
-            render_reportlab(candidate, out_path)
+            render_reportlab(candidate, out_path, repo_root=repo_root)
     else:
-        render_reportlab(candidate, out_path)
+        render_reportlab(candidate, out_path, repo_root=repo_root)
 
     print(str(out_path))
     return 0

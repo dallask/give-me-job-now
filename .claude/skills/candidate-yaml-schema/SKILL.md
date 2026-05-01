@@ -8,14 +8,17 @@ description: Schema and editing rules for config/candidate.yaml in give-me-job.
 ## Top-level keys (preserve structure)
 
 - `name` (string)
+- `photo` (optional string): path to headshot **relative to repo root**, e.g. `sources/candidate/photo.jpg`. Same key may live under `contact.photo`.
 - `title` (string)
 - `summary` (string)
-- `contact` (object): `phone`, `email`, `address`, `website`, `github`, `linkedin` — all optional strings
+- `contact` (object): `phone`, `email`, `secondary_email`, `address`, `website`, `github`, `linkedin`, `portfolio`, `company_site`, optional `photo` (same semantics as top-level `photo`)
 - `technical_expertise` (array): items with `resume_title`, `skills` (array of strings)
 - `skills` (array of strings): flat highlights
 - `languages` (array): items with `language`, `proficiency`
 - `professional_experience` (array): items with `company`, `position`, `location`, `duration`, optional `company_description`, `linkedin`, `achievements` (array of strings)
-- `independent_projects` (array): entries may be objects or strings depending on usage
+- `key_achievements` (optional array): items with `title`, `description` for a “Key achievements” section (Enhancv-style templates)
+- `certifications` (optional array): items with `issuer`, optional `year`, `credentials` (array of strings)
+- `independent_projects` (array): entries may be objects (`name`, `role`, `duration`, `description`) or strings
 - `education` (array): items with `institution`, `program`, `location`, `duration`
 
 ## Editing rules

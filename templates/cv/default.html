@@ -16,8 +16,17 @@
   </style>
 </head>
 <body>
-  <h1>{{ candidate.name or 'Candidate' }}</h1>
-  {% if candidate.title %}<p class="subtitle">{{ candidate.title }}</p>{% endif %}
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12pt;">
+    <div>
+      <h1>{{ candidate.name or 'Candidate' }}</h1>
+      {% if candidate.title %}<p class="subtitle">{{ candidate.title }}</p>{% endif %}
+    </div>
+    {% if candidate.photo %}
+    <div style="flex-shrink:0;">
+      <img src="{{ candidate.photo }}" alt="" style="width:28mm;height:28mm;object-fit:cover;border-radius:8pt;border:1px solid #ccc;" />
+    </div>
+    {% endif %}
+  </div>
 
   {% if candidate.summary %}
   <h2>Summary</h2>

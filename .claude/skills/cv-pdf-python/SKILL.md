@@ -42,6 +42,14 @@ With template (WeasyPrint):
 python3 scripts/cv/render_cv.py --config config/candidate.yaml --template templates/cv/default.html
 ```
 
+**Enhancv-style layout** (sections aligned to analyzed Enhancv/Resume.pdf: summary, experience, education, optional key achievements, skills, certifications, projects). Supports **`photo`** in YAML (path relative to repo root):
+
+```bash
+python3 scripts/cv/render_cv.py --config config/candidate.yaml --template templates/cv/enhancv-inspired.html
+```
+
+Set `photo: sources/candidate/photo.jpg` (or `contact.photo`) in `config/candidate.yaml`. ReportLab `--no-template` mode also shows the photo when set.
+
 Custom output:
 
 ```bash

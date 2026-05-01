@@ -22,6 +22,12 @@ Optional HTML template (requires `pip install weasyprint`):
 python3 scripts/cv/render_cv.py --config config/candidate.yaml --template templates/cv/default.html
 ```
 
+Enhancv-inspired template (photo + certifications + `role_progression`):
+
+```bash
+python3 scripts/cv/render_cv.py --config config/candidate.yaml --template templates/cv/enhancv-inspired.html
+```
+
 Custom output:
 
 ```bash

@@ -1,4 +1,6 @@
 name: 'Your Name'
+# Optional headshot for PDF (path relative to repo root). Example: sources/candidate/photo.jpg
+photo: sources/analysis/dark.jpg
 title: 'Lead PHP Engineer | Laravel / Drupal / React / Full-Stack'
 summary: 'Lead PHP engineer with 19+ years building production web systems at scale—delivering solutions for enterprise clients across e-commerce, media, healthcare, and corporate verticals—spanning Laravel-based REST API services and microservice architectures, Drupal enterprise CMS platforms (EPAM Systems), Bitrix, WordPress, and custom PHP applications. Currently leading development of a Drupal 8–11 multi-site platform for a multinational healthcare client (Otsuka) at EPAM, managing a 20-person dev team within a 47-member delivery team, and owning a React/Next.js Design System built with Figma, Storybook, and Style Dictionary. Experienced with Laravel application structure, Eloquent ORM, and API-first design patterns alongside deep Drupal module and theme engineering. Technical Director background covering security hardening, SEO-aware engineering, e-commerce integrations, and agile team coordination.'
 contact:
