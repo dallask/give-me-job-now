@@ -3,3 +3,22 @@
 CLAUDE.local.md
 
 .DS_Store
+
+# Local tooling
+.venv/
+
+# Hook logs
+.claude/logs/
+
+# Generated collective outputs (keep directory trees via .gitkeep)
+output/cv/*
+!output/cv/.gitkeep
+
+sources/analysis/*
+!sources/analysis/.gitkeep
+
+sources/research/*
+!sources/research/.gitkeep
+
+sources/vacancies/*
+!sources/vacancies/.gitkeep

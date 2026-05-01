@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ candidate.name or 'CV' }}</title>
+  <style>
+    @page { size: A4; margin: 18mm; }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #222; }
+    h1 { font-size: 18pt; margin: 0 0 4pt 0; }
+    .subtitle { font-size: 11pt; color: #444; margin: 0 0 12pt 0; }
+    h2 { font-size: 12pt; margin: 14pt 0 6pt 0; border-bottom: 1px solid #ccc; }
+    .muted { color: #555; font-size: 9pt; }
+    ul { margin: 4pt 0 8pt 16pt; padding: 0; }
+    li { margin-bottom: 4pt; }
+    .skills { margin: 4pt 0; }
+  </style>
+</head>
+<body>
+  <h1>{{ candidate.name or 'Candidate' }}</h1>
+  {% if candidate.title %}<p class="subtitle">{{ candidate.title }}</p>{% endif %}
+
+  {% if candidate.summary %}
+  <h2>Summary</h2>
+  <p>{{ candidate.summary }}</p>
+  {% endif %}
+
+  {% if candidate.contact %}
+  <h2>Contact</h2>
+  <p class="muted">
+    {% for k in ['email','phone','address','website','github','linkedin'] %}
+      {% if candidate.contact[k] %}{{ k }}: {{ candidate.contact[k] }}{% if not loop.last %} · {% endif %}{% endif %}
+    {% endfor %}
+  </p>
+  {% endif %}
+
+  {% if candidate.technical_expertise %}
+  <h2>Technical expertise</h2>
+  {% for block in candidate.technical_expertise %}
+    <p><strong>{{ block.resume_title }}</strong></p>
+    <p class="skills">{{ block.skills | join(', ') }}</p>
+  {% endfor %}
+  {% endif %}
+
+  {% if candidate.skills %}
+  <h2>Core skills</h2>
+  <p>{{ candidate.skills | join(', ') }}</p>
+  {% endif %}
+
+  {% if candidate.languages %}
+  <h2>Languages</h2>
+  <ul>
+    {% for row in candidate.languages %}
+    <li>{{ row.language }} — {{ row.proficiency }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if candidate.professional_experience %}
+  <h2>Experience</h2>
+  {% for job in candidate.professional_experience %}
+    <p><strong>{{ job.position }} — {{ job.company }}</strong></p>
+    <p class="muted">{{ job.location or '' }} {% if job.duration %}| {{ job.duration }}{% endif %}</p>
+    {% if job.company_description %}<p>{{ job.company_description }}</p>{% endif %}
+    {% if job.achievements %}
+    <ul>
+      {% for a in job.achievements %}<li>{{ a }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+  {% endfor %}
+  {% endif %}
+
+  {% if candidate.education %}
+  <h2>Education</h2>
+  <ul>
+    {% for row in candidate.education %}
+    <li>{{ row.program }} — {{ row.institution }} ({{ row.duration }})</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</body>
+</html>
