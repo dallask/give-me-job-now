@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<!--
+  Enhancv-style two-column CV template.
+  Main column (~60%) white; sidebar (~40%) dark navy.
+  Jinja2 variables: candidate (config/candidate.yaml)
+  Render: python3 scripts/cv/render_cv.py --config config/candidate.yaml --template templates/cv/enhancv.html
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ candidate.name or 'CV' }}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    :root {
+      --navy:       #1a2e4a;
+      --navy-mid:   #1e3554;
+      --role-blue:  #0066cc;
+      --ink:        #1a1a1a;
+      --ink-soft:   #3a3a3a;
+      --muted:      #6b6b6b;
+      --rule-main:  #d0d0d0;
+      --rule-side:  rgba(255,255,255,0.28);
+      --side-muted: #a8bacf;
+      --side-text:  #ffffff;
+      --main-pad:   18pt;
+      --side-pad:   16pt;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 9pt;
+      line-height: 1.42;
+      color: var(--ink);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* ============================================================
+       PAGE WRAPPER — two columns, full A4 height
+    ============================================================ */
+    .layout {
+      display: grid;
+      grid-template-columns: 60fr 40fr;
+      min-height: 297mm;
+      width: 210mm;
+    }
+
+    /* ============================================================
+       LEFT / MAIN COLUMN
+    ============================================================ */
+    .main {
+      background: #ffffff;
+      padding: var(--main-pad);
+      padding-top: 20pt;
+    }
+
+    /* ---- Name & role header ---- */
+    .cv-name {
+      font-size: 22pt;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--ink);
+      line-height: 1;
+      margin-bottom: 5pt;
+    }
+
+    .cv-role {
+      font-size: 10.5pt;
+      font-weight: 600;
+      color: var(--role-blue);
+      margin-bottom: 9pt;
+      line-height: 1.3;
+    }
+
+    /* ---- Contact row ---- */
+    .contact-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5pt 12pt;
+      font-size: 7.5pt;
+      color: var(--muted);
+      margin-bottom: 16pt;
+      border-bottom: 1pt solid var(--rule-main);
+      padding-bottom: 12pt;
+    }
+
+    .ci {
+      display: inline-flex;
+      align-items: center;
+      gap: 3.5pt;
+      white-space: nowrap;
+    }
+
+    .ci svg {
+      width: 8pt;
+      height: 8pt;
+      flex-shrink: 0;
+      opacity: 0.65;
+    }
+
+    .ci a {
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    /* ---- Section headings (main) ---- */
+    .sec-main {
+      font-size: 8pt;
+      font-weight: 700;
+      font-variant: small-caps;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-top: 14pt;
+      margin-bottom: 0;
+      padding-bottom: 3.5pt;
+      border-bottom: 1pt solid var(--rule-main);
+    }
+
+    .sec-main:first-of-type {
+      margin-top: 0;
+    }
+
+    /* ---- Summary ---- */
+    .summary-text {
+      font-size: 8.5pt;
+      color: var(--ink-soft);
+      line-height: 1.5;
+      margin-top: 7pt;
+      hyphens: auto;
+    }
+
+    /* ---- Experience / Education entries ---- */
+    .entry {
+      margin-top: 9pt;
+    }
+
+    .entry-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 6pt;
+    }
+
+    .entry-title {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: var(--ink);
+      flex: 1;
+      min-width: 0;
+      line-height: 1.25;
+    }
+
+    .entry-date {
+      font-size: 7.5pt;
+      color: var(--muted);
+      white-space: nowrap;
+      padding-top: 1pt;
+      flex-shrink: 0;
+    }
+
+    .entry-org {
+      font-size: 8.5pt;
+      font-weight: 600;
+      color: var(--role-blue);
+      margin-top: 2.5pt;
+    }
+
+    .entry-loc-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 6pt;
+    }
+
+    .entry-loc {
+      font-size: 7.5pt;
+      color: var(--muted);
+      margin-top: 1pt;
+    }
+
+    .entry-bullets {
+      margin-top: 4pt;
+      padding-left: 10pt;
+      list-style: disc;
+      color: var(--ink-soft);
+    }
+
+    .entry-bullets li {
+      font-size: 8pt;
+      margin-bottom: 2.5pt;
+      line-height: 1.4;
+    }
+
+    /* ---- Technical Skills (main column) ---- */
+    .tech-grid {
+      margin-top: 7pt;
+      display: flex;
+      flex-direction: column;
+      gap: 5pt;
+    }
+
+    .tech-block {}
+
+    .tech-group-label {
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1.5pt;
+    }
+
+    .tech-skills {
+      font-size: 7.5pt;
+      color: var(--ink-soft);
+      line-height: 1.4;
+    }
+
+    /* ============================================================
+       RIGHT / SIDEBAR COLUMN
+    ============================================================ */
+    .sidebar {
+      background: var(--navy);
+      color: var(--side-text);
+      padding: var(--side-pad);
+      padding-top: 20pt;
+    }
+
+    /* ---- Photo slot ---- */
+    .photo-slot {
+      width: 28mm;
+      height: 28mm;
+      border-radius: 50%;
+      border: 2pt solid rgba(255,255,255,0.3);
+      overflow: hidden;
+      background: rgba(255,255,255,0.10);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16pt auto;
+    }
+
+    .photo-slot img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      display: block;
+    }
+
+    .photo-placeholder {
+      width: 55%;
+      height: 55%;
+      opacity: 0.4;
+      color: var(--side-muted);
+    }
+
+    /* ---- Section headings (sidebar) ---- */
+    .sec-side {
+      font-size: 8pt;
+      font-weight: 700;
+      font-variant: small-caps;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #ffffff;
+      margin-top: 16pt;
+      margin-bottom: 0;
+      padding-bottom: 3.5pt;
+      border-bottom: 1pt solid var(--rule-side);
+    }
+
+    /* ---- Key Achievements ---- */
+    .ach-list {
+      list-style: none;
+      margin-top: 8pt;
+    }
+
+    .ach-item {
+      display: flex;
+      gap: 7pt;
+      align-items: flex-start;
+      margin-bottom: 9pt;
+    }
+
+    .ach-icon {
+      font-size: 10pt;
+      line-height: 1.2;
+      flex-shrink: 0;
+      width: 13pt;
+      text-align: center;
+    }
+
+    .ach-body {}
+
+    .ach-title {
+      font-size: 8pt;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 2.5pt;
+      line-height: 1.3;
+    }
+
+    .ach-desc {
+      font-size: 7pt;
+      color: var(--side-muted);
+      line-height: 1.4;
+    }
+
+    /* ---- Skills ---- */
+    .skill-item {
+      font-size: 8pt;
+      color: #ffffff;
+      margin-top: 5pt;
+      line-height: 1.35;
+    }
+
+    .skill-group-label {
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--side-muted);
+      margin-top: 9pt;
+      margin-bottom: 2pt;
+    }
+
+    /* ---- Courses ---- */
+    .course-block {
+      margin-top: 8pt;
+    }
+
+    .course-title {
+      font-size: 8pt;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.3;
+      margin-bottom: 2pt;
+    }
+
+    .course-inst {
+      font-size: 7pt;
+      color: var(--side-muted);
+      line-height: 1.35;
+    }
+
+    /* ---- Languages (sidebar) ---- */
+    .lang-item {
+      font-size: 7.5pt;
+      color: var(--side-muted);
+      margin-top: 5pt;
+    }
+
+    /* ============================================================
+       FOOTER STRIP
+    ============================================================ */
+    .footer-strip {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5pt var(--main-pad);
+      background: #f4f4f4;
+      border-top: 1pt solid var(--rule-main);
+    }
+
+    .footer-strip span {
+      font-size: 6.5pt;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+  {% set c = candidate.contact or {} %}
+  {% set ach_default_icons = ['🏆','🥇','💡','⭐','🎯','🔥','⚡','❤','🚀','🌟'] %}
+
+  <div class="layout">
+
+    <!-- ========================================================
+         LEFT COLUMN: header + sections
+    ======================================================== -->
+    <main class="main">
+
+      <!-- Name & role -->
+      <h1 class="cv-name">{{ candidate.name or 'YOUR NAME' }}</h1>
+      {% if candidate.title %}
+      <p class="cv-role">{{ candidate.title }}</p>
+      {% endif %}
+
+      <!-- Contact row -->
+      <div class="contact-row">
+        {% if c.phone %}
+        <span class="ci" title="Phone">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+          </svg>
+          {{ c.phone }}
+        </span>
+        {% endif %}
+        {% if c.email %}
+        <span class="ci" title="Email">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+          {{ c.email }}
+        </span>
+        {% endif %}
+        {% if c.linkedin %}
+        <span class="ci" title="LinkedIn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/>
+            <rect x="2" y="9" width="4" height="12"/>
+            <circle cx="4" cy="4" r="2"/>
+          </svg>
+          <a href="{{ c.linkedin }}">LinkedIn</a>
+        </span>
+        {% elif c.portfolio %}
+        <span class="ci" title="Portfolio">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+          <a href="{{ c.portfolio }}">Portfolio</a>
+        </span>
+        {% elif c.website %}
+        <span class="ci" title="Website">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+          <a href="{{ c.website }}">{{ c.website }}</a>
+        </span>
+        {% endif %}
+        {% if c.address %}
+        <span class="ci" title="Location">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          {{ c.address }}
+        </span>
+        {% endif %}
+      </div>
+
+      <!-- SUMMARY -->
+      {% if candidate.summary %}
+      <h2 class="sec-main">Summary</h2>
+      <p class="summary-text">{{ candidate.summary }}</p>
+      {% endif %}
+
+      <!-- EXPERIENCE -->
+      {% if candidate.professional_experience %}
+      <h2 class="sec-main">Experience</h2>
+      {% for job in candidate.professional_experience %}
+      <div class="entry">
+        <div class="entry-head">
+          <p class="entry-title">{{ job.position }}</p>
+          {% if job.duration %}<p class="entry-date">{{ job.duration }}</p>{% endif %}
+        </div>
+        <div class="entry-loc-line">
+          <p class="entry-org">{{ job.company }}</p>
+          {% if job.location %}<p class="entry-date" style="margin-top:2pt;">{{ job.location }}</p>{% endif %}
+        </div>
+        {% if job.achievements %}
+        <ul class="entry-bullets">
+          {% for a in job.achievements %}<li>{{ a }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% endif %}
+
+      <!-- EDUCATION -->
+      {% if candidate.education %}
+      <h2 class="sec-main">Education</h2>
+      {% for row in candidate.education %}
+      <div class="entry">
+        <div class="entry-head">
+          <p class="entry-title">{{ row.program }}</p>
+          {% if row.duration %}<p class="entry-date">{{ row.duration }}</p>{% endif %}
+        </div>
+        <div class="entry-loc-line">
+          <p class="entry-org">{{ row.institution }}</p>
+          {% if row.location %}<p class="entry-date" style="margin-top:2pt;">{{ row.location }}</p>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      {% endif %}
+
+      <!-- TECHNICAL EXPERTISE -->
+      {% if candidate.technical_expertise %}
+      <h2 class="sec-main">Technical Skills</h2>
+      <div class="tech-grid">
+        {% for block in candidate.technical_expertise %}
+        <div class="tech-block">
+          <p class="tech-group-label">{{ block.resume_title }}</p>
+          <p class="tech-skills">{{ block.skills | join(' · ') }}</p>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+    </main>
+
+    <!-- ========================================================
+         RIGHT COLUMN: photo + sidebar sections
+    ======================================================== -->
+    <aside class="sidebar">
+
+      <!-- Photo -->
+      <div class="photo-slot">
+        {% if candidate.photo %}
+        <img src="{{ candidate.photo }}" alt="{{ candidate.name or '' }}" />
+        {% else %}
+        <svg class="photo-placeholder" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+        </svg>
+        {% endif %}
+      </div>
+
+      <!-- KEY ACHIEVEMENTS -->
+      {% if candidate.key_achievements %}
+      <h2 class="sec-side">Key achievements</h2>
+      <ul class="ach-list">
+        {% for item in candidate.key_achievements %}
+        <li class="ach-item">
+          <span class="ach-icon">
+            {%- if item.icon -%}{{ item.icon }}{%- else -%}{{ ach_default_icons[loop.index0 % 10] }}{%- endif -%}
+          </span>
+          <div class="ach-body">
+            <p class="ach-title">{{ item.title }}</p>
+            {% if item.description %}<p class="ach-desc">{{ item.description }}</p>{% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      <!-- SKILLS (sidebar: concise highlights only) -->
+      {% if candidate.skills %}
+      <h2 class="sec-side">Skills</h2>
+      {% for s in candidate.skills %}
+      <p class="skill-item">{{ s }}</p>
+      {% endfor %}
+      {% endif %}
+
+      <!-- COURSES / CERTIFICATIONS -->
+      {% if candidate.certifications %}
+      <h2 class="sec-side">Courses</h2>
+      {% for cert in candidate.certifications %}
+      <div class="course-block">
+        <p class="course-title">{{ cert.issuer }}{% if cert.year %} · {{ cert.year }}{% endif %}</p>
+        {% if cert.credentials %}
+          {% for line in cert.credentials %}
+          <p class="course-inst">{{ line }}</p>
+          {% endfor %}
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% endif %}
+
+      <!-- LANGUAGES -->
+      {% if candidate.languages %}
+      <h2 class="sec-side">Languages</h2>
+      {% for row in candidate.languages %}
+      <p class="lang-item">{{ row.language }} — {{ row.proficiency }}</p>
+      {% endfor %}
+      {% endif %}
+
+    </aside>
+
+  </div>
+</body>
+</html>

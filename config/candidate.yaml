@@ -99,6 +99,23 @@ technical_expertise:
       - 'Claude / Anthropic API'
       - 'GitHub Copilot'
       - 'Cursor IDE'
+key_achievements:
+  - title: 'Enterprise Drupal Platform Lead'
+    description: 'Led 20-person dev team delivering Drupal 8–11 multi-site estate for Otsuka (multinational healthcare) at EPAM.'
+    icon: '🏆'
+  - title: 'React/Next.js Design System'
+    description: 'Built shared component library using Figma, Storybook & Style Dictionary; atomic design + design tokens across multi-site estate.'
+    icon: '⚡'
+  - title: '30% Fewer Regression Incidents'
+    description: 'Introduced CI/CD tooling and Capistrano automation achieving zero-downtime releases across multi-site environments.'
+    icon: '📈'
+  - title: '50+ Projects Delivered'
+    description: 'Led full-stack delivery of 50+ web projects across e-commerce, corporate, and media verticals at [empty] Studio.'
+    icon: '🚀'
+  - title: '80%+ Unit Test Coverage'
+    description: 'Introduced PHPUnit and PHP Code Sniffer enforcement, raising core-module coverage to 80%+ across delivery squads.'
+    icon: '✅'
+
 skills:
   - 'Technical leadership'
   - 'Engineering team management (20+ engineers)'

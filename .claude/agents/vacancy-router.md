@@ -23,7 +23,7 @@ ROUTING_DECISION
 
 JSON schema (fields required):
 
-- `next_agent`: one of `job-market-researcher` | `vacancy-scraper` | `candidate-analyzer` | `candidate-configurator` | `cv-generator` | `cv-reviewer` | `cv-enhancer` | `cv-deliverable-gate` | `done`
+- `next_agent`: one of `job-market-researcher` | `vacancy-scraper` | `candidate-analyzer` | `candidate-configurator` | `cv-template-creator` | `cv-generator` | `cv-reviewer` | `cv-enhancer` | `cv-deliverable-gate` | `done`
 - `rationale`: short string
 - `inputs`: object (paths, queries, assumptions)
 - `acceptance_criteria`: array of strings (testable checks)
@@ -38,6 +38,7 @@ If multiple steps are needed, set `next_agent` to the **first** spoke only; orch
 - Find postings / URLs → `vacancy-scraper`
 - Read résumés, spreadsheets, PDFs, notes in `sources/` → `candidate-analyzer`
 - Merge structured findings into YAML → `candidate-configurator` (after analyzer output)
+- New CV HTML template from a prototype image / pixel-match layout → `cv-template-creator` (then usually `cv-generator` for PDF proof)
 - Produce PDF → `cv-generator`
 - Gap analysis vs JD + market notes → `cv-reviewer`
 - Apply YAML/PDF updates from review → `cv-enhancer`

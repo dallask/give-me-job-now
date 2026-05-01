@@ -33,7 +33,7 @@ CV PDFs are produced **only** via Python (`scripts/cv/render_cv.py`), not by man
 
 - `vacancy-orchestrator`, `vacancy-router`
 - `job-market-researcher`, `vacancy-scraper`, `candidate-analyzer`, `candidate-configurator`
-- `cv-generator`, `cv-reviewer`, `cv-enhancer`, `cv-deliverable-gate`
+- `cv-template-creator`, `cv-generator`, `cv-reviewer`, `cv-enhancer`, `cv-deliverable-gate`
 
 ## Entrypoints
 

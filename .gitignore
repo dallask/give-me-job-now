@@ -10,6 +10,10 @@ CLAUDE.local.md
 # Hook logs
 .claude/logs/
 
+# Playwright / CV template iteration screenshots (repo root ./tmp)
+tmp/
+.playwright-mcp/
+
 # Generated collective outputs (keep directory trees via .gitkeep)
 output/cv/*
 !output/cv/.gitkeep

@@ -15,8 +15,9 @@ python3 -c "import yaml,sys; yaml.safe_load(open('config/candidate.yaml')); prin
 ```
 
 2. If PDF expected: confirm path under `output/cv/` exists and non-empty (`LS` / file size via `stat`).
-3. Confirm analysis/research outputs referenced by orchestrator exist when claimed.
-4. Map orchestrator `acceptance_criteria` to PASS/FAIL with evidence.
+3. If acceptance criteria reference a new HTML template: confirm `templates/cv/<name>.html` exists (and optional prototype under `sources/cv-templates/prototypes/` when cited).
+4. Confirm analysis/research outputs referenced by orchestrator exist when claimed.
+5. Map orchestrator `acceptance_criteria` to PASS/FAIL with evidence.
 
 ## Output format
 

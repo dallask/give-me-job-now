@@ -12,7 +12,7 @@ if [ -z "$NAME" ]; then
 fi
 
 case "$NAME" in
-  cv-generator|candidate-configurator|cv-enhancer)
+  cv-generator|cv-template-creator|candidate-configurator|cv-enhancer)
     echo "" >&2
     echo "━━━━━━━━ job-collective reminder ━━━━━━━━" >&2
     echo " Subagent '$NAME' stopped — have vacancy-orchestrator run cv-deliverable-gate before final PASS." >&2
