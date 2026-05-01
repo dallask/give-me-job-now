@@ -1,0 +1,5 @@
+# Claude Code — personal overrides (never commit real secrets here)
+.claude/settings.local.json
+CLAUDE.local.md
+
+.DS_Store
