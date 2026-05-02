@@ -8,7 +8,7 @@ This repository supports a **hub-and-spoke job/CV collective**: vacancy research
 
 ## Hub-and-spoke rules
 
-1. **`vacancy-orchestrator`** is the **only** agent that should call the `Task` tool to spawn other agents.
+1. **`vacancy-orchestrator`** (the hub **persona**—see `/job-collective`) is the **only** role that calls `Task` to spawn other agents. That persona must run at **top level** in the session (follow `vacancy-orchestrator.md` in the main chat). **Do not** `Task`-spawn `vacancy-orchestrator` itself: nested hubs do not get `Task` in Claude Code, so spokes cannot run.
 2. Routing schema: **User Request → Routing Analysis → Agent Selection → Task Delegation → Quality Gate → Result**.
 3. Subagents do **not** call `Task` (no peer-to-peer chaining).
 
@@ -33,7 +33,7 @@ CV PDFs are produced **only** via Python (`scripts/cv/render_cv.py`), not by man
 
 - `vacancy-orchestrator`, `vacancy-router`
 - `job-market-researcher`, `vacancy-scraper`, `candidate-analyzer`, `candidate-configurator`
-- `cv-template-creator`, `cv-generator`, `cv-reviewer`, `cv-enhancer`, `cv-deliverable-gate`
+- `cv-template-creator` (Playwright MCP: `mcp__playwright__browser_*` in agent tools; `.mcp.json` server `playwright`), `cv-generator`, `cv-reviewer`, `cv-enhancer`, `cv-deliverable-gate`
 
 ## Entrypoints
 

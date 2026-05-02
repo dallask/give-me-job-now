@@ -1,14 +1,14 @@
 # /job-collective — Hub-and-spoke job/CV pipeline
 
 ---
-allowed-tools: Task(*), Read(*), Write(*), Edit(*), Glob(*), Grep(*), Bash(*), LS(*), WebSearch(*), WebFetch(*)
+allowed-tools: Task(*), Read(*), Write(*), Edit(*), Glob(*), Grep(*), Bash(*), LS(*), WebSearch(*), WebFetch(*), mcp__playwright__(*)
 description: Run the vacancy-orchestrator collective (routing schema + CV toolchain).
 ---
 
 ## What to do
 
-1. Use the **`vacancy-orchestrator`** subagent as the **only** hub that calls `Task`.
-2. Follow the schema: **User Request → Routing Analysis → Agent Selection → Task Delegation → Quality Gate → Result**.
+1. **Hub runs here (top level):** Follow `.claude/agents/vacancy-orchestrator.md` **in this chat session**—you are the hub. Use **`Task`** only to spawn **spokes** (`vacancy-router`, `cv-template-creator`, `cv-generator`, `cv-deliverable-gate`, etc.). **Never** call `Task` with `subagent_type: vacancy-orchestrator`. Nesting the hub inside `Task` removes `Task` from that context (“Task is not available inside subagents”), which breaks the whole pipeline.
+2. Follow the schema: **User Request → Routing Analysis → Agent Selection → Task Delegation → Quality Gate → Result**. The hub must **actually invoke** `Task` for each spoke—never stop at “I will delegate” without a `Task` call in the same turn.
 3. Paths:
    - Inputs: `sources/` (see `.claude/skills/sources-ingestion/SKILL.md`)
    - Candidate data: `config/candidate.yaml`
