@@ -57,8 +57,54 @@ python3 scripts/cv/render_cv.py --config config/candidate.yaml --out output/cv/c
 
 Script prints the output PDF path on success.
 
+**Do NOT pass `--out` unless the user explicitly requested a custom filename.** Without `--out`, the script auto-generates a timestamped filename (`<name>-<YYYY-MM-DD_HH:MM:SS>.pdf`) under `output/cv/`. Passing `--out` overrides that and produces a static name that loses the timestamp.
+
 ## Rules
 
 - Do **not** call `Task`.
 - Do **not** hand-author PDF binaries; always use `render_cv.py`.
-- End with `DELIVERABLE_SUMMARY`: absolute path to PDF + which mode (template vs built-in), **unless** you emitted `ORCHESTRATOR_HANDOFF` for a prototype image (then use the no-PDF summary above).
+- End with an `agent_result_v1` JSON block as your **final output** — unless you emitted `ORCHESTRATOR_HANDOFF`, in which case use `"status": "handoff"` and set `handoff_target` (see below).
+
+## Output contract (PDF success)
+
+````
+```agent_result_v1
+{
+  "schema": "agent_result_v1",
+  "agent": "cv-generator",
+  "pipeline_run_id": "<value from prompt or empty string>",
+  "status": "success",
+  "artifacts": [
+    {"type": "file", "path": "<absolute path to generated PDF>"}
+  ],
+  "acceptance_criteria_met": ["<verbatim criterion from prompt>"],
+  "acceptance_criteria_failed": [],
+  "next_action": "none",
+  "handoff_target": null,
+  "notes": "<one line: mode used (template vs built-in)>"
+}
+```
+````
+
+## Output contract (prototype image handoff)
+
+When returning `ORCHESTRATOR_HANDOFF` for a prototype image, emit this envelope **instead of** the success one:
+
+````
+```agent_result_v1
+{
+  "schema": "agent_result_v1",
+  "agent": "cv-generator",
+  "pipeline_run_id": "<value from prompt or empty string>",
+  "status": "handoff",
+  "artifacts": [],
+  "acceptance_criteria_met": [],
+  "acceptance_criteria_failed": [],
+  "next_action": "handoff",
+  "handoff_target": "cv-template-creator",
+  "notes": "User provided prototype image; template must be created first"
+}
+```
+````
+
+Copy `acceptance_criteria` verbatim from the orchestrator prompt. If none were passed, both arrays are empty.

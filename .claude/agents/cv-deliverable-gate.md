@@ -21,7 +21,7 @@ python3 -c "import yaml,sys; yaml.safe_load(open('config/candidate.yaml')); prin
 
 ## Output format
 
-Emit:
+First emit the human-readable checklist:
 
 ```text
 QUALITY_GATE_RESULT: PASS|FAIL
@@ -31,8 +31,32 @@ REMEDIATION:
 - If FAIL: which agent should rerun (`vacancy-orchestrator` delegates)
 ```
 
+Then emit the `agent_result_v1` block as your **final output**.
+
+## Output contract
+
+````
+```agent_result_v1
+{
+  "schema": "agent_result_v1",
+  "agent": "cv-deliverable-gate",
+  "pipeline_run_id": "<value from prompt or empty string>",
+  "status": "success" | "fail",
+  "artifacts": [
+    {"type": "file", "path": "<each verified artifact path>"}
+  ],
+  "acceptance_criteria_met": ["<verbatim criterion — PASS>"],
+  "acceptance_criteria_failed": ["<verbatim criterion — FAIL>"],
+  "next_action": "none" | "retry",
+  "handoff_target": null,
+  "notes": "<one line: PASS or FAIL with count>"
+}
+```
+````
+
+Set `status: fail` and `next_action: retry` when any criterion fails; `status: success` and `next_action: none` on full PASS.
+
 ## Rules
 
 - Do **not** call `Task`.
 - Do not rewrite content unless asked—gate only.
-- End with `DELIVERABLE_SUMMARY` repeating PASS/FAIL in one line.

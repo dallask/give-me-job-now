@@ -51,5 +51,12 @@ echo "$COMMAND" | grep -qiE 'curl[[:space:]].*\|[[:space:]]*(sh|bash|zsh)' && bl
 echo "$COMMAND" | grep -qiE 'wget[[:space:]].*\|[[:space:]]*(sh|bash|zsh)' && block_command "wget pipe to shell" "$COMMAND"
 echo "$COMMAND" | grep -qiE 'docker[[:space:]]+system[[:space:]]+prune[[:space:]]+.*-f' && block_command "docker prune -f" "$COMMAND"
 
+# Block Playwright-via-Bash: cv-template-creator must use MCP tools, not CLI/library.
+# Using playwright from Bash bypasses the MCP isolation and violates agent rules.
+echo "$COMMAND" | grep -qiE 'npx[[:space:]]+playwright' && block_command "Playwright via npx (use MCP tools instead)" "$COMMAND"
+echo "$COMMAND" | grep -qiE 'python3?[[:space:]].*playwright\.(sync_api|async_api|_impl)' && block_command "Playwright Python library via Bash (use MCP tools instead)" "$COMMAND"
+echo "$COMMAND" | grep -qiE 'from[[:space:]]+playwright' && block_command "Playwright Python import via Bash (use MCP tools instead)" "$COMMAND"
+echo "$COMMAND" | grep -qiE 'import[[:space:]]+playwright' && block_command "Playwright Python import via Bash (use MCP tools instead)" "$COMMAND"
+
 log "ALLOWED"
 exit 0

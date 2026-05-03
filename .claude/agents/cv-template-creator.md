@@ -86,5 +86,29 @@ Use the **MCP tool names** exposed by `@playwright/mcp` (your client may prefix 
 
 ## Output
 
-- End with `DELIVERABLE_SUMMARY`: absolute paths to **new template**, **prototype image**, **preview HTML** if kept under `output/cv/`, **`tmp/` screenshot paths** from MCP `filename`, and the **exact render_cv.py** command for `cv-generator`.
+End with an `agent_result_v1` JSON block as your **final output**, followed optionally by the exact `render_cv.py` command for `cv-generator`.
+
+````
+```agent_result_v1
+{
+  "schema": "agent_result_v1",
+  "agent": "cv-template-creator",
+  "pipeline_run_id": "<value from prompt or empty string>",
+  "status": "success" | "fail",
+  "artifacts": [
+    {"type": "file", "path": "<absolute path to new template .html>"},
+    {"type": "file", "path": "<absolute path to prototype image>"},
+    {"type": "file", "path": "<absolute path to output/cv/_template-preview.html if kept>"}
+  ],
+  "acceptance_criteria_met": ["<verbatim criterion from prompt>"],
+  "acceptance_criteria_failed": ["<verbatim criterion from prompt>"],
+  "next_action": "none" | "retry",
+  "handoff_target": null,
+  "notes": "<one line: template path + render command>"
+}
+```
+````
+
+Copy `acceptance_criteria` verbatim from the orchestrator prompt. If none were passed, both arrays are empty.
+
 - Do **not** call `Task`.

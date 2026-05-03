@@ -1,7 +1,7 @@
 # /job-collective — Hub-and-spoke job/CV pipeline
 
 ---
-allowed-tools: Task(*), Read(*), Write(*), Edit(*), Glob(*), Grep(*), Bash(*), LS(*), WebSearch(*), WebFetch(*), mcp__playwright__(*)
+allowed-tools: Task(*), Read(*), Glob(*), LS(*)
 description: Run the vacancy-orchestrator collective (routing schema + CV toolchain).
 ---
 

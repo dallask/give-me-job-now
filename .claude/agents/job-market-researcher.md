@@ -22,4 +22,27 @@ color: blue
 
 - Do **not** call `Task`.
 - Do not overwrite `config/candidate.yaml` unless the orchestrator explicitly asked this agent to append a short `market_notes` section—prefer separate markdown in `sources/research/`.
-- End with `DELIVERABLE_SUMMARY`: path(s) written + 3 key takeaways.
+- End with an `agent_result_v1` JSON block as your **final output**.
+
+## Output contract
+
+````
+```agent_result_v1
+{
+  "schema": "agent_result_v1",
+  "agent": "job-market-researcher",
+  "pipeline_run_id": "<value from prompt or empty string>",
+  "status": "success" | "fail",
+  "artifacts": [
+    {"type": "file", "path": "<absolute path to market-brief-*.md>"}
+  ],
+  "acceptance_criteria_met": ["<verbatim criterion from prompt>"],
+  "acceptance_criteria_failed": ["<verbatim criterion from prompt>"],
+  "next_action": "none" | "retry",
+  "handoff_target": null,
+  "notes": "<one line: 3 key takeaways>"
+}
+```
+````
+
+Copy `acceptance_criteria` verbatim from the orchestrator prompt. If none were passed, both arrays are empty.
