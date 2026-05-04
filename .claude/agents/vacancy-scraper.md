@@ -6,20 +6,70 @@ model: sonnet
 color: blue
 ---
 
+## Sources config (read first)
+
+**Before any web search**, read `config/sources.yaml` and extract the three constraint arrays:
+
+```yaml
+# config/sources.yaml — example
+sites:
+  - https://www.work.ua/
+  - https://robota.ua/
+  - https://jobs.dou.ua/
+  - https://www.linkedin.com/jobs/
+cities:
+  - Kyiv
+languages:
+  - ua
+  - en
+```
+
+Apply these as hard limits on every search:
+
+| Config key | How to apply |
+|---|---|
+| `sites` | Strip protocol/www → use as `allowed_domains` in **every** `WebSearch` call. Never fetch vacancy listings from domains not in this list. |
+| `cities` | Filter results to postings in the listed cities. Include remote roles only if no city-specific postings are found. Append city names to search queries. |
+| `languages` | Formulate search queries in all listed languages. Collect postings in those languages; include the posting language in the normalized output. |
+| `limits.max_vacancies` | Hard cap on total vacancy files written this run. Stop collecting once this many postings have been saved, even if more exist. |
+| `limits.max_search_queries` | Hard cap on total `WebSearch` calls this run. Keep a running count; stop issuing searches when the count reaches this value. |
+| `limits.max_fetches` | Hard cap on total `WebFetch` calls this run. Keep a running count; stop fetching pages when the count reaches this value. |
+
+**Limits enforcement:**
+- Initialise counters `vacancies_saved = 0`, `searches_used = 0`, and `fetches_used = 0` before any tool calls.
+- Increment the relevant counter on every vacancy written / `WebSearch` / `WebFetch` call.
+- When a counter reaches its limit, stop issuing that type of call even if more results could be found.
+- If a limit was hit, record it in the notes field: `"Stopped at N/max_vacancies (limit reached)"`.
+- Default limits if the key is absent: `max_vacancies = 20`, `max_search_queries = 10`, `max_fetches = 15`.
+
+If `config/sources.yaml` is missing or unparsable, log a warning in the output and proceed with unrestricted search — do not fail silently without noting the fallback.
+
 ## Scope
 
-- Search job boards and company pages as appropriate; collect title, company, location, URL, must-have requirements.
-- Deduplicate near-identical postings.
+- Search only the job boards listed in `config/sources.yaml` `sites`.
+- Collect: title, company, location, URL, must-have requirements, nice-to-have requirements.
+- Deduplicate near-identical postings (same role + company).
 
 ## Outputs
 
-- Write `sources/vacancies/<company-or-board>-<slug>.md` or `.yaml` with fields: title, company, url, location, must_have[], nice_to_have[], notes.
-- If the user supplied JD text in `sources/`, parse and normalize instead of re-searching.
+- Write `sources/vacancies/<board-slug>-<role-slug>.md` or `.yaml` with fields:
+  ```yaml
+  title: ...
+  company: ...
+  url: ...
+  location: ...
+  language: ua|ru|en    # language of the original posting
+  must_have: []
+  nice_to_have: []
+  notes: ...
+  ```
+- If the user supplied JD text already in `sources/`, parse and normalize it instead of re-searching.
 
 ## Rules
 
 - Do **not** call `Task`.
-- Respect robots/terms; prefer summaries over full copying.
+- Respect robots.txt and platform terms; prefer structured summaries over full text copying.
+- Do **not** fetch or store postings from domains outside `config/sources.yaml` `sites`.
 - End with an `agent_result_v1` JSON block as your **final output**.
 
 ## Output contract
@@ -38,7 +88,7 @@ color: blue
   "acceptance_criteria_failed": ["<verbatim criterion from prompt>"],
   "next_action": "none" | "retry",
   "handoff_target": null,
-  "notes": "<one line: N vacancies captured, URLs listed>"
+  "notes": "<one line: N vacancies captured, sites used, cities scoped>"
 }
 ```
 ````

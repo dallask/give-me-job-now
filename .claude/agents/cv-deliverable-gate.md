@@ -8,17 +8,28 @@ color: red
 
 ## Checks
 
-1. `config/candidate.yaml` exists and parses:
+1. **Base YAML** — `config/candidate.yaml` exists and parses:
 
 ```bash
 python3 -c "import yaml,sys; yaml.safe_load(open('config/candidate.yaml')); print('YAML_OK')"
 ```
 
-2. If PDF expected: confirm path under `output/cv/` exists and non-empty (`LS` / file size via `stat`).
-3. If a **multi-language** PDF was requested (`lang=ua` or `lang=ru`): verify the output filename contains the language suffix (e.g., `*-ua-*.pdf` or `*-ru-*.pdf`). Also verify the corresponding overlay file `config/candidate.{lang}.yaml` exists and parses as valid YAML.
-4. If acceptance criteria reference a new HTML template: confirm `templates/cv/<name>.html` exists (and optional prototype under `sources/cv-templates/prototypes/` when cited).
-5. Confirm analysis/research outputs referenced by orchestrator exist when claimed.
-6. Map orchestrator `acceptance_criteria` to PASS/FAIL with evidence.
+2. **Skill-cv YAML** (skill-cv pipeline only) — if a `config/cv/cv.{skill}.{lang}.yaml` path was produced:
+   - File exists and parses as valid YAML.
+   - Filename matches pattern `cv.[slug].[lang].yaml` where `lang` is one of `en`, `ua`, `ru`.
+   - File is under `config/cv/` (not under `config/` root).
+
+3. **PDF** — confirm path under `output/cv/` exists and is non-empty (`LS` / `stat`):
+   - Simple pipeline: filename matches `{name}-{lang}-*.pdf`
+   - Skill-cv pipeline: filename matches `cv.{skill}.{lang}-*.pdf`
+
+4. **Multi-language (simple pipeline)** — when `lang=ua` or `lang=ru` with `candidate.yaml`: verify `config/candidate.{lang}.yaml` overlay exists and parses.
+
+5. **Template** — if acceptance criteria reference an HTML template: confirm `templates/cv/<name>.html` exists.
+
+6. **Analysis artifacts** — confirm research/review outputs referenced by orchestrator exist when claimed.
+
+7. Map orchestrator `acceptance_criteria` to PASS/FAIL with evidence.
 
 ## Output format
 

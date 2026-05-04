@@ -61,11 +61,27 @@ def _deep_merge(base: dict, overlay: dict) -> dict:
     return out
 
 
+def _is_skill_cv(config_path: Path) -> bool:
+    """True when config is a skill-specific file under config/cv/."""
+    return config_path.resolve().parent.name == "cv"
+
+
+def lang_from_config_path(config_path: Path, explicit_lang: str | None) -> str:
+    """Return lang: explicit arg wins; otherwise infer from filename suffix (cv.fpv.ua.yaml → ua)."""
+    if explicit_lang is not None:
+        return explicit_lang
+    stem = config_path.stem         # e.g. "cv.fpv.ua"
+    last = stem.rsplit(".", 1)[-1]  # "ua"
+    return last if last in LANGS else DEFAULT_LANG
+
+
 def load_candidate(config_path: Path, lang: str = DEFAULT_LANG) -> dict:
     base: dict = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     if not isinstance(base, dict):
         raise ValueError("Config root must be a mapping")
-    if lang == DEFAULT_LANG:
+    # Skill-specific cv/ files are standalone — no overlay merging needed.
+    # Overlay merging only applies to the master candidate.yaml.
+    if _is_skill_cv(config_path) or lang == DEFAULT_LANG:
         return base
     overlay_path = config_path.parent / f"candidate.{lang}.yaml"
     if not overlay_path.is_file():
@@ -80,6 +96,13 @@ def slug(s: str) -> str:
 
 
 def repo_root_from_config(config_path: Path) -> Path:
+    """Walk up from config file looking for CLAUDE.md or .claude/ as repo root anchor."""
+    p = config_path.resolve().parent
+    while p != p.parent:
+        if (p / "CLAUDE.md").is_file() or (p / ".claude").is_dir():
+            return p
+        p = p.parent
+    # fallback: assume config is one level below repo root
     return config_path.resolve().parent.parent
 
 
@@ -411,21 +434,26 @@ def main() -> int:
     )
     parser.add_argument(
         "--lang",
-        default=DEFAULT_LANG,
+        default=None,
         choices=list(LANGS),
-        help="Output language for section labels and candidate overlay (default: en)",
+        help="Output language for section labels (auto-detected from filename when omitted)",
     )
     args = parser.parse_args()
 
     config_path = args.config.expanduser().resolve()
-    lang = args.lang
+    lang = lang_from_config_path(config_path, args.lang)
     candidate = load_candidate(config_path, lang)
     repo_root = repo_root_from_config(config_path)
     labels = _load_labels(repo_root, lang)
 
-    default_name = slug(str(candidate.get("name") or "candidate"))
     date_part = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H:%M:%S")
-    lang_suffix = f"-{lang}" if lang != DEFAULT_LANG else ""
+    if _is_skill_cv(config_path):
+        # cv.fpv.ua.yaml → output name "cv.fpv.ua-<timestamp>.pdf" (lang already in stem)
+        default_name = config_path.stem
+        lang_suffix = ""
+    else:
+        default_name = slug(str(candidate.get("name") or "candidate"))
+        lang_suffix = f"-{lang}" if lang != DEFAULT_LANG else ""
     out_path = args.out
     if not out_path:
         out_dir = (repo_root / "output" / "cv").resolve()
