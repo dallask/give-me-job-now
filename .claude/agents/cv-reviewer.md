@@ -62,23 +62,6 @@ Risk flags (overclaim, gaps), **Prioritized edits** (ordered list with rationale
 
 ## Output contract
 
-````
-```agent_result_v1
-{
-  "schema": "agent_result_v1",
-  "agent": "cv-reviewer",
-  "pipeline_run_id": "<value from prompt or empty string>",
-  "status": "success" | "fail",
-  "artifacts": [
-    {"type": "file", "path": "<absolute path to cv-review-*.md>"}
-  ],
-  "acceptance_criteria_met": ["<verbatim criterion from prompt>"],
-  "acceptance_criteria_failed": ["<verbatim criterion from prompt>"],
-  "next_action": "none" | "retry",
-  "handoff_target": null,
-  "notes": "<one line: overall score summary>"
-}
-```
-````
-
-Copy `acceptance_criteria` verbatim from the orchestrator prompt. If none were passed, both arrays are empty.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+- artifacts: `[{"type": "file", "path": "<absolute path to cv-review-*.md>"}]`
+- notes: one line — overall score summary.

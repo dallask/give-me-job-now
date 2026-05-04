@@ -27,23 +27,6 @@ color: orange
 
 ## Output contract
 
-````
-```agent_result_v1
-{
-  "schema": "agent_result_v1",
-  "agent": "candidate-configurator",
-  "pipeline_run_id": "<value from prompt or empty string>",
-  "status": "success" | "fail",
-  "artifacts": [
-    {"type": "yaml_section", "path": "config/candidate.yaml"}
-  ],
-  "acceptance_criteria_met": ["<verbatim criterion from prompt>"],
-  "acceptance_criteria_failed": ["<verbatim criterion from prompt>"],
-  "next_action": "none" | "retry",
-  "handoff_target": null,
-  "notes": "<one line: sections touched, YAML valid>"
-}
-```
-````
-
-Copy `acceptance_criteria` verbatim from the orchestrator prompt. If none were passed, both arrays are empty.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+- artifacts: `[{"type": "yaml_section", "path": "config/candidate.yaml"}]`
+- notes: one line — sections touched, YAML valid.

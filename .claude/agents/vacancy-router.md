@@ -27,7 +27,8 @@ JSON schema (fields required):
 - `next_agent`: one of `job-market-researcher` | `vacancy-scraper` | `candidate-analyzer` | `candidate-configurator` | `cv-template-creator` | `cv-generator` | `cv-reviewer` | `cv-enhancer` | `cv-deliverable-gate` | `done`
 - `rationale`: short string
 - `inputs`: object (paths, queries, assumptions)
-- `acceptance_criteria`: array of strings (testable checks)
+- `acceptance_criteria`: array of strings (testable checks — keep for human readability)
+- `criteria_items`: array of `{id, text}` objects — stable short IDs for each criterion. IDs are lowercase-hyphenated slugs describing the check, e.g. `crit-yaml-parses`, `crit-pdf-exists`, `crit-overlay-present`. Generate an ID from the check text (abbreviate, no spaces). IDs must be unique within the array.
 - `criteria_hash`: SHA-1 hex string of the JSON-serialized `acceptance_criteria` array (use Python `hashlib.sha1(json.dumps(acceptance_criteria, sort_keys=True).encode()).hexdigest()`) — lets the gate verify it received the same criteria set
 - `parallel_allowed`: boolean
 - `requires_quality_gate_next`: boolean — true after configurator/generator/enhancer touch critical artifacts
@@ -47,21 +48,4 @@ If multiple steps are needed, set `next_agent` to the **first** spoke only; orch
 - Verify files/PDF/YAML → `cv-deliverable-gate`
 - Nothing left → `done` with `acceptance_criteria` satisfied summary
 
-After the `ROUTING_DECISION` block, emit the `agent_result_v1` envelope as your **final output**:
-
-````
-```agent_result_v1
-{
-  "schema": "agent_result_v1",
-  "agent": "vacancy-router",
-  "pipeline_run_id": "<value from prompt or empty string>",
-  "status": "success",
-  "artifacts": [],
-  "acceptance_criteria_met": [],
-  "acceptance_criteria_failed": [],
-  "next_action": "none",
-  "handoff_target": null,
-  "notes": "<one line: next_agent selected + rationale>"
-}
-```
-````
+After the `ROUTING_DECISION` block, emit the `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`. artifacts: `[]`, notes: next_agent selected + rationale.

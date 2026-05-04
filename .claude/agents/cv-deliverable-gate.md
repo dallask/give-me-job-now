@@ -1,7 +1,7 @@
 ---
 name: cv-deliverable-gate
 description: Quality gate for CV collective outputs. Verifies YAML parses, expected files exist, PDF readable, and acceptance criteria met. Does not spawn subagents.
-tools: Read, Bash, Glob, LS, Grep
+tools: Read, Bash, Glob, Grep
 model: sonnet
 color: red
 ---
@@ -29,7 +29,10 @@ python3 -c "import yaml,sys; yaml.safe_load(open('config/candidate.yaml')); prin
 
 6. **Analysis artifacts** — confirm research/review outputs referenced by orchestrator exist when claimed.
 
-7. Map orchestrator `acceptance_criteria` to PASS/FAIL with evidence.
+7. Map `criteria_items` to PASS/FAIL with evidence. Enforce ID invariants:
+   - Every ID in `acceptance_criteria_met` / `acceptance_criteria_failed` must exist in `criteria_items[]`; unknown IDs → FAIL.
+   - `set(met_ids) ∩ set(failed_ids)` must be empty.
+   - Unreported IDs (not in either array) are counted as FAIL.
 
 ## Output format
 
@@ -47,26 +50,10 @@ Then emit the `agent_result_v1` block as your **final output**.
 
 ## Output contract
 
-````
-```agent_result_v1
-{
-  "schema": "agent_result_v1",
-  "agent": "cv-deliverable-gate",
-  "pipeline_run_id": "<value from prompt or empty string>",
-  "status": "success" | "fail",
-  "artifacts": [
-    {"type": "file", "path": "<each verified artifact path>"}
-  ],
-  "acceptance_criteria_met": ["<verbatim criterion — PASS>"],
-  "acceptance_criteria_failed": ["<verbatim criterion — FAIL>"],
-  "next_action": "none" | "retry",
-  "handoff_target": null,
-  "notes": "<one line: PASS or FAIL with count>"
-}
-```
-````
-
-Set `status: fail` and `next_action: retry` when any criterion fails; `status: success` and `next_action: none` on full PASS.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+- artifacts: one entry per verified file path.
+- `status: fail` + `next_action: retry` when any criterion fails; `status: success` + `next_action: none` on full PASS.
+- notes: one line — "PASS (N/N)" or "FAIL (M/N failed)".
 
 ## Rules
 

@@ -140,46 +140,8 @@ Do not add any keys not present in the base schema (no `_meta`, no `skill_focus`
 
 ---
 
-## Output contract — Pass 1 (gap report)
+## Output contract
 
-````
-```agent_result_v1
-{
-  "schema": "agent_result_v1",
-  "agent": "cv-composer",
-  "pipeline_run_id": "<value from prompt>",
-  "status": "gap_report_ready",
-  "artifacts": [
-    {"type": "gap_report", "path": "sources/analysis/cv-{skill_slug}-{lang}-gaps.md"}
-  ],
-  "acceptance_criteria_met": [],
-  "acceptance_criteria_failed": [],
-  "next_action": "await_user_approval",
-  "handoff_target": null,
-  "notes": "<one line: N items kept, M gaps found, threshold used>"
-}
-```
-````
-
-## Output contract — Pass 2 (cv yaml written)
-
-````
-```agent_result_v1
-{
-  "schema": "agent_result_v1",
-  "agent": "cv-composer",
-  "pipeline_run_id": "<value from prompt>",
-  "status": "success",
-  "artifacts": [
-    {"type": "yaml_cv", "path": "config/cv/cv.{skill_slug}.{lang}.yaml"}
-  ],
-  "acceptance_criteria_met": ["<verbatim criterion from prompt>"],
-  "acceptance_criteria_failed": [],
-  "next_action": "none",
-  "handoff_target": null,
-  "notes": "<one line: skill, lang, N experience entries, N skills, translated: yes/no>"
-}
-```
-````
-
-Copy `acceptance_criteria` verbatim from the orchestrator prompt. If none were passed, both arrays are empty.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+- **Pass 1:** `status: gap_report_ready`, `next_action: await_user_approval`, artifacts: gap report path, notes: N items kept, M gaps found, threshold used.
+- **Pass 2:** `status: success`, artifacts: `[{"type": "yaml_cv", "path": "config/cv/cv.{slug}.{lang}.yaml"}]`, notes: skill, lang, N experience entries, translated yes/no.

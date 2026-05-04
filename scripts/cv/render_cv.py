@@ -418,6 +418,30 @@ def render_weasyprint_html(
     HTML(string=html_str, base_url=base_uri).write_pdf(str(out_path))
 
 
+def _prune_old_outputs(new_pdf: Path, out_dir: Path, keep: int) -> None:
+    """Delete all but the newest `keep` PDFs (and paired .html) per (stem_prefix, lang) group."""
+    import re
+    ts_pattern = re.compile(r"-\d{4}-\d{2}-\d{2}_\d{2}:\d{2}:\d{2}$")
+    stem = new_pdf.stem  # e.g. "cv.fpv.ua-2026-05-04_08:30:21" or "yevhen-kyvhyla-ua-..."
+    prefix = ts_pattern.sub("", stem)  # strip timestamp → "cv.fpv.ua" or "yevhen-kyvhyla-ua"
+    if not prefix:
+        return
+    peers = sorted(
+        [p for p in out_dir.glob(f"{prefix}-*.pdf") if p != new_pdf],
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    to_delete = peers[keep - 1:]  # keep (keep-1) existing + the new one = keep total
+    for old in to_delete:
+        try:
+            old.unlink(missing_ok=True)
+            sibling_html = old.with_suffix(".html")
+            if sibling_html.is_file():
+                sibling_html.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Render config/candidate.yaml to PDF.")
     parser.add_argument("--config", type=Path, required=True, help="Path to candidate YAML")
@@ -488,6 +512,11 @@ def main() -> int:
         render_reportlab(candidate, out_path, repo_root=repo_root, labels=labels)
 
     print(str(out_path))
+
+    if not args.out:
+        keep = int(os.environ.get("CV_KEEP_LAST", "5"))
+        _prune_old_outputs(out_path, out_path.parent, keep=keep)
+
     return 0
 
 

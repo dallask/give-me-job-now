@@ -92,47 +92,8 @@ Both output files share the same base name and timestamp; only the extension dif
 - Do **not** hand-author PDF binaries; always use `render_cv.py`.
 - End with an `agent_result_v1` JSON block as your **final output** — unless you emitted `ORCHESTRATOR_HANDOFF`, in which case use `"status": "handoff"` and set `handoff_target` (see below).
 
-## Output contract (PDF success)
+## Output contract
 
-````
-```agent_result_v1
-{
-  "schema": "agent_result_v1",
-  "agent": "cv-generator",
-  "pipeline_run_id": "<value from prompt or empty string>",
-  "status": "success",
-  "artifacts": [
-    {"type": "file", "path": "<absolute path to generated HTML (template mode only)>"},
-    {"type": "file", "path": "<absolute path to generated PDF>"}
-  ],
-  "acceptance_criteria_met": ["<verbatim criterion from prompt>"],
-  "acceptance_criteria_failed": [],
-  "next_action": "none",
-  "handoff_target": null,
-  "notes": "<one line: mode used (template vs built-in)>"
-}
-```
-````
-
-## Output contract (prototype image handoff)
-
-When returning `ORCHESTRATOR_HANDOFF` for a prototype image, emit this envelope **instead of** the success one:
-
-````
-```agent_result_v1
-{
-  "schema": "agent_result_v1",
-  "agent": "cv-generator",
-  "pipeline_run_id": "<value from prompt or empty string>",
-  "status": "handoff",
-  "artifacts": [],
-  "acceptance_criteria_met": [],
-  "acceptance_criteria_failed": [],
-  "next_action": "handoff",
-  "handoff_target": "cv-template-creator",
-  "notes": "User provided prototype image; template must be created first"
-}
-```
-````
-
-Copy `acceptance_criteria` verbatim from the orchestrator prompt. If none were passed, both arrays are empty.
+End with an `agent_result_v1` envelope — full schema and field rules in `.claude/skills/agent-output-contract/SKILL.md`.
+- **Success:** `status: success`, artifacts: HTML path (template mode) + PDF path, notes: mode used.
+- **Handoff:** `status: handoff`, `handoff_target: "cv-template-creator"`, artifacts: `[]`, notes: "User provided prototype image; template must be created first".

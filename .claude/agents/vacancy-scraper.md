@@ -6,43 +6,7 @@ model: sonnet
 color: blue
 ---
 
-## Sources config (read first)
-
-**Before any web search**, read `config/sources.yaml` and extract the three constraint arrays:
-
-```yaml
-# config/sources.yaml — example
-sites:
-  - https://www.work.ua/
-  - https://robota.ua/
-  - https://jobs.dou.ua/
-  - https://www.linkedin.com/jobs/
-cities:
-  - Kyiv
-languages:
-  - ua
-  - en
-```
-
-Apply these as hard limits on every search:
-
-| Config key | How to apply |
-|---|---|
-| `sites` | Strip protocol/www → use as `allowed_domains` in **every** `WebSearch` call. Never fetch vacancy listings from domains not in this list. |
-| `cities` | Filter results to postings in the listed cities. Include remote roles only if no city-specific postings are found. Append city names to search queries. |
-| `languages` | Formulate search queries in all listed languages. Collect postings in those languages; include the posting language in the normalized output. |
-| `limits.max_vacancies` | Hard cap on total vacancy files written this run. Stop collecting once this many postings have been saved, even if more exist. |
-| `limits.max_search_queries` | Hard cap on total `WebSearch` calls this run. Keep a running count; stop issuing searches when the count reaches this value. |
-| `limits.max_fetches` | Hard cap on total `WebFetch` calls this run. Keep a running count; stop fetching pages when the count reaches this value. |
-
-**Limits enforcement:**
-- Initialise counters `vacancies_saved = 0`, `searches_used = 0`, and `fetches_used = 0` before any tool calls.
-- Increment the relevant counter on every vacancy written / `WebSearch` / `WebFetch` call.
-- When a counter reaches its limit, stop issuing that type of call even if more results could be found.
-- If a limit was hit, record it in the notes field: `"Stopped at N/max_vacancies (limit reached)"`.
-- Default limits if the key is absent: `max_vacancies = 20`, `max_search_queries = 10`, `max_fetches = 15`.
-
-If `config/sources.yaml` is missing or unparsable, log a warning in the output and proceed with unrestricted search — do not fail silently without noting the fallback.
+Read and enforce `config/sources.yaml` before any web search — full protocol in `.claude/skills/sources-config-enforcement/SKILL.md`. This agent also enforces `limits.max_vacancies` (default 20) for vacancy file writes.
 
 ## Scope
 
@@ -74,23 +38,6 @@ If `config/sources.yaml` is missing or unparsable, log a warning in the output a
 
 ## Output contract
 
-````
-```agent_result_v1
-{
-  "schema": "agent_result_v1",
-  "agent": "vacancy-scraper",
-  "pipeline_run_id": "<value from prompt or empty string>",
-  "status": "success" | "fail",
-  "artifacts": [
-    {"type": "file", "path": "<absolute path to vacancy file>"}
-  ],
-  "acceptance_criteria_met": ["<verbatim criterion from prompt>"],
-  "acceptance_criteria_failed": ["<verbatim criterion from prompt>"],
-  "next_action": "none" | "retry",
-  "handoff_target": null,
-  "notes": "<one line: N vacancies captured, sites used, cities scoped>"
-}
-```
-````
-
-Copy `acceptance_criteria` verbatim from the orchestrator prompt. If none were passed, both arrays are empty.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+- artifacts: one entry per vacancy file written.
+- notes: one line — N vacancies captured, sites used, cities scoped.

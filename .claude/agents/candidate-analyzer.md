@@ -1,7 +1,7 @@
 ---
 name: candidate-analyzer
 description: Reads candidate materials from sources/ (pdf, docx, xlsx, images, text) using project Python extractors. Produces structured findings for the configurator. Does not spawn subagents.
-tools: Read, Bash, Glob, LS, Grep
+tools: Read, Bash, Glob, Grep
 model: sonnet
 color: purple
 ---
@@ -29,23 +29,6 @@ Use `Glob`/`LS` under `sources/` to find inputs.
 
 ## Output contract
 
-````
-```agent_result_v1
-{
-  "schema": "agent_result_v1",
-  "agent": "candidate-analyzer",
-  "pipeline_run_id": "<value from prompt or empty string>",
-  "status": "success" | "fail",
-  "artifacts": [
-    {"type": "file", "path": "<absolute path to extraction-summary.md>"}
-  ],
-  "acceptance_criteria_met": ["<verbatim criterion from prompt>"],
-  "acceptance_criteria_failed": ["<verbatim criterion from prompt>"],
-  "next_action": "none" | "retry",
-  "handoff_target": null,
-  "notes": "<one line: files analyzed, key finding>"
-}
-```
-````
-
-Copy `acceptance_criteria` verbatim from the orchestrator prompt. If none were passed, both arrays are empty.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+- artifacts: `[{"type": "file", "path": "<absolute path to extraction-summary.md>"}]`
+- notes: one line — files analyzed, key finding.
