@@ -15,9 +15,10 @@ python3 -c "import yaml,sys; yaml.safe_load(open('config/candidate.yaml')); prin
 ```
 
 2. If PDF expected: confirm path under `output/cv/` exists and non-empty (`LS` / file size via `stat`).
-3. If acceptance criteria reference a new HTML template: confirm `templates/cv/<name>.html` exists (and optional prototype under `sources/cv-templates/prototypes/` when cited).
-4. Confirm analysis/research outputs referenced by orchestrator exist when claimed.
-5. Map orchestrator `acceptance_criteria` to PASS/FAIL with evidence.
+3. If a **multi-language** PDF was requested (`lang=ua` or `lang=ru`): verify the output filename contains the language suffix (e.g., `*-ua-*.pdf` or `*-ru-*.pdf`). Also verify the corresponding overlay file `config/candidate.{lang}.yaml` exists and parses as valid YAML.
+4. If acceptance criteria reference a new HTML template: confirm `templates/cv/<name>.html` exists (and optional prototype under `sources/cv-templates/prototypes/` when cited).
+5. Confirm analysis/research outputs referenced by orchestrator exist when claimed.
+6. Map orchestrator `acceptance_criteria` to PASS/FAIL with evidence.
 
 ## Output format
 

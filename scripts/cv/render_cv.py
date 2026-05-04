@@ -16,12 +16,62 @@ from pathlib import Path
 import yaml
 from xml.sax.saxutils import escape
 
+LANGS = ("en", "ua", "ru")
+DEFAULT_LANG = "en"
 
-def load_candidate(config_path: Path) -> dict:
-    raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    if not isinstance(raw, dict):
+_FONT_DIRS = [
+    str(Path(__file__).parent / "fonts"),
+    "/usr/share/fonts/truetype/dejavu",
+    "/usr/local/share/fonts",
+]
+
+
+def _register_unicode_font() -> tuple[str, str]:
+    """Register DejaVu Sans TTF for Cyrillic support. Returns (regular_name, bold_name)."""
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    for d in _FONT_DIRS:
+        regular = Path(d) / "DejaVuSans.ttf"
+        bold = Path(d) / "DejaVuSans-Bold.ttf"
+        if regular.is_file():
+            pdfmetrics.registerFont(TTFont("DejaVuSans", str(regular)))
+            if bold.is_file():
+                pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", str(bold)))
+                return "DejaVuSans", "DejaVuSans-Bold"
+            return "DejaVuSans", "DejaVuSans"
+    return "Helvetica", "Helvetica-Bold"
+
+
+def _load_labels(repo_root: Path, lang: str) -> dict:
+    path = repo_root / "config" / "i18n" / "labels.yaml"
+    if not path.is_file():
+        return {}
+    all_labels: dict = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return all_labels.get(lang) or all_labels.get(DEFAULT_LANG) or {}
+
+
+def _deep_merge(base: dict, overlay: dict) -> dict:
+    out = dict(base)
+    for k, v in overlay.items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = _deep_merge(out[k], v)
+        else:
+            out[k] = v
+    return out
+
+
+def load_candidate(config_path: Path, lang: str = DEFAULT_LANG) -> dict:
+    base: dict = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    if not isinstance(base, dict):
         raise ValueError("Config root must be a mapping")
-    return raw
+    if lang == DEFAULT_LANG:
+        return base
+    overlay_path = config_path.parent / f"candidate.{lang}.yaml"
+    if not overlay_path.is_file():
+        return base
+    overlay = yaml.safe_load(overlay_path.read_text(encoding="utf-8")) or {}
+    return _deep_merge(base, overlay)
 
 
 def slug(s: str) -> str:
@@ -89,7 +139,7 @@ def candidate_with_embedded_photo(candidate: dict, repo_root: Path) -> dict:
     return out
 
 
-def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path) -> None:
+def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels: dict) -> None:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -97,10 +147,13 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path) -> Non
     from reportlab.platypus import Image as RLImage
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+    font_regular, font_bold = _register_unicode_font()
+
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
         name="CVTitle",
         parent=styles["Heading1"],
+        fontName=font_bold,
         fontSize=18,
         leading=22,
         spaceAfter=4,
@@ -108,6 +161,7 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path) -> Non
     subtitle_style = ParagraphStyle(
         name="CVSubtitle",
         parent=styles["Normal"],
+        fontName=font_regular,
         fontSize=11,
         leading=14,
         textColor=colors.HexColor("#333333"),
@@ -116,6 +170,7 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path) -> Non
     h2_style = ParagraphStyle(
         name="CVH2",
         parent=styles["Heading2"],
+        fontName=font_bold,
         fontSize=12,
         leading=15,
         spaceBefore=10,
@@ -125,6 +180,7 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path) -> Non
     body_style = ParagraphStyle(
         name="CVBody",
         parent=styles["Normal"],
+        fontName=font_regular,
         fontSize=10,
         leading=13,
     )
@@ -137,6 +193,9 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path) -> Non
         bottomMargin=16 * mm,
     )
     story: list = []
+
+    def lbl(key: str, default: str = "") -> str:
+        return labels.get(key) or default
 
     name = candidate.get("name") or "Candidate"
     title = candidate.get("title") or ""
@@ -183,12 +242,12 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path) -> Non
         story.extend(left_cell)
 
     if summary:
-        story.append(Paragraph("<b>Summary</b>", h2_style))
+        story.append(Paragraph(f"<b>{escape(lbl('summary', 'Summary'))}</b>", h2_style))
         story.append(Paragraph(summary.replace("&", "&amp;"), body_style))
 
     contact2 = candidate.get("contact") or {}
     if isinstance(contact2, dict) and contact2 and not contact_html:
-        story.append(Paragraph("<b>Contact</b>", h2_style))
+        story.append(Paragraph(f"<b>{escape(lbl('contact', 'Contact'))}</b>", h2_style))
         lines = []
         for k in ("email", "phone", "address", "website", "github", "linkedin"):
             v = contact2.get(k)
@@ -198,25 +257,25 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path) -> Non
 
     tech = candidate.get("technical_expertise") or []
     if tech:
-        story.append(Paragraph("<b>Technical expertise</b>", h2_style))
+        story.append(Paragraph(f"<b>{escape(lbl('technical_expertise', 'Technical expertise'))}</b>", h2_style))
         for block in tech:
             if not isinstance(block, dict):
                 continue
             rt = block.get("resume_title") or "Skills"
             skills = block.get("skills") or []
-            story.append(Paragraph(f"<b>{rt}</b>", body_style))
+            story.append(Paragraph(f"<b>{escape(str(rt))}</b>", body_style))
             if isinstance(skills, list):
                 story.append(Paragraph(", ".join(str(s) for s in skills).replace("&", "&amp;"), body_style))
             story.append(Spacer(1, 4))
 
     skills_flat = candidate.get("skills") or []
     if isinstance(skills_flat, list) and skills_flat:
-        story.append(Paragraph("<b>Core skills</b>", h2_style))
+        story.append(Paragraph(f"<b>{escape(lbl('core_skills', 'Core skills'))}</b>", h2_style))
         story.append(Paragraph(", ".join(str(s) for s in skills_flat).replace("&", "&amp;"), body_style))
 
     langs = candidate.get("languages") or []
     if langs:
-        story.append(Paragraph("<b>Languages</b>", h2_style))
+        story.append(Paragraph(f"<b>{escape(lbl('languages', 'Languages'))}</b>", h2_style))
         for row in langs:
             if isinstance(row, dict):
                 story.append(
@@ -228,13 +287,13 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path) -> Non
 
     exp = candidate.get("professional_experience") or []
     if exp:
-        story.append(Paragraph("<b>Experience</b>", h2_style))
+        story.append(Paragraph(f"<b>{escape(lbl('experience', 'Experience'))}</b>", h2_style))
         for job in exp:
             if not isinstance(job, dict):
                 continue
-            header = f"{job.get('position','')} — {job.get('company','')}"
+            header_text = f"{job.get('position','')} — {job.get('company','')}"
             meta = " | ".join(x for x in (job.get("location"), job.get("duration")) if x)
-            story.append(Paragraph(f"<b>{header}</b>".replace("&", "&amp;"), body_style))
+            story.append(Paragraph(f"<b>{header_text}</b>".replace("&", "&amp;"), body_style))
             if meta:
                 story.append(Paragraph(meta.replace("&", "&amp;"), subtitle_style))
             desc = job.get("company_description")
@@ -246,7 +305,7 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path) -> Non
 
     edu = candidate.get("education") or []
     if edu:
-        story.append(Paragraph("<b>Education</b>", h2_style))
+        story.append(Paragraph(f"<b>{escape(lbl('education', 'Education'))}</b>", h2_style))
         for row in edu:
             if isinstance(row, dict):
                 line = " — ".join(
@@ -256,7 +315,7 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path) -> Non
 
     projects = candidate.get("independent_projects") or []
     if isinstance(projects, list) and projects:
-        story.append(Paragraph("<b>Independent projects</b>", h2_style))
+        story.append(Paragraph(f"<b>{escape(lbl('independent_projects', 'Independent projects'))}</b>", h2_style))
         for p in projects:
             if isinstance(p, dict):
                 story.append(
@@ -267,7 +326,7 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path) -> Non
 
     certs = candidate.get("certifications") or []
     if isinstance(certs, list) and certs:
-        story.append(Paragraph("<b>Courses &amp; certifications</b>", h2_style))
+        story.append(Paragraph(f"<b>{escape(lbl('certifications', 'Courses &amp; certifications'))}</b>", h2_style))
         for block in certs:
             if not isinstance(block, dict):
                 continue
@@ -281,7 +340,7 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path) -> Non
 
     key_ach = candidate.get("key_achievements") or []
     if isinstance(key_ach, list) and key_ach:
-        story.append(Paragraph("<b>Key achievements</b>", h2_style))
+        story.append(Paragraph(f"<b>{escape(lbl('key_achievements', 'Key achievements'))}</b>", h2_style))
         for item in key_ach:
             if isinstance(item, dict):
                 t = escape(str(item.get("title") or ""))
@@ -313,6 +372,8 @@ def render_weasyprint_html(
     *,
     repo_root: Path,
     html_out_path: Path | None = None,
+    labels: dict,
+    lang: str,
 ) -> None:
     _prepend_dyld_fallback_for_weasyprint()
     from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -327,7 +388,8 @@ def render_weasyprint_html(
     base_uri = br.as_uri()
     if not base_uri.endswith("/"):
         base_uri += "/"
-    html_str = tpl.render(candidate=candidate, now=datetime.now(timezone.utc))
+    html_str = tpl.render(candidate=candidate, now=datetime.now(timezone.utc),
+                          labels=labels, lang=lang)
     if html_out_path is not None:
         html_out_path.write_text(html_str, encoding="utf-8")
     HTML(string=html_str, base_url=base_uri).write_pdf(str(out_path))
@@ -347,19 +409,28 @@ def main() -> int:
         action="store_true",
         help="Force built-in ReportLab layout (default when --template omitted)",
     )
+    parser.add_argument(
+        "--lang",
+        default=DEFAULT_LANG,
+        choices=list(LANGS),
+        help="Output language for section labels and candidate overlay (default: en)",
+    )
     args = parser.parse_args()
 
     config_path = args.config.expanduser().resolve()
-    candidate = load_candidate(config_path)
+    lang = args.lang
+    candidate = load_candidate(config_path, lang)
     repo_root = repo_root_from_config(config_path)
+    labels = _load_labels(repo_root, lang)
 
     default_name = slug(str(candidate.get("name") or "candidate"))
     date_part = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H:%M:%S")
+    lang_suffix = f"-{lang}" if lang != DEFAULT_LANG else ""
     out_path = args.out
     if not out_path:
         out_dir = (repo_root / "output" / "cv").resolve()
         out_dir.mkdir(parents=True, exist_ok=True)
-        out_path = out_dir / f"{default_name}-{date_part}.pdf"
+        out_path = out_dir / f"{default_name}{lang_suffix}-{date_part}.pdf"
     else:
         out_path = out_path.expanduser().resolve()
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -373,19 +444,20 @@ def main() -> int:
         html_out_path = out_path.with_suffix(".html")
         try:
             cand = candidate_with_embedded_photo(candidate, repo_root)
-            render_weasyprint_html(cand, tpl, out_path, repo_root=repo_root, html_out_path=html_out_path)
+            render_weasyprint_html(cand, tpl, out_path, repo_root=repo_root,
+                                   html_out_path=html_out_path, labels=labels, lang=lang)
         except ImportError:
             print(
                 "WeasyPrint/Jinja2 HTML path requires: pip install weasyprint\n"
                 "Falling back to ReportLab built-in layout.",
                 file=sys.stderr,
             )
-            render_reportlab(candidate, out_path, repo_root=repo_root)
+            render_reportlab(candidate, out_path, repo_root=repo_root, labels=labels)
             html_out_path = None
         if html_out_path is not None:
             print(str(html_out_path))
     else:
-        render_reportlab(candidate, out_path, repo_root=repo_root)
+        render_reportlab(candidate, out_path, repo_root=repo_root, labels=labels)
 
     print(str(out_path))
     return 0

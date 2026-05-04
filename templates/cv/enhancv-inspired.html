@@ -3,7 +3,7 @@
   Two-column Enhancv-style layout (~65% white main / ~35% navy sidebar), aligned to reference template.
   Optional photo: `photo` in candidate.yaml (repo-relative path). Sidebar shows a placeholder circle if absent.
 -->
-<html lang="en">
+<html lang="{{ lang | default('en') }}">
 <head>
   <meta charset="utf-8" />
   <title>{{ candidate.name or 'CV' }}</title>
@@ -31,7 +31,7 @@
     html, body {
       margin: 0;
       padding: 0;
-      font-family: "Helvetica Neue", Helvetica, Arial, Roboto, sans-serif;
+      font-family: "DejaVu Sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, Roboto, sans-serif;
       font-size: 9pt;
       line-height: 1.38;
       color: var(--ink);
@@ -404,12 +404,12 @@
       </div>
 
       {% if candidate.summary %}
-      <h2 class="section-title-main">Summary</h2>
+      <h2 class="section-title-main">{{ labels.summary | default('Summary') }}</h2>
       <p class="summary">{{ candidate.summary }}</p>
       {% endif %}
 
       {% if candidate.professional_experience %}
-      <h2 class="section-title-main">Experience</h2>
+      <h2 class="section-title-main">{{ labels.experience | default('Experience') }}</h2>
       {% for job in candidate.professional_experience %}
       <div class="job">
         <div class="job-head">
@@ -430,7 +430,7 @@
       {% endif %}
 
       {% if candidate.education %}
-      <h2 class="section-title-main">Education</h2>
+      <h2 class="section-title-main">{{ labels.education | default('Education') }}</h2>
       {% for row in candidate.education %}
       <div class="edu">
         <div class="edu-head">
@@ -444,7 +444,7 @@
       {% endif %}
 
       {% if candidate.independent_projects %}
-      <h2 class="section-title-main">Projects</h2>
+      <h2 class="section-title-main">{{ labels.projects | default('Projects') }}</h2>
       <ul>
         {% for p in candidate.independent_projects %}
         <li>
@@ -460,7 +460,7 @@
       {% endif %}
 
       {% if candidate.languages %}
-      <h2 class="section-title-main">Languages</h2>
+      <h2 class="section-title-main">{{ labels.languages | default('Languages') }}</h2>
       <ul>
         {% for row in candidate.languages %}
         <li>{{ row.language }} — {{ row.proficiency }}</li>
@@ -479,7 +479,7 @@
       </div>
 
       {% if candidate.key_achievements %}
-      <h2 class="section-title-side">Key achievements</h2>
+      <h2 class="section-title-side">{{ labels.key_achievements | default('Key achievements') }}</h2>
       <ul class="ach-list">
         {% set ach_icons = ['💡', '❤', '⚡', '⭐', '🎯', '🔥'] %}
         {% for item in candidate.key_achievements %}
@@ -495,7 +495,7 @@
       {% endif %}
 
       {% if candidate.technical_expertise or candidate.skills %}
-      <h2 class="section-title-side">Skills</h2>
+      <h2 class="section-title-side">{{ labels.skills | default('Skills') }}</h2>
       {% if candidate.technical_expertise %}
         {% for block in candidate.technical_expertise %}
         <div class="skill-group">
@@ -515,7 +515,7 @@
       {% endif %}
 
       {% if candidate.certifications %}
-      <h2 class="section-title-side">Courses</h2>
+      <h2 class="section-title-side">{{ labels.courses | default('Courses') }}</h2>
       {% for cert in candidate.certifications %}
       <div class="course-block">
         <p class="course-title">{{ cert.issuer }}{% if cert.year %} · {{ cert.year }}{% endif %}</p>

@@ -11,6 +11,13 @@ color: orange
 - Primary file: `config/candidate.yaml`
 - Follow skill **candidate-yaml-schema** in `.claude/skills/candidate-yaml-schema/SKILL.md` when editing.
 
+## Multi-language overlay files
+
+- Translated content lives in **overlay files**: `config/candidate.ua.yaml` (Ukrainian) and `config/candidate.ru.yaml` (Russian).
+- Overlay files contain **only prose fields** (name, title, summary, job descriptions, achievements, education programs). Never copy contact, skills, URLs, or dates into overlays.
+- When updating translated content, write to the language-specific overlay file — never modify `config/candidate.yaml` with translated prose.
+- The overlay file schema mirrors `config/candidate.yaml` but is a strict subset. Validate both the base and any overlay are valid YAML before writing.
+
 ## Rules
 
 - Do **not** call `Task`.

@@ -46,6 +46,10 @@ Before calling `Task(vacancy-router)`, evaluate the user goal against this table
 | "update yaml", "edit candidate", "update candidate" | `candidate-configurator` | `config/candidate.yaml` exists |
 | "verify", "check deliverables", "run gate" | `cv-deliverable-gate` | — |
 | "enhance cv", "apply edits", "apply review" | `cv-enhancer` | YAML exists + `sources/analysis/cv-review-*.md` exists |
+| "translate candidate to ua", "translate to ukrainian" | `candidate-translator` | `config/candidate.yaml` exists |
+| "translate candidate to ru", "translate to russian" | `candidate-translator` | `config/candidate.yaml` exists |
+| "generate ukrainian cv", "generate cv in ukrainian", "cv in ua" | sequence: `candidate-translator` (if overlay missing) → `cv-generator --lang ua` | `config/candidate.yaml` exists |
+| "generate russian cv", "generate cv in russian", "cv in ru" | sequence: `candidate-translator` (if overlay missing) → `cv-generator --lang ru` | `config/candidate.yaml` exists |
 
 **If pattern matches AND precondition passes:** call `Task(direct_spoke)` immediately. Include `FAST_PATH_USED: <spoke>` in the Task prompt preamble.  
 **If no match or precondition fails:** proceed to Step 2 (router).
@@ -112,6 +116,11 @@ Run these inline (using `Glob`/`LS`/`Bash`) before spawning the listed spoke. Do
 **Before `cv-generator`:**
 1. `Glob("config/candidate.yaml")` — must exist; if missing, stop and report.
 2. `Bash: python3 -c "import yaml; yaml.safe_load(open('config/candidate.yaml'))"` — if non-zero exit, show parse error, do not spawn.
+
+**Before `cv-generator` (multi-language):**
+When `--lang ua` or `--lang ru` is requested:
+1. `Glob("config/candidate.{lang}.yaml")` — if overlay does **not** exist, Task-spawn `candidate-translator` first, then spawn `cv-generator` with `--lang <code>`.
+2. If overlay exists, spawn `cv-generator --lang <code>` directly.
 
 **Before `cv-reviewer`:**
 1. Vacancy file path must be present in the user goal or an explicit path. If missing, ask the user before delegating.

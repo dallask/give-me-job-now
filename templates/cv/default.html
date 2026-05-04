@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang | default('en') }}">
 <head>
   <meta charset="utf-8" />
   <title>{{ candidate.name or 'CV' }}</title>
   <style>
     @page { size: A4; margin: 18mm; }
-    body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #222; }
+    body { font-family: "DejaVu Sans", "Noto Sans", Helvetica, Arial, sans-serif; font-size: 10pt; color: #222; }
     h1 { font-size: 18pt; margin: 0 0 4pt 0; }
     .subtitle { font-size: 11pt; color: #444; margin: 0 0 12pt 0; }
     h2 { font-size: 12pt; margin: 14pt 0 6pt 0; border-bottom: 1px solid #ccc; }
@@ -29,12 +29,12 @@
   </div>
 
   {% if candidate.summary %}
-  <h2>Summary</h2>
+  <h2>{{ labels.summary | default('Summary') }}</h2>
   <p>{{ candidate.summary }}</p>
   {% endif %}
 
   {% if candidate.contact %}
-  <h2>Contact</h2>
+  <h2>{{ labels.contact | default('Contact') }}</h2>
   <p class="muted">
     {% for k in ['email','phone','address','website','github','linkedin'] %}
       {% if candidate.contact[k] %}{{ k }}: {{ candidate.contact[k] }}{% if not loop.last %} · {% endif %}{% endif %}
@@ -43,7 +43,7 @@
   {% endif %}
 
   {% if candidate.technical_expertise %}
-  <h2>Technical expertise</h2>
+  <h2>{{ labels.technical_expertise | default('Technical expertise') }}</h2>
   {% for block in candidate.technical_expertise %}
     <p><strong>{{ block.resume_title }}</strong></p>
     <p class="skills">{{ block.skills | join(', ') }}</p>
@@ -51,12 +51,12 @@
   {% endif %}
 
   {% if candidate.skills %}
-  <h2>Core skills</h2>
+  <h2>{{ labels.core_skills | default('Core skills') }}</h2>
   <p>{{ candidate.skills | join(', ') }}</p>
   {% endif %}
 
   {% if candidate.languages %}
-  <h2>Languages</h2>
+  <h2>{{ labels.languages | default('Languages') }}</h2>
   <ul>
     {% for row in candidate.languages %}
     <li>{{ row.language }} — {{ row.proficiency }}</li>
@@ -65,7 +65,7 @@
   {% endif %}
 
   {% if candidate.professional_experience %}
-  <h2>Experience</h2>
+  <h2>{{ labels.experience | default('Experience') }}</h2>
   {% for job in candidate.professional_experience %}
     <p><strong>{{ job.position }} — {{ job.company }}</strong></p>
     <p class="muted">{{ job.location or '' }} {% if job.duration %}| {{ job.duration }}{% endif %}</p>
@@ -79,7 +79,7 @@
   {% endif %}
 
   {% if candidate.education %}
-  <h2>Education</h2>
+  <h2>{{ labels.education | default('Education') }}</h2>
   <ul>
     {% for row in candidate.education %}
     <li>{{ row.program }} — {{ row.institution }} ({{ row.duration }})</li>

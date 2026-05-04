@@ -6,7 +6,7 @@
   Jinja2 variables: candidate (config/candidate.yaml)
   Render: python3 scripts/cv/render_cv.py --config config/candidate.yaml --template templates/cv/baxter.html
 -->
-<html lang="en">
+<html lang="{{ lang | default('en') }}">
 <head>
   <meta charset="utf-8" />
   <title>{{ candidate.name or 'CV' }}</title>
@@ -33,7 +33,7 @@
     }
 
     html, body {
-      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-family: "DejaVu Sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
       font-size: 9pt;
       line-height: 1.4;
       color: var(--text-dark);
@@ -478,7 +478,7 @@
         <!-- CONTACT ME -->
         <div class="side-heading">
           <span class="dot-icon"></span>
-          <span class="label">Contact Me</span>
+          <span class="label">{{ labels.contact_me | default('Contact Me') }}</span>
         </div>
         <ul class="contact-list">
           {% if c.phone %}
@@ -507,7 +507,7 @@
         {% if candidate.education %}
         <div class="side-heading">
           <span class="dot-icon"></span>
-          <span class="label">Education</span>
+          <span class="label">{{ labels.education | default('Education') }}</span>
         </div>
         {% for edu in candidate.education %}
         <div class="entry-item">
@@ -534,7 +534,7 @@
         {% if candidate.languages %}
         <div class="side-heading">
           <span class="dot-icon"></span>
-          <span class="label">Languages</span>
+          <span class="label">{{ labels.languages | default('Languages') }}</span>
         </div>
         {% for lang in candidate.languages %}
         <div class="lang-item">
@@ -601,7 +601,7 @@
         {% if candidate.professional_experience %}
         <div class="main-heading">
           <span class="dot-icon"></span>
-          <span class="label">Job Experience</span>
+          <span class="label">{{ labels.job_experience | default('Job Experience') }}</span>
         </div>
         {% for job in candidate.professional_experience %}
         <div class="job-entry">
@@ -625,7 +625,7 @@
         {% if candidate.skills %}
         <div class="main-heading">
           <span class="dot-icon"></span>
-          <span class="label">Skills</span>
+          <span class="label">{{ labels.skills | default('Skills') }}</span>
         </div>
         <div class="skills-grid">
           {%- set ns = namespace(col=0) -%}

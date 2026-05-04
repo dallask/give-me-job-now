@@ -5,7 +5,7 @@
   Jinja2 variables: candidate (config/candidate.yaml)
   Render: python3 scripts/cv/render_cv.py --config config/candidate.yaml --template templates/cv/enhancv.html
 -->
-<html lang="en">
+<html lang="{{ lang | default('en') }}">
 <head>
   <meta charset="utf-8" />
   <title>{{ candidate.name or 'CV' }}</title>
@@ -33,7 +33,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
-      font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-family: "DejaVu Sans", "Noto Sans", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
       font-size: 9pt;
       line-height: 1.42;
       color: var(--ink);
@@ -453,13 +453,13 @@
 
       <!-- SUMMARY -->
       {% if candidate.summary %}
-      <h2 class="sec-main">Summary</h2>
+      <h2 class="sec-main">{{ labels.summary | default('Summary') }}</h2>
       <p class="summary-text">{{ candidate.summary }}</p>
       {% endif %}
 
       <!-- EXPERIENCE -->
       {% if candidate.professional_experience %}
-      <h2 class="sec-main">Experience</h2>
+      <h2 class="sec-main">{{ labels.experience | default('Experience') }}</h2>
       {% for job in candidate.professional_experience %}
       <div class="entry">
         <div class="entry-head">
@@ -481,7 +481,7 @@
 
       <!-- EDUCATION -->
       {% if candidate.education %}
-      <h2 class="sec-main">Education</h2>
+      <h2 class="sec-main">{{ labels.education | default('Education') }}</h2>
       {% for row in candidate.education %}
       <div class="entry">
         <div class="entry-head">
@@ -498,7 +498,7 @@
 
       <!-- TECHNICAL EXPERTISE -->
       {% if candidate.technical_expertise %}
-      <h2 class="sec-main">Technical Skills</h2>
+      <h2 class="sec-main">{{ labels.technical_skills | default('Technical Skills') }}</h2>
       <div class="tech-grid">
         {% for block in candidate.technical_expertise %}
         <div class="tech-block">
@@ -529,7 +529,7 @@
 
       <!-- KEY ACHIEVEMENTS -->
       {% if candidate.key_achievements %}
-      <h2 class="sec-side">Key achievements</h2>
+      <h2 class="sec-side">{{ labels.key_achievements | default('Key achievements') }}</h2>
       <ul class="ach-list">
         {% for item in candidate.key_achievements %}
         <li class="ach-item">
@@ -547,7 +547,7 @@
 
       <!-- SKILLS (sidebar: concise highlights only) -->
       {% if candidate.skills %}
-      <h2 class="sec-side">Skills</h2>
+      <h2 class="sec-side">{{ labels.skills | default('Skills') }}</h2>
       {% for s in candidate.skills %}
       <p class="skill-item">{{ s }}</p>
       {% endfor %}
@@ -555,7 +555,7 @@
 
       <!-- COURSES / CERTIFICATIONS -->
       {% if candidate.certifications %}
-      <h2 class="sec-side">Courses</h2>
+      <h2 class="sec-side">{{ labels.courses | default('Courses') }}</h2>
       {% for cert in candidate.certifications %}
       <div class="course-block">
         <p class="course-title">{{ cert.issuer }}{% if cert.year %} · {{ cert.year }}{% endif %}</p>
@@ -570,7 +570,7 @@
 
       <!-- LANGUAGES -->
       {% if candidate.languages %}
-      <h2 class="sec-side">Languages</h2>
+      <h2 class="sec-side">{{ labels.languages | default('Languages') }}</h2>
       {% for row in candidate.languages %}
       <p class="lang-item">{{ row.language }} — {{ row.proficiency }}</p>
       {% endfor %}

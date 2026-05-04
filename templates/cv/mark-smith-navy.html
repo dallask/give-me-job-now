@@ -10,7 +10,7 @@
   Jinja2 root variable: candidate (config/candidate.yaml)
   Render: python3 scripts/cv/render_cv.py --config config/candidate.yaml --template templates/cv/mark-smith-navy.html
 -->
-<html lang="en">
+<html lang="{{ lang | default('en') }}">
 <head>
   <meta charset="utf-8" />
   <title>{{ candidate.name | default('CV') }}</title>
@@ -43,7 +43,7 @@
     }
 
     html, body {
-      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-family: "DejaVu Sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
       font-size: 8.5pt;
       line-height: 1.45;
       color: var(--text-body);
@@ -537,7 +537,7 @@
       <!-- ABOUT ME -->
       {% if candidate.summary %}
       <div style="margin-bottom:16pt;">
-        <div class="section-header on-navy">About Me</div>
+        <div class="section-header on-navy">{{ labels.about_me | default('About Me') }}</div>
         <p class="about-text">{{ candidate.summary | truncate(450, True, '…') }}</p>
       </div>
       {% endif %}
@@ -545,7 +545,7 @@
       <!-- EDUCATION -->
       {% if candidate.education %}
       <div class="edu-section">
-        <div class="section-header on-navy">Education</div>
+        <div class="section-header on-navy">{{ labels.education | default('Education') }}</div>
         {% for edu in candidate.education %}
         <div class="edu-entry">
           <div class="edu-degree">{{ edu.program }}</div>
@@ -559,7 +559,7 @@
       <!-- EXPERIENCE -->
       {% if candidate.professional_experience %}
       <div class="exp-section">
-        <div class="section-header on-navy">Experience</div>
+        <div class="section-header on-navy">{{ labels.experience | default('Experience') }}</div>
         {% for exp in candidate.professional_experience %}
         <div class="exp-entry">
           <div class="exp-company">{{ exp.company }} <span class="exp-pos">— {{ exp.position }}</span></div>
@@ -630,7 +630,7 @@
       <!-- CONTACT -->
       {% if candidate.contact %}
       <div class="contact-section">
-        <div class="section-header on-white">Contact</div>
+        <div class="section-header on-white">{{ labels.contact | default('Contact') }}</div>
         <ul class="contact-list">
           {% if candidate.contact.email %}
           <li>
@@ -671,7 +671,7 @@
       <!-- SKILLS — SVG donut rings, 2 rows x 3 cells -->
       {% if candidate.skills %}
       <div class="skills-section">
-        <div class="section-header on-white">Skills</div>
+        <div class="section-header on-white">{{ labels.skills | default('Skills') }}</div>
         {%- set skill_pcts = [90, 80, 75, 85, 70, 65] -%}
         {%- set display_skills = candidate.skills[:6] -%}
         {# SVG ring constants: center=23, r=17, circumference=2*pi*17=106.81 #}
@@ -716,7 +716,7 @@
       <!-- LANGUAGE BARS -->
       {% if candidate.languages %}
       <div class="lang-section">
-        <div class="section-header on-white">Language</div>
+        <div class="section-header on-white">{{ labels.language | default('Language') }}</div>
         {%- set prof_map = {
           'native': 100,
           'native / bilingual': 100,

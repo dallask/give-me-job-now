@@ -31,10 +31,22 @@ Also emit one-line `DELIVERABLE_SUMMARY: NO_PDF — handoff to cv-template-creat
 
 From repository root (after `pip install -r scripts/cv/requirements.txt` if needed):
 
-Built-in ReportLab layout:
+Built-in ReportLab layout (English, default):
 
 ```bash
 python3 scripts/cv/render_cv.py --config config/candidate.yaml --no-template
+```
+
+Ukrainian CV — ReportLab (loads `config/candidate.ua.yaml` overlay if it exists):
+
+```bash
+python3 scripts/cv/render_cv.py --config config/candidate.yaml --lang ua --no-template
+```
+
+Russian CV — HTML template:
+
+```bash
+python3 scripts/cv/render_cv.py --config config/candidate.yaml --lang ru --template templates/cv/default.html
 ```
 
 Optional HTML template (requires `pip install weasyprint`):
@@ -64,6 +76,14 @@ When using `--no-template` (ReportLab), only the PDF path is printed.
 **Do NOT pass `--out` unless the user explicitly requested a custom filename.** Without `--out`, the script auto-generates a timestamped filename under `output/cv/`. Passing `--out` overrides that and loses the timestamp.
 
 Both output files share the same base name and timestamp; only the extension differs.
+
+## Language support
+
+- `--lang en` (default) — English labels, English base YAML.
+- `--lang ua` — Ukrainian labels from `config/i18n/labels.yaml`; merges `config/candidate.ua.yaml` overlay if present (prose only; skills/contact stay from base).
+- `--lang ru` — Russian labels; merges `config/candidate.ru.yaml` overlay if present.
+- If the orchestrator requests a non-English CV and no overlay exists yet, return control with a note suggesting `candidate-translator` should run first. Section labels will still be translated even without an overlay.
+- Output filenames include a language suffix when `--lang` is not `en` (e.g., `yevhen-kyvhyla-ua-2026-05-04_....pdf`).
 
 ## Rules
 
