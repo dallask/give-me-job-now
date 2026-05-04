@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import mimetypes
 import os
 import platform
 import re
@@ -63,6 +65,27 @@ def candidate_for_template(candidate: dict, repo_root: Path) -> dict:
             c2 = dict(c)
             c2.pop("photo", None)
             out["contact"] = c2
+    return out
+
+
+def _photo_data_uri(path: Path) -> str:
+    mime = mimetypes.guess_type(str(path))[0] or "image/jpeg"
+    data = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{data}"
+
+
+def candidate_with_embedded_photo(candidate: dict, repo_root: Path) -> dict:
+    """Return candidate dict with photo replaced by a base64 data URI for standalone HTML."""
+    out = candidate_for_template(candidate, repo_root)
+    photo_path = photo_path_for(out, repo_root)
+    if not photo_path:
+        return out
+    data_uri = _photo_data_uri(photo_path)
+    if out.get("photo"):
+        out["photo"] = data_uri
+    c = out.get("contact")
+    if isinstance(c, dict) and c.get("photo"):
+        out["contact"] = {**c, "photo": data_uri}
     return out
 
 
@@ -289,6 +312,7 @@ def render_weasyprint_html(
     out_path: Path,
     *,
     repo_root: Path,
+    html_out_path: Path | None = None,
 ) -> None:
     _prepend_dyld_fallback_for_weasyprint()
     from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -303,8 +327,9 @@ def render_weasyprint_html(
     base_uri = br.as_uri()
     if not base_uri.endswith("/"):
         base_uri += "/"
-    # WeasyPrint resolves relative URLs in HTML against base_url (directory)
     html_str = tpl.render(candidate=candidate, now=datetime.now(timezone.utc))
+    if html_out_path is not None:
+        html_out_path.write_text(html_str, encoding="utf-8")
     HTML(string=html_str, base_url=base_uri).write_pdf(str(out_path))
 
 
@@ -329,7 +354,7 @@ def main() -> int:
     repo_root = repo_root_from_config(config_path)
 
     default_name = slug(str(candidate.get("name") or "candidate"))
-    date_part = datetime.now(timezone.utc).strftime("%Y%m%d")
+    date_part = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H:%M:%S")
     out_path = args.out
     if not out_path:
         out_dir = (repo_root / "output" / "cv").resolve()
@@ -345,9 +370,10 @@ def main() -> int:
         if not tpl.is_file():
             print(f"Template not found: {tpl}", file=sys.stderr)
             return 1
+        html_out_path = out_path.with_suffix(".html")
         try:
-            cand = candidate_for_template(candidate, repo_root)
-            render_weasyprint_html(cand, tpl, out_path, repo_root=repo_root)
+            cand = candidate_with_embedded_photo(candidate, repo_root)
+            render_weasyprint_html(cand, tpl, out_path, repo_root=repo_root, html_out_path=html_out_path)
         except ImportError:
             print(
                 "WeasyPrint/Jinja2 HTML path requires: pip install weasyprint\n"
@@ -355,6 +381,9 @@ def main() -> int:
                 file=sys.stderr,
             )
             render_reportlab(candidate, out_path, repo_root=repo_root)
+            html_out_path = None
+        if html_out_path is not None:
+            print(str(html_out_path))
     else:
         render_reportlab(candidate, out_path, repo_root=repo_root)
 

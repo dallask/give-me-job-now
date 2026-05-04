@@ -55,9 +55,15 @@ Custom output:
 python3 scripts/cv/render_cv.py --config config/candidate.yaml --out output/cv/custom-name.pdf --no-template
 ```
 
-Script prints the output PDF path on success.
+When using `--template`, the script prints **two lines** to stdout:
+1. The HTML file path (`<name>-<YYYY-MM-DD_HH:MM:SS>.html`)
+2. The PDF file path (`<name>-<YYYY-MM-DD_HH:MM:SS>.pdf`)
 
-**Do NOT pass `--out` unless the user explicitly requested a custom filename.** Without `--out`, the script auto-generates a timestamped filename (`<name>-<YYYY-MM-DD_HH:MM:SS>.pdf`) under `output/cv/`. Passing `--out` overrides that and produces a static name that loses the timestamp.
+When using `--no-template` (ReportLab), only the PDF path is printed.
+
+**Do NOT pass `--out` unless the user explicitly requested a custom filename.** Without `--out`, the script auto-generates a timestamped filename under `output/cv/`. Passing `--out` overrides that and loses the timestamp.
+
+Both output files share the same base name and timestamp; only the extension differs.
 
 ## Rules
 
@@ -75,6 +81,7 @@ Script prints the output PDF path on success.
   "pipeline_run_id": "<value from prompt or empty string>",
   "status": "success",
   "artifacts": [
+    {"type": "file", "path": "<absolute path to generated HTML (template mode only)>"},
     {"type": "file", "path": "<absolute path to generated PDF>"}
   ],
   "acceptance_criteria_met": ["<verbatim criterion from prompt>"],
