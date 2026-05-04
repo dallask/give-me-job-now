@@ -82,6 +82,7 @@ Both output files share the same base name and timestamp; only the extension dif
 - `--lang en` (default) — English labels, English base YAML.
 - `--lang ua` — Ukrainian labels from `config/i18n/labels.yaml`; merges `config/candidate.ua.yaml` overlay if present (prose only; skills/contact stay from base).
 - `--lang ru` — Russian labels; merges `config/candidate.ru.yaml` overlay if present.
+- **Always generate exactly one PDF per invocation** — the language specified by `--lang`. Never loop over multiple languages or produce multiple PDFs in a single run.
 - If the orchestrator requests a non-English CV and no overlay exists yet, return control with a note suggesting `candidate-translator` should run first. Section labels will still be translated even without an overlay.
 - Output filenames include a language suffix when `--lang` is not `en` (e.g., `yevhen-kyvhyla-ua-2026-05-04_....pdf`).
 

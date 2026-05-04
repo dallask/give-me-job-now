@@ -48,8 +48,8 @@ Before calling `Task(vacancy-router)`, evaluate the user goal against this table
 | "enhance cv", "apply edits", "apply review" | `cv-enhancer` | YAML exists + `sources/analysis/cv-review-*.md` exists |
 | "translate candidate to ua", "translate to ukrainian" | `candidate-translator` | `config/candidate.yaml` exists |
 | "translate candidate to ru", "translate to russian" | `candidate-translator` | `config/candidate.yaml` exists |
-| "generate ukrainian cv", "generate cv in ukrainian", "cv in ua" | sequence: `candidate-translator` (if overlay missing) → `cv-generator --lang ua` | `config/candidate.yaml` exists |
-| "generate russian cv", "generate cv in russian", "cv in ru" | sequence: `candidate-translator` (if overlay missing) → `cv-generator --lang ru` | `config/candidate.yaml` exists |
+| "generate ukrainian cv", "generate cv in ukrainian", "cv in ua" | if `config/candidate.ua.yaml` missing → `candidate-translator` (lang=ua), then `cv-generator --lang ua` **only** | `config/candidate.yaml` exists |
+| "generate russian cv", "generate cv in russian", "cv in ru" | if `config/candidate.ru.yaml` missing → `candidate-translator` (lang=ru), then `cv-generator --lang ru` **only** | `config/candidate.yaml` exists |
 
 **If pattern matches AND precondition passes:** call `Task(direct_spoke)` immediately. Include `FAST_PATH_USED: <spoke>` in the Task prompt preamble.  
 **If no match or precondition fails:** proceed to Step 2 (router).
@@ -119,8 +119,9 @@ Run these inline (using `Glob`/`LS`/`Bash`) before spawning the listed spoke. Do
 
 **Before `cv-generator` (multi-language):**
 When `--lang ua` or `--lang ru` is requested:
-1. `Glob("config/candidate.{lang}.yaml")` — if overlay does **not** exist, Task-spawn `candidate-translator` first, then spawn `cv-generator` with `--lang <code>`.
+1. `Glob("config/candidate.{lang}.yaml")` — if overlay does **not** exist, Task-spawn `candidate-translator` first (passing only the target `lang`), then spawn `cv-generator` with `--lang <code>`.
 2. If overlay exists, spawn `cv-generator --lang <code>` directly.
+3. **Spawn `cv-generator` exactly once** with the single requested `--lang`. Do not generate additional language variants unless explicitly asked.
 
 **Before `cv-reviewer`:**
 1. Vacancy file path must be present in the user goal or an explicit path. If missing, ask the user before delegating.
