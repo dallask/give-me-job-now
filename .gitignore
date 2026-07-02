@@ -7,6 +7,10 @@ CLAUDE.local.md
 # Local tooling
 .venv/
 
+# Python bytecode cache
+__pycache__/
+*.pyc
+
 # Hook logs
 .claude/logs/
 
