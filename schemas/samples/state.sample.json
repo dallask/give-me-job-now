@@ -1,0 +1,7 @@
+{
+  "current_step": "truth-verifier",
+  "completed_steps": ["offer-scout", "artifact-composer"],
+  "gate_results": {
+    "truth-verifier": "pass"
+  }
+}

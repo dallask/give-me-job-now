@@ -1,0 +1,19 @@
+# Fixed pipeline DAG for the deterministic router (ARCH-06).
+# scripts/pipeline/route.py reads this file plus a state file and emits the
+# next step as JSON — no Task call, no LLM. Gate nodes branch on a recorded
+# verdict in state.gate_results, never on model reasoning.
+steps:
+  offer-scout:
+    next: artifact-composer        # scout the offer, then compose artifacts
+  artifact-composer:
+    next: truth-verifier           # compose CV artifacts, then verify truth
+  truth-verifier:
+    gate: true                     # gate node — branches on recorded verdict, not model reasoning
+    on_pass: fit-evaluator         # truthful artifacts advance to fit scoring
+    on_fail: artifact-composer     # untruthful artifacts loop back to recompose
+  fit-evaluator:
+    gate: true                     # gate node — branches on recorded verdict, not model reasoning
+    on_pass: cv-generator          # on-target artifacts advance to rendering
+    on_fail: artifact-composer     # off-target artifacts loop back to recompose
+  cv-generator:
+    next: null                     # terminal node — pipeline complete
