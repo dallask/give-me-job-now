@@ -1,0 +1,10 @@
+{
+  "kind": "offer_spec",
+  "schema": "agent_result_v1",
+  "schema_version": "1.0.0",
+  "agent": "offer-scout",
+  "pipeline_run_id": "run-2026-07-03-cyr",
+  "status": "success",
+  "notes": "Вакансія: Розробник Python у Києві. Требования: досвід 3+ роки, знання Django та REST.",
+  "offer_spec_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}
