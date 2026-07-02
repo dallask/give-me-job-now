@@ -6,6 +6,16 @@ Project context for Claude Code sessions.
 
 This repository supports a **hub-and-spoke job/CV collective**: vacancy research, candidate document analysis, YAML configuration, PDF CV generation (Python), CV review vs job requirements, and enhancement loops.
 
+## Architecture
+
+> **Authoritative source of truth: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).**
+> That document defines the redesigned hub + 5-spoke roster (`offer-scout`,
+> `artifact-composer`, `fit-evaluator`, `truth-verifier`, `cv-generator` + retained
+> `candidate-analyzer` / `candidate-configurator`), per-spoke boundaries, the offer→render
+> data flow, and the anti-drift principles. The inline agent list and pipeline prose below
+> describe the **superseded legacy 13-agent pipeline** — retained for reference only while
+> the collective is consolidated in Phase 1. Do not treat the roster below as current.
+
 ## Hub-and-spoke rules
 
 1. **`vacancy-orchestrator`** (the hub **persona**—see `/job-collective`) is the **only** role that calls `Task` to spawn other agents. That persona must run at **top level** in the session (follow `vacancy-orchestrator.md` in the main chat). **Do not** `Task`-spawn `vacancy-orchestrator` itself: nested hubs do not get `Task` in Claude Code, so spokes cannot run.

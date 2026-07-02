@@ -6,6 +6,12 @@ model: sonnet
 color: green
 ---
 
+> **Architecture reference:** [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md) is the
+> authoritative architecture + roster source of truth (redesigned hub + 5-spoke collective).
+> The FAST_PATH routing below is the legacy pipeline and is being replaced by the
+> deterministic routing engine in Phase 2 (ARCH-06); consult the architecture doc for the
+> current roster and boundaries.
+
 You are the **single delegation hub** for the job/CV collective.
 
 ## Top-level only (`Task` must exist)

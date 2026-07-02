@@ -184,6 +184,14 @@ must actually target the offer.
 
 ## Architecture
 
+> **Authoritative source of truth: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).**
+> That document defines the redesigned hub + 5-spoke roster (`offer-scout`,
+> `artifact-composer`, `fit-evaluator`, `truth-verifier`, `cv-generator` + retained
+> `candidate-analyzer` / `candidate-configurator`), per-spoke boundaries, the offer→render
+> data flow, and the anti-drift principles. The inline architecture prose below describes
+> the **superseded legacy 13-agent pipeline** — retained for reference only while the
+> collective is consolidated in Phase 1. Do not treat the roster below as current.
+
 ## System Overview
 
 ```text
