@@ -1,0 +1,17 @@
+{
+  "kind": "offer_spec",
+  "schema": "agent_result_v1",
+  "schema_version": "1.0.0",
+  "agent": "offer-scout",
+  "pipeline_run_id": "run-2026-07-03-001",
+  "status": "success",
+  "artifacts": [
+    { "type": "file", "path": "/abs/sources/vacancies/python-kyiv-123.md" }
+  ],
+  "acceptance_criteria_met": ["crit-offer-normalized"],
+  "acceptance_criteria_failed": [],
+  "next_action": "handoff",
+  "handoff_target": "artifact-composer",
+  "notes": "Normalized 1 offer; джерело українською: Розробник Python у Києві",
+  "offer_spec_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

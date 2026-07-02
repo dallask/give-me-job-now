@@ -1,0 +1,14 @@
+{
+  "kind": "gate_result",
+  "schema": "agent_result_v1",
+  "schema_version": "1.0.0",
+  "agent": "truth-verifier",
+  "pipeline_run_id": "run-2026-07-03-005",
+  "status": "success",
+  "artifacts": [],
+  "acceptance_criteria_met": ["crit-truth-pass"],
+  "acceptance_criteria_failed": [],
+  "next_action": "none",
+  "handoff_target": null,
+  "notes": "Truth gate passed; усі твердження простежуються до candidate.yaml"
+}
