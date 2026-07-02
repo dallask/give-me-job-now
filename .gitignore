@@ -10,6 +10,9 @@ CLAUDE.local.md
 # Hook logs
 .claude/logs/
 
+# Runtime pipeline state (live state.json; committed demo is schemas/samples/state.sample.json)
+.pipeline/
+
 # Playwright / CV template iteration screenshots (repo root ./tmp)
 tmp/
 .playwright-mcp/
