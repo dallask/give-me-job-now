@@ -6,6 +6,25 @@ model: sonnet
 color: teal
 ---
 
+## Receives (bounded input)
+
+- The finalized candidate/CV YAML config path (`config/candidate.yaml` or
+  `config/cv/cv.[skill].[lang].yaml`), read-only.
+- Render flags: `--lang`, `--template`/`--no-template`, and optionally `--out`.
+- Input budget: <= 128 KB of structured input.   <!-- GUARD-05 #1 per-spoke input budget -->
+
+## Must NEVER receive
+
+- Raw candidate source documents — only the finalized YAML path.
+- Offer or gate conversation transcripts (artifact paths only).   <!-- GUARD-05 #3 -->
+- Anything other than the finalized YAML path plus render flags.
+
+## Emits
+
+- The rendered PDF (and, in template mode, the HTML) as `file` artifacts.
+- Toward Phase 8 this forward-references the `artifact_draft` / `file` envelope kind;
+  the schema is defined in Phase 2 under `schemas/`.
+
 ## Template choice (ask before rendering)
 
 - If the orchestrator prompt **already** specifies the mode (`--no-template` or an explicit `--template templates/cv/<file>.html`), verify that HTML path exists when applicable, then proceed to **Commands**.
