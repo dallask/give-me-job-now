@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:give-me-job:schema:artifact_draft",
+  "title": "artifact_draft envelope",
+  "description": "Envelope for a draft application artifact (CV/cover-letter/interview-prep) emitted by artifact-composer. Pins kind via const and reuses the shared agent_result_v1 base. Draft content fields are deferred to later phases.",
+  "type": "object",
+  "allOf": [
+    { "$ref": "urn:give-me-job:schema:agent_result_v1#/$defs/envelope" }
+  ],
+  "properties": {
+    "kind": {
+      "const": "artifact_draft"
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "required": ["kind", "schema_version"]
+}

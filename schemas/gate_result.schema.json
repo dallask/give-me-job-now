@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:give-me-job:schema:gate_result",
+  "title": "gate_result envelope",
+  "description": "Envelope for a quality-gate verdict emitted by truth-verifier / fit-evaluator. Pins kind via const and reuses the shared agent_result_v1 base. Gate scoring fields are deferred to Phases 5-6.",
+  "type": "object",
+  "allOf": [
+    { "$ref": "urn:give-me-job:schema:agent_result_v1#/$defs/envelope" }
+  ],
+  "properties": {
+    "kind": {
+      "const": "gate_result"
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "required": ["kind", "schema_version"]
+}
