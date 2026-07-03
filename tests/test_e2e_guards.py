@@ -274,6 +274,39 @@ def test_e2e_dryrun_sample_draft_renders_pdf() -> None:
     assert_valid_pdf(DRYRUN_PDF)
 
 
+CV_GENERATOR_AGENT = REPO_ROOT / ".claude" / "agents" / "cv-generator.md"
+RUNBOOK = REPO_ROOT / "docs" / "RUNBOOK.md"
+
+
+def test_cv_generator_wired_to_draft_render() -> None:
+    """cv-generator.md draft-mode wires the bridge + all three renderers (E2E-02).
+
+    Positive presence checks — the additive draft-mode branch must name the bridge
+    (draft_to_cv_yaml.py) and each renderer (render_cv.py / render_cover_letter.py /
+    render_interview_prep.py) so no artifact is hand-authored (T-08-11).
+    """
+    text = CV_GENERATOR_AGENT.read_text(encoding="utf-8")
+    for token in (
+        "draft_to_cv_yaml.py",
+        "render_cover_letter.py",
+        "render_interview_prep.py",
+        "render_cv.py",
+    ):
+        assert token in text, f"cv-generator.md missing draft-mode wiring token: {token}"
+
+
+def test_runbook_maps_done_criteria() -> None:
+    """RUNBOOK.md maps E2E-01 (deterministic, done) to E2E-03 (live UAT) + setup step."""
+    text = RUNBOOK.read_text(encoding="utf-8")
+    for token in (
+        "E2E-01",
+        "E2E-03",
+        "/pipeline-run",
+        "pip install -r scripts/cv/requirements.txt",
+    ):
+        assert token in text, f"RUNBOOK.md missing required token: {token}"
+
+
 def main() -> int:
     tests = [
         v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)
