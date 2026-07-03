@@ -4,6 +4,60 @@
   "title": "offer_spec envelope",
   "description": "Envelope for a normalized job offer emitted by offer-scout. Pins kind via const and reuses the shared agent_result_v1 base. Content fields for the offer body are deferred to Phase 3; only the hash anchor is declared here.",
   "type": "object",
+  "$defs": {
+    "offer_content": {
+      "type": "object",
+      "description": "Fielded (non-prose) offer body. Self-contained: additionalProperties:false is scoped to this object ONLY, never the allOf envelope. captured_at and offer_spec_hash live as siblings outside this object.",
+      "properties": {
+        "title": { "type": "string" },
+        "company": { "type": "string" },
+        "location": { "type": "string" },
+        "seniority": {
+          "type": "string",
+          "enum": ["intern", "junior", "mid", "senior", "lead", "principal"]
+        },
+        "employment_type": {
+          "type": "string",
+          "enum": ["full_time", "part_time", "contract", "internship"]
+        },
+        "language": {
+          "type": "string",
+          "enum": ["ua", "ru", "en"]
+        },
+        "must_haves": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "nice_to_haves": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "responsibilities": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "salary_range": {
+          "type": ["object", "null"]
+        },
+        "source_url": { "type": "string" },
+        "raw_text_excerpt": { "type": "string" }
+      },
+      "required": [
+        "title",
+        "company",
+        "location",
+        "seniority",
+        "employment_type",
+        "language",
+        "must_haves",
+        "nice_to_haves",
+        "responsibilities",
+        "source_url",
+        "raw_text_excerpt"
+      ],
+      "additionalProperties": false
+    }
+  },
   "allOf": [
     { "$ref": "urn:give-me-job:schema:agent_result_v1#/$defs/envelope" }
   ],
@@ -12,7 +66,10 @@
       "const": "offer_spec"
     },
     "schema_version": {
-      "type": "string"
+      "const": "1.0"
+    },
+    "content": {
+      "$ref": "#/$defs/offer_content"
     },
     "offer_spec_hash": {
       "type": "string",
