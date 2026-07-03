@@ -20,7 +20,7 @@ from xml.sax.saxutils import escape
 # consumer never re-declares key literals that could drift from the schema owner.
 # Same import idiom as scripts/cv/draft_to_cv_yaml.py (scripts/artifacts on sys.path).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "artifacts"))
-from schema_fields import CONTACT, WEBSITE_GROUPS  # noqa: E402,F401
+from schema_fields import CONTACT, WEBSITE_GROUPS  # noqa: E402  (both must be USED, not just imported)
 
 LANGS = ("en", "ua", "ru")
 DEFAULT_LANG = "en"
@@ -178,12 +178,15 @@ def _contact_lines(contact: dict) -> list[str]:
     leak into the rendered PDF (SCHEMA-02). Group names come from the ``WEBSITE_GROUPS``
     registry (SCHEMA-06) rather than being re-declared here.
     """
+    # Field names come from the CONTACT registry (SCHEMA-06) — never re-declared as
+    # bare literals here, so a rename of the schema owner cannot silently drift.
+    phone_key, email_key, address_key, website_key, messengers_key = CONTACT
     lines: list[str] = []
     if not isinstance(contact, dict):
         return lines
-    if contact.get("phone"):
-        lines.append(f"Phone: {contact['phone']}")
-    emails = contact.get("email") or []
+    if contact.get(phone_key):
+        lines.append(f"Phone: {contact[phone_key]}")
+    emails = contact.get(email_key) or []
     if emails:
         if isinstance(emails, (list, tuple)):
             joined = ", ".join(str(e) for e in emails)
@@ -191,9 +194,9 @@ def _contact_lines(contact: dict) -> list[str]:
             joined = str(emails)
         if joined:
             lines.append(f"Email: {joined}")
-    if contact.get("address"):
-        lines.append(str(contact["address"]))
-    web = contact.get("website") or {}
+    if contact.get(address_key):
+        lines.append(str(contact[address_key]))
+    web = contact.get(website_key) or {}
     if isinstance(web, dict):
         # URL-list groups (every WEBSITE_GROUPS entry except the "media" label→url dict).
         for group in WEBSITE_GROUPS:
@@ -202,10 +205,14 @@ def _contact_lines(contact: dict) -> list[str]:
             for url in web.get(group) or []:
                 if url:
                     lines.append(str(url))
-        for label, url in (web.get("media") or {}).items():
+        media = web.get("media")
+        media = media if isinstance(media, dict) else {}
+        for label, url in media.items():
             if url:
                 lines.append(f"{str(label).capitalize()}: {url}")
-    for label, handle in (contact.get("messengers") or {}).items():
+    messengers = contact.get(messengers_key)
+    messengers = messengers if isinstance(messengers, dict) else {}
+    for label, handle in messengers.items():
         if handle:
             lines.append(f"{str(label).capitalize()}: {handle}")
     return lines
