@@ -120,6 +120,30 @@ def test_missing_sources_fails_closed() -> None:
     assert "OK" not in r.stdout, f"must NOT print the success sentinel; stdout:\n{r.stdout}"
 
 
+def test_misspelled_scope_key_rejected() -> None:
+    """A typo'd top-level key (`scopes:`) must be REJECTED by shape validation.
+
+    Without root ``additionalProperties:false`` an unknown key like ``scopes:`` slips past
+    the schema and ``_scope()`` reads nothing, so ``subset_offenders`` finds no offender and
+    the validator prints ``OK`` — silently dropping the operator's intended narrowing (here
+    an out-of-scope Berlin). The root guard must turn this into a shape error.
+    """
+    tmp = Path(tempfile.mkdtemp(prefix="pref-typo-scope-"))
+    sources = _write(
+        tmp,
+        "sources.yaml",
+        {"sites": ["https://www.work.ua/"], "cities": ["Kyiv"], "languages": ["ua"]},
+    )
+    prefs = _write(tmp, "preferences.yaml", {"scopes": {"cities": ["Berlin"]}})
+    r = _run(prefs, sources)
+    assert r.returncode != 0, (
+        "misspelled top-level 'scopes' key must FAIL (root additionalProperties:false), "
+        f"not silently drop the subset gate; stdout:\n{r.stdout}"
+    )
+    assert "SHAPE-ERROR" in r.stderr, f"must report a shape error; stderr:\n{r.stderr}"
+    assert "OK" not in r.stdout, f"must NOT print the success sentinel; stdout:\n{r.stdout}"
+
+
 def test_url_vs_host_normalization_true_positive() -> None:
     tmp = Path(tempfile.mkdtemp(prefix="pref-norm-"))
     sources = _write(
