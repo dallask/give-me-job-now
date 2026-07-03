@@ -1,0 +1,25 @@
+{
+  "schema": "agent_result_v1",
+  "schema_version": "1.0",
+  "kind": "offer_spec",
+  "agent": "offer-scout",
+  "status": "success",
+  "content": {
+    "title": "Open-Ended Generalist Role",
+    "company": "Acme Data Systems",
+    "location": "City, Country (Remote)",
+    "seniority": "mid",
+    "employment_type": "full_time",
+    "language": "en",
+    "must_haves": [],
+    "nice_to_haves": [
+      "Curiosity and a willingness to learn"
+    ],
+    "responsibilities": [
+      "Pitch in wherever the team needs help"
+    ],
+    "salary_range": null,
+    "source_url": "https://example-jobs.test/acme/generalist",
+    "raw_text_excerpt": "A flexible role with no hard requirements — we value attitude over a fixed checklist."
+  }
+}

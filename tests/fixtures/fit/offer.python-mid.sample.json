@@ -1,0 +1,36 @@
+{
+  "schema": "agent_result_v1",
+  "schema_version": "1.0",
+  "kind": "offer_spec",
+  "agent": "offer-scout",
+  "status": "success",
+  "content": {
+    "title": "Mid-Level Python Backend Engineer",
+    "company": "Acme Data Systems",
+    "location": "City, Country (Remote)",
+    "seniority": "mid",
+    "employment_type": "full_time",
+    "language": "en",
+    "must_haves": [
+      "3+ years professional Python development",
+      "Django or FastAPI web framework experience",
+      "PostgreSQL relational database design and query optimization",
+      "Designing and consuming REST APIs",
+      "Docker containerization for local and CI environments"
+    ],
+    "nice_to_haves": [
+      "Kubernetes orchestration",
+      "Celery or other task-queue experience",
+      "AWS or GCP cloud deployment"
+    ],
+    "responsibilities": [
+      "Build and maintain backend services powering the analytics platform",
+      "Design normalized PostgreSQL schemas and optimize slow queries",
+      "Expose and document REST endpoints consumed by the web client",
+      "Containerize services and keep the CI pipeline green"
+    ],
+    "salary_range": null,
+    "source_url": "https://example-jobs.test/acme/python-mid-backend",
+    "raw_text_excerpt": "We are hiring a mid-level Python backend engineer to join our analytics team. You will work with Django/FastAPI, PostgreSQL, REST APIs, and Docker to ship reliable services."
+  }
+}
