@@ -41,6 +41,23 @@ python3 -c "import yaml; yaml.safe_load(open('config/candidate.yaml', encoding='
 - When updating translated content, write to the language-specific overlay file — never modify `config/candidate.yaml` with translated prose.
 - The overlay file schema mirrors `config/candidate.yaml` but is a strict subset. Validate both the base and any overlay are valid YAML before writing.
 
+## Provenance sidecar
+
+Per-fact provenance is written to a **sidecar** file `config/candidate.provenance.json` — never inline in `config/candidate.yaml`.
+
+- **Keying:** each entry is keyed by the **dotted/indexed candidate.yaml path** the fact landed at — e.g. `education[0]`, `certifications[4].credentials[0]`, `professional_experience[2].achievements[1]`.
+- **Value shape:** `{source, extractor, confidence}`, mirroring the analyzer findings' provenance for that fact.
+- **Write convention** (follows `scripts/offers/freeze_offer.py`): serialize with `json.dumps(data, ensure_ascii=False, indent=2)` plus a trailing newline, UTF-8.
+- **Containment:** the sidecar is written to the fixed path `config/candidate.provenance.json` and writes must stay confined under `config/` (assert containment before writing, per the `freeze_offer.py` precedent). Never write outside `config/`.
+- **No-inline rule (Pitfall 4):** provenance MUST NOT be added inline to `config/candidate.yaml`. Inline provenance keys would leak into `cv-composer`'s derived `config/cv/*.yaml` and violate the candidate-yaml-schema no-extra-keys contract. The sidecar keeps `candidate.yaml` schema-pure for `cv-composer` and `render_cv.py`.
+
+## Grounding set
+
+The merged `config/candidate.yaml` is **exactly** the set that `truth-verifier` will treat as traceable ground truth in Phase 5 (INGEST-05) — the Gate-A grounding set. Every artifact claim must trace back to a fact present here.
+
+- The provenance sidecar gives that verifier a **machine-readable source map** from each candidate.yaml path to where the fact came from.
+- This is forward-compatible: a formal `schemas/candidate_findings.schema.json` is **deferred to Phase 5**; for now the path-keyed sidecar is the contract.
+
 ## Rules
 
 - Do **not** call `Task`.
@@ -51,5 +68,5 @@ python3 -c "import yaml; yaml.safe_load(open('config/candidate.yaml', encoding='
 ## Output contract
 
 End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
-- artifacts: `[{"type": "yaml_section", "path": "config/candidate.yaml"}]`
-- notes: one line — sections touched, YAML valid.
+- artifacts: `[{"type": "yaml_section", "path": "config/candidate.yaml"}, {"type": "json", "path": "config/candidate.provenance.json"}]`
+- notes: one line — sections touched, executed yaml.safe_load gate passed, provenance sidecar updated.
