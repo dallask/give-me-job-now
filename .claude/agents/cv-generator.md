@@ -10,6 +10,10 @@ color: teal
 
 - The finalized candidate/CV YAML config path (`config/candidate.yaml` or
   `config/cv/cv.[skill].[lang].yaml`), read-only.
+- **Draft mode (Phase 8):** the path to an **approved** `artifact_draft` JSON (Gate A truth
+  AND Gate B target-fit both recorded pass), plus its `content.artifact_type` and
+  `content.language`. Only approved drafts are dispatched — the hub runs
+  `check_delivery.py` first (see Draft mode below).
 - Render flags: `--lang`, `--template`/`--no-template`, and optionally `--out`.
 - Input budget: <= 128 KB of structured input.   <!-- GUARD-05 #1 per-spoke input budget -->
 
@@ -97,6 +101,43 @@ When using `--no-template` (ReportLab), only the PDF path is printed.
 
 Both output files share the same base name and timestamp; only the extension differs.
 
+## Draft mode (approved artifact_draft to artifacts)
+
+This mode is **additive** — the legacy direct-YAML render path above (`config/candidate.yaml` /
+`config/cv/*.yaml`) is preserved and unchanged. Draft mode renders an **approved**
+`artifact_draft` (Gate A **and** Gate B recorded pass) whose content was fixed upstream by
+the gates; the agent authors no content and no PDF itself.
+
+**Delivery precondition (hub-enforced):** before dispatching a render, the hub runs
+`python3 scripts/pipeline/check_delivery.py --state .pipeline/runs/<run_id>/state.json`
+(named in `.claude/commands/pipeline/generate.md`). The agent renders **only** approved
+drafts — a draft missing either recorded gate verdict is never rendered.
+
+Branch on `content.artifact_type`:
+
+- **`cv`** — bridge the approved draft to a CV-YAML, then render it to PDF (pass `--lang`
+  explicitly so the correct labels/overlay apply):
+  ```bash
+  python3 scripts/cv/draft_to_cv_yaml.py --file <draft.json> --out <cv.yaml>
+  python3 scripts/cv/render_cv.py --config <cv.yaml> --no-template --lang <content.language> --out output/cv/<name>.pdf
+  ```
+- **`cover_letter`** — render the approved cover-letter draft to PDF:
+  ```bash
+  python3 scripts/cv/render_cover_letter.py --file <draft.json> --lang <content.language>
+  ```
+- **`interview_prep`** — render the approved interview-prep draft to a markdown document:
+  ```bash
+  python3 scripts/cv/render_interview_prep.py --file <draft.json>
+  ```
+
+Emit each produced PDF / document path as a `file` artifact in the `agent_result_v1`
+envelope (same contract as legacy mode, below).
+
+**No-manual-PDF (E2E-02, threat T-08-11):** the Rules "Do NOT hand-author PDF binaries"
+below applies to **all** rendering — `render_cv.py`, `render_cover_letter.py`, and
+`render_interview_prep.py`. Every artifact is produced by a Python renderer via `Bash`;
+the agent never authors a PDF or document body by hand. Tools stay `Read, Bash, Glob, LS`.
+
 ## Language support
 
 - `--lang en` (default) — English labels, English base YAML.
@@ -109,7 +150,9 @@ Both output files share the same base name and timestamp; only the extension dif
 ## Rules
 
 - Do **not** call `Task`.
-- Do **not** hand-author PDF binaries; always use `render_cv.py`.
+- Do **not** hand-author PDF binaries or document bodies; always render through the Python
+  scripts — `render_cv.py` (CV), `render_cover_letter.py` (cover letter), and
+  `render_interview_prep.py` (interview prep). This covers both legacy and draft mode.
 - End with an `agent_result_v1` JSON block as your **final output** — unless you emitted `ORCHESTRATOR_HANDOFF`, in which case use `"status": "handoff"` and set `handoff_target` (see below).
 
 ## Output contract
