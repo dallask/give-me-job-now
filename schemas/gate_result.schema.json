@@ -47,6 +47,135 @@
       },
       "required": ["gate", "verdict", "offending_claims"],
       "additionalProperties": false
+    },
+    "missing_must_have": {
+      "type": "object",
+      "description": "A single offer must-have not covered by the draft claims. id is the stable index ID (e.g. \"mh-2\"); text is the must-have string. Self-contained: additionalProperties:false is scoped to this object ONLY.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "text"],
+      "additionalProperties": false
+    },
+    "gate_b_content": {
+      "type": "object",
+      "description": "Gate B (target-fit) verdict body. gate discriminates the variant; verdict is the coverage-gated pass/fail; coverage carries the deterministic counts; the secondary sub-scores and the structured why are advisory context. Self-contained: additionalProperties:false is scoped to this object ONLY, never the allOf envelope. why.missing_must_haves items use the ABSOLUTE URN ref so a bare content sub-doc validates as a standalone root.",
+      "properties": {
+        "gate": {
+          "const": "B"
+        },
+        "verdict": {
+          "type": "string",
+          "enum": ["pass", "fail"]
+        },
+        "coverage": {
+          "type": "object",
+          "properties": {
+            "covered_ids": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "missing_ids": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "required": ["covered_ids", "missing_ids", "score"],
+          "additionalProperties": false
+        },
+        "keyword_alignment": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "language_match": {
+          "type": "boolean"
+        },
+        "seniority_scope_match": {
+          "type": "boolean"
+        },
+        "why": {
+          "type": "object",
+          "properties": {
+            "coverage": {
+              "type": "string"
+            },
+            "missing_must_haves": {
+              "type": "array",
+              "items": { "$ref": "urn:give-me-job:schema:gate_result#/$defs/missing_must_have" }
+            },
+            "keyword_alignment": {
+              "type": "number"
+            },
+            "language_match": {
+              "type": "boolean"
+            },
+            "seniority_scope_match": {
+              "type": "boolean"
+            }
+          },
+          "required": ["coverage", "missing_must_haves"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["gate", "verdict", "coverage", "why"],
+      "additionalProperties": false
+    },
+    "gate_c_content": {
+      "type": "object",
+      "description": "Gate C (polish) advisory body. Structurally separate from Gate B: advisory const true, no verdict/exit field can exist. polish carries five integer 0-5 dimensions. Self-contained: additionalProperties:false is scoped to this object ONLY, never the allOf envelope.",
+      "properties": {
+        "gate": {
+          "const": "C"
+        },
+        "advisory": {
+          "const": true
+        },
+        "polish": {
+          "type": "object",
+          "properties": {
+            "clarity": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "concision": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "formatting": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "quantified_impact": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "natural_keywords": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            }
+          },
+          "required": ["clarity", "concision", "formatting", "quantified_impact", "natural_keywords"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["gate", "advisory", "polish"],
+      "additionalProperties": false
     }
   },
   "allOf": [
@@ -60,7 +189,11 @@
       "const": "1.0"
     },
     "content": {
-      "$ref": "#/$defs/gate_a_content"
+      "oneOf": [
+        { "$ref": "#/$defs/gate_a_content" },
+        { "$ref": "#/$defs/gate_b_content" },
+        { "$ref": "#/$defs/gate_c_content" }
+      ]
     }
   },
   "required": ["kind", "schema_version"]
