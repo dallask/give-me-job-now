@@ -72,6 +72,14 @@ def extract(path: Path) -> tuple[str, str]:
         return "xlsx", extract_xlsx(path)
     if suffix in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".tif", ".tiff", ".bmp"}:
         return "image", extract_image_meta(path)
+    if suffix == ".doc":
+        # Legacy binary Word format: never fall through to the UTF-8 text reader,
+        # which would emit mojibake labelled "text" (silent-loss Pitfall 2).
+        return "needs-conversion", (
+            f"[Legacy binary Word document: {path.name}]\n"
+            "Cannot extract text from a .doc file; re-save it as .docx or export to PDF, "
+            "then re-run extraction."
+        )
     if suffix in {".txt", ".md", ".csv", ".yaml", ".yml", ".json"}:
         return "text", extract_text_file(path)
     try:
