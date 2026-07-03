@@ -319,12 +319,6 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
         story.append(Paragraph(f"<b>{escape(lbl('summary', 'Summary'))}</b>", h2_style))
         story.append(Paragraph(summary.replace("&", "&amp;"), body_style))
 
-    contact2 = candidate.get("contact") or {}
-    contact2_lines = _contact_lines(contact2)
-    if contact2_lines and not contact_html:
-        story.append(Paragraph(f"<b>{escape(lbl('contact', 'Contact'))}</b>", h2_style))
-        story.append(Paragraph("<br/>".join(escape(x) for x in contact2_lines), body_style))
-
     tech = candidate.get("expertise") or []
     if tech:
         story.append(Paragraph(f"<b>{escape(lbl('expertise', 'Technical expertise'))}</b>", h2_style))
@@ -366,6 +360,12 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
             story.append(Paragraph(f"<b>{header_text}</b>".replace("&", "&amp;"), body_style))
             if meta:
                 story.append(Paragraph(meta.replace("&", "&amp;"), subtitle_style))
+            # role_progression is a schema-declared experience field (EXPERIENCE_FIELDS)
+            # that the HTML template renders (enhancv-inspired.html); render it here too
+            # so the default ReportLab path does not silently drop real CV content.
+            role_progression = job.get("role_progression")
+            if role_progression:
+                story.append(Paragraph(str(role_progression).replace("&", "&amp;"), subtitle_style))
             desc = job.get("company_description")
             if desc:
                 story.append(Paragraph(str(desc).replace("&", "&amp;"), body_style))
