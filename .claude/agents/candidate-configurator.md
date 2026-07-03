@@ -17,7 +17,8 @@ color: orange
 The configurator consumes the analyzer's **findings artifact** — a list of proposed facts, each carrying `{target, value, provenance}` (where `provenance` is `{source, extractor, confidence}`) — and schema-valid **deep-merges** them into `config/candidate.yaml` per the **candidate-yaml-schema** skill:
 
 - Merge new bullets into existing `achievements`/list fields rather than replacing whole jobs.
-- Add new `education` / `certifications` / `independent_projects` entries as list items.
+- Add new `education` / `certifications` / `independent_projects` entries as list items. `certifications` are **issuer-grouped** items (`issuer`, optional `year`, `credentials[]`): merge a new credential into the matching issuer's `credentials` list; only add a new issuer object when no matching `issuer` exists.
+- The `contact` object is **nested** (`email[]`, `website.personal[]`/`company[]`/`portfolio[]`, `website.media.{linkedin,github,facebook,instagram}`, `messengers.{whatsapp,viber,telegram}`) — merge it **recursively** (dict-into-dict, list append/replace at the leaf), never flattening it back to scalar `github`/`linkedin`/second-email keys. Preserve `key_achievements[].icon` (emoji/glyph) when merging a key achievement.
 - **Preserve all existing facts** — deep-merge, never overwrite unrelated sections; the merge is additive unless the user explicitly asks to replace.
 - **Never fabricate** employers, dates, or credentials. Unknowns are flagged in chat, never invented into the YAML (candidate-yaml-schema rule 3).
 - **Never introduce keys absent from the base schema.** No `_meta`, `confidence`, `source`, or other non-schema keys may land in `config/candidate.yaml`. This is exactly why per-fact provenance lives in a **sidecar**, not inline (see "Provenance sidecar" below).

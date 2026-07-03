@@ -68,7 +68,10 @@ invention is not.
 - Tag **each atomic claim** (assertion-level granularity) with its `candidate.yaml` `source_span`
   **at generation time**, so the span is inspectable later without re-deriving it (COMPOSE-03).
 - `source_span` is a **dotted/indexed path** into `config/candidate.yaml`
-  (e.g. `professional_experience[0].achievements[2]`), reusing the provenance-sidecar path convention.
+  (e.g. `professional_experience[0].achievements[2]`, `expertise[1].skills[0]`,
+  `contact.website.media.linkedin`), reusing the provenance-sidecar path convention. Use the
+  current nested-schema keys (`expertise[*].skills[*]`, nested `contact`) — never the removed
+  pre-migration flat-contact or renamed expertise-array forms.
 - Add an optional per-claim `reframing_note` whenever a claim emphasises or swaps vocabulary relative
   to the source text, so the Phase 5 truth-verifier can apply its reframe/fabrication boundary
   (reframe allowed, invention blocked).
