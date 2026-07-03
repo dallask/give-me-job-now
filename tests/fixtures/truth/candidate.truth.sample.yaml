@@ -1,0 +1,40 @@
+# Synthetic grounding candidate.yaml for the truth-verifier adversarial fixture set (TRUTH-04).
+# Every value below is invented — no real PII. Real top-level candidate schema keys only
+# (see .claude/skills/candidate-yaml-schema). This is the grounding set that every draft
+# fixture span resolves into; the ONE exception is the deliberate out-of-range span
+# certifications[0].credentials[9], which the credentials list is kept short enough to miss.
+name: 'Dana Testcase'
+title: 'Sample Backend Engineer'
+summary: 'Synthetic profile fragment authored for truth-verifier fixtures; every claim traces here.'
+professional_experience:
+  - company: 'Acme'
+    position: 'Backend Engineer'
+    duration: '2019 - 2022'
+    location: 'Nowhere City'
+    achievements:
+      # [0] scope-inflation span: modest "contributed to" ownership, no leadership claim.
+      - 'Contributed to the database migration'
+      # [1] numeric-reframe span: carries a real percentage (30%) to reframe as a word-fraction.
+      - 'Reduced p95 latency by 30%'
+      # [2] numeric-invention / cross-entry-merge span: plain phrasing with NO digit and no
+      #     second-entry technology, so an invented number or folded AWS tech is provably absent.
+      - 'Built Python services'
+  - company: 'Globex'
+    position: 'Platform Engineer'
+    duration: '2016 - 2019'
+    location: 'Elsewhere Town'
+    achievements:
+      # [0] the distinct technology a cross-entry merge would falsely fold into Acme's entry.
+      - 'Managed AWS infrastructure'
+certifications:
+  - issuer: 'Imaginary Certifying Body'
+    year: 2020
+    # Keep this list SHORT (one entry) so credentials[9] is out of range for the
+    # deterministic unresolved-span fixture.
+    credentials:
+      - 'Certified Sample Practitioner'
+education:
+  - institution: 'Fictional Institute of Technology'
+    program: 'BSc Sample Engineering'
+    location: 'Nowhere City'
+    duration: '2010 - 2014'
