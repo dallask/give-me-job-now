@@ -1,0 +1,4 @@
+{"fixture": "pass.draft.json", "offer": "offer.python-mid.sample.json", "coverage_map": "pass.coverage_map.json", "expected_coverage": "4/5", "expected_verdict": "pass", "category": "deterministic"}
+{"fixture": "fail.draft.json", "offer": "offer.python-mid.sample.json", "coverage_map": "fail.coverage_map.json", "expected_coverage": "1/5", "expected_verdict": "fail", "category": "deterministic"}
+{"fixture": "borderline.draft.json", "offer": "offer.python-mid.sample.json", "coverage_map": "borderline.coverage_map.json", "expected_coverage": "3/5", "expected_verdict": "fail", "category": "deterministic"}
+{"fixture": "offer.empty-musthaves.sample.json", "offer": "offer.empty-musthaves.sample.json", "coverage_map": null, "expected_coverage": "0/0", "expected_verdict": "pass", "category": "deterministic"}
