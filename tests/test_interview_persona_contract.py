@@ -57,6 +57,49 @@ def test_persona_grants_needed_tools() -> None:
         assert tool in fm, f"frontmatter must grant {tool}"
 
 
+def test_persona_write_scoped_excludes_candidate_yaml() -> None:
+    """Write/Bash grants must be SCOPED, never unrestricted.
+
+    A top-level persona structurally holds Write, so containment cannot rely on prose
+    alone: the frontmatter must scope Write to the declared surface
+    (``config/preferences.yaml`` + ``sources/analysis/*``) and must NOT grant a path that
+    reaches the master profile. An unrestricted ``Bash(*)`` is equally disqualifying — a
+    stray shell can open ``config/candidate.yaml`` for writing.
+    """
+    fm = _frontmatter()
+    assert "Write(*)" not in fm, (
+        "frontmatter must NOT grant unrestricted Write(*) — scope it to "
+        "Write(config/preferences.yaml) + Write(sources/analysis/*)"
+    )
+    assert "Bash(*)" not in fm, (
+        "frontmatter must NOT grant unrestricted Bash(*) — an unscoped shell can write "
+        "config/candidate.yaml; scope Bash to the validate_preferences.py invocation"
+    )
+    assert "Write(config/preferences.yaml)" in fm, (
+        "frontmatter must scope Write to config/preferences.yaml"
+    )
+    assert "Write(sources/analysis/*)" in fm, (
+        "frontmatter must scope Write to sources/analysis/*"
+    )
+    # No granted Write path may resolve to the master profile or its language overlays.
+    assert "Write(config/candidate.yaml)" not in fm, "must never grant Write to candidate.yaml"
+    assert "Write(config/candidate." not in fm, (
+        "must never grant Write to a config/candidate.* overlay"
+    )
+
+
+def test_persona_declares_never_writes_candidate_profile() -> None:
+    """Prose must explicitly forbid writing the master profile AND its language overlays."""
+    src = _text()
+    lowered = src.lower()
+    assert "never" in lowered and "config/candidate.yaml" in src, (
+        "must declare it NEVER writes config/candidate.yaml (single source of truth)"
+    )
+    assert "config/candidate.*.yaml" in src, (
+        "must explicitly name the config/candidate.*.yaml language overlays it never writes"
+    )
+
+
 def test_persona_states_write_routing() -> None:
     src = _text()
     assert "candidate-configurator" in src, "must route profile facts to candidate-configurator"

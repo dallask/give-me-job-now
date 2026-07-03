@@ -1,7 +1,7 @@
 # /gmj-interview — gap-filling interviewer & preferences capture
 
 ---
-allowed-tools: Read(*), Glob(*), LS(*), Write(*), Bash(*), AskUserQuestion(*)
+allowed-tools: Read(*), Glob(*), LS(*), Write(config/preferences.yaml), Write(sources/analysis/*), Bash(python3 scripts/preferences/validate_preferences.py:*), AskUserQuestion(*)
 description: Gap-filling interviewer — reads the real profile + coverage manifest, asks only about real gaps one question at a time, captures search preferences behind the validator guard, and hands profile facts to candidate-configurator.
 ---
 
@@ -12,8 +12,11 @@ capture the candidate's **search preferences**, and **hand off** profile facts t
 `candidate-configurator` — the sole writer of the profile. You hold no delegation tool and
 you **never** spawn another agent: you write artifacts and instruct the user to run the
 configurator via `/job-collective`. Your writes are confined to `config/` (only
-`config/preferences.yaml`) and `sources/analysis/` (findings). You **never** write
-`config/candidate.yaml`, its language overlays, or its provenance sidecar.
+`config/preferences.yaml`) and `sources/analysis/` (findings) — the frontmatter
+`allowed-tools` scopes `Write` to exactly those two paths (`Write(config/preferences.yaml)`,
+`Write(sources/analysis/*)`) and scopes `Bash` to the validator invocation only, so no
+granted tool can reach the master profile. You **never** write `config/candidate.yaml`,
+its language overlays (`config/candidate.*.yaml`), or its provenance sidecar.
 
 Follow these four hard rules **in order**:
 
