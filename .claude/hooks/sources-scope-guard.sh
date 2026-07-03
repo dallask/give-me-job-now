@@ -21,6 +21,15 @@ mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
 timestamp() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "[$(timestamp)] $1" >> "$LOG_FILE" 2>/dev/null || true; }
 
+# Credential fetches (INGEST-02) get a DISTINCT audit log, separate from the
+# job-board sources-scope.log — the demonstrable record that a credential URL was
+# authorized by config/credentials.yaml, not by the offer-search scope.
+CRED_LOG_FILE="${PROJECT_DIR}/.claude/logs/credential-intake.log"
+log_cred() {
+  mkdir -p "$(dirname "$CRED_LOG_FILE")" 2>/dev/null || true
+  echo "[$(timestamp)] $1" >> "$CRED_LOG_FILE" 2>/dev/null || true
+}
+
 INPUT_JSON=$(cat)
 
 # Parse a (possibly dotted) field from the stdin JSON — jq with a python3 fallback,
@@ -58,6 +67,14 @@ if [ -f "${PROJECT_DIR}/config/sources.yaml" ]; then
   SOURCES_YAML="${PROJECT_DIR}/config/sources.yaml"
 elif [ -f "config/sources.yaml" ]; then
   SOURCES_YAML="config/sources.yaml"
+fi
+
+# Locate the SEPARATE credential allow-list the same way (INGEST-02, Option A).
+CREDENTIALS_YAML=""
+if [ -f "${PROJECT_DIR}/config/credentials.yaml" ]; then
+  CREDENTIALS_YAML="${PROJECT_DIR}/config/credentials.yaml"
+elif [ -f "config/credentials.yaml" ]; then
+  CREDENTIALS_YAML="config/credentials.yaml"
 fi
 
 # SC2: log the sources.yaml read + target BEFORE deciding anything. This line is the
@@ -98,6 +115,40 @@ PY
 }
 ALLOWED=$(allowed_hosts)
 
+# Parse the SEPARATE credential allow-list from credentials.yaml `credential_sites`,
+# with identical scheme/www/lowercase host normalization to allowed_hosts().
+credential_hosts() {
+  [ -z "$CREDENTIALS_YAML" ] && return 0
+  [ ! -f "$CREDENTIALS_YAML" ] && return 0
+  python3 - "$CREDENTIALS_YAML" <<'PY' 2>/dev/null || true
+import re, sys
+path = sys.argv[1]
+hosts = []
+try:
+    text = open(path, encoding="utf-8").read()
+    sites = []
+    try:
+        import yaml
+        data = yaml.safe_load(text) or {}
+        if isinstance(data, dict):
+            sites = data.get("credential_sites", []) or []
+    except Exception:
+        sites = []
+    if not sites:
+        sites = re.findall(r'https?://[^\s"\']+', text)
+    for s in sites:
+        h = re.sub(r'^https?://', '', str(s).strip())
+        h = h.split('/')[0].split(':')[0]
+        h = re.sub(r'^www\.', '', h).lower()
+        if h:
+            hosts.append(h)
+except Exception:
+    pass
+print("\n".join(sorted(set(hosts))))
+PY
+}
+CREDENTIAL_ALLOWED=$(credential_hosts)
+
 # Normalize a URL to its bare host (strip scheme, path, leading www., port; lowercase).
 url_host() {
   printf '%s' "$1" | sed -E 's#^[a-zA-Z][a-zA-Z0-9+.-]*://##; s#/.*$##; s#^www\.##; s#:.*$##' | tr 'A-Z' 'a-z'
@@ -116,6 +167,20 @@ host_allowed() {
   return 1
 }
 
+# A host is credential-allowed on an exact match or as a subdomain of a
+# credential_sites host (mirrors host_allowed against CREDENTIAL_ALLOWED).
+credential_host_allowed() {
+  _h="$1"
+  [ -z "$_h" ] && return 1
+  for a in $CREDENTIAL_ALLOWED; do
+    [ "$_h" = "$a" ] && return 0
+    case "$_h" in
+      *".$a") return 0 ;;
+    esac
+  done
+  return 1
+}
+
 if [ "$TOOL_NAME" = "WebFetch" ]; then
   HOST=$(url_host "$URL")
   if [ -z "$HOST" ]; then
@@ -126,6 +191,11 @@ if [ "$TOOL_NAME" = "WebFetch" ]; then
   fi
   if host_allowed "$HOST"; then
     log "ALLOWED tool=WebFetch host=${HOST}"
+    exit 0
+  elif credential_host_allowed "$HOST"; then
+    # Authorized by the SEPARATE credential list — allow + record in the distinct
+    # credential-intake audit log (INGEST-02), not the job-board sources-scope.log.
+    log_cred "ALLOWED tool=WebFetch host=${HOST} reason=credential-allow-list"
     exit 0
   fi
   log "BLOCK tool=WebFetch host=${HOST} reason=off-allow-list"
