@@ -37,6 +37,7 @@ from pypdf import PdfReader
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "cv" / "render_cv.py"
 CONFIG = REPO_ROOT / "config" / "candidate.yaml"
+UA_OVERLAY = REPO_ROOT / "config" / "candidate.ua.yaml"
 ARTIFACTS_DIR = REPO_ROOT / "scripts" / "artifacts"
 
 
@@ -65,6 +66,22 @@ def test_no_container_repr_and_nonempty() -> None:
         assert len(text) > 200, f"{lang} render is trivially short ({len(text)} chars) — hollow PDF"
         if lang == "en":
             assert "Generative AI application" in text, "expertise section did not render in en"
+        if lang == "ua":
+            # SCHEMA-05: the ua overlay must render its OWN translated expertise block,
+            # never the English base as a fallback. Read the translated first-block heading
+            # straight from the overlay and assert that exact Cyrillic substring is present
+            # in the rendered ua PDF text — mechanically gating "no blank/English fallback".
+            ua_overlay = yaml.safe_load(UA_OVERLAY.read_text(encoding="utf-8")) or {}
+            ua_titles = ua_overlay.get("expertise") or []
+            assert ua_titles and isinstance(ua_titles[0], dict), (
+                "candidate.ua.yaml must carry a top-level expertise[] block (was `skills`)"
+            )
+            ua_rt0 = ua_titles[0].get("resume_title") or ""
+            assert ua_rt0, "ua expertise[0].resume_title must be a non-empty translated heading"
+            assert ua_rt0 in text, (
+                f"ua render shows English fallback, not the translated expertise heading "
+                f"{ua_rt0!r} (SCHEMA-05)"
+            )
 
 
 def test_span_round_trip() -> None:
