@@ -41,4 +41,5 @@ non-bypassable and runs **before** any fit scoring.
 
 - Do **not** call `Task`.
 - Read-only — verdicts only; never modify any file.
+- Never re-fetch, re-summarize, or paraphrase the offer — read the frozen offer-spec content fields only (INTAKE-02/04); the hub runs `check_offer.py` before each dispatch to reinforce this single source.
 - End with an `agent_result_v1` JSON block as your **final output** — schema in `.claude/skills/agent-output-contract/SKILL.md`.

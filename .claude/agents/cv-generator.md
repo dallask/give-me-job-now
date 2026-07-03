@@ -18,6 +18,7 @@ color: teal
 - Raw candidate source documents — only the finalized YAML path.
 - Offer or gate conversation transcripts (artifact paths only).   <!-- GUARD-05 #3 -->
 - Anything other than the finalized YAML path plus render flags.
+- Never re-fetch, re-summarize, or paraphrase the offer — read the frozen offer-spec content fields only (INTAKE-02/04); the hub runs `check_offer.py` before each dispatch to reinforce this single source.
 
 ## Emits
 

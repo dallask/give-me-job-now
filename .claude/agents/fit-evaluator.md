@@ -27,6 +27,7 @@ this role produces recommendations and a verdict, never edits.
 - Candidate raw source documents (the draft already traces to `config/candidate.yaml`).
 - Another gate's conversation transcript (artifact paths only).   <!-- GUARD-05 #3 -->
 - Permission to modify any YAML — this role is recommendations only.
+- Never re-fetch, re-summarize, or paraphrase the offer — read the frozen offer-spec content fields only (INTAKE-02/04); the hub runs `check_offer.py` before each dispatch to reinforce this single source.
 
 ## Emits
 

@@ -28,6 +28,7 @@ back to `config/candidate.yaml`; emphasis and reframing are allowed, invention i
 - Source material beyond `config/candidate.yaml` plus the frozen offer-spec.
 - Another spoke's conversation transcript (artifact paths only).   <!-- GUARD-05 #3 -->
 - Permission to modify `config/candidate.yaml`.
+- Never re-fetch, re-summarize, or paraphrase the offer — read the frozen offer-spec content fields only (INTAKE-02/04); the hub runs `check_offer.py` before each dispatch to reinforce this single source.
 
 ## Emits
 
