@@ -5,9 +5,17 @@
 # It does NOT re-implement jsonschema validation in Bash.
 #
 # RESEARCH Pitfall 1: SubagentStop stdin carries {transcript_path, agent_id, agent_type}
-# — NOT the subagent output. We read `transcript_path`, extract the last fenced
-# agent_result_v1 block from the parent-session transcript JSONL, and pipe it to the
+# — NOT the subagent output. We read `transcript_path` and extract the agent_result_v1
+# block from the CURRENT subagent's FINAL assistant message only, then pipe it to the
 # validator via --stdin.
+#
+# Scoping fix (#t8o): the transcript is shared across the whole session, so a stale or
+# malformed envelope emitted by an EARLIER turn/subagent must never be re-validated on a
+# later, unrelated SubagentStop. Validating the transcript-global last envelope caused a
+# non-spoke subagent (e.g. a GSD executor that emits no envelope at all) to be blocked
+# indefinitely by a leftover `uat02-bad` envelope. We therefore look ONLY at the final
+# assistant message: real spokes carry their envelope there (still fully validated), while
+# a final message with no envelope legitimately SKIPs.
 #
 # RESEARCH Pitfall 2: a SubagentStop block "prevents the subagent from stopping" and does
 # not feed the reason back to the hub. The durable record is therefore the log; the
@@ -48,14 +56,15 @@ if [ -z "$TRANSCRIPT" ] || [ ! -f "$TRANSCRIPT" ]; then
   exit 0
 fi
 
-# Extract the LAST fenced agent_result_v1 block from the transcript JSONL. Reuses the
-# same fenced-block regex as collective-handoff-contract.sh lines 82-83, but sourced from
-# the transcript (not tool_response.content). Assistant-role messages carry the envelope.
+# Extract the fenced agent_result_v1 block from the CURRENT subagent's FINAL assistant
+# message. Reuses the same fenced-block regex as collective-handoff-contract.sh lines
+# 82-83, but scoped to the last assistant message (not the transcript-global last match)
+# so a stale envelope from an earlier turn/subagent is never re-validated (#t8o).
 ENVELOPE=$(python3 - "$TRANSCRIPT" <<'PY' 2>/dev/null || true
 import json, re, sys
 
 path = sys.argv[1]
-texts = []
+messages = []  # one concatenated text string per assistant message, transcript order
 try:
     with open(path, encoding="utf-8") as fh:
         for line in fh:
@@ -73,17 +82,22 @@ try:
             content = msg.get("content") if isinstance(msg, dict) else None
             if content is None and isinstance(obj, dict):
                 content = obj.get("content")
+            parts = []
             if isinstance(content, str):
-                texts.append(content)
+                parts.append(content)
             elif isinstance(content, list):
                 for block in content:
                     if isinstance(block, dict) and isinstance(block.get("text"), str):
-                        texts.append(block["text"])
+                        parts.append(block["text"])
+            if parts:
+                messages.append("\n".join(parts))
 except Exception:
     pass
 
-full = "\n".join(texts)
-matches = re.findall(r"```agent_result_v1\s*\n(.*?)\n\s*```", full, re.DOTALL)
+# Scope to the current subagent's final output only: a non-spoke subagent whose last
+# message has no envelope yields nothing here -> downstream SKIP (no false block).
+final = messages[-1] if messages else ""
+matches = re.findall(r"```agent_result_v1\s*\n(.*?)\n\s*```", final, re.DOTALL)
 if matches:
     sys.stdout.write(matches[-1].strip())
 PY
