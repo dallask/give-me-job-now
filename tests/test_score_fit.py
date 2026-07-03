@@ -23,6 +23,7 @@ Only stdlib + PyYAML + jsonschema are used.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -77,6 +78,57 @@ def _write_tmp(obj: object) -> Path:
     ) as fh:
         json.dump(obj, fh)
         return Path(fh.name)
+
+
+def _run_fit_in_mode(
+    draft: Path, offer: Path, cmap: Path, execution_mode: str
+) -> subprocess.CompletedProcess:
+    """Run Gate-B with an ambient run-scoped state recording ``execution_mode``.
+
+    The scorer takes NO mode input (Pitfall 1: mode must never gate the gate). We make the
+    recorded ``execution_mode`` *available* to the invocation — via a run-scoped
+    ``.pipeline/runs/<run_id>/state.json`` payload AND an ``EXECUTION_MODE`` env var — so the
+    ONLY difference between a human-in-the-loop run and an autonomous run is that mode signal.
+    A byte-identical exit code and gate block across the two proves the gate never reads it.
+    """
+    run_dir = Path(tempfile.mkdtemp())
+    state_dir = run_dir / ".pipeline" / "runs" / "run-modeparity"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "state.json").write_text(
+        json.dumps(
+            {"run_id": "run-modeparity", "execution_mode": execution_mode},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    env = dict(os.environ)
+    env["EXECUTION_MODE"] = execution_mode
+    cmd = [
+        sys.executable,
+        str(SCORE_FIT),
+        "--file",
+        str(draft),
+        "--offer",
+        str(offer),
+        "--coverage-map",
+        str(cmap),
+    ]
+    try:
+        return subprocess.run(
+            cmd, capture_output=True, text=True, cwd=str(REPO_ROOT), env=env
+        )
+    finally:
+        for leaf in (
+            state_dir / "state.json",
+            state_dir,
+            run_dir / ".pipeline" / "runs",
+            run_dir / ".pipeline",
+            run_dir,
+        ):
+            try:
+                leaf.unlink() if leaf.is_file() else leaf.rmdir()
+            except OSError:
+                pass
 
 
 def test_coverage_counted_from_map() -> None:
@@ -249,6 +301,37 @@ def test_no_escape_flag() -> None:
         assert expected in source, (
             f"score_fit.py must still expose its documented input {expected!r}"
         )
+
+
+def test_gate_exposes_no_mode_or_bypass_flag() -> None:
+    # Pitfall 1 (mode must never gate the gate): the scorer CLI must expose NONE of the tokens
+    # below in its argparse — execution_mode lives only in state, never as an input to a gate.
+    # Strengthens the no-escape idiom with the --mode token.
+    source = SCORE_FIT.read_text(encoding="utf-8")
+    for flag in ("--mode", "--force", "--bypass", "--override"):
+        assert flag not in source, (
+            f"Pitfall 1: forbidden token {flag!r} must not appear in the gate source — "
+            "mode/bypass can never reach Gate-B"
+        )
+
+
+def test_mode_parity_below_threshold_draft_blocks_identically() -> None:
+    # A below-threshold draft+coverage-map (1/5 < 0.7) must be blocked IDENTICALLY whether the
+    # ambient run records execution_mode="human_in_the_loop" or "autonomous". The scorer takes
+    # no mode input, so the exit code and emitted gate block must be byte-identical.
+    human = _run_fit_in_mode(FAIL_DRAFT, OFFER, FAIL_MAP, "human_in_the_loop")
+    auto = _run_fit_in_mode(FAIL_DRAFT, OFFER, FAIL_MAP, "autonomous")
+    assert human.returncode == 1 and auto.returncode == 1, (
+        "below-threshold draft must be blocked (exit 1) in both modes, got "
+        f"human={human.returncode} auto={auto.returncode}"
+    )
+    assert human.returncode == auto.returncode, (
+        "mode must never change the gate exit code (Pitfall 1)"
+    )
+    assert human.stdout == auto.stdout, (
+        "the emitted Gate-B block must be byte-identical across execution modes — mode is "
+        "never an argument to the scorer, so the two runs are provably indistinguishable"
+    )
 
 
 def test_emitted_gate_b_validates() -> None:

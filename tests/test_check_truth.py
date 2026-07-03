@@ -21,6 +21,7 @@ Only stdlib + PyYAML + jsonschema are used.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -53,6 +54,50 @@ def _run_truth(draft_path: Path) -> subprocess.CompletedProcess:
         text=True,
         cwd=str(REPO_ROOT),
     )
+
+
+def _run_truth_in_mode(draft_path: Path, execution_mode: str) -> subprocess.CompletedProcess:
+    """Run Gate-A with an ambient run-scoped state recording ``execution_mode``.
+
+    The gate takes NO mode input (Pitfall 1: mode must never gate the gate). We nonetheless
+    make the recorded ``execution_mode`` *available* to the invocation — via a run-scoped
+    ``.pipeline/runs/<run_id>/state.json`` payload on disk AND an ``EXECUTION_MODE`` env var —
+    so the ONLY difference between a human-in-the-loop run and an autonomous run is that mode
+    signal. If the gate's exit code and emitted verdict are byte-identical across the two, the
+    gate is provably indistinguishable between modes: it never reads either signal.
+    """
+    run_dir = Path(tempfile.mkdtemp())
+    state_dir = run_dir / ".pipeline" / "runs" / "run-modeparity"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "state.json").write_text(
+        json.dumps(
+            {"run_id": "run-modeparity", "execution_mode": execution_mode},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    env = dict(os.environ)
+    env["EXECUTION_MODE"] = execution_mode
+    try:
+        return subprocess.run(
+            [sys.executable, str(CHECK), "--file", str(draft_path), "--candidate", str(CANDIDATE)],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            env=env,
+        )
+    finally:
+        for leaf in (
+            state_dir / "state.json",
+            state_dir,
+            run_dir / ".pipeline" / "runs",
+            run_dir / ".pipeline",
+            run_dir,
+        ):
+            try:
+                leaf.unlink() if leaf.is_file() else leaf.rmdir()
+            except OSError:
+                pass
 
 
 def test_good_vocab_swap_span_resolves_exit_0() -> None:
@@ -154,6 +199,37 @@ def test_no_bypass_flag() -> None:
         )
     assert "--file" in source and "--candidate" in source, (
         "check_truth.py must still expose its --file/--candidate inputs"
+    )
+
+
+def test_gate_exposes_no_mode_or_bypass_flag() -> None:
+    # Pitfall 1 (mode must never gate the gate): the gate CLI must expose NONE of the
+    # tokens below in its argparse — execution_mode lives only in state, never as an input
+    # to a gate. Strengthens the no-bypass idiom with the --mode token.
+    source = CHECK.read_text(encoding="utf-8")
+    for flag in ("--mode", "--force", "--bypass", "--override"):
+        assert flag not in source, (
+            f"Pitfall 1: forbidden token {flag!r} must not appear in the gate source — "
+            "mode/bypass can never reach Gate-A"
+        )
+
+
+def test_mode_parity_fabricated_draft_blocks_identically() -> None:
+    # A known-fabricated draft (out-of-range source_span) must be blocked IDENTICALLY whether
+    # the ambient run records execution_mode="human_in_the_loop" or "autonomous". The gate
+    # takes no mode input, so the exit code and emitted verdict must be byte-identical.
+    human = _run_truth_in_mode(UNRESOLVED_SPAN, "human_in_the_loop")
+    auto = _run_truth_in_mode(UNRESOLVED_SPAN, "autonomous")
+    assert human.returncode == 1 and auto.returncode == 1, (
+        "fabricated draft must be blocked (exit 1) in both modes, got "
+        f"human={human.returncode} auto={auto.returncode}"
+    )
+    assert human.returncode == auto.returncode, (
+        "mode must never change the gate exit code (Pitfall 1)"
+    )
+    assert human.stdout == auto.stdout, (
+        "the emitted Gate-A verdict must be byte-identical across execution modes — mode is "
+        "never an argument to the gate, so the two runs are provably indistinguishable"
     )
 
 
