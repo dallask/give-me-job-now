@@ -2,8 +2,53 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:give-me-job:schema:gate_result",
   "title": "gate_result envelope",
-  "description": "Envelope for a quality-gate verdict emitted by truth-verifier / fit-evaluator. Pins kind via const and reuses the shared agent_result_v1 base. Gate scoring fields are deferred to Phases 5-6.",
+  "description": "Envelope for a quality-gate verdict emitted by truth-verifier / fit-evaluator. Pins kind via const and reuses the shared agent_result_v1 base. Gate A content names the offending claims that fail truth verification (TRUTH-03); Gate B/C extend the same shell in Phase 6.",
   "type": "object",
+  "$defs": {
+    "offending_claim": {
+      "type": "object",
+      "description": "A single claim that failed truth verification. claim_index points at the offending item in the draft claims array; rule_violated names the truth rule broken; offending_span is the dotted/indexed source path. Self-contained: additionalProperties:false is scoped to this object ONLY.",
+      "properties": {
+        "claim_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rule_violated": {
+          "type": "string",
+          "enum": [
+            "unresolved_span",
+            "scope_inflation",
+            "numeric_invention",
+            "cross_entry_merge"
+          ]
+        },
+        "offending_span": {
+          "type": "string"
+        }
+      },
+      "required": ["claim_index", "rule_violated", "offending_span"],
+      "additionalProperties": false
+    },
+    "gate_a_content": {
+      "type": "object",
+      "description": "Gate A (truth) verdict body. gate discriminates the gate variant; verdict is the pass/fail decision; offending_claims lists the failing claims (empty on pass). Self-contained: additionalProperties:false is scoped to this object ONLY, never the allOf envelope. offending_claims items use the ABSOLUTE URN ref so a bare content sub-doc validates as a standalone root.",
+      "properties": {
+        "gate": {
+          "const": "A"
+        },
+        "verdict": {
+          "type": "string",
+          "enum": ["pass", "fail"]
+        },
+        "offending_claims": {
+          "type": "array",
+          "items": { "$ref": "urn:give-me-job:schema:gate_result#/$defs/offending_claim" }
+        }
+      },
+      "required": ["gate", "verdict", "offending_claims"],
+      "additionalProperties": false
+    }
+  },
   "allOf": [
     { "$ref": "urn:give-me-job:schema:agent_result_v1#/$defs/envelope" }
   ],
@@ -12,7 +57,10 @@
       "const": "gate_result"
     },
     "schema_version": {
-      "type": "string"
+      "const": "1.0"
+    },
+    "content": {
+      "$ref": "#/$defs/gate_a_content"
     }
   },
   "required": ["kind", "schema_version"]
