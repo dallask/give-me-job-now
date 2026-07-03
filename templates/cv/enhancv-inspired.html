@@ -377,23 +377,26 @@
         {% if c.email %}
         <span class="contact-item" title="Email">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-          {{ c.email }}
+          {% if c.email is string %}{{ c.email }}{% else %}{{ c.email | join(', ') }}{% endif %}
         </span>
         {% endif %}
-        {% if c.secondary_email %}
-        <span class="contact-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>{{ c.secondary_email }}</span>
-        {% endif %}
-        {% if c.linkedin or c.portfolio or c.website or c.github %}
+        {% set web = c.website or {} %}
+        {% set url_links = (web.personal or []) + (web.company or []) + (web.portfolio or []) %}
+        {% set media = web.media or {} %}
+        {% if url_links or media %}
         <span class="contact-item" title="Links">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          {% if c.linkedin %}<a href="{{ c.linkedin }}">LinkedIn</a>{% endif %}
-          {% if c.portfolio %}{% if c.linkedin %} · {% endif %}<a href="{{ c.portfolio }}">Portfolio</a>{% endif %}
-          {% if c.website %}{% if c.linkedin or c.portfolio %} · {% endif %}<a href="{{ c.website }}">Web</a>{% endif %}
-          {% if c.github %}{% if c.linkedin or c.portfolio or c.website %} · {% endif %}<a href="{{ c.github }}">GitHub</a>{% endif %}
+          {% set ns = namespace(first=true) %}
+          {% for url in url_links %}{% if not ns.first %} · {% endif %}<a href="{{ url }}">Web</a>{% set ns.first = false %}{% endfor %}
+          {% for label, url in media.items() %}{% if not ns.first %} · {% endif %}<a href="{{ url }}">{{ label | capitalize }}</a>{% set ns.first = false %}{% endfor %}
         </span>
         {% endif %}
-        {% if c.company_site %}
-        <span class="contact-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><a href="{{ c.company_site }}">Company</a></span>
+        {% if c.messengers %}
+        <span class="contact-item" title="Messengers">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          {% set nm = namespace(first=true) %}
+          {% for label, handle in c.messengers.items() %}{% if not nm.first %} · {% endif %}{{ label | capitalize }}: {{ handle }}{% set nm.first = false %}{% endfor %}
+        </span>
         {% endif %}
         {% if c.address %}
         <span class="contact-item" title="Location">
@@ -494,10 +497,10 @@
       </ul>
       {% endif %}
 
-      {% if candidate.technical_expertise or candidate.skills %}
-      <h2 class="section-title-side">{{ labels.skills | default('Skills') }}</h2>
-      {% if candidate.technical_expertise %}
-        {% for block in candidate.technical_expertise %}
+      {% if candidate.expertise or candidate.skills %}
+      <h2 class="section-title-side">{{ labels.expertise | default(labels.skills | default('Skills')) }}</h2>
+      {% if candidate.expertise %}
+        {% for block in candidate.expertise %}
         <div class="skill-group">
           <p class="skill-group-label">{{ block.resume_title }}</p>
           {% for s in block.skills %}
@@ -507,7 +510,7 @@
         {% endfor %}
       {% endif %}
       {% if candidate.skills %}
-        {% if candidate.technical_expertise %}<p class="skill-group-label" style="margin-top:10pt;">Highlights</p>{% endif %}
+        {% if candidate.expertise %}<p class="skill-group-label" style="margin-top:10pt;">Highlights</p>{% endif %}
         {% for s in candidate.skills %}
         <p class="skill-line">{{ s }}</p>
         {% endfor %}

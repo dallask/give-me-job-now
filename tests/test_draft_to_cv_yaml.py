@@ -188,6 +188,48 @@ def test_no_invention() -> None:
         assert leaf in claim_texts, f"invented leaf not traceable to a claim.text: {leaf!r}"
 
 
+def test_bridge_round_trip_to_pdf() -> None:
+    """SCHEMA-03 seam: approved draft -> bridge -> render_cv.py -> PDF contains the claim.
+
+    Proves composer->bridge->renderer key agreement end-to-end (repo memory
+    ``pipeline-draft-bridge-defect``): the migrated compaction fixture carries new-key
+    spans PLUS structural/header claims, so the bridge exits 0 (no ``list index N out of
+    range``) and assembles a complete, header-bearing CV-YAML; the renderer then produces
+    a PDF whose text carries the candidate name and at least one expertise skill string.
+    The asserted substrings are read from the draft's own claims so the test can never
+    pass on invented content.
+    """
+    from pypdf import PdfReader
+
+    render = REPO_ROOT / "scripts" / "cv" / "render_cv.py"
+    fixture = FIXTURES / "cv.draft.compaction.sample.json"
+    draft = json.loads(fixture.read_text(encoding="utf-8"))
+    claims = draft["content"]["claims"]
+    name_claim = next(c["text"] for c in claims if c["source_span"] == "name")
+    skill_claim = next(
+        c["text"] for c in claims if c["source_span"].startswith("expertise[")
+        and ".skills[" in c["source_span"]
+    )
+
+    cv_yaml = _tmp_path("cv.yaml")
+    bridged = _run("--file", str(fixture), "--out", str(cv_yaml))
+    assert bridged.returncode == 0, f"bridge must exit 0 on migrated fixture: {bridged.stderr}"
+
+    pdf = _tmp_path("cv.pdf")
+    rendered = subprocess.run(
+        [sys.executable, str(render), "--config", str(cv_yaml), "--out", str(pdf)],
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+    )
+    assert rendered.returncode == 0, f"render_cv.py must exit 0: {rendered.stderr}"
+    assert pdf.is_file(), "render_cv.py must produce a PDF"
+
+    text = "".join(page.extract_text() or "" for page in PdfReader(str(pdf)).pages)
+    assert name_claim in text, f"PDF text must contain the candidate name {name_claim!r}"
+    assert skill_claim in text, f"PDF text must contain the expertise skill {skill_claim!r}"
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
