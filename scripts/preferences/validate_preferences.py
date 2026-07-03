@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -39,15 +40,15 @@ DEFAULT_SCHEMA_DIR = REPO_ROOT / "schemas"
 def _norm_site(url: str) -> str:
     """Normalize a board URL to its bare host.
 
-    Replicates the sources-scope-guard.sh ``url_host()`` rule EXACTLY: strip scheme,
-    strip the path, strip a leading ``www.``, strip a trailing ``:port``, lowercase.
-    Both sides of the subset compare MUST use this or the check silently mismatches.
+    Replicates the sources-scope-guard.sh ``url_host()`` rule EXACTLY: strip ANY
+    ``scheme://`` prefix (matching the hook's ``s#^[a-zA-Z][a-zA-Z0-9+.-]*://##``, not
+    just http/https), strip the path, strip a leading ``www.``, strip a trailing
+    ``:port``, lowercase. Both sides of the subset compare MUST use this or the check
+    silently mismatches.
     """
-    s = str(url).strip().lower()
-    for scheme in ("https://", "http://"):
-        if s.startswith(scheme):
-            s = s[len(scheme):]
-            break
+    # Lowercase first, then strip any scheme://; equivalent to the hook's case-insensitive
+    # ``[a-zA-Z][a-zA-Z0-9+.-]*://`` on the already-lowercased string.
+    s = re.sub(r"^[a-z][a-z0-9+.-]*://", "", str(url).strip().lower())
     s = s.split("/")[0]          # strip path
     if s.startswith("www."):
         s = s[4:]                # strip leading www.
