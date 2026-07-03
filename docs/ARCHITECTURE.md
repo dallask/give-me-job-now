@@ -181,6 +181,83 @@ At every hop the exchanged unit is a **named file artifact path**, never a trans
 
 ---
 
+## 5.1 Runtime Control Loop (Phase 7)
+
+The §5 data flow describes *what* moves between spokes. This section describes *how* the
+hub drives it at runtime: a **two-layer control plane**. A *deterministic layer* of small
+single-purpose Python scripts (exit 0/1, no LLM, no network) makes every safety decision;
+the *LLM layer* — the `vacancy-orchestrator` hub, the only `Task` holder — dispatches spokes
+and calls those scripts via `Bash` for every control decision. Safety lives entirely in the
+deterministic layer: the model never decides whether a gate passed, whether the retry cap is
+hit, or whether an artifact is deliverable.
+
+```
+ CLI: claude --dangerously-skip-permissions  →  /pipeline-run  (params: mode?, offer, run_id?)
+                                     │
+                                     ▼
+   1. init_run   state_write.py   freeze execution_mode + retry_cap + run_id  ─┐
+                                  into .pipeline/runs/<run_id>/state.json       │
+   2. loop:                                                                     ▼
+      a. route.py  --state runs/<run_id>/state.json  →  next_step   (pure (state,dag)→step)
+      b. check_offer.py  --file offer-spec.json      (before each dispatch; STALE ⇒ abort)
+      c. Task(spoke for next_step)                   (parallel fan-out for 3 artifacts / N offers)
+      d. spoke emits a file artifact (draft / gate_result)
+      e. GATE node?
+           check_truth.py (Gate A) | score_fit.py (Gate B)   exit 0/1 — NO bypass flag
+           record_gate.py  → writes gate_result artifact under runs/<run_id>/
+                             AND sets state.gate_results[node]
+           FAIL ⇒ record_retry.py --increment
+                  check_cap.py
+                    ├ below cap ⇒ map_feedback.py → {missing_must_haves,
+                    │              fabricated_claims, gate} → Task(artifact-composer) ↺
+                    └ at cap    ⇒ HARD STOP report (names failing artifact + reason)
+           PASS ⇒ (HITL: pause for human) → route advances
+   3. deliver:   check_delivery.py   (Gate A ∧ Gate B recorded pass?)  else blocked
+                                     │
+                                     ▼
+                     output/cv/*.pdf  (cv-generator)
+```
+
+**Mode gates only the pause, never the gate.** `execution_mode` (frozen at `init_run`) is
+consulted at exactly ONE point: the **post-PASS human-pause decision**. In
+`human_in_the_loop` the hub pauses for approval after a gate PASS; in `autonomous` it
+proceeds automatically. The mode value is **never** passed to `check_truth.py` /
+`score_fit.py` and never alters the fail path — both gates block identically in both modes.
+Autonomous mode removes the *human* pause, never the *machine* gate; truthfulness is never
+bypassed.
+
+**Cap exhaustion is a hard stop, never ship-last-attempt.** At `retry_count == retry_cap`,
+`check_cap.py` reports exhaustion and the hub emits a hard-stop report naming the failing
+artifact + the last gate's reason. Independently, `check_delivery.py` refuses to deliver any
+artifact lacking a recorded Gate A ∧ Gate B pass — so even a loop bug cannot ship a failed
+draft.
+
+**Run-scoped state relocation.** State moves from a single `.pipeline/state.json` to a
+per-run **`.pipeline/runs/<run_id>/state.json`**, which holds the resumable run state
+(`current_step`, `completed_steps`, `gate_results`, `offer_spec_path`, `offer_spec_hash`,
+`retry_counts`, plus the Phase-7 frozen keys `execution_mode`, `retry_cap`, `run_id`)
+alongside the logged `gate_result` audit artifacts (`gate_<node>_<type>_<attempt>.json`).
+`route.py` reads that file, so resume is a pure `(state, dag) → next_step` replay: passing an
+existing `run_id` resumes; a single step runs exactly the one node `route.py` returns.
+`run_id` is sanitized to a safe charset before it becomes a directory name (no path
+traversal), and `.pipeline/` is git-ignored (per-run state + gate logs stay local).
+
+### Parallel fan-out, sequential gates
+
+Independent work is dispatched as **parallel `Task` calls in a single hub turn** — ranking
+**N offers**, and composing the **3 artifact types** (CV / cover letter / interview-prep),
+each with its own output path and its own isolated `retry_counts[offer][type]` slot.
+Gated/dependent steps (compose → Gate A → Gate B → deliver) run **sequentially per
+artifact**. This is orchestrated task fan-out on Claude Code's single-threaded event loop —
+not OS threads.
+
+The CLI entry points for this loop are `.claude/commands/pipeline-run.md` (whole flow) and
+`.claude/commands/pipeline/{scout,freeze,compose,verify,evaluate,generate}.md` (per step);
+each per-step command is a thin wrapper naming the exact script/Task above, with no control
+logic duplicated.
+
+---
+
 ## 6. Anti-Drift Principles
 
 ### Committed floor (from PROJECT.md)
@@ -237,7 +314,7 @@ history-preserving. See `example/` for the moved prior-art files.
 | Deterministic routing engine (state-machine over `state.json`) replacing LLM routing | Phase 2 (ARCH-06) |
 | Per-spoke behavior implementations (offer intake, compose, truth, fit) | Phases 3, 3.1, 4, 5, 6 |
 | Exact fit thresholds/weights | Phase 6 (Fit) |
-| Dual-mode execution (interactive default + autonomous flag) + retry-cap loop enforcement | Phase 7 |
+| Dual-mode execution (interactive default + autonomous flag) + retry-cap loop enforcement | Phase 7 — **landed**; runtime loop documented in §5.1 |
 
 Envelope kinds above are forward-referenced in prose only; no schema is defined in this
 document.
