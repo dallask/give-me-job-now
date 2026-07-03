@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:give-me-job:schema:gate_feedback",
+  "title": "gate_feedback projection",
+  "description": "Structured-only composer-retry feedback projected from a gate_result by scripts/pipeline/map_feedback.py (GUARD-04). Field names are locked to the frozen tests/fixtures/gate_feedback.sample.json shape and are NEVER renamed: fabricated_claims items carry the PLURAL claims_index (matching the fixture), source_span, and a deterministic reason sentence; missing_must_haves is a plain string array. additionalProperties:false forbids any evaluator prose / transcript / gate stdout leaking into a retry.",
+  "type": "object",
+  "properties": {
+    "gate": {
+      "type": "string",
+      "enum": ["A", "B"]
+    },
+    "missing_must_haves": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "fabricated_claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "claims_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "source_span": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": ["claims_index", "source_span", "reason"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["gate", "missing_must_haves", "fabricated_claims"],
+  "additionalProperties": false
+}
