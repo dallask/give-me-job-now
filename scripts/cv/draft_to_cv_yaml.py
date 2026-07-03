@@ -224,8 +224,15 @@ def main() -> int:
                 raise TypeError("each claim must be a JSON object")
             if "source_span" not in claim or "text" not in claim:
                 raise KeyError("claim missing 'source_span' or 'text'")
+            # Type-guard the span before walking it: a null/numeric source_span would
+            # otherwise reach dotted.split(".") on a non-string and raise a bare
+            # AttributeError, breaking the degrade-without-traceback contract.
+            if not isinstance(claim["source_span"], str) or not isinstance(
+                claim["text"], (str, int, float)
+            ):
+                raise TypeError("claim 'source_span' must be a string and 'text' a scalar")
             set_path(cv_tree, claim["source_span"], claim["text"], compaction)
-    except (KeyError, IndexError, TypeError) as exc:
+    except (KeyError, IndexError, TypeError, AttributeError, ValueError) as exc:
         print(f"Rejected span: {exc}", file=sys.stderr)
         return 1
 
