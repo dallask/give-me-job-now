@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:give-me-job:schema:preferences",
+  "title": "preferences config",
+  "description": "Shape of config/preferences.yaml: structured narrowing/ranking signals for offer search. Every field only NARROWS or RANKS within config/sources.yaml — it can never widen the boards/geos/languages allow-list. The subset-of-sources.yaml invariant is NOT expressed here (JSON Schema cannot reference another file); it is enforced by scripts/preferences/validate_preferences.py. additionalProperties:false is scoped to leaf objects ONLY (salary/work_conditions/scope), never the root.",
+  "type": "object",
+  "$defs": {
+    "salary": {
+      "type": "object",
+      "description": "Minimum compensation signal. Self-contained: additionalProperties:false is scoped to this object ONLY.",
+      "properties": {
+        "min": { "type": "number" },
+        "currency": { "type": "string" },
+        "period": {
+          "type": "string",
+          "enum": ["hour", "day", "month", "year"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "work_conditions": {
+      "type": "object",
+      "description": "Work-arrangement signals. Self-contained: additionalProperties:false is scoped to this object ONLY.",
+      "properties": {
+        "mode": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["remote", "hybrid", "onsite"]
+          }
+        },
+        "relocation": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "description": "Scope-axis narrowing block. Each array MUST be a subset of the matching config/sources.yaml array — enforced at runtime by validate_preferences.py (the subset rule is not expressible in JSON Schema). Self-contained: additionalProperties:false is scoped to this object ONLY.",
+      "properties": {
+        "sites": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "cities": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "languages": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "salary": { "$ref": "#/$defs/salary" },
+    "work_conditions": { "$ref": "#/$defs/work_conditions" },
+    "preferences": {
+      "type": "array",
+      "description": "Ranked free-form soft preferences (first = highest priority).",
+      "items": { "type": "string" }
+    },
+    "search_keywords": {
+      "type": "array",
+      "description": "Keywords for offer search.",
+      "items": { "type": "string" }
+    },
+    "ranking": {
+      "type": "object",
+      "description": "Optional free-form numeric weights for ranking signals.",
+      "additionalProperties": { "type": "number" }
+    },
+    "scope": { "$ref": "#/$defs/scope" }
+  }
+}
