@@ -11,15 +11,32 @@ description: Schema and editing rules for config/candidate.yaml and config/cv/cv
 - `photo` (optional string): path to headshot **relative to repo root**, e.g. `sources/candidate/photo.jpg`. Same key may live under `contact.photo`.
 - `title` (string)
 - `summary` (string)
-- `contact` (object): `phone`, `email`, `secondary_email`, `address`, `website`, `github`, `linkedin`, `portfolio`, `company_site`, optional `photo` (same semantics as top-level `photo`)
-- `technical_expertise` (array): items with `resume_title`, `skills` (array of strings)
-- `skills` (array of strings): flat highlights
+- `contact` (object, **nested** — see below): `phone`, `email` (array of strings), `address`, `website` (object), `messengers` (object), optional `photo` (same semantics as top-level `photo`)
+- `expertise` (array): items with `resume_title`, `skills` (array of strings). This is the skills source of the profile (there is no separate flat `skills` top-level key).
 - `languages` (array): items with `language`, `proficiency`
-- `professional_experience` (array): items with `company`, `position`, `location`, `duration`, optional `company_description`, `linkedin`, `achievements` (array of strings)
-- `key_achievements` (optional array): items with `title`, `description` for a “Key achievements” section (Enhancv-style templates)
-- `certifications` (optional array): items with `issuer`, optional `year`, `credentials` (array of strings)
+- `professional_experience` (array): items with `company`, `position`, optional `role_progression`, `location`, `duration`, optional `company_description`, optional `linkedin`, `achievements` (array of strings)
+- `key_achievements` (optional array): items with `title`, `description`, optional `icon` (emoji/glyph) for a “Key achievements” section (Enhancv-style templates)
+- `certifications` (optional array): **issuer-grouped** items with `issuer`, optional `year`, `credentials` (array of strings)
 - `independent_projects` (array): entries may be objects (`name`, `role`, `duration`, `description`) or strings
 - `education` (array): items with `institution`, `program`, `location`, `duration`
+
+### Nested `contact` object
+
+The `contact` object is nested — there are no flat top-level `github` / `linkedin` / second-email scalars; social URLs live under `website.media`, and all email addresses live in the `email` array:
+
+- `phone` (string)
+- `email` (**array** of strings) — one or more addresses; additional emails are extra list items, not a separate key.
+- `address` (string)
+- `website` (object):
+  - `personal` (array of URLs)
+  - `company` (array of URLs)
+  - `portfolio` (array of URLs)
+  - `media` (object): `linkedin`, `github`, `facebook`, `instagram` (URL strings)
+- `messengers` (object): `whatsapp`, `viber`, `telegram`
+
+Example source spans into this shape (dotted/indexed path grammar, see `scripts/artifacts/yaml_path.py`):
+`contact.email[0]`, `contact.website.personal[0]`, `contact.website.media.linkedin`, `contact.messengers.telegram`,
+`expertise[0].skills[0]`, `professional_experience[0].achievements[2]`, `certifications[0].credentials[1]`.
 
 ## Multi-language overlay files
 
@@ -27,9 +44,11 @@ The base file `config/candidate.yaml` is English. Language-specific prose is sto
 - `config/candidate.ua.yaml` — Ukrainian
 - `config/candidate.ru.yaml` — Russian
 
-At render time, `render_cv.py --lang ua` deep-merges the overlay over the base. Non-translated fields (skills, contact, URLs, dates) are inherited from the base and must **not** be duplicated in overlays.
+At render time, `render_cv.py --lang ua` deep-merges the overlay over the base. Non-translated fields (contact, URLs, dates) are inherited from the base and must **not** be duplicated in overlays.
 
-**Translatable fields** (may appear in overlays): `name`, `title`, `summary`, `professional_experience[*].company_description`, `professional_experience[*].achievements`, `education[*].program`, `key_achievements[*].title`, `key_achievements[*].description`, `independent_projects[*].description`.
+**Deep-merge reality:** the merge replaces list sections **wholesale** (a list in the overlay fully replaces the base list at that key — it is not a positional/element-wise merge). So any list section an overlay provides must be a **complete** translation that mirrors the new base structure exactly (same items, same order, same nested keys). Translating `expertise` requires the overlay to carry the full `expertise` list under the key `expertise` (matching base + renderer) — not a separate `skills` key.
+
+**Translatable fields** (may appear in overlays): `name`, `title`, `summary`, `expertise[*].resume_title`, `expertise[*].skills`, `professional_experience[*].company_description`, `professional_experience[*].achievements`, `education[*].program`, `key_achievements[*].title`, `key_achievements[*].description`, `independent_projects[*].description`.
 
 **Section labels** (not in YAML) are stored in `config/i18n/labels.yaml` keyed by `en`, `ua`, `ru`. To add a new label, add it to all three language blocks.
 
@@ -48,7 +67,7 @@ These are **derived, standalone** files produced by `cv-composer`. They:
 - `lang`: `en`, `ua`, or `ru`
 
 **Scoreable sections** (filtered by cv-composer, threshold ≥ 70):
-`professional_experience`, `technical_expertise`, `skills`, `certifications`, `key_achievements`, `independent_projects`
+`professional_experience`, `expertise`, `certifications`, `key_achievements`, `independent_projects`
 
 **Always kept in full:** `contact`, `languages`, `education`, `name`, `photo`
 
@@ -58,5 +77,5 @@ These are **derived, standalone** files produced by `cv-composer`. They:
 2. Merge new bullets into `achievements` rather than replacing entire jobs unless instructed.
 3. Do not fabricate employers, dates, or credentials—mark unknowns in chat, not in YAML.
 4. After edits, mentally validate required colons and list indentation (two spaces).
-5. When editing overlay files, preserve the same list length and order as `config/candidate.yaml`.
+5. When editing overlay files, each overlay list section is a **complete replacement** that must mirror the new base structure (same items, order, and nested keys as `config/candidate.yaml`) — the deep-merge swaps the whole list, it does not merge element-by-element.
 6. Never add schema keys to `config/cv/*.yaml` that are not present in `config/candidate.yaml`.
