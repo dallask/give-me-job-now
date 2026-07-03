@@ -1,0 +1,20 @@
+Python Backend Engineer — Acme Robotics (Kyiv)
+
+We are hiring a senior Python backend engineer to join our Kyiv platform team. You
+will design and operate the REST and async services that power our fleet-management
+product, own data models in PostgreSQL, and collaborate closely with the FPV
+telemetry group. This is a full-time, hybrid role based in Kyiv; Ukrainian is the
+working language and most day-to-day communication happens in Ukrainian.
+
+Required:
+- 5+ years of professional Python
+- Strong Django and Django REST Framework experience
+- Solid PostgreSQL and SQL data-modelling skills
+- Experience designing and shipping production REST APIs
+
+Nice to have:
+- Kubernetes and container orchestration
+- Async Python (asyncio / FastAPI)
+- Prior work with telemetry or IoT data pipelines
+
+Compensation: 4000–6000 USD/month depending on experience. Apply via our DOU listing.

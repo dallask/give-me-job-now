@@ -1,0 +1,27 @@
+{
+  "title": "Python Backend Engineer",
+  "company": "Acme Robotics",
+  "location": "Kyiv",
+  "seniority": "senior",
+  "employment_type": "full_time",
+  "language": "ua",
+  "must_haves": [
+    "5+ years of professional Python",
+    "Django and Django REST Framework",
+    "PostgreSQL and SQL data modelling",
+    "Designing production REST APIs"
+  ],
+  "nice_to_haves": [
+    "Kubernetes",
+    "Async Python (asyncio / FastAPI)",
+    "Telemetry or IoT data pipelines"
+  ],
+  "responsibilities": [
+    "Design and operate REST and async backend services",
+    "Own PostgreSQL data models",
+    "Collaborate with the FPV telemetry group"
+  ],
+  "salary_range": { "min": 4000, "max": 6000, "currency": "USD" },
+  "source_url": "https://jobs.dou.ua/companies/acme-robotics/vacancies/python-backend/",
+  "raw_text_excerpt": "Required: 5+ years Python, Django, PostgreSQL. Nice to have: Kubernetes, async Python."
+}
