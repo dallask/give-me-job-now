@@ -99,8 +99,21 @@ def test_span_round_trip() -> None:
 
 
 def test_schema_fields_single_owner() -> None:
+    import ast
+
     src = SCRIPT.read_text(encoding="utf-8")
     assert "from schema_fields import" in src, "render_cv.py must import the schema_fields registry (SCHEMA-06)"
+    # A green gate must prove USE, not just the presence of an import string: an
+    # imported-but-unused constant is exactly the hollow Direction-B failure this
+    # harness exists to catch. Parse the renderer AST and require the registry
+    # constants to be referenced as Names somewhere in the module body.
+    tree = ast.parse(src)
+    used = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
+    for const in ("CONTACT", "WEBSITE_GROUPS"):
+        assert const in used, (
+            f"render_cv.py imports {const} but never USES it — the single-owner "
+            f"registry is hollow (SCHEMA-06)"
+        )
 
 
 def main() -> int:
