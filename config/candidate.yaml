@@ -1,332 +1,492 @@
-name: 'Your Name'
+name: "Your Name"
 # Optional headshot for PDF (path relative to repo root). Example: sources/candidate/photo.jpg
-photo: sources/analysis/dark.jpg
-title: 'Lead PHP Engineer | Laravel / Drupal / React / Full-Stack'
-summary: 'Lead PHP engineer with 19+ years building production web systems at scale—delivering solutions for enterprise clients across e-commerce, media, healthcare, and corporate verticals—spanning Laravel-based REST API services and microservice architectures, Drupal enterprise CMS platforms (EPAM Systems), Bitrix, WordPress, and custom PHP applications. Currently leading development of a Drupal 8–11 multi-site platform for a multinational healthcare client (Otsuka) at EPAM, managing a 20-person dev team within a 47-member delivery team, and owning a React/Next.js Design System built with Figma, Storybook, and Style Dictionary. Experienced with Laravel application structure, Eloquent ORM, and API-first design patterns alongside deep Drupal module and theme engineering. Technical Director background covering security hardening, SEO-aware engineering, e-commerce integrations, and agile team coordination.'
+photo: sources/user_photo.jpg
+title: "Lead Software Engineer & AI-Augmented Tech Lead | Azure AI (AI-102) · Anthropic Claude · Generative & Agentic AI · Full-Stack (Drupal / Laravel / React)"
+summary: "Lead software engineer with 19+ years building and shipping production web systems at enterprise scale, now focused on bringing AI into the core of how software is designed, built, and delivered. Currently Lead Software Engineer at EPAM Systems, leading a 20-person team within a 47-member delivery org on a Drupal 8–11 multi-site platform for a multinational healthcare client (Otsuka), and owning a React/Next.js Design System built with Figma, Storybook, and Style Dictionary. Microsoft Certified Azure AI Engineer Associate (AI-102) and Anthropic Claude Certified Architect, with hands-on experience in generative AI application development, agentic systems (Model Context Protocol, subagents, agent skills), prompt engineering, and Azure AI services (Search, Language, Vision, Speech). Drives AI-assisted engineering adoption across the delivery team—Claude Code, GitHub Copilot, and Cursor—pairing deep full-stack expertise (Drupal, Laravel, PHP, React/Next.js) and a Technical Director background in security hardening, SEO-aware engineering, and e-commerce integrations with modern AI tooling to raise delivery speed and code quality."
 contact:
-  phone: '+00000000000'
-  email: 'you@example.com'
-  secondary_email: 'you@example.com'
-  address: 'City, Country'
-  website: 'https://example.com'
-  secondary_website: 'https://next.example.com'
-  portfolio: 'https://empty.pro/portfolio/'
-  company_site: 'https://empty.pro'
-  github: 'https://github.com/dallask'
-  linkedin: 'https://www.linkedin.com/in/ievgen-kyvgyla-4882345b/?locale=en-US'
-technical_expertise:
-  - resume_title: 'Backend & CMS Development'
+  phone: "+00000000000"
+  email:
+    - "you@example.com"
+    - "you@example.com"
+  address: "City, Country"
+  website:
+    personal:
+      - "https://example.com"
+      - "https://next.example.com"
+    company:
+      - "https://empty.pro"
+    portfolio:
+      - "https://empty.pro/portfolio/"
+    media:
+      linkedin: "https://www.linkedin.com/in/ievgen-kyvgyla-4882345b/?locale=en-US"
+      github: "https://github.com/dallask"
+      facebook: "https://www.facebook.com/dallaskassel"
+      instagram: "https://www.instagram.com/dallas.kassel/"
+  messengers:
+    whatsapp: "+00000000000"
+    viber: "+00000000000"
+    telegram: "@yourhandle"
+expertise:
+  - resume_title: "AI Engineering & Agentic Systems"
     skills:
-      - 'PHP'
-      - 'Laravel'
-      - 'Drupal'
-      - 'Drupal 10/11'
-      - 'Headless / Decoupled Drupal'
-      - 'Drupal Migration API'
-      - 'Drush'
-      - 'Twig'
-      - 'i18n / l10n'
-      - 'REST APIs'
-      - 'SOAP/XML-RPC'
-      - 'Bitrix Framework'
-      - 'WordPress'
-      - 'Joomla'
-      - 'WooCommerce'
-      - 'OpenCart'
-      - 'Yii / Yii2'
-      - 'CodeIgniter'
-      - 'Kohana'
-      - 'NestJS'
-      - 'E-commerce integrations'
-      - 'OOP / MVC / PSR standards'
-      - 'Symfony components'
-      - 'Composer'
-      - 'xDebug'
-      - 'phpmd'
-      - 'phpcpd'
-      - 'Acquia Site Factory'
-      - 'Drupal Migration API'
-      - 'Drupal Views / Form / Field / Block APIs'
-      - 'Drupal Configuration Management'
-      - 'Drupal Multisiting'
-      - 'Headless / Decoupled Drupal'
-      - 'Drupal Drush / Makefiles'
-      - 'AJAX'
-      - 'XML / XML-RPC'
-      - 'PrestaShop'
-  - resume_title: 'Frontend Development'
+      - "Generative AI application development"
+      - "Agentic AI / autonomous agents"
+      - "Model Context Protocol (MCP)"
+      - "Subagents & multi-agent orchestration"
+      - "Agent Skills"
+      - "Prompt engineering"
+      - "Retrieval-Augmented Generation (RAG)"
+      - "LLM integration & API orchestration"
+      - "Claude / Anthropic API"
+      - "AI solution architecture (Claude Certified Architect)"
+      - "AI Fluency framework (practitioner & instructor)"
+  - resume_title: "Cloud AI (Microsoft Azure)"
     skills:
-      - 'HTML5 / Cross-browser HTML/CSS'
-      - 'CSS'
-      - 'SASS / SCSS'
-      - 'LESS'
-      - 'JavaScript / ECMAScript'
-      - 'jQuery / jQuery UI'
-      - 'ReactJS'
-      - 'Next.js'
-      - 'Node.js'
-      - 'VueJS'
-      - 'Bootstrap / React-Bootstrap'
-      - 'Webpack'
-      - 'Gulp'
-      - 'Grunt'
-      - 'Tailwind CSS'
-      - 'CSS Modules / CSS Frameworks'
-      - 'Accessibility (WCAG-aware)'
-      - 'Pixel Perfect Design'
-  - resume_title: 'Design System & Tooling'
+      - "Microsoft Azure AI (AI-102)"
+      - "Azure OpenAI Service"
+      - "Microsoft Agent Framework"
+      - "Azure AI Search"
+      - "Azure AI Language / Translator / Speech"
+      - "Azure AI Vision (Face, Computer Vision, Custom Vision)"
+      - "Azure AI Custom Question Answering"
+      - "Azure AI Video Indexer"
+  - resume_title: "AI-Assisted Development"
     skills:
-      - 'Figma'
-      - 'Storybook'
-      - 'Style Dictionary'
-      - 'Design Tokens'
-      - 'Atomic Design'
-      - 'Component Based Approach'
-  - resume_title: 'Quality, Workflow & Architecture'
+      - "Claude Code"
+      - "GitHub Copilot"
+      - "Cursor IDE"
+      - "AI pair programming"
+      - "AI-driven code review & test generation"
+      - "CodeMie AI"
+      - "EliteAI"
+  - resume_title: "Content management systems (CMS)"
     skills:
-      - 'PHPUnit'
-      - 'PHP Code Sniffer'
-      - 'SOLID & Design Patterns'
-      - 'TDD / Clean Code / DRY / KISS'
-      - 'Dependency Injection'
-      - 'Agile / Scrum / Kanban'
-      - 'CI/CD pipelines'
-      - 'Travis CI'
-      - 'GitHub Actions'
-      - 'Jenkins'
-      - 'GitHub flow / Gitflow'
-      - 'Git / BitBucket'
-      - 'Code Review'
-      - 'SEO engineering'
-      - 'Jira / Tempo / YouTrack'
-  - resume_title: 'Databases & Messaging'
+      - "Drupal 8/9/10/11"
+      - "Bitrix Framework"
+      - "WordPress"
+      - "Joomla"
+      - "WooCommerce"
+      - "OpenCart"
+      - "PrestaShop"
+      - "Headless / Decoupled Drupal"
+      - "Drupal Migration API"
+      - "Drupal Views / Form / Field / Block APIs"
+      - "Drupal Configuration Management"
+      - "Drupal Multisiting"
+      - "Drupal Drush / Makefiles"
+  - resume_title: "PHP frameworks"
     skills:
-      - 'MySQL'
-      - 'MariaDB'
-      - 'PostgreSQL'
-      - 'MongoDB'
-      - 'Redis'
-      - 'RabbitMQ'
-      - 'SQL'
-  - resume_title: 'Infrastructure & DevOps'
+      - "Laravel"
+      - "Symfony"
+      - "CodeIgniter"
+      - "Kohana"
+      - "Yii / Yii2"
+  - resume_title: "Platforms & ecosystems"
     skills:
-      - 'Linux administration'
-      - 'Docker'
-      - 'Docker Compose'
-      - 'Docksal'
-      - 'Ddev'
-      - 'Nginx'
-      - 'Apache'
-      - 'Vagrant / VirtualBox'
-      - 'LAMP stack'
-      - 'Capistrano deployments'
-      - 'Security hardening'
-  - resume_title: 'Mobile & Other Languages'
+      - "Acquia Site Factory"
+      - "Vercel"
+      - "Railway"
+      - "AWS"
+      - "Azure"
+      - "Google Cloud Platform"
+  - resume_title: "Backend"
     skills:
-      - 'Python'
-      - 'Android (Kotlin)'
-      - 'AutoCAD'
-  - resume_title: 'FPV'
+      - "PHP"
+      - "Drush"
+      - "Twig"
+      - "i18n / l10n"
+      - "REST APIs"
+      - "SOAP/XML-RPC"
+      - "E-commerce integrations"
+      - "OOP / MVC / PSR standards"
+      - "Symfony components"
+      - "Composer"
+      - "xDebug"
+      - "phpmd"
+      - "phpcpd"
+      - "AJAX"
+      - "XML / XML-RPC"
+  - resume_title: "Frontend Development"
     skills:
-      - 'FPV drone building'
-      - 'FPV engineering'
-      - 'FPV piloting'
-      - 'Class 1 FPV-type UAS — theory & combat-task application (military training course)'
-      - 'Arduino (UAV / DIY electronics)'
-      - 'Raspberry Pi (companion / edge builds)'
-  - resume_title: 'Office'
+      - "HTML5 / Cross-browser HTML/CSS"
+      - "CSS"
+      - "SASS / SCSS"
+      - "LESS"
+      - "JavaScript / ECMAScript"
+      - "jQuery / jQuery UI"
+      - "ReactJS"
+      - "Next.js"
+      - "Node.js"
+      - "VueJS"
+      - "Bootstrap / React-Bootstrap"
+      - "Webpack"
+      - "Gulp"
+      - "Grunt"
+      - "Tailwind CSS"
+      - "CSS Modules / CSS Frameworks"
+      - "Accessibility (WCAG-aware)"
+      - "Pixel Perfect Design"
+  - resume_title: "Design System & Tooling"
     skills:
-      - 'Microsoft Excel'
-      - 'Microsoft Word'
-      - 'Microsoft PowerPoint'
-      - 'Microsoft Outlook'
-      - 'Microsoft OneNote'
-      - 'Microsoft Teams'
-      - 'Microsoft Access'
-      - 'Microsoft Visio'
-      - 'Microsoft Power BI'
-      - 'Microsoft SharePoint / OneDrive (collaboration)'
-      - 'LibreOffice (Writer, Calc, Impress, Draw, Base)'
-  - resume_title: 'AI, Cloud AI & APIs'
+      - "Figma"
+      - "Storybook"
+      - "Style Dictionary"
+      - "Design Tokens"
+      - "Atomic Design"
+      - "Component Based Approach"
+  - resume_title: "Quality, Workflow & Architecture"
     skills:
-      - 'Claude / Anthropic API'
-      - 'Microsoft Agent Framework'
-      - 'Microsoft Azure AI (AI-102)'
-      - 'Azure AI Search'
-      - 'Azure AI Language / Translator / Speech'
-      - 'Azure AI Vision (Face, Computer Vision, Custom Vision)'
-      - 'Azure AI Custom Question Answering'
-      - 'Azure AI Video Indexer'
-      - 'Generative AI Application Development'
-      - 'Prompt Engineering'
-      - 'GitHub Copilot'
-      - 'Cursor IDE'
-      - 'Claude Code'
-      - 'CodeMind AI'
-      - 'EliteAI'
+      - "PHPUnit"
+      - "PHP Code Sniffer"
+      - "SOLID & Design Patterns"
+      - "TDD / Clean Code / DRY / KISS"
+      - "Dependency Injection"
+      - "Agile / Scrum / Kanban"
+      - "CI/CD pipelines"
+      - "Travis CI"
+      - "GitHub Actions"
+      - "Jenkins"
+      - "GitHub flow / Gitflow"
+      - "Git / BitBucket"
+      - "Code Review"
+      - "SEO engineering"
+      - "Jira / Tempo / YouTrack"
+  - resume_title: "Databases & Messaging"
+    skills:
+      - "MySQL"
+      - "MariaDB"
+      - "PostgreSQL"
+      - "MongoDB"
+      - "Redis"
+      - "RabbitMQ"
+      - "SQL"
+  - resume_title: "Infrastructure & DevOps"
+    skills:
+      - "Linux administration"
+      - "Docker"
+      - "Docker Compose"
+      - "Docksal"
+      - "Ddev"
+      - "Nginx"
+      - "Apache"
+      - "Vagrant / VirtualBox"
+      - "LAMP stack"
+      - "Capistrano deployments"
+      - "Security hardening"
+  - resume_title: "Mobile & Other Languages"
+    skills:
+      - "Python"
+      - "Android (Kotlin)"
+  - resume_title: "FPV"
+    skills:
+      - "FPV drone building"
+      - "FPV engineering"
+      - "FPV piloting"
+      - "Class 1 FPV-type UAS — theory & combat-task application (military training course)"
+      - "Arduino (UAV / DIY electronics)"
+      - "Raspberry Pi (companion / edge builds)"
+      - "Basic quality control (first article inspection, AOI interpretation)"
+      - "Failure analysis and root cause documentation"
+      - "Field maintenance/repair mindset"
+      - "Assembly/exploded view documentation"
+      - "Mechanical drawings"
+      - "Propulsion system selection (motor KV, prop pitch matching)"
+      - "Radio link systems (ELRS, Crossfire)"
+      - "SC calibration and tuning"
+      - "Flight controller configuration"
+      - "Harness/wiring assembly"
+      - "Rework and repair"
+      - "SMD soldering"
+  - resume_title: "Office"
+    skills:
+      - "Microsoft Excel"
+      - "Microsoft Word"
+      - "Microsoft PowerPoint"
+      - "Microsoft Outlook"
+      - "Microsoft OneNote"
+      - "Microsoft Teams"
+      - "Microsoft Access"
+      - "Microsoft Visio"
+      - "Microsoft Power BI"
+      - "Microsoft SharePoint / OneDrive (collaboration)"
+      - "LibreOffice (Writer, Calc, Impress, Draw, Base)"
+  - resume_title: "Engineering"
+    skills:
+      - "Drawings"
+      - "AutoCAD"
+      - "Allplan"
+      - "Compass"
+      - "Industrial standards"
+  - resume_title: "Soft Skills"
+    skills:
+      - "Engineering team management (20+ engineers)"
+      - "Technical leadership & decision-making"
+      - "Cross-functional communication"
+      - "Mentorship & code review culture"
+      - "Architectural trade-off analysis"
+      - "Stakeholder management & expectations setting"
+      - "End-to-end ownership (frontend to infra)"
+      - "Pragmatic problem-solving under ambiguity"
+      - "Estimation & prioritization"
+      - "Knowledge sharing & documentation"
+      - "Collaboration across teams & disciplines"
+      - "Adaptability across the stack"
+      - "Constructive feedback (giving & receiving)"
 key_achievements:
-  - title: 'Enterprise Drupal Platform Lead'
-    description: 'Led 20-person dev team delivering Drupal 8–11 multi-site estate for Otsuka (multinational healthcare) at EPAM.'
-    icon: '🏆'
-  - title: 'React/Next.js Design System'
-    description: 'Built shared component library using Figma, Storybook & Style Dictionary; atomic design + design tokens across multi-site estate.'
-    icon: '⚡'
-  - title: '30% Fewer Regression Incidents'
-    description: 'Introduced CI/CD tooling and Capistrano automation achieving zero-downtime releases across multi-site environments.'
-    icon: '📈'
-  - title: '50+ Projects Delivered'
-    description: 'Led full-stack delivery of 50+ web projects across e-commerce, corporate, and media verticals at [empty] Studio.'
-    icon: '🚀'
-  - title: '80%+ Unit Test Coverage'
-    description: 'Introduced PHPUnit and PHP Code Sniffer enforcement, raising core-module coverage to 80%+ across delivery squads.'
-    icon: '✅'
-
-skills:
-  - 'Technical leadership'
-  - 'Engineering team management (20+ engineers)'
-  - 'Incident response & security remediation'
-  - 'SEO-aware engineering'
-  - 'Cross-functional communication'
-  - 'Stakeholder-facing delivery'
-  - 'Mentorship & studio leadership'
-  - 'Agile ceremonies (Scrum/Kanban)'
-  - 'Content management workflows'
-  - 'E-commerce payment integrations'
-  - 'Mining facility design (engineering background)'
-  - 'Ownership & proactive delivery'
+  - title: "Certified AI Engineer & Architect"
+    description: "Earned Microsoft Azure AI Engineer Associate (AI-102) and Anthropic Claude Certified Architect, plus MCP, subagents, and agent-skills credentials—applying generative & agentic AI to enterprise engineering."
+    icon: "🤖"
+  - title: "AI-Augmented Delivery at Scale"
+    description: "Drove adoption of Claude Code, GitHub Copilot, and Cursor across a 20-person delivery team, embedding AI-assisted code generation, review, and test scaffolding into daily workflows."
+    icon: "✨"
+  - title: "Enterprise Drupal Platform Lead"
+    description: "Led 20-person dev team delivering Drupal 8–11 multi-site estate for Otsuka (multinational healthcare) at EPAM."
+    icon: "🏆"
+  - title: "React/Next.js Design System"
+    description: "Built shared component library using Figma, Storybook & Style Dictionary; atomic design + design tokens across multi-site estate."
+    icon: "⚡"
+  - title: "30% Fewer Regression Incidents"
+    description: "Introduced CI/CD tooling and Capistrano automation achieving zero-downtime releases across multi-site environments."
+    icon: "📈"
+  - title: "50+ Projects Delivered"
+    description: "Led full-stack delivery of 50+ web projects across e-commerce, corporate, and media verticals at [empty] Studio."
+    icon: "🚀"
+  - title: "80%+ Unit Test Coverage"
+    description: "Introduced PHPUnit and PHP Code Sniffer enforcement, raising core-module coverage to 80%+ across delivery squads."
+    icon: "✅"
 languages:
-  - language: 'English'
-    proficiency: 'Upper-Intermediate'
-  - language: 'Ukrainian'
-    proficiency: 'Native'
-  - language: 'Russian'
-    proficiency: 'Native / Bilingual'
+  - language: "English"
+    proficiency: "Upper-Intermediate (B2)"
+  - language: "Ukrainian"
+    proficiency: "Native (C2)"
+  - language: "Russian"
+    proficiency: "Native (C2) / Bilingual (C1)"
 professional_experience:
-  - company: 'EPAM Systems'
-    position: 'Lead Software Engineer'
-    role_progression: 'Software Developer (Sep 2017) → Software Engineer (Jun 2019) → Senior Software Engineer (Sep 2021) → Lead Software Engineer (Jun 2022 - Present)'
-    location: 'Remote / Ukraine'
-    duration: 'September 2017 - Present'
-    company_description: 'Global IT services and software engineering company with 30,000+ professionals across 50+ countries.'
-    linkedin: 'https://www.linkedin.com/company/epam-systems'
+  - company: "EPAM Systems"
+    position: "Lead Software Engineer"
+    role_progression: "Software Developer (Sep 2017 - Jun 2019, Belarus) → Software Engineer (Jun 2019 - Sep 2021, Kyiv) → Senior Software Engineer (Sep 2021 - Jun 2022, Kyiv) → Lead Software Engineer (Jun 2022 - Present, Kyiv)"
+    location: "City, Country (Belarus 2017-2019)"
+    duration: "September 2017 - Present"
+    company_description: "Global IT services and software engineering company with 30,000+ professionals across 50+ countries."
+    linkedin: "https://www.linkedin.com/company/epam-systems"
     achievements:
-      - 'Leading development of a Drupal 8–11 multi-site platform for Otsuka (multinational healthcare company), managing a 20-person dev team within a 47-member delivery team; accountable for architecture decisions, release quality, and cross-team coordination.'
-      - 'Built and maintained a React/Next.js-based Design System using Figma, Storybook, and Style Dictionary, applying atomic design principles and design tokens to create a shared component library across the Otsuka multi-site estate.'
-      - 'Established CI/CD pipelines via Travis CI and GitHub Actions; standardized local development with Docksal and containerization with Docker Compose, reducing environment drift and onboarding time across the delivery team.'
-      - 'Designed and delivered Drupal modules and themes end-to-end—custom content architecture, structured field configurations, and templated front-end theming—across multiple enterprise-scale CMS platforms serving high-traffic audiences for clients in 3+ industry verticals.'
-      - 'Developed and maintained Laravel-based REST API services for enterprise clients, applying OOP/MVC principles, PSR coding standards, and Eloquent ORM; integrated 10+ third-party APIs (payment gateways, CRMs, data feeds) to deliver clean, testable back-end code at production scale.'
-      - 'Owned deployment pipelines and Drupal/PHP application update cycles across multi-site environments, achieving zero-downtime releases and reducing environment-related regression incidents by ~30% through CI/CD tooling and Capistrano automation.'
-      - 'Implemented and maintained REST and SOAP integrations connecting CMS platforms with third-party services (payment gateways, CRMs, data feeds) across up to 5 concurrent client projects, improving data reliability and eliminating manual synchronization overhead.'
-      - 'Introduced PHPUnit test coverage and PHP Code Sniffer enforcement in delivery squads, raising core-module unit test coverage to 80%+ and reducing regression incidents across release cycles.'
-      - 'Collaborated in agile (Scrum/Kanban) delivery squads, reviewing PRs for a team of 6+ engineers per project, contributing to sprint planning, architectural design discussions, and cross-functional stakeholder communication.'
-  - company: '[empty] Studio'
-    position: 'Technical Director'
-    location: 'Ukraine'
-    duration: 'June 2011 - June 2017'
-    company_description: 'Software development studio delivering websites, e-commerce platforms, corporate portals, and ongoing technical services for SMB clients.'
+      - "Led AI-assisted engineering adoption across the 20-person delivery team in 2025–2026, standardizing Claude Code, GitHub Copilot, and Cursor for code generation, review, and test scaffolding—accelerating delivery on recurring Drupal and React work while maintaining code-quality gates."
+      - "Earned Microsoft Azure AI Engineer Associate (AI-102) and Anthropic Claude Certified Architect (2025–2026), applying generative and agentic AI patterns—Model Context Protocol (MCP), subagents, agent skills, and prompt engineering—to developer workflows and internal tooling."
+      - "Championed AI literacy and upskilling across delivery squads, completing EPAM's AI Literacy Program and mentoring engineers on the AI Fluency framework and responsible, effective use of AI coding assistants."
+      - "Leading development of a Drupal 8–11 multi-site platform for Otsuka (multinational healthcare company), managing a 20-person dev team within a 47-member delivery team; accountable for architecture decisions, release quality, and cross-team coordination."
+      - "Built and maintained a React/Next.js-based Design System using Figma, Storybook, and Style Dictionary, applying atomic design principles and design tokens to create a shared component library across the Otsuka multi-site estate."
+      - "Established CI/CD pipelines via Travis CI and GitHub Actions; standardized local development with Docksal and containerization with Docker Compose, reducing environment drift and onboarding time across the delivery team."
+      - "Designed and delivered Drupal modules and themes end-to-end—custom content architecture, structured field configurations, and templated front-end theming—across multiple enterprise-scale CMS platforms serving high-traffic audiences for clients in 3+ industry verticals."
+      - "Developed and maintained Laravel-based REST API services for enterprise clients, applying OOP/MVC principles, PSR coding standards, and Eloquent ORM; integrated 10+ third-party APIs (payment gateways, CRMs, data feeds) to deliver clean, testable back-end code at production scale."
+      - "Owned deployment pipelines and Drupal/PHP application update cycles across multi-site environments, achieving zero-downtime releases and reducing environment-related regression incidents by ~30% through CI/CD tooling and Capistrano automation."
+      - "Implemented and maintained REST and SOAP integrations connecting CMS platforms with third-party services (payment gateways, CRMs, data feeds) across up to 5 concurrent client projects, improving data reliability and eliminating manual synchronization overhead."
+      - "Introduced PHPUnit test coverage and PHP Code Sniffer enforcement in delivery squads, raising core-module unit test coverage to 80%+ and reducing regression incidents across release cycles."
+      - "Collaborated in agile (Scrum/Kanban) delivery squads, reviewing PRs for a team of 6+ engineers per project, contributing to sprint planning, architectural design discussions, and cross-functional stakeholder communication."
+  - company: "[empty] Studio"
+    position: "Technical Director"
+    location: "Ukraine"
+    duration: "June 2011 - June 2017"
+    company_description: "Software development studio delivering websites, e-commerce platforms, corporate portals, and ongoing technical services for SMB clients."
     achievements:
-      - 'Led full-stack delivery of 50+ web projects across e-commerce, corporate, and media verticals—business-card sites, online stores, corporate portals, and marketing experiences—across PHP, Bitrix, WordPress, OpenCart, and PrestaShop stacks, averaging 8–10 concurrent active client engagements.'
-      - 'Performed proactive security incident response across 10+ compromised client sites: malware removal, vulnerability identification and remediation, and full restoration of production environments, preserving client uptime and data integrity with zero recurrence.'
-      - 'Architected and shipped 20+ CMS modules, plugins, and API integrations, resolving cross-system conflicts and extending platform capabilities for e-commerce and content workflows across SMB client portfolios.'
-      - 'Ran SEO optimization, content operations, and technical administration for 15+ active client sites; coordinated a team of 2–4 junior engineers and defined studio-wide technical standards, reducing delivery time on recurring project types by ~20%.'
+      - "Led full-stack delivery of 50+ web projects across e-commerce, corporate, and media verticals—business-card sites, online stores, corporate portals, and marketing experiences—across PHP, Bitrix, WordPress, OpenCart, and PrestaShop stacks, averaging 8–10 concurrent active client engagements."
+      - "Performed proactive security incident response across 10+ compromised client sites: malware removal, vulnerability identification and remediation, and full restoration of production environments, preserving client uptime and data integrity with zero recurrence."
+      - "Architected and shipped 20+ CMS modules, plugins, and API integrations, resolving cross-system conflicts and extending platform capabilities for e-commerce and content workflows across SMB client portfolios."
+      - "Ran SEO optimization, content operations, and technical administration for 15+ active client sites; coordinated a team of 2–4 junior engineers and defined studio-wide technical standards, reducing delivery time on recurring project types by ~20%."
   - company: 'LLC "RK" (4frag.ru)'
-    position: 'Full-stack Developer'
-    location: 'Remote'
-    duration: 'December 2014 - August 2017'
-    company_description: 'Online store of goods for e-sports.'
+    position: "Full-stack Developer"
+    location: "Remote"
+    duration: "December 2014 - August 2017"
+    company_description: "Online store of goods for e-sports."
     achievements:
-      - 'Delivered adaptive design layouts, custom modules, and database migrations on OpenCart/PHP for an e-sports e-commerce platform.'
-      - 'Integrated payment systems, hosting administration, and SEO improvements; collaborated within a 5-person dev team.'
-  - company: 'buyincoins.biz.ua'
-    position: 'Senior Software Developer'
-    location: 'Ukraine'
-    duration: 'November 2010 - December 2013'
-    company_description: 'E-commerce platform focused on IT products and software delivery.'
+      - "Delivered adaptive design layouts, custom modules, and database migrations on OpenCart/PHP for an e-sports e-commerce platform."
+      - "Integrated payment systems, hosting administration, and SEO improvements; collaborated within a 5-person dev team."
+  - company: "buyincoins.biz.ua"
+    position: "Senior Software Developer"
+    location: "Ukraine"
+    duration: "November 2010 - December 2013"
+    company_description: "E-commerce platform focused on IT products and software delivery."
     achievements:
-      - 'Built and maintained PHP-backed e-commerce features, MySQL schemas, and hosting/system reliability for live production properties.'
-      - 'Owned content management, price synchronization across catalogs, website promotion, and ongoing site administration.'
+      - "Built and maintained PHP-backed e-commerce features, MySQL schemas, and hosting/system reliability for live production properties."
+      - "Owned content management, price synchronization across catalogs, website promotion, and ongoing site administration."
   - company: 'SE "SPI Krivbassproekt"'
-    position: 'Deputy Head of the Mining Department'
-    location: 'Kryvyi Rih, Ukraine'
-    duration: 'January 2001 - August 2017'
-    company_description: 'State enterprise specializing in design of mining and industrial facilities for domestic and international clients.'
+    position: "Deputy Head of the Mining Department"
+    location: "Kryvyi Rih, Ukraine"
+    duration: "January 2001 - August 2017"
+    company_description: "State enterprise specializing in design of mining and industrial facilities for domestic and international clients."
     achievements:
-      - 'Designed mining plants for clients across multiple countries; coordinated with research, design, and equipment supplier institutes (domestic and foreign).'
-      - 'Provided designer supervision over construction and project support for enterprise development; optimized investment models for industrial and civil facilities.'
-      - 'Drove energy-intensity reduction initiatives across industrial production design.'
-  - company: 'Freelance'
-    position: 'PHP Web Developer'
-    location: 'Remote'
-    duration: 'October 2006 - May 2010'
-    company_description: 'Independent PHP development and web services engagements.'
+      - "Designed mining plants for clients across multiple countries; coordinated with research, design, and equipment supplier institutes (domestic and foreign)."
+      - "Provided designer supervision over construction and project support for enterprise development; optimized investment models for industrial and civil facilities."
+      - "Drove energy-intensity reduction initiatives across industrial production design."
+  - company: "Freelance"
+    position: "PHP Web Developer"
+    location: "Remote"
+    duration: "October 2006 - May 2010"
+    company_description: "Independent PHP development and web services engagements."
     achievements:
-      - 'Delivered PHP applications and CMS-driven client sites with emphasis on SEO-ready structure, clean MySQL data modeling, and maintainable code across multiple frameworks.'
-  - company: 'BazarInfo'
-    position: 'Software Developer'
-    location: 'Kryvyi Rih, Ukraine'
-    duration: 'March 2003 - October 2004'
-    company_description: 'Early-career software development role.'
+      - "Delivered PHP applications and CMS-driven client sites with emphasis on SEO-ready structure, clean MySQL data modeling, and maintainable code across multiple frameworks."
+  - company: "BazarInfo"
+    position: "Software Developer"
+    location: "Kryvyi Rih, Ukraine"
+    duration: "March 2003 - October 2004"
+    company_description: "Early-career software development role."
     achievements:
-      - 'Built and maintained PHP/MySQL web applications; responsibilities included HTML/CSS front-end development, SEO, and content management.'
+      - "Built and maintained PHP/MySQL web applications; responsibilities included HTML/CSS front-end development, SEO, and content management."
 independent_projects:
-  - name: 'Clica.ru'
-    role: 'Founder & Software Developer'
-    duration: '2009 - 2010'
-    description: 'Software startup; founded and developed the platform as sole technical lead.'
+  - name: "Clica.ru"
+    role: "Founder & Software Developer"
+    duration: "2009 - 2010"
+    description: "Software startup; founded and developed the platform as sole technical lead."
 education:
-  - institution: 'Kryvyi Rih National University'
-    program: 'Master of Mining (Underground Mining of Mineral Deposits) — Faculty of Mining and Metallurgy; progressed through Bachelor and Specialist degrees.'
-    location: 'Kryvyi Rih, Ukraine'
-    duration: '1997 - 2006'
-  - institution: 'Self-directed study'
-    program: 'Web applications development (Master-level self-education)'
-    location: 'Ukraine'
-    duration: '2000 - 2006'
-  - institution: '1C Bitrix Academy'
-    program: 'Bitrix Framework Developer Master'
-    location: 'Certification program'
-    duration: '2014'
+  - institution: "Kryvyi Rih National University"
+    program: "Master of Mining (Underground Mining of Mineral Deposits) — Faculty of Mining and Metallurgy; progressed through Bachelor and Specialist degrees."
+    location: "Kryvyi Rih, Ukraine"
+    duration: "1997 - 2006"
+  - institution: "Self-directed study"
+    program: "Web applications development (Master-level self-education)"
+    location: "Ukraine"
+    duration: "2000 - 2006"
+  - institution: "1C Bitrix Academy"
+    program: "Bitrix Framework Developer Master"
+    location: "Certification program"
+    duration: "2014"
 certifications:
-  - issuer: 'Anthropic'
+  - issuer: "Anthropic"
     year: 2026
     credentials:
-      - 'Claude Certified Architect – Foundations'
-      - 'Early Adopter: Claude Certified Architect – Foundations'
-      - 'Model Context Protocol: Advanced Topics'
-      - 'Introduction To Model Context Protocol'
-      - 'Introduction To Subagents'
-      - 'Introduction To Agent Skills'
-      - 'Claude Code In Action'
-      - 'Claude With The Anthropic API'
-      - 'Claude 101'
-      - 'AI Fluency: Framework & Foundations'
-      - 'Teaching The AI Fluency Framework'
-      - 'AI Fluency for Educators'
-      - 'AI Fluency for Students'
-      - 'AI Fluency for Nonprofits'
-  - issuer: 'Microsoft'
+      - "Claude Certified Architect – Foundations — Certificate No a5v2e3idw5b8 (valid April 15, 2026 to October 15, 2026; verify at https://verify.skilljar.com/c/a5v2e3idw5b8)"
+      - "Early Adopter: Claude Certified Architect – Foundations — Certificate No as5itas3mbij (issued April 16, 2026; verify at https://verify.skilljar.com/c/as5itas3mbij)"
+      - "Model Context Protocol: Advanced Topics — issued Mar 24, 2026"
+      - "Introduction To Model Context Protocol — issued Mar 19, 2026"
+      - "Introduction To Subagents — issued Mar 24, 2026"
+      - "Introduction To Agent Skills"
+      - "Claude Code In Action — issued Mar 19, 2026"
+      - "Claude With The Anthropic API — issued Mar 23, 2026"
+      - "Claude 101 — issued Mar 19, 2026"
+      - "AI Fluency: Framework & Foundations"
+      - "Teaching The AI Fluency Framework — issued Mar 24, 2026"
+      - "AI Fluency for Educators"
+      - "AI Fluency for Students"
+      - "AI Fluency for Nonprofits — issued Mar 24, 2026"
+  - issuer: "Microsoft"
     year: 2025
     credentials:
-      - 'Microsoft Certified: Azure AI Engineer Associate (AI-102)'
-      - 'Microsoft Certified: Azure AI Fundamentals (AI-900)'
-  - issuer: 'EPAM'
+      - "Microsoft Certified: Azure AI Engineer Associate (AI-102) — Credential ID B49D655AEBA20964, Certification number O1ED04-2E5A17, earned May 16, 2025 (expires May 17, 2026)"
+      - "Microsoft Certified: Azure AI Fundamentals (AI-900) — Credential ID 60988FB2B4DE7542, Certification number 019768-4B92BT, earned April 21, 2025"
+  - issuer: "GLOBAL DRONE ACADEMY (LLC GDA)"
+    year: 2025
+    credentials:
+      - "Military FPV Drone Pilot (online course) — certificate № С485GDA (issued 28 May 2025); theoretical knowledge for applying class 1 FPV-type unmanned aerial systems in combat missions"
+      - "Військовий пілот FPV дрона / Military FPV Drone Pilot — certificate № F250804GDA/08 (issued 15 August 2025)"
+      - "Program: theoretical knowledge and practical skills for applying class 1 FPV-type unmanned aerial systems in combat missions"
+      - "Training center head: Veklenko A.P.; program meets National Classifier of Ukraine (profession 8990 — remotely piloted aircraft operator), Cabinet of Ministers Resolution No. 1129 (01.10.2024), Ministry of Defence of Ukraine certificate No. 1/24 (15.10.2024); basis for assigning corresponding Military Occupational Specialty (MOS)"
+  - issuer: "LinkedIn Learning"
+    year: "2025"
+    credentials:
+      - "Python Essential Training — completed Aug 2025"
+  - issuer: "EPAM"
     year: 2024
     credentials:
-      - 'AI Literacy Program'
-  - issuer: '1C-Bitrix'
+      - "AI Literacy Program"
+  - issuer: "LinkedIn Learning"
+    year: "2023"
+    credentials:
+      - "Kubernetes: Package Management with Helm (2020) — completed Jan 2023"
+      - "Kubernetes Essential Training: Application Development — completed Jan 2023"
+      - "Figma Essential Training: The Basics — completed Feb 2023"
+      - "Figma for UX Design (2021) — completed Feb 2023"
+      - "Lo-Fi to Hi-Fi: Prototyping in Figma — completed Feb 2023"
+      - "Pair Programming with AI — completed May 2023"
+      - "AI Pair Programming with GitHub Copilot (2022) — completed Jun 2023"
+  - issuer: "LinkedIn Learning"
+    year: "2022"
+    credentials:
+      - "Learning webpack 4 — completed May 2022"
+      - "TypeScript Essential Training (2016) — completed Jun 2022"
+      - "TypeScript Essential Training — completed Jun 2022"
+      - "Learning TypeScript — completed Jun 2022"
+      - "TypeScript: Object-Oriented Programming — completed Jun 2022"
+      - "TypeScript for Node.js Developers (2018) — completed Jun 2022"
+      - "TypeScript: Upgrades and Features — completed Jun 2022"
+      - "React: Using TypeScript (2019) — completed Jun 2022"
+      - "React: Cloud-Powered Apps with Firebase — completed Jun 2022"
+      - "Learning Kubernetes — completed Dec 2022"
+  - issuer: "LinkedIn Learning"
+    year: "2021"
+    credentials:
+      - "JavaScript Essential Training — completed Dec 2021"
+  - issuer: "LinkedIn Learning"
+    year: "2020"
+    credentials:
+      - "Advanced PHP — completed Jan 2020"
+      - "Jenkins Essential Training (2018) — completed Jan 2020"
+      - "Continuous Integration: Tools (2019) — completed Jan 2020"
+      - "TeamCity 2017 Essential Training — completed Jan 2020"
+      - "MVC Frameworks for Building PHP Web Applications — completed Jun 2020"
+      - "Learning Symfony 4 — completed Jun 2020"
+      - "React.js Essential Training (2018) — completed Aug 2020"
+      - "React.js: Building an Interface (2019) — completed Aug 2020"
+      - "Learning React.js — completed Aug 2020"
+      - "React: Ecosystems — completed Sep 2020"
+      - "React: Creating and Hosting a Full-Stack Site (2019) — completed Sep 2020"
+      - "React: Securing Applications — completed Sep 2020"
+      - "Explore React.js Development (Learning Path) — completed Sep 2020"
+      - "Learning npm the Node Package Manager (2018) — completed Sep 2020"
+      - "Node.js Essential Training (2019) — completed Sep 2020"
+      - "Building a Website with Node.js and Express.js — completed Sep 2020"
+      - "Express Essential Training (2018) — completed Sep 2020"
+      - "Node.js: Security (2018) — completed Sep 2020"
+      - "Node.js: Securing RESTful APIs (2018) — completed Sep 2020"
+      - "Node.js: Testing and Code Quality (2017) — completed Sep 2020"
+      - "Node.js: Deploying Applications — completed Sep 2020"
+      - "Building RESTful APIs with Node.js and Express (2019) — completed Sep 2020"
+      - "Learning MongoDB (2017) — completed Sep 2020"
+      - "Learning Full-Stack JavaScript Development: MongoDB, Node, and React (2016) — completed Sep 2020"
+      - "Explore App Development with the MERN Stack (Learning Path) — completed Sep 2020"
+      - "React: State Management (2019) — completed Nov 2020"
+      - "GraphQL Essential Training (2018) — completed Nov 2020"
+      - "Learning ECMAScript 6 (2016) — completed Nov 2020"
+  - issuer: "LinkedIn Learning"
+    year: "2019"
+    credentials:
+      - "Learning Chrome Web Developer Tools (2017) — completed May 2019"
+      - "JavaScript: Closures — completed Jul 2019"
+      - "Learning Symfony 3 — completed Jul 2019"
+      - "PHP: Testing Legacy Applications — completed Jul 2019"
+      - "Learning Functional Programming with JavaScript (ES5) — completed Aug 2019"
+      - "Learning JavaScript Debugging — completed Aug 2019"
+      - "JavaScript: Prototypes — completed Aug 2019"
+      - "JavaScript: Classes (2018) — completed Aug 2019"
+      - "JavaScript: Scope — completed Aug 2019"
+      - "JavaScript: Patterns (2018) — completed Sep 2019"
+      - "Learning Functional Programming with JavaScript ES6+ (2019) — completed Oct 2019"
+      - "Improve Your JavaScript Language Skills (Learning Path) — completed Oct 2019"
+      - "Advanced PHP: Debugging Techniques (2012) — completed Dec 2019"
+      - "Linux for PHP Developers — completed Dec 2019"
+      - "Learning Jenkins (2018) — completed Dec 2019"
+  - issuer: "EPAM Systems"
+    year: "2019"
+    credentials:
+      - "Containers vs. Serverless: When and what to apply #1 — completed Aug 2019"
+  - issuer: "EPAM Systems"
+    year: "2018"
+    credentials:
+      - "Email Correspondence #38 — completed Mar 2018"
+      - "EPAM English (2017-2018) #101 A2 (88 hrs) — completed Jun 2018"
+  - issuer: "LinkedIn Learning"
+    year: "2017"
+    credentials:
+      - "Drupal 8: Configuration Management — completed Nov 2017"
+      - "Drupal: Simplify Sites with Drush — completed Dec 2017"
+      - "Drupal 8 Essential Training: 2 Building Out Your Website — completed Dec 2017"
+      - "Drupal 8 Essential Training: 1 The Basics — completed Dec 2017"
+  - issuer: "EPAM Systems"
+    year: "2017"
+    credentials:
+      - "Bench Time: Learn and Develop #40 — completed Oct 2017"
+      - "Internal Mobility for EPAM Employees #33 — completed Nov 2017"
+      - "Introduction to Business Communications #1 (self-study) — completed Dec 2017"
+      - "ENGX Bootcamp #8 (self-study) — completed Dec 2017"
+  - issuer: "1C-Bitrix"
     year: 2014
     credentials:
-      - 'Bitrix Framework Developer (LRN-104050-43-2030-239309)'
-  - issuer: 'GLOBAL DRONE ACADEMY (LLC GDA)'
-    year: 2025
-    credentials:
-      - 'Військовий пілот FPV дрона / Military FPV Drone Pilot — certificate № F250804GDA/08 (issued 15 August 2025)'
-      - 'Program: theoretical knowledge and practical skills for applying class 1 FPV-type unmanned aerial systems in combat missions'
-      - 'Training center head: Veklenko A.P.; program meets National Classifier of Ukraine (profession 8990 — remotely piloted aircraft operator), Cabinet of Ministers Resolution No. 1129 (01.10.2024), Ministry of Defence of Ukraine certificate No. 1/24 (15.10.2024); basis for assigning corresponding Military Occupational Specialty (MOS)'
-  - issuer: 'LinkedIn Learning'
-    credentials:
-      - 'Building RESTful APIs with Node.js and Express'
-      - 'Building a Website with Node.js and Express.js'
-      - 'Express Essential Training'
-      - 'Node.js Essential Training'
-      - 'Learning MongoDB (2017)'
+      - "Bitrix Framework Developer (LRN-104050-43-2030-239309) — issued 08 October 2014, signed by S.V. Ryzhikov, General Director of 1C-Bitrix LLC"
