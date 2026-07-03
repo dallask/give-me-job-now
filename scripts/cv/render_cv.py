@@ -16,6 +16,12 @@ from pathlib import Path
 import yaml
 from xml.sax.saxutils import escape
 
+# Import the single-owner candidate.yaml field-name registry (SCHEMA-06) so this
+# consumer never re-declares key literals that could drift from the schema owner.
+# Same import idiom as scripts/cv/draft_to_cv_yaml.py (scripts/artifacts on sys.path).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "artifacts"))
+from schema_fields import CONTACT, WEBSITE_GROUPS  # noqa: E402,F401
+
 LANGS = ("en", "ua", "ru")
 DEFAULT_LANG = "en"
 
@@ -162,6 +168,49 @@ def candidate_with_embedded_photo(candidate: dict, repo_root: Path) -> dict:
     return out
 
 
+def _contact_lines(contact: dict) -> list[str]:
+    """Build contact strings by SHAPE — never by string-formatting a bare container.
+
+    Consumes the nested v2.0 ``contact`` schema (email is a list, ``website`` is a mapping
+    of ``personal``/``company``/``portfolio`` URL lists plus a ``media`` label→url dict, and
+    ``messengers`` is a label→handle dict). Every access is guarded with ``or []`` / ``or {}``
+    and every appended line is a plain string, so no ``[`` or ``{`` container-repr can ever
+    leak into the rendered PDF (SCHEMA-02). Group names come from the ``WEBSITE_GROUPS``
+    registry (SCHEMA-06) rather than being re-declared here.
+    """
+    lines: list[str] = []
+    if not isinstance(contact, dict):
+        return lines
+    if contact.get("phone"):
+        lines.append(f"Phone: {contact['phone']}")
+    emails = contact.get("email") or []
+    if emails:
+        if isinstance(emails, (list, tuple)):
+            joined = ", ".join(str(e) for e in emails)
+        else:
+            joined = str(emails)
+        if joined:
+            lines.append(f"Email: {joined}")
+    if contact.get("address"):
+        lines.append(str(contact["address"]))
+    web = contact.get("website") or {}
+    if isinstance(web, dict):
+        # URL-list groups (every WEBSITE_GROUPS entry except the "media" label→url dict).
+        for group in WEBSITE_GROUPS:
+            if group == "media":
+                continue
+            for url in web.get(group) or []:
+                if url:
+                    lines.append(str(url))
+        for label, url in (web.get("media") or {}).items():
+            if url:
+                lines.append(f"{str(label).capitalize()}: {url}")
+    for label, handle in (contact.get("messengers") or {}).items():
+        if handle:
+            lines.append(f"{str(label).capitalize()}: {handle}")
+    return lines
+
+
 def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels: dict) -> None:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
@@ -226,12 +275,7 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
 
     photo_path = photo_path_for(candidate, repo_root)
     contact = candidate.get("contact") or {}
-    contact_bits: list[str] = []
-    if isinstance(contact, dict):
-        for k in ("phone", "email", "secondary_email", "linkedin", "portfolio", "website", "github", "address"):
-            v = contact.get(k)
-            if v:
-                contact_bits.append(f"{k}: {v}" if k not in ("linkedin", "portfolio", "website", "github") else f"{k}: {v}")
+    contact_bits = _contact_lines(contact)
     contact_html = "<br/>".join(escape(b) for b in contact_bits)
 
     left_cell: list = [
@@ -269,18 +313,14 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
         story.append(Paragraph(summary.replace("&", "&amp;"), body_style))
 
     contact2 = candidate.get("contact") or {}
-    if isinstance(contact2, dict) and contact2 and not contact_html:
+    contact2_lines = _contact_lines(contact2)
+    if contact2_lines and not contact_html:
         story.append(Paragraph(f"<b>{escape(lbl('contact', 'Contact'))}</b>", h2_style))
-        lines = []
-        for k in ("email", "phone", "address", "website", "github", "linkedin"):
-            v = contact2.get(k)
-            if v:
-                lines.append(f"{k.capitalize()}: {v}")
-        story.append(Paragraph("<br/>".join(lines).replace("&", "&amp;"), body_style))
+        story.append(Paragraph("<br/>".join(escape(x) for x in contact2_lines), body_style))
 
-    tech = candidate.get("technical_expertise") or []
+    tech = candidate.get("expertise") or []
     if tech:
-        story.append(Paragraph(f"<b>{escape(lbl('technical_expertise', 'Technical expertise'))}</b>", h2_style))
+        story.append(Paragraph(f"<b>{escape(lbl('expertise', 'Technical expertise'))}</b>", h2_style))
         for block in tech:
             if not isinstance(block, dict):
                 continue
