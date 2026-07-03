@@ -1,0 +1,19 @@
+{
+  "gate": "A",
+  "missing_must_haves": [
+    "Django and Django REST Framework",
+    "PostgreSQL query optimization"
+  ],
+  "fabricated_claims": [
+    {
+      "claims_index": 3,
+      "source_span": "professional_experience[0].achievements[9]",
+      "reason": "index out of range — no such achievement in candidate.yaml"
+    },
+    {
+      "claims_index": 7,
+      "source_span": "certifications[2].credentials[0]",
+      "reason": "index out of range — candidate.yaml lists only two certifications"
+    }
+  ]
+}
