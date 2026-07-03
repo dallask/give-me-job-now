@@ -1,0 +1,35 @@
+{
+  "kind": "gate_result",
+  "schema": "agent_result_v1",
+  "schema_version": "1.0",
+  "agent": "fit-evaluator",
+  "pipeline_run_id": "run-2026-07-03-007",
+  "status": "success",
+  "artifacts": [],
+  "acceptance_criteria_met": ["crit-fit-coverage"],
+  "acceptance_criteria_failed": [],
+  "next_action": "none",
+  "handoff_target": null,
+  "notes": "Gate B target-fit passed; coverage 4/5 >= threshold",
+  "content": {
+    "gate": "B",
+    "verdict": "pass",
+    "coverage": {
+      "covered_ids": ["mh-0", "mh-1", "mh-2", "mh-3"],
+      "missing_ids": ["mh-4"],
+      "score": 0.8
+    },
+    "keyword_alignment": 0.75,
+    "language_match": true,
+    "seniority_scope_match": true,
+    "why": {
+      "coverage": "4/5",
+      "missing_must_haves": [
+        { "id": "mh-4", "text": "Kubernetes production operations experience" }
+      ],
+      "keyword_alignment": 0.75,
+      "language_match": true,
+      "seniority_scope_match": true
+    }
+  }
+}
