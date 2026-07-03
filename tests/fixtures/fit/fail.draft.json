@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "cv",
+    "language": "en",
+    "claims": [
+      {
+        "text": "Wrote Python scripts to automate personal data-cleanup chores",
+        "source_span": "independent_projects[0].description",
+        "section": "projects"
+      },
+      {
+        "text": "Completed an introductory web-development online course",
+        "source_span": "education[0].description",
+        "section": "education"
+      },
+      {
+        "text": "Enjoys collaborating in cross-functional teams",
+        "source_span": "summary",
+        "section": "summary"
+      }
+    ]
+  }
+}

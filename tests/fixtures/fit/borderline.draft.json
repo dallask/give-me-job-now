@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "cv",
+    "language": "en",
+    "claims": [
+      {
+        "text": "Three years of professional Python development on backend teams",
+        "source_span": "professional_experience[0].description",
+        "section": "experience"
+      },
+      {
+        "text": "Built internal tools with Django's admin and ORM",
+        "source_span": "professional_experience[0].achievements[0]",
+        "section": "experience"
+      },
+      {
+        "text": "Modeled and queried PostgreSQL databases for reporting features",
+        "source_span": "professional_experience[0].achievements[1]",
+        "section": "experience"
+      },
+      {
+        "text": "Comfortable pairing with frontend engineers on feature delivery",
+        "source_span": "professional_experience[0].achievements[2]",
+        "section": "experience"
+      }
+    ]
+  }
+}

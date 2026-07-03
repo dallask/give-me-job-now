@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "cv",
+    "language": "en",
+    "claims": [
+      {
+        "text": "Five years building production Python services for data-heavy platforms",
+        "source_span": "professional_experience[0].description",
+        "section": "experience"
+      },
+      {
+        "text": "Shipped and maintained FastAPI backends serving analytics dashboards",
+        "source_span": "professional_experience[0].achievements[0]",
+        "section": "experience"
+      },
+      {
+        "text": "Designed normalized PostgreSQL schemas and cut slow-query latency by tuning indexes",
+        "source_span": "professional_experience[0].achievements[1]",
+        "section": "experience"
+      },
+      {
+        "text": "Authored and documented REST APIs consumed by the web client team",
+        "source_span": "professional_experience[1].description",
+        "section": "experience"
+      },
+      {
+        "text": "Mentored two junior engineers and led code-review practices",
+        "source_span": "professional_experience[1].achievements[0]",
+        "section": "experience"
+      }
+    ]
+  }
+}
