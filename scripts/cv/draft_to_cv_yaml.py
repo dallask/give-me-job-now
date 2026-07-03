@@ -12,12 +12,24 @@ the CV-YAML comes ONLY from a ``claim.text`` value that already passed Gate A. T
 bridge NEVER opens or reads ``config/candidate.yaml`` (Anti-Pattern #1, Assumption
 A1). List indices in a ``source_span`` are SOURCE (candidate.yaml) positions and are
 legitimately sparse for a targeted CV that cherry-picks non-adjacent items (e.g.
-``technical_expertise[0].skills[0,1,9,21,23]``). Each parent list's source indices are
+``expertise[0].skills[0,1,9,4,7]``). Each parent list's source indices are
 COMPACTED to contiguous output slots by order of first appearance — gaps are removed,
 never filled with placeholders (no phantom-null padding). The no-invention guarantee is
 preserved because only ``claim.text`` is ever written as a leaf; compaction reshapes
 positions, it never synthesizes content. A source index seen twice maps to the same
 output slot, making the reconstruction deterministic.
+
+Complete headers, no candidate.yaml read (SCHEMA-03/04): a rendered CV needs
+STRUCTURAL/HEADER fields (``name``, ``title``, ``professional_experience[i].company``,
+``...position``, ``expertise[j].resume_title``) as well as the leaf content. The
+composer emits those as ordinary claims traced to real spans, so this bridge assembles
+a COMPLETE header-bearing CV-YAML from the draft alone — it is field-agnostic and writes
+whatever span it is handed (a scalar span such as ``name``/``title`` lands at the CV-YAML
+root; a nested span such as ``professional_experience[0].company`` lands in place). It
+still never opens ``config/candidate.yaml``: every header value, like every leaf, is a
+span-traced ``claim.text`` that already passed Gate A. This is the LOCKED fix for the
+bridge-draft seam defect (repo memory ``pipeline-draft-bridge-defect``): the composer
+supplies header claims rather than the bridge inventing them from the master profile.
 
 Grammar ownership (anti-drift T-04-05 / T-08-01): the segment grammar is imported as
 ``SEGMENT`` from ``scripts/artifacts/yaml_path.py`` — the single owner. No second
@@ -122,9 +134,9 @@ def set_path(tree: dict, dotted: str, value: object, compaction: dict) -> None:
     contiguous output slots by order of first appearance via the shared ``compaction``
     map: a dict keyed by the SOURCE-index span prefix identifying each list, whose
     value is an ordered ``{source_idx: output_idx}`` slot map. Keying by the source
-    prefix keeps ``technical_expertise[0].skills``, ``technical_expertise[1].skills``,
-    and ``technical_expertise[3].skills`` three DISTINCT lists compacted independently,
-    while the top-level ``technical_expertise`` element indices ``[0,1,3]`` compact to
+    prefix keeps ``expertise[0].skills``, ``expertise[1].skills``,
+    and ``expertise[3].skills`` three DISTINCT lists compacted independently,
+    while the top-level ``expertise`` element indices ``[0,1,3]`` compact to
     ``[0,1,2]``. The same ``compaction`` map is threaded across every claim in a draft
     so a repeated source index always maps to the same output slot (deterministic).
     Compaction only removes gaps; it never fills one (no phantom padding, T-08-04).
