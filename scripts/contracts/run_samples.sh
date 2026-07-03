@@ -57,6 +57,10 @@ for kind in offer_spec artifact_draft gate_result; do
   check "validate ${kind}.invalid → reject" nonzero "$(rc_of python3 "$VALIDATOR" --file "$SAMPLES/${kind}.invalid.json")"
 done
 
+# 1b. Gate B/C content variants (Phase 06): both must validate against the extended gate_result schema.
+check "validate gate_result.gateb.valid → accept" 0 "$(rc_of python3 "$VALIDATOR" --file "$SAMPLES/gate_result.gateb.valid.json")"
+check "validate gate_result.gatec.valid → accept" 0 "$(rc_of python3 "$VALIDATOR" --file "$SAMPLES/gate_result.gatec.valid.json")"
+
 # 2. Hash reproducibility (ARCH-05)
 A=$(python3 "$HASHER" --kind offer_spec --file "$SAMPLES/offer_spec.valid.json")
 B=$(python3 "$HASHER" --kind offer_spec --file "$SAMPLES/offer_spec.valid.json")

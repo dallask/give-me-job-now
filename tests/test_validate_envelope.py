@@ -45,6 +45,14 @@ def test_valid_fixtures_exit_zero() -> None:
         assert result.returncode == 0, (kind, result.returncode, result.stderr)
 
 
+def test_gate_bc_samples_validate() -> None:
+    # Phase 06 Gate B/C content variants share the gate_result envelope but are
+    # not named <kind>.valid.json, so assert them explicitly.
+    for name in ("gate_result.gateb.valid.json", "gate_result.gatec.valid.json"):
+        result = _run(["--file", str(SAMPLES / name)])
+        assert result.returncode == 0, (name, result.returncode, result.stderr)
+
+
 def test_invalid_fixtures_exit_nonzero_with_field_path() -> None:
     for kind in KINDS:
         result = _run(["--file", str(SAMPLES / f"{kind}.invalid.json")])
