@@ -1,0 +1,8 @@
+{"fixture": "good.vocab_swap.draft.json", "claim_index": 0, "expected_verdict": "pass", "rule": "R1_vocab_swap", "category": "llm"}
+{"fixture": "good.numeric_reframe.draft.json", "claim_index": 0, "expected_verdict": "pass", "rule": "numeric_reframe", "category": "deterministic"}
+{"fixture": "bad.scope_inflation.draft.json", "claim_index": 0, "expected_verdict": "fail", "rule": "scope_inflation", "category": "llm"}
+{"fixture": "bad.numeric_invention.draft.json", "claim_index": 0, "expected_verdict": "fail", "rule": "numeric_invention", "category": "deterministic"}
+{"fixture": "bad.cross_entry_merge.draft.json", "claim_index": 0, "expected_verdict": "fail", "rule": "cross_entry_merge", "category": "llm"}
+{"fixture": "bad.unresolved_span.draft.json", "claim_index": 0, "expected_verdict": "pass", "rule": "unresolved_span", "category": "deterministic"}
+{"fixture": "bad.unresolved_span.draft.json", "claim_index": 1, "expected_verdict": "fail", "rule": "unresolved_span", "category": "deterministic"}
+{"fixture": "subtle.conflation.draft.json", "claim_index": 0, "expected_verdict": "fail", "rule": "cross_entry_merge", "category": "llm"}
