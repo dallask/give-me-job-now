@@ -6,73 +6,93 @@
     "language": "en",
     "claims": [
       {
-        "text": "Dana Fictional",
+        "text": "Your Name",
         "source_span": "name",
         "section": "header"
       },
       {
+        "text": "Lead Software Engineer & AI-Augmented Tech Lead | Azure AI (AI-102) · Anthropic Claude · Generative & Agentic AI · Full-Stack (Drupal / Laravel / React)",
+        "source_span": "title",
+        "section": "header"
+      },
+      {
+        "text": "AI Engineering & Agentic Systems",
+        "source_span": "expertise[0].resume_title",
+        "section": "skills"
+      },
+      {
+        "text": "EPAM Systems",
+        "source_span": "professional_experience[0].company",
+        "section": "experience"
+      },
+      {
+        "text": "Lead Software Engineer",
+        "source_span": "professional_experience[0].position",
+        "section": "experience"
+      },
+      {
         "text": "Alpha-Skill-A0",
-        "source_span": "technical_expertise[0].skills[0]",
+        "source_span": "expertise[0].skills[0]",
         "section": "skills"
       },
       {
         "text": "Gamma-Skill-G11",
-        "source_span": "technical_expertise[3].skills[11]",
+        "source_span": "expertise[3].skills[11]",
         "section": "skills"
       },
       {
         "text": "Beta-Skill-B0",
-        "source_span": "technical_expertise[1].skills[0]",
+        "source_span": "expertise[1].skills[0]",
         "section": "skills"
       },
       {
         "text": "Alpha-Skill-A1",
-        "source_span": "technical_expertise[0].skills[1]",
+        "source_span": "expertise[0].skills[1]",
         "section": "skills"
       },
       {
         "text": "Gamma-Skill-G12",
-        "source_span": "technical_expertise[3].skills[12]",
+        "source_span": "expertise[3].skills[12]",
         "section": "skills"
       },
       {
         "text": "Beta-Skill-B4",
-        "source_span": "technical_expertise[1].skills[4]",
+        "source_span": "expertise[1].skills[4]",
         "section": "skills"
       },
       {
         "text": "Alpha-Skill-A21",
-        "source_span": "technical_expertise[0].skills[21]",
+        "source_span": "expertise[0].skills[4]",
         "section": "skills"
       },
       {
         "text": "Gamma-Skill-G2",
-        "source_span": "technical_expertise[3].skills[2]",
+        "source_span": "expertise[3].skills[2]",
         "section": "skills"
       },
       {
         "text": "Beta-Skill-B6",
-        "source_span": "technical_expertise[1].skills[6]",
+        "source_span": "expertise[1].skills[6]",
         "section": "skills"
       },
       {
         "text": "Alpha-Skill-A23",
-        "source_span": "technical_expertise[0].skills[23]",
+        "source_span": "expertise[0].skills[7]",
         "section": "skills"
       },
       {
         "text": "Gamma-Skill-G0",
-        "source_span": "technical_expertise[3].skills[0]",
+        "source_span": "expertise[3].skills[0]",
         "section": "skills"
       },
       {
         "text": "Beta-Skill-B7",
-        "source_span": "technical_expertise[1].skills[7]",
+        "source_span": "expertise[1].skills[7]",
         "section": "skills"
       },
       {
         "text": "Alpha-Skill-A9",
-        "source_span": "technical_expertise[0].skills[9]",
+        "source_span": "expertise[0].skills[9]",
         "section": "skills"
       },
       {

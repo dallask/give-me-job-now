@@ -76,7 +76,7 @@ def test_span_reconstruction() -> None:
 def test_compaction_of_noncontiguous_spans() -> None:
     """Sparse SOURCE indices compact to contiguous OUTPUT slots, per parent list.
 
-    Mirrors the real E2E-03 cherry-pick: technical_expertise elements [0,3,1] (in
+    Mirrors the real E2E-03 cherry-pick: expertise elements [0,3,1] (in
     first-appearance order) compact to blocks [0,1,2]; each block's ``skills`` list
     compacts its own sparse source indices independently and deterministically.
     """
@@ -87,8 +87,8 @@ def test_compaction_of_noncontiguous_spans() -> None:
     assert result.returncode == 0, f"non-contiguous spans must compact, not fail: {result.stderr}"
     tree = yaml.safe_load(out.read_text(encoding="utf-8"))
 
-    # technical_expertise elements source [0,3,1] -> 3 contiguous blocks [0,1,2].
-    te = tree["technical_expertise"]
+    # expertise elements source [0,3,1] -> 3 contiguous blocks [0,1,2].
+    te = tree["expertise"]
     assert len(te) == 3, f"3 blocks expected (source elems 0,3,1 compacted): {te}"
 
     # Each parent list compacted independently, by first-appearance of its source idx.
