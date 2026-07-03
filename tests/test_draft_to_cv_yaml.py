@@ -4,11 +4,14 @@
 Proves the span-driven bridge is a truthful, deterministic adapter:
 (1) reconstruction — each claim.text lands at the CV-YAML path named by its
     source_span;
-(2) out-of-range rejection — a span past the end of a list exits 1, no traceback
-    (no phantom-null invention, T-08-04);
-(3) ungrammatical-segment rejection — a span failing SEGMENT.fullmatch exits 1,
+(2) compaction — non-contiguous SOURCE list indices (a targeted CV cherry-picking
+    non-adjacent items) collapse to contiguous OUTPUT slots by first-appearance order,
+    per parent list, deterministically, with NO phantom/null leaf (T-08-04);
+(3) type-mismatch rejection — a span that descends into a scalar exits 1, no
+    traceback (T-08-01);
+(4) ungrammatical-segment rejection — a span failing SEGMENT.fullmatch exits 1,
     no traceback (T-08-01);
-(4) no-invention — every scalar leaf of the produced YAML traces to a claim.text
+(5) no-invention — every scalar leaf of the produced YAML traces to a claim.text
     (the bridge added nothing).
 
 No pytest — run with ``python3 tests/test_draft_to_cv_yaml.py``.
@@ -70,13 +73,89 @@ def test_span_reconstruction() -> None:
     ), tree
 
 
-def test_out_of_range_span_rejected() -> None:
+def test_compaction_of_noncontiguous_spans() -> None:
+    """Sparse SOURCE indices compact to contiguous OUTPUT slots, per parent list.
+
+    Mirrors the real E2E-03 cherry-pick: technical_expertise elements [0,3,1] (in
+    first-appearance order) compact to blocks [0,1,2]; each block's ``skills`` list
+    compacts its own sparse source indices independently and deterministically.
+    """
     out = _tmp_path("cv.yaml")
     result = _run(
-        "--file", str(FIXTURES / "cv.draft.badspan.sample.json"), "--out", str(out)
+        "--file", str(FIXTURES / "cv.draft.compaction.sample.json"), "--out", str(out)
     )
-    assert result.returncode == 1, "out-of-range span must exit 1"
-    assert "Traceback" not in result.stderr, "no traceback on rejected span"
+    assert result.returncode == 0, f"non-contiguous spans must compact, not fail: {result.stderr}"
+    tree = yaml.safe_load(out.read_text(encoding="utf-8"))
+
+    # technical_expertise elements source [0,3,1] -> 3 contiguous blocks [0,1,2].
+    te = tree["technical_expertise"]
+    assert len(te) == 3, f"3 blocks expected (source elems 0,3,1 compacted): {te}"
+
+    # Each parent list compacted independently, by first-appearance of its source idx.
+    # Block 0 <- te[0].skills source [0,1,21,23,9]
+    assert te[0]["skills"] == [
+        "Alpha-Skill-A0",
+        "Alpha-Skill-A1",
+        "Alpha-Skill-A21",
+        "Alpha-Skill-A23",
+        "Alpha-Skill-A9",
+    ], te[0]["skills"]
+    # Block 1 <- te[3].skills source [11,12,2,0]
+    assert te[1]["skills"] == [
+        "Gamma-Skill-G11",
+        "Gamma-Skill-G12",
+        "Gamma-Skill-G2",
+        "Gamma-Skill-G0",
+    ], te[1]["skills"]
+    # Block 2 <- te[1].skills source [0,4,6,7]
+    assert te[2]["skills"] == [
+        "Beta-Skill-B0",
+        "Beta-Skill-B4",
+        "Beta-Skill-B6",
+        "Beta-Skill-B7",
+    ], te[2]["skills"]
+    assert [len(b["skills"]) for b in te] == [5, 4, 4], [len(b["skills"]) for b in te]
+
+    # professional_experience[0].achievements source [4,8] -> contiguous [0,1].
+    ach = tree["professional_experience"][0]["achievements"]
+    assert len(ach) == 2 and ach[0].startswith("Delivered"), ach
+
+    # No phantom/null leaf anywhere, and every leaf traces to an approved claim.text.
+    draft = json.loads(
+        (FIXTURES / "cv.draft.compaction.sample.json").read_text(encoding="utf-8")
+    )
+    claim_texts = {c["text"] for c in draft["content"]["claims"]}
+    leaves = _scalar_leaves(tree)
+    assert None not in leaves, f"no null/None leaf may be invented by compaction: {leaves}"
+    for leaf in leaves:
+        assert leaf in claim_texts, f"compacted leaf not traceable to a claim.text: {leaf!r}"
+
+
+def test_type_mismatch_rejected() -> None:
+    """A span descending into a scalar (contact -> contact.email) raises TypeError.
+
+    Under compaction a lone out-of-range list index legitimately compacts to slot 0,
+    so out-of-range no longer proves a hard-fail. A genuine TYPE MISMATCH still must:
+    the first claim writes a scalar at ``contact``, the second tries to walk into it.
+    """
+    draft = {
+        "schema_version": "1.0",
+        "kind": "artifact_draft",
+        "content": {
+            "artifact_type": "cv",
+            "language": "en",
+            "claims": [
+                {"text": "scalar-here", "source_span": "contact", "section": "header"},
+                {"text": "x@example.com", "source_span": "contact.email", "section": "header"},
+            ],
+        },
+    }
+    draft_path = _tmp_path("typemismatch.json")
+    draft_path.write_text(json.dumps(draft), encoding="utf-8")
+    out = _tmp_path("cv.yaml")
+    result = _run("--file", str(draft_path), "--out", str(out))
+    assert result.returncode == 1, "type-mismatch span must exit 1"
+    assert "Traceback" not in result.stderr, "no traceback on type-mismatch span"
 
 
 def test_ungrammatical_span_rejected() -> None:
