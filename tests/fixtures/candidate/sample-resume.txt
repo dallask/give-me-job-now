@@ -1,0 +1,17 @@
+Alex Fictional
+Sample Backend Engineer
+
+Summary
+Synthetic candidate profile used only for give-me-job ingestion tests.
+All names, employers, dates, and credentials below are invented — no real PII.
+
+Experience
+Widget Foundry (2018 - 2024) — Backend Engineer
+  - Built an imaginary order-processing service in a made-up framework.
+  - Reduced fictional latency by an unverifiable-but-invented 42%.
+
+Certifications
+  - Certified Sample Practitioner, Imaginary Certifying Body, 2020
+
+Education
+  - BSc Sample Engineering, Fictional Institute of Technology, 2010 - 2014

@@ -1,0 +1,12 @@
+{
+  "education[0]": {
+    "source": "tests/fixtures/candidate/sample-diploma.jpg",
+    "extractor": "read-vision",
+    "confidence": 0.9
+  },
+  "certifications[0]": {
+    "source": "tests/fixtures/candidate/sample-resume.txt",
+    "extractor": "extract.py",
+    "confidence": 0.95
+  }
+}

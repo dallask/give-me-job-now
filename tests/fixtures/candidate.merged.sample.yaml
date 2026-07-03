@@ -1,0 +1,17 @@
+# Synthetic merged candidate.yaml FRAGMENT for ingestion tests only.
+# Real top-level candidate schema keys only (see .claude/skills/candidate-yaml-schema).
+# Every value is invented — no real PII. `education` and `certifications` below are the
+# newly-ingested facts that the provenance sidecar must cover.
+name: 'Alex Fictional'
+title: 'Sample Backend Engineer'
+summary: 'Synthetic profile fragment produced by the ingestion pipeline for testing.'
+education:
+  - institution: 'Fictional Institute of Technology'
+    program: 'BSc Sample Engineering'
+    location: 'Nowhere City'
+    duration: '2010 - 2014'
+certifications:
+  - issuer: 'Imaginary Certifying Body'
+    year: 2020
+    credentials:
+      - 'Certified Sample Practitioner'

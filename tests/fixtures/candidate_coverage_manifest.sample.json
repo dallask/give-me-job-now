@@ -1,0 +1,46 @@
+{
+  "pipeline_run_id": "sample-ingest-0001",
+  "generated": "synthetic-fixture",
+  "files": [
+    {
+      "path": "tests/fixtures/candidate/sample-resume.txt",
+      "suffix": ".txt",
+      "status": "extracted",
+      "extractor": "extract.py",
+      "chars": 480
+    },
+    {
+      "path": "tests/fixtures/candidate/sample-notes.docx",
+      "suffix": ".docx",
+      "status": "extracted",
+      "extractor": "extract.py",
+      "chars": 140
+    },
+    {
+      "path": "tests/fixtures/candidate/sample-diploma.jpg",
+      "suffix": ".jpg",
+      "status": "extracted-vision",
+      "extractor": "read-vision",
+      "chars": 96
+    },
+    {
+      "path": "tests/fixtures/candidate/sample-old.doc",
+      "suffix": ".doc",
+      "status": "needs-conversion",
+      "extractor": "extract.py",
+      "chars": 0
+    }
+  ],
+  "urls": [
+    {
+      "url": "https://www.work.ua/jobs/sample-fictional-posting/",
+      "host": "work.ua",
+      "status": "fetched"
+    },
+    {
+      "url": "https://blocked.example.invalid/off-list-posting",
+      "host": "blocked.example.invalid",
+      "status": "paste-fallback"
+    }
+  ]
+}
