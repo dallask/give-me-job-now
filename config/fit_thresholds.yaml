@@ -1,0 +1,27 @@
+# config/fit_thresholds.yaml — Gate B calibrated deliverable (FIT-04).
+#
+# coverage_threshold is the FIT-04 calibrated deliverable: it is DERIVED from the
+# labeled calibration fixtures under tests/fixtures/fit/ (clear-pass, clear-fail,
+# borderline), not adopted as a placeholder round number. The chosen value must sit
+# in the gap between the highest labeled-fail coverage and the lowest labeled-pass
+# coverage so it cleanly separates the labeled-pass fixtures from the labeled-fail /
+# borderline fixtures. It is frozen before a run and loaded via `yaml.safe_load`
+# (never `yaml.load`) with an `isinstance` guard in score_fit.py.
+#
+# The `weights` block feeds ONLY an optional advisory composite reported in `why`.
+# It NEVER contributes to the Gate B hard-block verdict, which is coverage-only:
+# covered_count / total_count must be >= coverage_threshold. See
+# .claude/skills/fit-rubric/SKILL.md for the derivation record and the Gate C rubric.
+
+# PRIMARY hard-block: covered_count / total_count must be >= this value.
+# Seeded at 0.7 as the placeholder anchor (Assumption A1) to be CONFIRMED by the
+# Plan-06 derivation report proving clean pass/fail/borderline separation.
+coverage_threshold: 0.7
+
+# SECONDARY advisory composite only — coverage stays the gate. Coverage-dominant:
+# `coverage` far outweighs the alignment signals. Weights sum to 1.0.
+weights:
+  coverage: 0.70              # coverage-dominant; mirrors the coverage-only hard-block
+  keyword_alignment: 0.15     # advisory: must-have keyword tokens present in draft claims
+  language_match: 0.10        # advisory: offer language == draft language
+  seniority_scope_match: 0.05 # advisory: offer seniority token present in claim text
