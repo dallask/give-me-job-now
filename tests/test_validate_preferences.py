@@ -112,6 +112,12 @@ def test_missing_sources_fails_closed() -> None:
     assert r.returncode != 0, (
         "missing sources.yaml must FAIL closed (never fail-open on a scope gate)"
     )
+    # A nonzero exit alone is satisfiable by an unrelated crash (argparse/import/traceback);
+    # assert the specific fail-closed reason path AND the absence of the success sentinel.
+    assert "FAIL-CLOSED" in r.stderr, (
+        f"must hit the fail-closed reason path (not an unrelated crash); stderr:\n{r.stderr}"
+    )
+    assert "OK" not in r.stdout, f"must NOT print the success sentinel; stdout:\n{r.stdout}"
 
 
 def test_url_vs_host_normalization_true_positive() -> None:
