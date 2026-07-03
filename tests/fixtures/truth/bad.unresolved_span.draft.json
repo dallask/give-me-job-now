@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "cv",
+    "language": "en",
+    "claims": [
+      {
+        "text": "Dana Testcase",
+        "source_span": "name",
+        "section": "header"
+      },
+      {
+        "text": "Fabricated credential with no backing entry.",
+        "source_span": "certifications[0].credentials[9]",
+        "section": "certifications",
+        "reframing_note": "Unsupported claim — the span points past the end of the credentials list; must FAIL deterministically naming this claim_index."
+      }
+    ]
+  }
+}

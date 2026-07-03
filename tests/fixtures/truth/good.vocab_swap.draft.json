@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "cv",
+    "language": "en",
+    "claims": [
+      {
+        "text": "Holds the Certified Sample Practitioner credential",
+        "source_span": "certifications[0].credentials[0]",
+        "section": "certifications",
+        "reframing_note": "R1 vocabulary swap — same credential fact, reworded to foreground certified expertise for the offer."
+      }
+    ]
+  }
+}

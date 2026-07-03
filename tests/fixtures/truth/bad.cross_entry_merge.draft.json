@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "cv",
+    "language": "en",
+    "claims": [
+      {
+        "text": "Built Python services on AWS at Acme",
+        "source_span": "professional_experience[0].achievements[2]",
+        "section": "experience"
+      }
+    ]
+  }
+}

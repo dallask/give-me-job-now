@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "cv",
+    "language": "en",
+    "claims": [
+      {
+        "text": "Cut p95 latency by roughly a third",
+        "source_span": "professional_experience[0].achievements[1]",
+        "section": "experience",
+        "reframing_note": "Numeric reframe — restates the real 30% as a word-fraction with no invented digit; proves the numeric heuristic does not false-positive on word-number reframes."
+      }
+    ]
+  }
+}
