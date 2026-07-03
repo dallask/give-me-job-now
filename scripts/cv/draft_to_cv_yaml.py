@@ -10,8 +10,14 @@ claim's ``text`` into a fresh CV-YAML tree that ``scripts/cv/render_cv.py`` cons
 No-invention guarantee (core value / threat T-08-04): every scalar leaf written into
 the CV-YAML comes ONLY from a ``claim.text`` value that already passed Gate A. This
 bridge NEVER opens or reads ``config/candidate.yaml`` (Anti-Pattern #1, Assumption
-A1). Out-of-range list indices are rejected rather than None-padded, so no phantom
-entry can be invented.
+A1). List indices in a ``source_span`` are SOURCE (candidate.yaml) positions and are
+legitimately sparse for a targeted CV that cherry-picks non-adjacent items (e.g.
+``technical_expertise[0].skills[0,1,9,21,23]``). Each parent list's source indices are
+COMPACTED to contiguous output slots by order of first appearance — gaps are removed,
+never filled with placeholders (no phantom-null padding). The no-invention guarantee is
+preserved because only ``claim.text`` is ever written as a leaf; compaction reshapes
+positions, it never synthesizes content. A source index seen twice maps to the same
+output slot, making the reconstruction deterministic.
 
 Grammar ownership (anti-drift T-04-05 / T-08-01): the segment grammar is imported as
 ``SEGMENT`` from ``scripts/artifacts/yaml_path.py`` — the single owner. No second
@@ -60,9 +66,11 @@ def _descend(container: object, kind: str, ref: object, next_kind: str) -> objec
     """Navigate one intermediate step, creating a child container if absent.
 
     The child container type is dictated by the *next* step: a ``dict`` when the
-    next step is a dict-key, a ``list`` when it is a list index. List indices may
-    only extend a list contiguously (``ref <= len``); ``ref > len`` raises
-    IndexError (no phantom-null padding — no-invention, T-08-04).
+    next step is a dict-key, a ``list`` when it is a list index. ``ref`` here is an
+    already-COMPACTED output index (see ``set_path``), so it is contiguous by
+    construction — either an existing slot (``ref < len``) or exactly the next one
+    (``ref == len``). The ``ref > len`` IndexError therefore remains only as
+    defense-in-depth; no phantom-null padding is ever produced (no-invention, T-08-04).
     """
     child_factory = dict if next_kind == "key" else list
     if kind == "key":
@@ -102,23 +110,50 @@ def _assign(container: object, kind: str, ref: object, value: object) -> None:
         raise IndexError(f"list index {i} out of range (len {len(container)})")
 
 
-def set_path(tree: dict, dotted: str, value: object) -> None:
+def set_path(tree: dict, dotted: str, value: object, compaction: dict) -> None:
     """Write ``value`` into ``tree`` at the CV-YAML path named by ``dotted``.
 
     Strict write-side inverse of ``yaml_path.resolve_path``: unparseable segments
-    raise KeyError; over-range list indices raise IndexError; type mismatches raise
-    TypeError. Never invents an intermediate leaf and never pads a list with None.
+    raise KeyError; type mismatches raise TypeError. Never invents an intermediate
+    leaf and never pads a list with None.
+
+    List-index steps carry SOURCE (candidate.yaml) positions, which are legitimately
+    sparse for a targeted CV. Each parent list's source indices are COMPACTED to
+    contiguous output slots by order of first appearance via the shared ``compaction``
+    map: a dict keyed by the SOURCE-index span prefix identifying each list, whose
+    value is an ordered ``{source_idx: output_idx}`` slot map. Keying by the source
+    prefix keeps ``technical_expertise[0].skills``, ``technical_expertise[1].skills``,
+    and ``technical_expertise[3].skills`` three DISTINCT lists compacted independently,
+    while the top-level ``technical_expertise`` element indices ``[0,1,3]`` compact to
+    ``[0,1,2]``. The same ``compaction`` map is threaded across every claim in a draft
+    so a repeated source index always maps to the same output slot (deterministic).
+    Compaction only removes gaps; it never fills one (no phantom padding, T-08-04).
     """
     steps = _steps(dotted)
     if not steps:
         raise KeyError(f"empty provenance path: {dotted!r}")
     container: object = tree
     last = len(steps) - 1
+    source_prefix = ""  # reproduces the original span up to (not incl.) the current token
     for i, (kind, ref) in enumerate(steps):
-        if i == last:
-            _assign(container, kind, ref, value)
-        else:
-            container = _descend(container, kind, ref, steps[i + 1][0])
+        next_kind = steps[i + 1][0] if i < last else None
+        if kind == "key":
+            if i == last:
+                _assign(container, "key", ref, value)
+            else:
+                container = _descend(container, "key", ref, next_kind)
+            source_prefix = f"{source_prefix}.{ref}" if source_prefix else str(ref)
+        else:  # kind == "idx" — compact SOURCE index -> contiguous OUTPUT slot
+            source_idx = int(ref)
+            slot_map = compaction.setdefault(source_prefix, {})
+            if source_idx not in slot_map:
+                slot_map[source_idx] = len(slot_map)
+            out_idx = slot_map[source_idx]
+            if i == last:
+                _assign(container, "idx", out_idx, value)
+            else:
+                container = _descend(container, "idx", out_idx, next_kind)
+            source_prefix = f"{source_prefix}[{source_idx}]"
 
 
 def main() -> int:
@@ -167,14 +202,17 @@ def main() -> int:
         return 1
 
     # No-invention: leaf values come ONLY from claim.text; candidate.yaml is never read.
+    # One compaction map shared across every claim so per-parent-list source indices
+    # collapse to contiguous output slots deterministically (first-appearance order).
     cv_tree: dict = {}
+    compaction: dict = {}
     try:
         for claim in content["claims"]:
             if not isinstance(claim, dict):
                 raise TypeError("each claim must be a JSON object")
             if "source_span" not in claim or "text" not in claim:
                 raise KeyError("claim missing 'source_span' or 'text'")
-            set_path(cv_tree, claim["source_span"], claim["text"])
+            set_path(cv_tree, claim["source_span"], claim["text"], compaction)
     except (KeyError, IndexError, TypeError) as exc:
         print(f"Rejected span: {exc}", file=sys.stderr)
         return 1
