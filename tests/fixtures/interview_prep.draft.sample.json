@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "interview_prep",
+    "language": "en",
+    "claims": [
+      {
+        "text": "Likely question: Walk me through a Python pipeline you built end to end.",
+        "source_span": "professional_experience[0]",
+        "section": "questions"
+      },
+      {
+        "text": "Talking point: Emphasize deterministic, quality-gated rendering with no fabricated content.",
+        "source_span": "summary",
+        "section": "talking_points"
+      },
+      {
+        "text": "Strength to highlight: Experience isolating regression risk by adding thin sibling modules instead of editing proven paths.",
+        "source_span": "key_achievements[0]",
+        "section": "talking_points"
+      }
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "cover_letter",
+    "language": "en",
+    "claims": [
+      {
+        "text": "Dear Hiring Team,",
+        "source_span": "greeting",
+        "section": "greeting"
+      },
+      {
+        "text": "I am writing to express my interest in the position, bringing hands-on experience building deterministic Python rendering pipelines that match the requirements in your posting.",
+        "source_span": "summary",
+        "section": "body"
+      },
+      {
+        "text": "My background in structured document generation and quality-gated automation maps directly onto the responsibilities you describe, and I would welcome the chance to contribute.",
+        "source_span": "professional_experience[0]",
+        "section": "body",
+        "reframing_note": "Reframed existing experience to foreground fit for the offer."
+      },
+      {
+        "text": "Thank you for your consideration. I look forward to discussing how I can support your team.",
+        "source_span": "closing",
+        "section": "closing"
+      }
+    ]
+  }
+}
