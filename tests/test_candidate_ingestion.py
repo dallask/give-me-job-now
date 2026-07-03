@@ -20,7 +20,6 @@ Only stdlib + PyYAML are used.
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -28,6 +27,9 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "artifacts"))
+from yaml_path import resolve_path  # noqa: E402
+
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 CANDIDATE_DIR = FIXTURES / "candidate"
 
@@ -39,8 +41,6 @@ ANALYZER = REPO_ROOT / ".claude" / "agents" / "candidate-analyzer.md"
 
 # Sections in the merged YAML that represent newly-ingested facts requiring provenance.
 NEW_FACT_SECTIONS = ("education", "certifications")
-
-_SEGMENT = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)((?:\[\d+\])*)")
 
 
 def _load_json(path: Path) -> object:
@@ -58,23 +58,6 @@ def _globbed_file_paths() -> set[str]:
         for p in CANDIDATE_DIR.rglob("*")
         if p.is_file()
     }
-
-
-def _resolve_path(data: object, dotted: str) -> object:
-    """Walk a dotted/indexed key (e.g. ``education[0].credentials[1]``) into ``data``.
-
-    Raises KeyError/IndexError/TypeError if any segment does not resolve.
-    """
-    node = data
-    for segment in dotted.split("."):
-        match = _SEGMENT.fullmatch(segment)
-        if not match:
-            raise KeyError(f"unparseable provenance segment: {segment!r}")
-        name, indices = match.group(1), match.group(2)
-        node = node[name]
-        for idx in re.findall(r"\[(\d+)\]", indices):
-            node = node[int(idx)]
-    return node
 
 
 def _agent_frontmatter_tools(path: Path) -> list[str]:
@@ -146,7 +129,7 @@ def test_provenance_covers_new_facts() -> None:
     # 1. Every provenance key resolves to a real node in the merged YAML.
     for key in provenance:
         try:
-            _resolve_path(merged, key)
+            resolve_path(merged, key)
         except (KeyError, IndexError, TypeError) as exc:
             raise AssertionError(
                 f"provenance key {key!r} does not resolve in merged YAML: {exc}"
