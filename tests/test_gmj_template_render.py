@@ -116,6 +116,70 @@ def test_cyrillic_glyphs_ru() -> None:
     )
 
 
+def _emoji_codepoints(text: str) -> list[str]:
+    """Code points DejaVu Sans has NO glyph for — emoji / pictographs / dingbats.
+
+    DejaVu ships zero glyphs across these ranges, so any such code point in the PDF text
+    layer can only rasterize via a per-machine system emoji font (Apple Color Emoji, Noto
+    Color Emoji, or tofu on a bare CI box). Emitting one reintroduces exactly the fontconfig
+    nondeterminism the template's @font-face doctrine exists to kill.
+    """
+    ranges = (
+        (0x2600, 0x27BF),    # Misc symbols + Dingbats (⚡ ❤ ⭐-adjacent, ✨ ✅)
+        (0x2B00, 0x2BFF),    # Misc symbols and arrows (⭐ U+2B50)
+        (0x1F000, 0x1FAFF),  # Emoji, pictographs, supplemental symbols (💡 🤖 🏆 🚀 …)
+        (0xFE00, 0xFE0F),    # Variation selectors (emoji-presentation VS16)
+    )
+    return sorted({c for c in text if any(lo <= ord(c) <= hi for lo, hi in ranges)})
+
+
+def test_achievements_icons_emit_no_emoji_codepoints() -> None:
+    """Determinism guard (TEMPLATE-05): an achievements CV must emit ZERO emoji code points.
+
+    The live ``config/candidate.yaml`` seeds ``key_achievements[].icon`` with real emoji
+    (🤖 ✨ 🏆 ⚡ 📈 🚀 ✅). DejaVu — the only @font-face-pinned family — has no glyph for any of
+    them, so if the template routed a raw emoji into the layout it would fall back to a
+    host-specific system emoji font and the rasterized sidebar (hence the visual-diff ratio)
+    would become machine-dependent, silently breaking the ≤0.10 compare==ship bar across
+    machines. The template renders a repo-local inline SVG star marker instead, so no emoji
+    code point must reach the PDF text/layout layer — while the achievement CONTENT is still
+    rendered.
+    """
+    # Guard the guard: the sample data must actually contain emoji, else this test is hollow.
+    base = yaml.safe_load(CONFIG.read_text(encoding="utf-8")) or {}
+    achievements = base.get("key_achievements") or []
+    seeded_icons = [a.get("icon") for a in achievements if a.get("icon")]
+    seeded_emoji = [ic for ic in seeded_icons if _emoji_codepoints(ic)]
+    assert seeded_emoji, (
+        "fixture drift: config/candidate.yaml key_achievements no longer carry emoji icons — "
+        "this determinism test can no longer prove the emoji are dropped from the layout"
+    )
+
+    out = Path(tempfile.mkdtemp()) / "gmj-ach.pdf"
+    result = _run("--config", str(CONFIG), "--template", str(TEMPLATE), "--out", str(out))
+    assert result.returncode == 0, f"achievements render must exit 0: {result.stderr}"
+    assert_valid_pdf(out)
+
+    text = _pdf_text(out)
+    leaked = _emoji_codepoints(text)
+    assert not leaked, (
+        f"rendered PDF emits emoji/pictograph code points {[hex(ord(c)) for c in leaked]} "
+        f"which DejaVu cannot render — they fall back to a per-machine system emoji font, "
+        f"reintroducing cross-machine nondeterminism into the visual diff"
+    )
+
+    # Content must survive the icon substitution: the achievement titles still render.
+    folded = re.sub(r"\s+", "", text).casefold()
+    for item in achievements:
+        title = (item.get("title") or "").strip()
+        if not title:
+            continue
+        assert re.sub(r"\s+", "", title).casefold() in folded, (
+            f"achievement {title!r} is absent from the rendered PDF — dropping the emoji "
+            f"icon must not drop the achievement content"
+        )
+
+
 def test_longer_than_sample_no_overflow() -> None:
     # candidate.yaml + --lang ua deep-merges the longer-than-sample Ukrainian overlay
     # (config/candidate.ua.yaml) over the English base — the longest CV variant. It must

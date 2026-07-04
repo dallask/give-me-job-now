@@ -332,6 +332,13 @@
       opacity: 0.95;
     }
 
+    .ach-icon svg {
+      width: 11pt;
+      height: 11pt;
+      flex-shrink: 0;
+      vertical-align: middle;
+    }
+
     .ach-body .ach-t {
       font-size: 8.5pt;
       font-weight: 700;
@@ -524,10 +531,14 @@
       {% if candidate.key_achievements %}
       <h2 class="section-title-side">{{ labels.key_achievements | default('Key achievements') }}</h2>
       <ul class="ach-list">
-        {% set ach_icons = ['💡', '❤', '⚡', '⭐', '🎯', '🔥'] %}
         {% for item in candidate.key_achievements %}
         <li class="ach-item">
-          <span class="ach-icon">{{ item.icon or ach_icons[loop.index0 % 6] }}</span>
+          {# Determinism (TEMPLATE-05): render a repo-local inline SVG star marker, never the
+             candidate's raw emoji icon. DejaVu has no emoji glyphs, so a raw emoji code point
+             (💡🤖✨🏆…) falls back to a per-machine system emoji font, reintroducing exactly the
+             fontconfig nondeterminism @font-face was added to kill. WeasyPrint rasterizes this
+             SVG itself, so the same input always produces the same PNG on every machine. #}
+          <span class="ach-icon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01L12 2z"/></svg></span>
           <div class="ach-body">
             <p class="ach-t">{{ item.title }}</p>
             <p class="ach-d">{{ item.description }}</p>
