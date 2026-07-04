@@ -43,13 +43,17 @@ _PLACEHOLDER = {"", "todo", "tbd", "tba", "n/a", "pending", "fixme"}
 def _deferred_rows(text: str) -> list[dict[str, str]]:
     """Parse the STATE.md ## Deferred Verification table into DV-ID-keyed rows.
 
-    Slices the section (``## Deferred Verification`` -> ``## Session Continuity``), drops the
+    Slices the section from ``## Deferred Verification`` to the NEXT top-level ``## `` heading
+    (whatever it is named) or EOF — NOT bound to a hardcoded sibling heading — drops the
     blockquote (``>``) and header/separator lines, splits each data row on ``|``, and REQUIRES
     every data row's first cell to start with ``DV-`` (fails loudly if the column is missing).
     """
     if "## Deferred Verification" not in text:
         raise AssertionError("STATE.md has no '## Deferred Verification' section")
-    body = text.split("## Deferred Verification", 1)[1].split("## Session Continuity", 1)[0]
+    after = text.split("## Deferred Verification", 1)[1]
+    # Bound to the next top-level "## " heading generically (or EOF), so inserting, renaming,
+    # or reordering a later section does not spuriously break or mis-scope the gate.
+    body = re.split(r"(?m)^## ", after, maxsplit=1)[0]
     rows: list[dict[str, str]] = []
     for line in body.splitlines():
         s = line.strip()
