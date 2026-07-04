@@ -40,6 +40,7 @@ exit 1 (stderr) on a missing/unparsable manifest or a non-app target.
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import os
 import re
 import shutil
@@ -116,6 +117,47 @@ def load_manifest(path: Path) -> dict:
     return data
 
 
+def load_framework_globs(manifest: dict) -> list[str]:
+    """The manifest's framework deny-globs (raises if declared but not a list)."""
+    globs = manifest.get("framework_globs", [])
+    if not isinstance(globs, list):
+        raise ValueError("ownership manifest `framework_globs` must be a list")
+    return [str(g) for g in globs]
+
+
+def _framework_globs_cached() -> list[str]:
+    """Best-effort framework deny-globs from the default manifest (empty if it can't load).
+
+    Lets the no-arg ``iter_app_files()`` still prune declared-framework files without a caller
+    threading the manifest through; a broken/missing manifest degrades to the ``gsd-*``-prefix +
+    ``EXCLUDE_DIRS`` pruning that was always in place (never 'rewrite framework files').
+    """
+    try:
+        return load_framework_globs(load_manifest(DEFAULT_MANIFEST))
+    except Exception:  # noqa: BLE001  best-effort: never fail the walk on a manifest defect
+        return []
+
+
+def is_framework_path(path: Path, framework_globs: list[str]) -> bool:
+    """True if ``path`` matches any framework deny-glob — a real deny-list check (WR-01/WR-02).
+
+    Each glob is matched (case-sensitively) against the repo-relative posix path, the basename,
+    the stem, and every path component, so BOTH path-anchored globs (``.claude/hooks/lib/**``,
+    ``**/gsd-core/**``, ``.claude/hooks/managed-hooks-registry.cjs``) and name/stem globs
+    (``gsd-*``, ``ai-agents-architect``) are enforced — independent of the manifest app map, so a
+    framework file mistakenly listed under ``app:`` is still hard-blocked at runtime.
+    """
+    if not framework_globs:
+        return False
+    try:
+        rel = path.resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        rel = path.name
+    candidates = {rel, path.name, Path(path.name).stem}
+    candidates.update(Path(rel).parts)
+    return any(fnmatch.fnmatchcase(cand, glob) for glob in framework_globs for cand in candidates)
+
+
 # --------------------------------------------------------------------------- path resolution
 
 def _resolve_pair(atype: str, old: str, new: str) -> tuple[Path, Path]:
@@ -164,12 +206,16 @@ def app_allow_set(index: dict[str, list[dict]]) -> set[Path]:
     return allow
 
 
-def assert_app_target(path: Path, allow_set: set[Path]) -> None:
-    """Refuse to touch any path not proven on the app allow-list (framework hard-block).
+def assert_app_target(path: Path, allow_set: set[Path], framework_globs: list[str]) -> None:
+    """Refuse to touch a framework file OR any path not on the app allow-list (WR-01 hard-block).
 
-    Mirrors the gmj_merge_shortlists.py write path-containment guard: a target outside the
-    manifest's app set (a framework file, or an out-of-tree path) raises before any git mv.
+    Two independent gates, framework-first so the check is NOT tautological: a path matching a
+    declared ``framework_globs`` entry is refused even if a mis-classified manifest put it in the
+    ``app`` allow-set. Then any target outside the app set (an unrelated file, or an out-of-tree
+    path) raises before any git mv — mirroring the gmj_merge_shortlists.py containment guard.
     """
+    if is_framework_path(path, framework_globs):
+        raise ValueError(f"Refusing to rename framework file (matches framework_globs): {path}")
     if path.resolve() not in allow_set:
         raise ValueError(f"Refusing to rename non-app file: {path}")
 
@@ -400,13 +446,15 @@ def main() -> int:
 
     index = build_app_index(manifest)
     allow_set = app_allow_set(index)
+    framework_globs = load_framework_globs(manifest)
     entries = index.get(args.type, [])
 
-    # Allow-list guard: prove every target of this type is app-owned before touching anything.
+    # Allow-list guard: prove every target of this type is app-owned AND not a framework file
+    # before touching anything (framework deny-list is enforced independently of the app map).
     try:
         for e in entries:
-            assert_app_target(e["old_path"], allow_set)
-            assert_app_target(e["new_path"], allow_set)
+            assert_app_target(e["old_path"], allow_set, framework_globs)
+            assert_app_target(e["new_path"], allow_set, framework_globs)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -433,7 +481,7 @@ def main() -> int:
         changed = apply_rewrites(rules, files)
         for e in entries:
             if e["old_path"].exists():
-                assert_app_target(e["old_path"], allow_set)
+                assert_app_target(e["old_path"], allow_set, framework_globs)
                 git_mv(e["old_path"], e["new_path"])
         # CR-01: git mv staged each rename from the pre-rewrite index blob; stage the content
         # rewrites too so `git commit` (no -a) can't ship renamed modules with stale content.

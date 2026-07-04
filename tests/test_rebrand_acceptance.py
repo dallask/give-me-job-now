@@ -243,6 +243,52 @@ def test_git_mv_rejects_out_of_tree_destination() -> None:
     assert raised_abs, "git_mv accepted an absolute out-of-tree destination"
 
 
+_REBRAND_SCRIPT = REPO_ROOT / "scripts" / "gmj_rebrand.py"
+
+
+def test_framework_glob_hardblocks_misclassified_app_entry() -> None:
+    """WR-01: assert_app_target refuses a framework-glob match even if it is in the allow-set."""
+    globs = R.load_framework_globs(R.load_manifest(R.DEFAULT_MANIFEST))
+    framework_file = R.AGENTS_DIR / "ai-agents-architect.md"
+    # Simulate a mis-classified manifest: the framework file is (wrongly) on the app allow-set.
+    poisoned_allow = {framework_file.resolve()}
+    raised = False
+    try:
+        R.assert_app_target(framework_file, poisoned_allow, globs)
+    except ValueError:
+        raised = True
+    assert raised, "framework file matching framework_globs was NOT hard-blocked despite allow-set"
+    # Positive control: a genuine app file on the allow-set is accepted.
+    app_file = R.AGENTS_DIR / "gmj-orchestrator.md"
+    R.assert_app_target(app_file, {app_file.resolve()}, globs)
+
+
+def test_engine_refuses_framework_file_listed_in_app() -> None:
+    """WR-01 end-to-end: a manifest that lists a framework file under app: makes the engine exit 1."""
+    poisoned = {
+        "version": 1,
+        "framework_globs": [
+            "gsd-*", "**/gsd-core/**", ".claude/hooks/lib/**",
+            ".claude/hooks/managed-hooks-registry.cjs", "ai-agents-architect",
+        ],
+        # ai-agents-architect is a framework agent; a typo put it under app.agents.
+        "app": {"agents": [{"old": "ai-agents-architect", "new": "gmj-hijacked-arch"}]},
+    }
+    with tempfile.TemporaryDirectory() as d:
+        mpath = Path(d) / "poisoned-manifest.yaml"
+        mpath.write_text(json.dumps(poisoned), encoding="utf-8")  # JSON is valid YAML
+        # --dry-run makes no changes even before the guard; the guard must still reject.
+        proc = subprocess.run(
+            [sys.executable, str(_REBRAND_SCRIPT), "--type", "agents", "--dry-run",
+             "--manifest", str(mpath)],
+            capture_output=True, text=True, timeout=60,
+        )
+        assert proc.returncode == 1, (
+            f"engine did not refuse a framework file in app: rc={proc.returncode}\n{proc.stdout}\n{proc.stderr}"
+        )
+        assert "framework" in proc.stderr.lower(), f"expected a framework-refusal message: {proc.stderr!r}"
+
+
 # --------------------------------------------------------------------------- hooks
 
 def _registered_hook_paths() -> list[str]:
