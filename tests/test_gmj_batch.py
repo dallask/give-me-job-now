@@ -37,6 +37,13 @@ BATCH = REPO_ROOT / "scripts" / "pipeline" / "gmj_batch.py"
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "batch" / "shortlist.thin-and-rich.json"
 SCHEMA = REPO_ROOT / "schemas" / "batch_manifest.schema.json"
 
+# In-repo helpers reused by the idempotency test (mirrors test_merge_shortlists.py's
+# sys.path-insert import idiom): coarse_to_draft from gmj_batch + freeze from freeze_offer.
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "pipeline"))
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "offers"))
+import gmj_batch  # noqa: E402
+import freeze_offer  # noqa: E402
+
 
 def _cli(
     args: list[str], cwd: Path, env: dict[str, str] | None = None
@@ -265,6 +272,235 @@ def test_unsafe_batch_id_rejected() -> None:
         # no file written outside .pipeline/batches/
         assert not (cwd / "evil").exists(), "no file may be written outside .pipeline/batches/"
         assert not (cwd.parent / "evil").exists(), "no escape above the temp cwd"
+
+
+# --- SELECT-04 / SELECT-03 status-lifecycle: mark, resume, record-spec --------
+#
+# Delivery truth here is the RECORDED gate verdict ONLY — each per-(offer, artifact_type)
+# run's `state.json` `gate_results` re-checked via check_delivery.blocked_reason (Gate A ∧
+# Gate B). Never the manifest `status` label, and NEVER a rendered-PDF path convention
+# (state.json records no artifact path; renderers emit timestamped non-run-keyed filenames;
+# interview_prep is a .md; render_cv prunes older PDFs — a PDF conjunct would spuriously
+# re-run delivered offers). Rendered-artifact existence is a Manual-Only UAT check
+# (12-VALIDATION.md), never part of this automated resume predicate.
+
+
+def _mark(
+    cwd: Path, run_id: str, status: str, *, batch_id: str = "b1", pipeline_dir: str = ".pipeline"
+) -> subprocess.CompletedProcess[str]:
+    return _cli(
+        ["mark", "--batch", batch_id, "--run-id", run_id, "--status", status,
+         "--pipeline-dir", pipeline_dir],
+        cwd,
+    )
+
+
+def _resume(
+    cwd: Path, *, batch_id: str = "b1", pipeline_dir: str = ".pipeline"
+) -> subprocess.CompletedProcess[str]:
+    return _cli(["resume", "--batch", batch_id, "--pipeline-dir", pipeline_dir], cwd)
+
+
+def _record_spec(
+    cwd: Path, offer_index: int, path: str, spec_hash: str, *,
+    batch_id: str = "b1", pipeline_dir: str = ".pipeline",
+) -> subprocess.CompletedProcess[str]:
+    return _cli(
+        ["record-spec", "--batch", batch_id, "--offer-index", str(offer_index),
+         "--offer-spec-path", path, "--offer-spec-hash", spec_hash, "--pipeline-dir", pipeline_dir],
+        cwd,
+    )
+
+
+def _manifest_path(cwd: Path, batch_id: str = "b1", pipeline_dir: str = ".pipeline") -> Path:
+    return cwd / pipeline_dir / "batches" / batch_id / "manifest.json"
+
+
+def _load_manifest(cwd: Path, batch_id: str = "b1", pipeline_dir: str = ".pipeline") -> dict:
+    return json.loads(_manifest_path(cwd, batch_id, pipeline_dir).read_text())
+
+
+def _run_ids(manifest: dict) -> dict[tuple[int, str], str]:
+    """{(offer_index, artifact_key): run_id} across every per-(offer, artifact_type) run."""
+    out: dict[tuple[int, str], str] = {}
+    for off in manifest["offers"]:
+        for key, run in off["runs"].items():
+            out[(off["offer_index"], key)] = run["run_id"]
+    return out
+
+
+def _set_gates(
+    cwd: Path, run_id: str, *, truth: str | None = None, fit: str | None = None,
+    pipeline_dir: str = ".pipeline",
+) -> None:
+    """Stamp recorded gate_results into a per-(offer, artifact_type) state.json (the resume truth)."""
+    sp = cwd / pipeline_dir / "runs" / run_id / "state.json"
+    state = json.loads(sp.read_text())
+    gr: dict[str, str] = {}
+    if truth is not None:
+        gr["truth-verifier"] = truth
+    if fit is not None:
+        gr["fit-evaluator"] = fit
+    state["gate_results"] = gr
+    sp.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _parse_resume(stdout: str) -> list[dict]:
+    """Parse resume stdout into [{offer_index, artifact_type, run_id}, ...]."""
+    runs: list[dict] = []
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        f = dict(tok.split("=", 1) for tok in line.split() if "=" in tok)
+        if "run_id" in f and "offer_index" in f:
+            runs.append(
+                {
+                    "offer_index": int(f["offer_index"]),
+                    "artifact_type": f.get("artifact_type"),
+                    "run_id": f["run_id"],
+                }
+            )
+    return runs
+
+
+def _canonical(doc: dict) -> str:
+    return json.dumps(doc, sort_keys=True, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
+
+
+def test_mark_preserves_siblings() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        assert _init(cwd, "1,2").returncode == 0
+        before = _load_manifest(cwd)
+        target = _run_ids(before)[(0, "cv")]
+        r = _mark(cwd, target, "delivered")
+        assert r.returncode == 0, f"mark must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        after = _load_manifest(cwd)
+        assert after["offers"][0]["runs"]["cv"]["status"] == "delivered", (
+            f"targeted run status must become delivered: {after}"
+        )
+        expected = json.loads(json.dumps(before))
+        expected["offers"][0]["runs"]["cv"]["status"] = "delivered"
+        assert after == expected, "ONLY the targeted run's status may change — no sibling key dropped"
+
+
+def test_mark_reemits_canonical() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        assert _init(cwd, "1").returncode == 0
+        target = _run_ids(_load_manifest(cwd))[(0, "interview_prep")]
+        r = _mark(cwd, target, "failed")
+        assert r.returncode == 0, f"mark must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        raw = _manifest_path(cwd).read_text()
+        assert raw == _canonical(json.loads(raw)), (
+            "manifest after mark must be byte-identical to a canonical re-serialization of itself"
+        )
+
+
+def test_mark_unknown_run_id_rejected() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        assert _init(cwd, "1").returncode == 0
+        before = _manifest_path(cwd).read_bytes()
+        r = _mark(cwd, "nonexistent-run", "delivered")
+        assert r.returncode == 1, f"unknown run_id must exit 1: {r.stdout}"
+        assert "not found" in r.stderr.lower(), f"stderr must say not found: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        assert _manifest_path(cwd).read_bytes() == before, "no change may be written on unknown run_id"
+
+
+def test_resume_skips_delivered() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        assert _init(cwd, "1,2").returncode == 0
+        rids = _run_ids(_load_manifest(cwd))
+        # offer 0 cv: BOTH gates pass -> delivered (blocked_reason None) -> omitted from resume set.
+        _set_gates(cwd, rids[(0, "cv")], truth="pass", fit="pass")
+        # every other run keeps its init-seeded state (no gate_results) -> non-delivered.
+        r = _resume(cwd)
+        assert r.returncode == 0, f"resume must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        out_ids = {x["run_id"] for x in _parse_resume(r.stdout)}
+        assert rids[(0, "cv")] not in out_ids, "a genuinely-delivered run must be skipped (omitted)"
+        assert rids[(0, "cover_letter")] in out_ids, "a non-delivered run must be re-listed"
+        # delivery asserted purely from recorded gate_results — no PDF fixture involved.
+
+
+def test_resume_ignores_stale_running_label() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        assert _init(cwd, "1").returncode == 0
+        target = _run_ids(_load_manifest(cwd))[(0, "cv")]
+        # recorded gates BOTH pass...
+        _set_gates(cwd, target, truth="pass", fit="pass")
+        # ...but a crash left a stale 'running' manifest label.
+        assert _mark(cwd, target, "running").returncode == 0
+        r = _resume(cwd)
+        assert r.returncode == 0, f"resume must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        out_ids = {x["run_id"] for x in _parse_resume(r.stdout)}
+        assert target not in out_ids, (
+            "gates pass => delivered; the stale 'running' label must be ignored, run omitted"
+        )
+
+
+def test_resume_recomputes_pending_when_gate_absent() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        assert _init(cwd, "1").returncode == 0
+        rids = _run_ids(_load_manifest(cwd))
+        # cv: Gate B recorded FAIL -> blocked_reason not None -> included.
+        _set_gates(cwd, rids[(0, "cv")], truth="pass", fit="fail")
+        # cl: init-seeded, gate_results entirely absent (crash before Gate A) -> included.
+        r = _resume(cwd)
+        assert r.returncode == 0, f"resume must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        out_ids = {x["run_id"] for x in _parse_resume(r.stdout)}
+        assert rids[(0, "cv")] in out_ids, "a recorded FAILED gate must be recomputed as pending"
+        assert rids[(0, "cover_letter")] in out_ids, "an absent gate_results must be recomputed as pending"
+
+
+def test_record_spec_writes_hash() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        assert _init(cwd, "1,2").returncode == 0
+        before = _load_manifest(cwd)
+        spec_path = "sources/offers/softpeak.offer-spec.json"
+        spec_hash = "a" * 64
+        r = _record_spec(cwd, 0, spec_path, spec_hash)
+        assert r.returncode == 0, f"record-spec must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        after = _load_manifest(cwd)
+        assert after["offers"][0]["offer_spec_path"] == spec_path, "offer_spec_path must be written"
+        assert after["offers"][0]["offer_spec_hash"] == spec_hash, "offer_spec_hash must be written"
+        expected = json.loads(json.dumps(before))
+        expected["offers"][0]["offer_spec_path"] = spec_path
+        expected["offers"][0]["offer_spec_hash"] = spec_hash
+        assert after == expected, "ONLY offer 0's spec fields may change — runs statuses untouched"
+        raw = _manifest_path(cwd).read_text()
+        assert raw == _canonical(json.loads(raw)), "manifest must re-emit byte-identical canonical JSON"
+        # unknown offer-index rejected
+        r2 = _record_spec(cwd, 99, spec_path, spec_hash)
+        assert r2.returncode == 1, f"unknown offer-index must exit 1: {r2.stdout}"
+        assert "not found" in r2.stderr.lower(), f"stderr must say not found: {r2.stderr}"
+        assert "Traceback" not in r2.stderr, r2.stderr
+
+
+def test_refreeze_idempotent_hash() -> None:
+    # Re-running an already-delivered offer is safe: re-freezing the same coarse entry yields
+    # the same offer_spec_hash (freeze is hash-stable across captured_at — mirrors
+    # test_freeze_offer.py:test_hash_stable_across_captured_at).
+    entries = json.loads(FIXTURE.read_text())["shortlist"]
+    enriched = entries[1]  # the must_haves+excerpt entry
+    draft = gmj_batch.coarse_to_draft(enriched)
+    a = freeze_offer.freeze(draft, "2026-07-03T10:00:00Z")
+    b = freeze_offer.freeze(draft, "2026-08-01T00:00:00Z")
+    assert a["offer_spec_hash"] == b["offer_spec_hash"], (
+        "re-freezing the same coarse entry must yield the same offer_spec_hash (idempotent resume)"
+    )
 
 
 def main() -> int:
