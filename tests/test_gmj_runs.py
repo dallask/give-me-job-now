@@ -137,6 +137,26 @@ def test_newest_first_ordering() -> None:
     )
 
 
+def test_ordering_tiebreak_by_run_id() -> None:
+    # Two runs SHARING the same \d{8}T\d{6} id-timestamp key must sort deterministically by the
+    # run_id lexicographic tie-break (_order_key returns (ts, run_id), sorted reverse=True) — the
+    # branch the fixture corpus never exercises (all fixture timestamps are distinct) (WR-03).
+    with tempfile.TemporaryDirectory() as tmp:
+        runs = Path(tmp) / "runs"
+        for suffix in ("aaa", "bbb"):
+            d = runs / f"20260607T120000-{suffix}"
+            d.mkdir(parents=True)
+            (d / "state.json").write_text(json.dumps({"run_id": d.name}), encoding="utf-8")
+        r = _cli(["runs", "list", "--pipeline-dir", tmp, "--json"])
+        assert r.returncode == 0, f"runs list must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        order = [row["run_id"] for row in json.loads(r.stdout)["runs"]]
+        # Same ts -> reverse=True lexicographic on run_id: '...-bbb' sorts BEFORE '...-aaa'.
+        assert order == ["20260607T120000-bbb", "20260607T120000-aaa"], (
+            f"tie-break must be deterministic reverse-lexicographic run_id order: {order}"
+        )
+
+
 # --- ERGO-01: degrade — one bad run does not blank the table -----------------
 
 def test_degrade_one_bad_run_still_lists_others() -> None:
