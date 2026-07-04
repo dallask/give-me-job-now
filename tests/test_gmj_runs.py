@@ -182,17 +182,33 @@ def test_read_only_invariant() -> None:
         before[sp] = (sp.read_bytes(), st.st_mtime_ns)
     assert before, "the fixture corpus must contain state.json files to snapshot"
 
-    r_list = _cli(["runs", "list", "--pipeline-dir", str(FIXTURES)])
-    assert r_list.returncode == 0, f"runs list must exit 0: {r_list.stderr}"
-    assert "Traceback" not in r_list.stderr, r_list.stderr
-    r_ins = _cli(["run", "inspect", "20260601T120000-del", "--pipeline-dir", str(FIXTURES)])
-    assert r_ins.returncode == 0, f"run inspect must exit 0: {r_ins.stderr}"
-    assert "Traceback" not in r_ins.stderr, r_ins.stderr
+    # Also snapshot the FULL recursive path listing of the whole pipeline fixture dir so a stray
+    # NEW file/dir (temp/rename artifact) is caught — not just mutations of known files (WR-02).
+    tree_before = {p.relative_to(FIXTURES) for p in FIXTURES.rglob("*")}
+
+    # Exercise ALL FOUR subcommands inside the snapshot window (batch inspect opens run
+    # state.json files and is the command most likely to touch multiple run dirs — ERGO-04).
+    for cmd in (
+        ["runs", "list", "--pipeline-dir", str(FIXTURES)],
+        ["run", "inspect", "20260601T120000-del", "--pipeline-dir", str(FIXTURES)],
+        ["batches", "list", "--pipeline-dir", str(FIXTURES)],
+        ["batch", "inspect", "batch-20260601T120000", "--pipeline-dir", str(FIXTURES)],
+    ):
+        r = _cli(cmd)
+        assert r.returncode == 0, f"{' '.join(cmd)} must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
 
     for sp, (raw, mtime_ns) in before.items():
         st = sp.stat()
         assert sp.read_bytes() == raw, f"state.json bytes changed (write!): {sp}"
         assert st.st_mtime_ns == mtime_ns, f"state.json st_mtime_ns changed (write!): {sp}"
+
+    tree_after = {p.relative_to(FIXTURES) for p in FIXTURES.rglob("*")}
+    assert tree_after == tree_before, (
+        "the pipeline dir listing changed — a file/dir was added or removed (write!): "
+        f"added={sorted(str(p) for p in tree_after - tree_before)} "
+        f"removed={sorted(str(p) for p in tree_before - tree_after)}"
+    )
 
 
 # --- ERGO-03: inspect verdicts / artifacts / attempts ------------------------
