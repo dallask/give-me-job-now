@@ -71,6 +71,27 @@ def test_malformed_draft_degrades_exit_1() -> None:
     assert "Traceback" not in result.stderr, "no traceback on malformed draft"
 
 
+def test_whitespace_only_text_claim_rejected_not_silently_dropped() -> None:
+    """A whitespace-only ``text`` claim must be rejected up front, consistently.
+
+    A claim like ``"   "`` would pass a bare truthiness gate but render to
+    nothing after the strip — a silent drop that contradicts the "dropping no
+    claim" guarantee. The loader now filters on stripped text, so a draft whose
+    only claim is whitespace-only degrades to exit 1 (no usable claims) with a
+    diagnostic and no traceback, per the malformed-draft contract.
+    """
+    draft = Path(tempfile.mkdtemp()) / "ws.json"
+    draft.write_text(
+        json.dumps({"content": {"claims": [{"text": "   ", "section": "notes"}]}}),
+        encoding="utf-8",
+    )
+    out = Path(tempfile.mkdtemp()) / "ws.md"
+    result = _run("--file", str(draft), "--out", str(out))
+    assert result.returncode == 1, "whitespace-only-text claim must degrade to exit 1"
+    assert "Traceback" not in result.stderr, "no traceback on whitespace-only claim"
+    assert not out.exists(), "no markdown should be written when no claim is usable"
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

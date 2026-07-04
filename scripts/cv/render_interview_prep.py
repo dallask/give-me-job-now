@@ -74,7 +74,12 @@ def _claims_from_draft(draft_path: Path) -> list[dict] | None:
     if not isinstance(claims, list) or not claims:
         print(f"Draft has no content.claims: {draft_path}", file=sys.stderr)
         return None
-    usable = [c for c in claims if isinstance(c, dict) and c.get("text")]
+    # Filter on stripped text so a whitespace-only claim (e.g. "   ") — which
+    # would pass a bare truthiness gate but render to nothing after the
+    # render-time strip — is rejected here consistently, rather than silently
+    # dropped later in violation of the "dropping no claim" guarantee. The
+    # render-time ``if t`` guard then becomes belt-and-suspenders.
+    usable = [c for c in claims if isinstance(c, dict) and str(c.get("text", "")).strip()]
     if not usable:
         print(f"Draft claims contain no text: {draft_path}", file=sys.stderr)
         return None
