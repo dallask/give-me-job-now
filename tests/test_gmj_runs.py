@@ -191,6 +191,40 @@ def test_json_byte_determinism() -> None:
     )
 
 
+# --- WR-04: batch inspect table-mode degrade + JSON byte-determinism ---------
+
+def test_batch_inspect_table_mode_partial_manifest_no_traceback() -> None:
+    # The DEFAULT (no --json) table path over a partial manifest (missing offer_index/run_id/
+    # status) must degrade to a readable row, never a TypeError traceback (regression for CR-01 —
+    # the exact gap the --json-only test hid).
+    with tempfile.TemporaryDirectory() as tmp:
+        bdir = Path(tmp) / "batches" / "partial"
+        bdir.mkdir(parents=True)
+        (bdir / "manifest.json").write_text(
+            json.dumps({"offers": [{"runs": {"cv": {}}}]}), encoding="utf-8"
+        )
+        r = _cli(["batch", "inspect", "partial", "--pipeline-dir", tmp])  # NO --json (table mode)
+        assert r.returncode == 0, f"partial-manifest table mode must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, f"partial manifest must NOT traceback: {r.stderr}"
+        assert "artifact_type=cv" in r.stdout, f"the degraded row must still print: {r.stdout}"
+
+
+def test_batch_inspect_json_byte_determinism() -> None:
+    r0 = _cli(
+        ["batch", "inspect", "batch-20260601T120000", "--pipeline-dir", str(FIXTURES), "--json"],
+        env={"PYTHONHASHSEED": "0"},
+    )
+    r1 = _cli(
+        ["batch", "inspect", "batch-20260601T120000", "--pipeline-dir", str(FIXTURES), "--json"],
+        env={"PYTHONHASHSEED": "1"},
+    )
+    assert r0.returncode == 0 and r1.returncode == 0, f"{r0.stderr}\n{r1.stderr}"
+    assert "Traceback" not in r0.stderr and "Traceback" not in r1.stderr
+    assert r0.stdout.encode("utf-8") == r1.stdout.encode("utf-8"), (
+        "batch inspect --json must be byte-identical across PYTHONHASHSEED 0 and 1"
+    )
+
+
 # --- ERGO-04/T-16-05: READ-ONLY invariant (bytes + st_mtime_ns) --------------
 
 def test_read_only_invariant() -> None:
