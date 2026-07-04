@@ -1,9 +1,9 @@
 {
-  "current_step": "truth-verifier",
+  "current_step": "gmj-truth-verifier",
   "execution_mode": "human_in_the_loop",
   "gate_results": {
-    "fit-evaluator": "fail",
-    "truth-verifier": "pass"
+    "gmj-fit-evaluator": "fail",
+    "gmj-truth-verifier": "pass"
   },
   "offer_spec_hash": "bbbb0000000000000000000000000000000000000000000000000000000runws",
   "offer_spec_path": "/Users/example/give-me-job/sources/offers/acme.offer-spec.json",

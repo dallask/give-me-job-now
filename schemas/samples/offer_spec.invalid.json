@@ -2,7 +2,7 @@
   "kind": "offer_spec",
   "schema": "agent_result_v1",
   "schema_version": "1.0.0",
-  "agent": "offer-scout",
+  "agent": "gmj-offer-scout",
   "pipeline_run_id": "run-2026-07-03-002",
   "status": "succeeded",
   "artifacts": [
@@ -11,7 +11,7 @@
   "acceptance_criteria_met": ["crit-offer-normalized"],
   "acceptance_criteria_failed": [],
   "next_action": "handoff",
-  "handoff_target": "artifact-composer",
+  "handoff_target": "gmj-artifact-composer",
   "notes": "Invalid: status 'succeeded' is outside the enum (violation path: status)",
   "offer_spec_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }

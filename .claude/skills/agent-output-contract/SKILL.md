@@ -31,7 +31,7 @@ Every spoke agent ends its final message with exactly one fenced `agent_result_v
 | Field | Rule |
 |-------|------|
 | `schema` | Always `"agent_result_v1"` |
-| `agent` | Exact agent name (e.g. `"cv-generator"`, `"cv-reviewer"`) |
+| `agent` | Exact agent name (e.g. `"gmj-cv-generator"`, `"cv-reviewer"`) |
 | `pipeline_run_id` | Copy verbatim from the orchestrator prompt preamble; empty string `""` if absent |
 | `status` | `success` — task done; `fail` — could not complete; `gap_report_ready` — cv-composer Pass 1; `handoff` — control returned to hub |
 | `artifacts` | List every file written or confirmed. Use absolute paths. Empty array `[]` on fail or handoff with no output. |

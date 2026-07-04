@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:give-me-job:schema:gate_result",
   "title": "gate_result envelope",
-  "description": "Envelope for a quality-gate verdict emitted by truth-verifier / fit-evaluator. Pins kind via const and reuses the shared agent_result_v1 base. Gate A content names the offending claims that fail truth verification (TRUTH-03); Gate B/C extend the same shell in Phase 6.",
+  "description": "Envelope for a quality-gate verdict emitted by gmj-truth-verifier / gmj-fit-evaluator. Pins kind via const and reuses the shared agent_result_v1 base. Gate A content names the offending claims that fail truth verification (TRUTH-03); Gate B/C extend the same shell in Phase 6.",
   "type": "object",
   "$defs": {
     "offending_claim": {

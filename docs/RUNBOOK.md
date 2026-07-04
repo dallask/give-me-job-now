@@ -10,7 +10,7 @@ This runbook maps the two done-criteria for Phase 8:
 - **E2E-03 — live real-offer run (human-acceptance UAT).** Requires an operator driving a
   real offer and accepting the delivered artifacts.
 
-`cv-generator` renders every artifact through Python scripts — **E2E-02** (Python-rendered
+`gmj-cv-generator` renders every artifact through Python scripts — **E2E-02** (Python-rendered
 CV + cover, no manual authoring) is covered by the bridge + renderers named below.
 
 ---
@@ -46,10 +46,10 @@ claude --dangerously-skip-permissions
 
 ### Hub-at-top-level rule (Pitfall 6 / T-08-12)
 
-The **hub runs at top level in this chat session** — you are the `vacancy-orchestrator`.
-`Task` spawns **spokes only** (`offer-scout`, `artifact-composer`, `truth-verifier`,
-`fit-evaluator`, `cv-generator`). **Never** call `Task` with
-`subagent_type: vacancy-orchestrator` — nesting the hub inside `Task` removes `Task` from
+The **hub runs at top level in this chat session** — you are the `gmj-orchestrator`.
+`Task` spawns **spokes only** (`gmj-offer-scout`, `gmj-artifact-composer`, `gmj-truth-verifier`,
+`gmj-fit-evaluator`, `gmj-cv-generator`). **Never** call `Task` with
+`subagent_type: gmj-orchestrator` — nesting the hub inside `Task` removes `Task` from
 that context and breaks the whole pipeline (see `.claude/CLAUDE.md` hub-and-spoke rule).
 
 ### Control loop (`docs/ARCHITECTURE.md` §5.1)
@@ -94,7 +94,7 @@ passed for each delivered artifact.
 | Criterion | What it proves | How it is exercised | Status |
 |-----------|----------------|---------------------|--------|
 | **E2E-01** | Deterministic guard enforcement: nothing fabricated/off-target ships; an approved draft renders to a real PDF with zero manual authoring | `python3 tests/test_e2e_guards.py` (matrix + dry-run + wiring + runbook assertions) | **DONE** — deterministic, repeatable |
-| **E2E-02** | CV + cover letter rendered via Python, no manual PDF authoring | bridge (`gmj_draft_to_cv_yaml.py`) + renderers (`gmj_render_cv.py`, `gmj_render_cover_letter.py`, `gmj_render_interview_prep.py`), wired in `.claude/agents/cv-generator.md` | Covered |
+| **E2E-02** | CV + cover letter rendered via Python, no manual PDF authoring | bridge (`gmj_draft_to_cv_yaml.py`) + renderers (`gmj_render_cv.py`, `gmj_render_cover_letter.py`, `gmj_render_interview_prep.py`), wired in `.claude/agents/gmj-cv-generator.md` | Covered |
 | **E2E-03** | Live real-offer run produces accepted artifacts end to end | `/pipeline-run` on a real offer + populated `config/candidate.yaml` | **Human-acceptance UAT** — operator drives + accepts |
 
 **E2E-01** is the deterministic floor (machine-proven). **E2E-03** is the live acceptance

@@ -1,5 +1,5 @@
 ---
-name: candidate-analyzer
+name: gmj-candidate-analyzer
 description: Ingests candidate materials from sources/candidate/ (pdf, docx, txt, images, and authorized credential URLs), routing each by type. Proposes machine-mergeable findings + a coverage manifest for the configurator. Never writes the master YAML; does not spawn subagents.
 tools: Read, Bash, Glob, Grep, WebFetch
 model: sonnet

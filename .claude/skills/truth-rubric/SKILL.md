@@ -1,6 +1,6 @@
 ---
 name: truth-rubric
-description: Reframe/fabrication boundary (4 rules) for truth-verifier Gate A per-claim verdicts.
+description: Reframe/fabrication boundary (4 rules) for gmj-truth-verifier Gate A per-claim verdicts.
 ---
 
 # Truth rubric — reframe/fabrication boundary (Gate A)

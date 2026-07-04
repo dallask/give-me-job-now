@@ -3,7 +3,7 @@
 
 Runnable as a plain assertion script (no pytest dependency). Proves that every
 node in config/pipeline.dag.yaml resolves to exactly one deterministic decision
-and that the committed sample fixture routes to fit-evaluator.
+and that the committed sample fixture routes to gmj-fit-evaluator.
 """
 
 from __future__ import annotations
@@ -45,40 +45,40 @@ def _write_run_scoped_state(run_id: str, state: dict) -> Path:
 
 def test_non_gate_follows_next() -> None:
     dag = _load_dag()
-    state = {"current_step": "offer-scout", "completed_steps": [], "gate_results": {}}
-    assert route.next_step(state, dag) == {"next_step": "artifact-composer"}
+    state = {"current_step": "gmj-offer-scout", "completed_steps": [], "gate_results": {}}
+    assert route.next_step(state, dag) == {"next_step": "gmj-artifact-composer"}
 
 
 def test_gate_pass_takes_on_pass_edge() -> None:
     dag = _load_dag()
     state = {
-        "current_step": "truth-verifier",
+        "current_step": "gmj-truth-verifier",
         "completed_steps": [],
-        "gate_results": {"truth-verifier": "pass"},
+        "gate_results": {"gmj-truth-verifier": "pass"},
     }
-    assert route.next_step(state, dag) == {"next_step": "fit-evaluator"}
+    assert route.next_step(state, dag) == {"next_step": "gmj-fit-evaluator"}
 
 
 def test_gate_fail_takes_on_fail_edge() -> None:
     dag = _load_dag()
     state = {
-        "current_step": "fit-evaluator",
+        "current_step": "gmj-fit-evaluator",
         "completed_steps": [],
-        "gate_results": {"fit-evaluator": "fail"},
+        "gate_results": {"gmj-fit-evaluator": "fail"},
     }
-    assert route.next_step(state, dag) == {"next_step": "artifact-composer"}
+    assert route.next_step(state, dag) == {"next_step": "gmj-artifact-composer"}
 
 
 def test_terminal_node_signals_done() -> None:
     dag = _load_dag()
-    state = {"current_step": "cv-generator", "completed_steps": [], "gate_results": {}}
+    state = {"current_step": "gmj-cv-generator", "completed_steps": [], "gate_results": {}}
     assert route.next_step(state, dag) == {"status": "done"}
 
 
 def test_sample_fixture_routes_to_fit_evaluator() -> None:
     dag = _load_dag()
     state = json.loads(SAMPLE_STATE_PATH.read_text(encoding="utf-8"))
-    assert route.next_step(state, dag) == {"next_step": "fit-evaluator"}
+    assert route.next_step(state, dag) == {"next_step": "gmj-fit-evaluator"}
 
 
 def test_resume_from_run_scoped_state_gate_pass() -> None:
@@ -93,22 +93,22 @@ def test_resume_from_run_scoped_state_gate_pass() -> None:
             "run_id": "run-20260703-abc123",
             "execution_mode": "autonomous",
             "retry_cap": 2,
-            "current_step": "truth-verifier",
-            "completed_steps": ["offer-scout", "artifact-composer"],
-            "gate_results": {"truth-verifier": "pass"},
+            "current_step": "gmj-truth-verifier",
+            "completed_steps": ["gmj-offer-scout", "gmj-artifact-composer"],
+            "gate_results": {"gmj-truth-verifier": "pass"},
         },
     )
     try:
         loaded = json.loads(state_path.read_text(encoding="utf-8"))
-        assert route.next_step(loaded, dag) == {"next_step": "fit-evaluator"}, (
-            "a passed truth-verifier resumed from run-scoped state must advance to fit-evaluator"
+        assert route.next_step(loaded, dag) == {"next_step": "gmj-fit-evaluator"}, (
+            "a passed gmj-truth-verifier resumed from run-scoped state must advance to gmj-fit-evaluator"
         )
     finally:
         shutil.rmtree(state_path.parents[3], ignore_errors=True)
 
 
 def test_resume_from_run_scoped_state_gate_fail() -> None:
-    # Same persisted-state resume, gate verdict "fail" → loops back to artifact-composer.
+    # Same persisted-state resume, gate verdict "fail" → loops back to gmj-artifact-composer.
     dag = _load_dag()
     state_path = _write_run_scoped_state(
         "run-20260703-def456",
@@ -116,16 +116,16 @@ def test_resume_from_run_scoped_state_gate_fail() -> None:
             "run_id": "run-20260703-def456",
             "execution_mode": "human_in_the_loop",
             "retry_cap": 2,
-            "current_step": "truth-verifier",
-            "completed_steps": ["offer-scout", "artifact-composer"],
-            "gate_results": {"truth-verifier": "fail"},
+            "current_step": "gmj-truth-verifier",
+            "completed_steps": ["gmj-offer-scout", "gmj-artifact-composer"],
+            "gate_results": {"gmj-truth-verifier": "fail"},
         },
     )
     try:
         loaded = json.loads(state_path.read_text(encoding="utf-8"))
-        assert route.next_step(loaded, dag) == {"next_step": "artifact-composer"}, (
-            "a failed truth-verifier resumed from run-scoped state must loop back to "
-            "artifact-composer"
+        assert route.next_step(loaded, dag) == {"next_step": "gmj-artifact-composer"}, (
+            "a failed gmj-truth-verifier resumed from run-scoped state must loop back to "
+            "gmj-artifact-composer"
         )
     finally:
         shutil.rmtree(state_path.parents[3], ignore_errors=True)
@@ -140,14 +140,14 @@ def test_resume_from_run_scoped_state_non_gate_node() -> None:
             "run_id": "run-20260703-ghi789",
             "execution_mode": "autonomous",
             "retry_cap": 2,
-            "current_step": "offer-scout",
+            "current_step": "gmj-offer-scout",
             "completed_steps": [],
             "gate_results": {},
         },
     )
     try:
         loaded = json.loads(state_path.read_text(encoding="utf-8"))
-        assert route.next_step(loaded, dag) == {"next_step": "artifact-composer"}, (
+        assert route.next_step(loaded, dag) == {"next_step": "gmj-artifact-composer"}, (
             "a non-gate node resumed from run-scoped state must advance to its next node"
         )
     finally:

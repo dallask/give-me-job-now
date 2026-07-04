@@ -3,8 +3,8 @@
 
 Proves delivery is a gated state transition: an artifact is ``deliverable``
 (exit 0) ONLY when BOTH recorded gate verdicts are present and pass —
-``gate_results['truth-verifier']=='pass'`` (Gate A) AND
-``gate_results['fit-evaluator']=='pass'`` (Gate B). Any missing/failed verdict,
+``gate_results['gmj-truth-verifier']=='pass'`` (Gate A) AND
+``gate_results['gmj-fit-evaluator']=='pass'`` (Gate B). Any missing/failed verdict,
 or absent ``gate_results``, is blocked (exit 1) with a naming reason. This is an
 INDEPENDENT backstop: even a loop bug cannot ship a failed draft (T-07-13). No
 pytest — run with ``python3 tests/test_check_delivery.py``.
@@ -39,7 +39,7 @@ def _seed_state(state: dict) -> Path:
 
 def test_both_gates_pass_deliverable() -> None:
     state_path = _seed_state(
-        {"gate_results": {"truth-verifier": "pass", "fit-evaluator": "pass"}}
+        {"gate_results": {"gmj-truth-verifier": "pass", "gmj-fit-evaluator": "pass"}}
     )
     result = _run("--state", str(state_path))
     assert result.returncode == 0, f"A∧B pass must be deliverable: {result.stderr}"
@@ -48,11 +48,11 @@ def test_both_gates_pass_deliverable() -> None:
 
 def test_fit_fail_blocked_naming_fit() -> None:
     state_path = _seed_state(
-        {"gate_results": {"truth-verifier": "pass", "fit-evaluator": "fail"}}
+        {"gate_results": {"gmj-truth-verifier": "pass", "gmj-fit-evaluator": "fail"}}
     )
     result = _run("--state", str(state_path))
     assert result.returncode == 1, "B fail must block"
-    assert "fit-evaluator" in result.stderr, (
+    assert "gmj-fit-evaluator" in result.stderr, (
         f"blocked reason must name the failing gate: {result.stderr!r}"
     )
     assert result.stdout.strip() != "deliverable", "must not signal deliverable"
@@ -60,31 +60,31 @@ def test_fit_fail_blocked_naming_fit() -> None:
 
 def test_truth_missing_blocked_naming_truth() -> None:
     state_path = _seed_state(
-        {"gate_results": {"fit-evaluator": "pass"}}
+        {"gate_results": {"gmj-fit-evaluator": "pass"}}
     )
     result = _run("--state", str(state_path))
     assert result.returncode == 1, "A missing must block"
-    assert "truth-verifier" in result.stderr, (
+    assert "gmj-truth-verifier" in result.stderr, (
         f"blocked reason must name the missing gate: {result.stderr!r}"
     )
 
 
 def test_truth_fail_blocked() -> None:
     state_path = _seed_state(
-        {"gate_results": {"truth-verifier": "fail", "fit-evaluator": "pass"}}
+        {"gate_results": {"gmj-truth-verifier": "fail", "gmj-fit-evaluator": "pass"}}
     )
     result = _run("--state", str(state_path))
     assert result.returncode == 1, "A fail must block"
-    assert "truth-verifier" in result.stderr, result.stderr
+    assert "gmj-truth-verifier" in result.stderr, result.stderr
 
 
 def test_both_missing_blocked() -> None:
     state_path = _seed_state(
-        {"gate_results": {"truth-verifier": "pass"}}
+        {"gate_results": {"gmj-truth-verifier": "pass"}}
     )
     result = _run("--state", str(state_path))
     assert result.returncode == 1, "B missing must block"
-    assert "fit-evaluator" in result.stderr, result.stderr
+    assert "gmj-fit-evaluator" in result.stderr, result.stderr
 
 
 def test_gate_results_absent_blocked() -> None:

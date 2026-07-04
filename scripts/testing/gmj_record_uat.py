@@ -23,8 +23,8 @@ from pathlib import Path
 # Canonical UAT registry — order = display order. Mirrors docs/HUMAN-TESTING-PLAN.md Part 4.
 UAT_REGISTRY: list[tuple[str, str]] = [
     ("UAT-02", "Live SubagentStop hook blocks malformed envelope"),
-    ("UAT-03a", "offer-scout board-search ranking + scope"),
-    ("UAT-03b", "offer-scout single-offer fielding + hash stability"),
+    ("UAT-03a", "gmj-offer-scout board-search ranking + scope"),
+    ("UAT-03b", "gmj-offer-scout single-offer fielding + hash stability"),
     ("UAT-3.1a", "jpeg credential vision extraction"),
     ("UAT-3.1b", "full live ingestion analyzer -> configurator"),
     ("UAT-04a", "three isolated per-type drafts"),

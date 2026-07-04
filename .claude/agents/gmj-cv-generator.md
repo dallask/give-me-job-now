@@ -1,5 +1,5 @@
 ---
-name: cv-generator
+name: gmj-cv-generator
 description: Generates CV PDF from config/candidate.yaml using Python gmj_render_cv.py. Supports optional Jinja HTML template with WeasyPrint if installed; otherwise ReportLab built-in layout.
 tools: Read, Bash, Glob, LS
 model: sonnet
@@ -42,12 +42,12 @@ color: teal
 If the user answers with an **image** (attached screenshot, mock, or a path like `*.png` / `*.jpg` / `*.webp`) **instead of** a `templates/cv/*.html` path:
 
 - Do **not** run `gmj_render_cv.py` for PDF generation.
-- Stop and return control to the hub with this exact block so **`vacancy-orchestrator`** can delegate next:
+- Stop and return control to the hub with this exact block so **`gmj-orchestrator`** can delegate next:
 
 ```text
 ORCHESTRATOR_HANDOFF
 action: delegate_cv_template_creator
-summary: User chose a visual prototype (image), not an HTML template under templates/cv/. A new Jinja template must be created first (e.g. gmj-template-creator from the prototype), then cv-generator can run again with the real --template path (renderable by name as templates/cv/<slug>.html once written).
+summary: User chose a visual prototype (image), not an HTML template under templates/cv/. A new Jinja template must be created first (e.g. gmj-template-creator from the prototype), then gmj-cv-generator can run again with the real --template path (renderable by name as templates/cv/<slug>.html once written).
 ```
 
 Also emit one-line `DELIVERABLE_SUMMARY: NO_PDF — handoff to gmj-template-creator; user provided image instead of templates/cv/*.html`.

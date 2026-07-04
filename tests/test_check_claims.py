@@ -12,7 +12,7 @@ agent self-report:
   (``additionalProperties:false``),
 - ``draft.content.language == offer_spec.content.language`` on the samples
   (COMPOSE-05 language propagation, hermetic),
-- ``artifact-composer`` frontmatter carries no WebSearch/WebFetch tool (COMPOSE-01).
+- ``gmj-artifact-composer`` frontmatter carries no WebSearch/WebFetch tool (COMPOSE-01).
 
 Only stdlib + PyYAML are used.
 """
@@ -35,7 +35,7 @@ CANDIDATE = FIXTURES / "candidate.merged.sample.yaml"
 VALID_DRAFT = FIXTURES / "cv.draft.sample.json"
 BADSPAN_DRAFT = FIXTURES / "cv.draft.badspan.sample.json"
 OFFER_SPEC = FIXTURES / "offer_spec.sample.json"
-COMPOSER = REPO_ROOT / ".claude" / "agents" / "artifact-composer.md"
+COMPOSER = REPO_ROOT / ".claude" / "agents" / "gmj-artifact-composer.md"
 
 
 def _run_check(draft_path: Path) -> subprocess.CompletedProcess:
@@ -105,7 +105,7 @@ def test_language_matches_offer() -> None:
 def test_composer_has_no_web_tools() -> None:
     tools = _agent_frontmatter_tools(COMPOSER)
     assert "WebSearch" not in tools and "WebFetch" not in tools, (
-        f"artifact-composer must carry no web tools (COMPOSE-01); got {tools}"
+        f"gmj-artifact-composer must carry no web tools (COMPOSE-01); got {tools}"
     )
 
 

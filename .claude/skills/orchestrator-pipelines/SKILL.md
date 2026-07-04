@@ -1,6 +1,6 @@
 ---
 name: orchestrator-pipelines
-description: Skill-CV pipeline steps and pre-flight checks for vacancy-orchestrator. Loaded dynamically via Read tool when goal matches — NOT statically included.
+description: Skill-CV pipeline steps and pre-flight checks for gmj-orchestrator. Loaded dynamically via Read tool when goal matches — NOT statically included.
 ---
 
 # Skill-CV pipeline steps
@@ -51,7 +51,7 @@ skill_cv_pipeline(skill_slug, skill_description, lang, template):
        → config/cv/cv.{slug}.{lang}.yaml written
 
   [S5] Render:
-       Task(cv-generator,
+       Task(gmj-cv-generator,
             config=config/cv/cv.{slug}.{lang}.yaml,
             template=templates/cv/{template})
        → output/cv/cv.{slug}.{lang}-<timestamp>.pdf + .html
@@ -71,7 +71,7 @@ skill_cv_pipeline(skill_slug, skill_description, lang, template):
        Pass this path explicitly in the Task prompt.
 
   [S8] Re-render (same command as S5 but after enhance):
-       Task(cv-generator, config=config/cv/cv.{slug}.{lang}.yaml, template=...)
+       Task(gmj-cv-generator, config=config/cv/cv.{slug}.{lang}.yaml, template=...)
 
   Repeat S6–S8 up to MAX_ENHANCE_CYCLES=2 (cycle_number tracks iterations).
 
@@ -94,15 +94,15 @@ Before S2, `Glob("config/cv/cv.{slug}.{lang}.yaml")`:
 
 Run these inline (using `Glob`/`Bash`) before spawning the listed spoke. Do **not** use a Task call for pre-flight. (Phase 2 will replace these with `scripts/cv/preflight.py`.)
 
-**Before `cv-generator`:**
+**Before `gmj-cv-generator`:**
 1. `Glob("config/candidate.yaml")` — must exist; if missing, stop and report.
 2. `Bash: python3 -c "import yaml; yaml.safe_load(open('config/candidate.yaml'))"` — if non-zero exit, show parse error, do not spawn.
 
-**Before `cv-generator` (multi-language):**
+**Before `gmj-cv-generator` (multi-language):**
 When `--lang ua` or `--lang ru` is requested:
-1. `Glob("config/candidate.{lang}.yaml")` — if overlay does **not** exist, Task-spawn `candidate-translator` first (passing only the target `lang`), then spawn `cv-generator` with `--lang <code>`.
-2. If overlay exists, spawn `cv-generator --lang <code>` directly.
-3. **Spawn `cv-generator` exactly once** with the single requested `--lang`. Do not generate additional language variants unless explicitly asked.
+1. `Glob("config/candidate.{lang}.yaml")` — if overlay does **not** exist, Task-spawn `candidate-translator` first (passing only the target `lang`), then spawn `gmj-cv-generator` with `--lang <code>`.
+2. If overlay exists, spawn `gmj-cv-generator --lang <code>` directly.
+3. **Spawn `gmj-cv-generator` exactly once** with the single requested `--lang`. Do not generate additional language variants unless explicitly asked.
 
 **Before `cv-composer`:**
 1. `config/candidate.yaml` must exist and parse cleanly.

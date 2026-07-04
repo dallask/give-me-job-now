@@ -2,8 +2,8 @@
 """Gated delivery precondition — Gate A ∧ Gate B recorded pass (GUARD-03).
 
 An artifact is ``deliverable`` ONLY when BOTH recorded gate verdicts pass:
-``gate_results['truth-verifier'] == 'pass'`` (Gate A) AND
-``gate_results['fit-evaluator'] == 'pass'`` (Gate B) — the exact gate-node names
+``gate_results['gmj-truth-verifier'] == 'pass'`` (Gate A) AND
+``gate_results['gmj-fit-evaluator'] == 'pass'`` (Gate B) — the exact gate-node names
 from ``config/pipeline.dag.yaml``. Any missing/failed verdict, or absent
 ``gate_results``, is blocked.
 
@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 # Exact gate-node names from config/pipeline.dag.yaml (Gate A ∧ Gate B).
-REQUIRED_GATES = ["truth-verifier", "fit-evaluator"]
+REQUIRED_GATES = ["gmj-truth-verifier", "gmj-fit-evaluator"]
 
 
 def blocked_reason(gate_results: dict) -> str | None:

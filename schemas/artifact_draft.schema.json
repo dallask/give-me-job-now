@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:give-me-job:schema:artifact_draft",
   "title": "artifact_draft envelope",
-  "description": "Envelope for a draft application artifact (CV/cover-letter/interview-prep) emitted by artifact-composer. Pins kind via const and reuses the shared agent_result_v1 base. Draft content carries a provenance-tagged claims array discriminated by artifact_type.",
+  "description": "Envelope for a draft application artifact (CV/cover-letter/interview-prep) emitted by gmj-artifact-composer. Pins kind via const and reuses the shared agent_result_v1 base. Draft content carries a provenance-tagged claims array discriminated by artifact_type.",
   "type": "object",
   "$defs": {
     "claim": {

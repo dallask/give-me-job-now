@@ -7,10 +7,10 @@ description: Run the full offer→artifacts pipeline end to end (dual-mode HITL/
 
 ## What to do
 
-1. **Hub runs here (top level):** Follow `.claude/agents/vacancy-orchestrator.md` **in this chat session**—you are the hub. Use **`Task`** only to spawn **spokes** (`offer-scout`, `artifact-composer`, `truth-verifier`, `fit-evaluator`, `cv-generator`). **Never** call `Task` with `subagent_type: vacancy-orchestrator`. Nesting the hub inside `Task` removes `Task` from that context ("Task is not available inside subagents"), which breaks the whole pipeline (Pitfall 5).
+1. **Hub runs here (top level):** Follow `.claude/agents/gmj-orchestrator.md` **in this chat session**—you are the hub. Use **`Task`** only to spawn **spokes** (`gmj-offer-scout`, `gmj-artifact-composer`, `gmj-truth-verifier`, `gmj-fit-evaluator`, `gmj-cv-generator`). **Never** call `Task` with `subagent_type: gmj-orchestrator`. Nesting the hub inside `Task` removes `Task` from that context ("Task is not available inside subagents"), which breaks the whole pipeline (Pitfall 5).
 2. Drive the deterministic control plane via **`Bash`** for every safety decision — the hub never judges a gate, a cap, or delivery. The runtime loop is documented in `docs/ARCHITECTURE.md` §5.1:
    - `init_run` — freeze `execution_mode` + `retry_cap` + `run_id` into `.pipeline/runs/<run_id>/state.json` (`scripts/pipeline/gmj_state_write.py`).
-   - loop — `gmj_route.py` → next step; `gmj_check_offer.py` before each dispatch; `Task(spoke)`; on a gate node run `gmj_check_truth.py` / `gmj_score_fit.py` (exit 0/1, no bypass) → `gmj_record_gate.py`; on FAIL `gmj_record_retry.py --increment` → `gmj_check_cap.py` (below-cap → `gmj_map_feedback.py` → `Task(artifact-composer)`; at-cap → HARD STOP naming the failing artifact + reason).
+   - loop — `gmj_route.py` → next step; `gmj_check_offer.py` before each dispatch; `Task(spoke)`; on a gate node run `gmj_check_truth.py` / `gmj_score_fit.py` (exit 0/1, no bypass) → `gmj_record_gate.py`; on FAIL `gmj_record_retry.py --increment` → `gmj_check_cap.py` (below-cap → `gmj_map_feedback.py` → `Task(gmj-artifact-composer)`; at-cap → HARD STOP naming the failing artifact + reason).
    - deliver — `gmj_check_delivery.py` (Gate A ∧ Gate B recorded pass) before any artifact is delivered.
 3. **`execution_mode` gates ONLY the human pause**, never the machine gate: HITL pauses for approval after a PASS; autonomous proceeds automatically. Truthfulness (Gate A) and target-fit (Gate B) block identically in both modes.
 

@@ -13,7 +13,7 @@ export PIPELINE_RUN_ID
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo " give-me-job · Job/CV collective"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo " Orchestrator (hub): vacancy-orchestrator"
+echo " Orchestrator (hub): gmj-orchestrator"
 echo " Routing schema: Request → Analysis → Selection → Delegation → Quality Gate → Result"
 echo ""
 echo " Paths:"

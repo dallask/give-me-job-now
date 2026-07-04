@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:give-me-job:schema:offer_spec",
   "title": "offer_spec envelope",
-  "description": "Envelope for a normalized job offer emitted by offer-scout. Pins kind via const and reuses the shared agent_result_v1 base. Content fields for the offer body are deferred to Phase 3; only the hash anchor is declared here.",
+  "description": "Envelope for a normalized job offer emitted by gmj-offer-scout. Pins kind via const and reuses the shared agent_result_v1 base. Content fields for the offer body are deferred to Phase 3; only the hash anchor is declared here.",
   "type": "object",
   "$defs": {
     "offer_content": {

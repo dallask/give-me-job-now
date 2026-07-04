@@ -1,8 +1,8 @@
 # Candidate intake
 
 This folder is the front door for feeding your real materials into the pipeline.
-Drop documents here (and/or list credential URLs) and the `candidate-analyzer`
-ingests them, the `candidate-configurator` merges the findings into
+Drop documents here (and/or list credential URLs) and the `gmj-candidate-analyzer`
+ingests them, the `gmj-candidate-configurator` merges the findings into
 `config/candidate.yaml`, and everything downstream (CV, cover letter, interview
 prep) is generated **only** from that merged profile.
 
@@ -82,7 +82,7 @@ zero configuration, and the manifest records it with status `pasted-fallback`.
 After ingestion, the merged `config/candidate.yaml` (plus its
 `config/candidate.provenance.json` sidecar, which maps each fact back to its
 source) is **exactly** the traceable grounding set that the Phase-5
-`truth-verifier` will check every artifact claim against. Nothing reaches a CV,
+`gmj-truth-verifier` will check every artifact claim against. Nothing reaches a CV,
 cover letter, or interview-prep doc unless it traces back here.
 
 Because of that, **ingestion completeness is a precondition for truthful

@@ -1,5 +1,5 @@
 ---
-name: truth-verifier
+name: gmj-truth-verifier
 description: Gate A — verifies every artifact claim traces to config/candidate.yaml; a non-bypassable truth hard-block before fit scoring. Does not spawn subagents.
 tools: Read, Glob, Grep
 model: sonnet
@@ -29,7 +29,7 @@ binary, non-bypassable, and runs **before** any fit scoring (Gate B/C).
 
 ## Must NEVER receive
 
-- Fit / market / target scoring inputs — that is fit-evaluator's concern; truth-verifier
+- Fit / market / target scoring inputs — that is gmj-fit-evaluator's concern; gmj-truth-verifier
   stays deliberately isolated (per PROJECT.md).
 - Another gate's conversation transcript (artifact paths only).   <!-- GUARD-05 #3 -->
 - Permission to modify any file — verdicts only.
@@ -76,7 +76,7 @@ binary, non-bypassable, and runs **before** any fit scoring (Gate B/C).
 ## Gate ordering (TRUTH-05)
 
 - Gate A (truth) runs **before** Gate B/C (fit) for every artifact. The Phase 2 DAG already
-  orders `truth-verifier` before `fit-evaluator`, and `docs/ARCHITECTURE.md` is the source
+  orders `gmj-truth-verifier` before `gmj-fit-evaluator`, and `docs/ARCHITECTURE.md` is the source
   of truth for this ordering ("Gate A (truth) must pass before Gate B/C (fit) runs").
 - Runtime **hub enforcement** of that ordering, and the live-loop **non-bypass** wiring
   (feeding a Gate-A FAIL back to the composer as typed `gate_feedback`), are **DEFERRED to
@@ -87,5 +87,5 @@ binary, non-bypassable, and runs **before** any fit scoring (Gate B/C).
 - Do **not** call `Task`.
 - Read-only — verdicts only; never modify any file.
 - Gate A verifies against `config/candidate.yaml` **ONLY**; it never reads, re-fetches, or
-  paraphrases the offer — the offer is fit-evaluator's concern (isolation contract above).
+  paraphrases the offer — the offer is gmj-fit-evaluator's concern (isolation contract above).
 - End with an `agent_result_v1` JSON block as your **final output** — schema in `.claude/skills/agent-output-contract/SKILL.md`.

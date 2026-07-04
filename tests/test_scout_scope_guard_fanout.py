@@ -3,7 +3,7 @@
 per-board worker fan-out.
 
 Runnable as a plain assertion script (no pytest dependency). Phase 11 makes the
-hub dispatch one ``offer-scout`` worker per job board in a single turn. On Claude
+hub dispatch one ``gmj-offer-scout`` worker per job board in a single turn. On Claude
 Code's single-threaded event loop those "parallel" workers serialize through the
 ONE globally-registered ``PreToolUse`` ``WebSearch|WebFetch`` hook
 (``.claude/settings.json`` — no per-agent registration, no opt-out). This test

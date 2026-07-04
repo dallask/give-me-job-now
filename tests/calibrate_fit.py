@@ -22,7 +22,7 @@ re-implementation. The OPTIONAL LLM coverage_map / polish accuracy is scored fro
 ``--verdicts`` input (UAT), mirroring ``eval_truth.py``'s ``score_eval``.
 
 Verdicts input: a JSON map ``"<fixture>::<mh_id>" | "<fixture>::<claim_index>" -> "pass"|"fail"``
-produced by a manual review of a live fit-evaluator coverage_map / Gate-C polish run.
+produced by a manual review of a live gmj-fit-evaluator coverage_map / Gate-C polish run.
 
 CLI: ``calibrate_fit.py [--expected FILE] [--thresholds FILE] [--verdicts FILE]``
 Exit 0 on any successful reporting run (clean separation or not); exit 1 ONLY when a
@@ -163,7 +163,7 @@ def score_verdicts(verdicts: dict) -> dict:
     """Score a manual LLM coverage_map / polish judgement map (UAT), mirroring eval_truth.
 
     ``verdicts`` maps ``(fixture, item)`` -> ``"pass"|"fail"`` where each judgement records
-    whether the live fit-evaluator's coverage_map entry / Gate-C polish dimension was correct.
+    whether the live gmj-fit-evaluator's coverage_map entry / Gate-C polish dimension was correct.
     Returns ``{"total", "correct", "accuracy", "mismatches"}``; accuracy is 0.0 for an empty map
     (never a division error). Reporting only — never a gate.
     """

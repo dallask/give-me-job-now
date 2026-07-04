@@ -12,7 +12,7 @@ LLM) guarantees:
   non-schema keys (board/canonical_key/score/mode/salary); a `thin` flag is emitted (SELECT-02),
 - each selected offer produces three distinct per-(offer, artifact_type) run_ids
   (`<run_id>-cv`/`-cl`/`-ip`) and three distinct seeded `state.json` files — no shared state file
-  across offers OR artifact types; each seeded with `current_step: artifact-composer` (SELECT-03),
+  across offers OR artifact types; each seeded with `current_step: gmj-artifact-composer` (SELECT-03),
 - the batch manifest validates against schemas/batch_manifest.schema.json and is byte-identical
   across two PYTHONHASHSEED values (SELECT-03),
 - a `batch_id` containing `..`/`/`/`\\` is rejected (exit 1) and writes no file outside
@@ -222,8 +222,8 @@ def test_per_offer_run_isolation() -> None:
                 sp = runs_dir / f"{base}-{suffix}" / "state.json"
                 assert sp.is_file(), f"per-(offer, artifact_type) state.json missing: {sp}"
                 state = json.loads(sp.read_text())
-                assert state.get("current_step") == "artifact-composer", (
-                    f"seeded state must set current_step=artifact-composer: {sp} -> {state}"
+                assert state.get("current_step") == "gmj-artifact-composer", (
+                    f"seeded state must set current_step=gmj-artifact-composer: {sp} -> {state}"
                 )
                 state_paths.append(sp.resolve())
         # six distinct state.json dirs (2 offers x 3 artifact types)
@@ -300,7 +300,7 @@ def test_unsafe_batch_id_rejected() -> None:
 # --- SELECT-04 / SELECT-03 status-lifecycle: mark, resume, record-spec --------
 #
 # Delivery truth here is label-AND-gate (CR-01): a run is delivered ONLY when its manifest
-# `status` label == "delivered" (set by the persona via `mark` AFTER the terminal cv-generator
+# `status` label == "delivered" (set by the persona via `mark` AFTER the terminal gmj-cv-generator
 # render — the render-complete signal; gate-pass alone is one DAG step too early) AND the
 # recorded gate verdict still passes — each per-(offer, artifact_type) run's `state.json`
 # `gate_results` re-checked via check_delivery.blocked_reason (Gate A ∧ Gate B), a cross-check
@@ -364,9 +364,9 @@ def _set_gates(
     state = json.loads(sp.read_text())
     gr: dict[str, str] = {}
     if truth is not None:
-        gr["truth-verifier"] = truth
+        gr["gmj-truth-verifier"] = truth
     if fit is not None:
-        gr["fit-evaluator"] = fit
+        gr["gmj-fit-evaluator"] = fit
     state["gate_results"] = gr
     sp.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -459,7 +459,7 @@ def test_resume_skips_delivered() -> None:
 
 
 def test_resume_running_label_not_delivered_even_with_passing_gates() -> None:
-    # CR-01: gate-pass is one render-step too early. cv-generator (the terminal DAG node)
+    # CR-01: gate-pass is one render-step too early. gmj-cv-generator (the terminal DAG node)
     # renders AFTER both gates, so a 'running' (non-'delivered') label means the artifact was
     # never rendered/delivered even though BOTH gates recorded pass. The run MUST appear in the
     # resume set so it is re-run/re-rendered — the exact deliverable-loss this feature prevents.
@@ -469,7 +469,7 @@ def test_resume_running_label_not_delivered_even_with_passing_gates() -> None:
         target = _run_ids(_load_manifest(cwd))[(0, "cv")]
         # recorded gates BOTH pass...
         _set_gates(cwd, target, truth="pass", fit="pass")
-        # ...but a crash before cv-generator left the label at 'running' (never 'delivered').
+        # ...but a crash before gmj-cv-generator left the label at 'running' (never 'delivered').
         assert _mark(cwd, target, "running").returncode == 0
         r = _resume(cwd)
         assert r.returncode == 0, f"resume must exit 0: {r.stderr}"

@@ -1,5 +1,5 @@
 ---
-name: candidate-configurator
+name: gmj-candidate-configurator
 description: Updates config/candidate.yaml from structured analyzer output or user instructions. Preserves schema and existing strengths unless asked to replace. Does not spawn subagents.
 tools: Read, Write, Edit, Glob, Bash
 model: sonnet
@@ -10,7 +10,7 @@ color: orange
 
 - Primary file: `config/candidate.yaml`
 - Follow skill **candidate-yaml-schema** in `.claude/skills/candidate-yaml-schema/SKILL.md` when editing.
-- This agent is the **only** writer of `config/candidate.yaml`. Upstream spokes (e.g. `candidate-analyzer`) only *propose* findings; they must not hold `Write` on the master YAML. Every ingested fact reaches the canonical profile through this agent's schema-safe merge (INGEST-04).
+- This agent is the **only** writer of `config/candidate.yaml`. Upstream spokes (e.g. `gmj-candidate-analyzer`) only *propose* findings; they must not hold `Write` on the master YAML. Every ingested fact reaches the canonical profile through this agent's schema-safe merge (INGEST-04).
 
 ## Merging ingestion findings
 
@@ -54,7 +54,7 @@ Per-fact provenance is written to a **sidecar** file `config/candidate.provenanc
 
 ## Grounding set
 
-The merged `config/candidate.yaml` is **exactly** the set that `truth-verifier` will treat as traceable ground truth in Phase 5 (INGEST-05) — the Gate-A grounding set. Every artifact claim must trace back to a fact present here.
+The merged `config/candidate.yaml` is **exactly** the set that `gmj-truth-verifier` will treat as traceable ground truth in Phase 5 (INGEST-05) — the Gate-A grounding set. Every artifact claim must trace back to a fact present here.
 
 - The provenance sidecar gives that verifier a **machine-readable source map** from each candidate.yaml path to where the fact came from.
 - This is forward-compatible: a formal `schemas/candidate_findings.schema.json` is **deferred to Phase 5**; for now the path-keyed sidecar is the contract.

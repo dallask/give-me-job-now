@@ -5,7 +5,7 @@ Trivial deterministic markdown/text writer — NO ReportLab, no PDF. Reads the
 approved interview_prep draft and groups its claims by the required
 ``claim.section`` field under ``## <Section Title>`` headers, emitted in
 first-appearance order. Mirrors the argparse/degrade/entry skeleton of
-gmj_render_cover_letter.py so cv-generator can invoke it the same way.
+gmj_render_cover_letter.py so gmj-cv-generator can invoke it the same way.
 """
 
 from __future__ import annotations

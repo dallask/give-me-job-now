@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Static wiring assertions for the wired fit-evaluator agent (Plan 06-05).
+"""Static wiring assertions for the wired gmj-fit-evaluator agent (Plan 06-05).
 
 Runnable as a plain assertion script (no pytest), matching the repo convention of
 ``python3 tests/test_*.py``. Each test proves a STATIC wiring invariant over
-``.claude/agents/fit-evaluator.md`` — never LLM scoring accuracy. The invariants are:
+``.claude/agents/gmj-fit-evaluator.md`` — never LLM scoring accuracy. The invariants are:
 
 - the frontmatter ``tools:`` line is exactly ``Read, Glob, Grep`` (no ``Write``/``Bash``),
 - the body references the fit-rubric skill as its scoring authority,
@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-AGENT = REPO_ROOT / ".claude" / "agents" / "fit-evaluator.md"
+AGENT = REPO_ROOT / ".claude" / "agents" / "gmj-fit-evaluator.md"
 
 
 def _text() -> str:
@@ -41,8 +41,8 @@ def test_tools_are_read_only() -> None:
         f"tools line must be exactly `tools: Read, Glob, Grep`, got: {line!r}"
     )
     low = line.lower()
-    assert "write" not in low, "fit-evaluator must NOT have Write in tools"
-    assert "bash" not in low, "fit-evaluator must NOT have Bash in tools"
+    assert "write" not in low, "gmj-fit-evaluator must NOT have Write in tools"
+    assert "bash" not in low, "gmj-fit-evaluator must NOT have Bash in tools"
 
 
 def test_references_fit_rubric_skill() -> None:

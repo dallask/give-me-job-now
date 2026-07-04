@@ -17,7 +17,7 @@ description: Run the deterministic Gate-B fit scorer (gmj_score_fit.py, exit 0/1
   ```bash
   python3 scripts/pipeline/gmj_record_gate.py \
     --state .pipeline/runs/<run_id>/state.json \
-    --node fit-evaluator --artifact-type <type> --attempt <n> --file <gate_b_result.json>
+    --node gmj-fit-evaluator --artifact-type <type> --attempt <n> --file <gate_b_result.json>
   ```
 
 Runs only on a Gate-A-passed draft. On FAIL the hub increments the retry counter and consults `gmj_check_cap.py`; below-cap loops back through `/pipeline/compose` with `gmj_map_feedback.py` output, at-cap HARD STOPs. `execution_mode` gates only the post-PASS human pause, never this gate.

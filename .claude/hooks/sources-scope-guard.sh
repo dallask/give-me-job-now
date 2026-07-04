@@ -56,7 +56,7 @@ TOOL_NAME=$(read_field tool_name)
 URL=$(read_field tool_input.url)
 QUERY=$(read_field tool_input.query)
 
-# Early pass-through: only WebSearch/WebFetch cross the offer-scout -> web boundary.
+# Early pass-through: only WebSearch/WebFetch cross the gmj-offer-scout -> web boundary.
 if [ "$TOOL_NAME" != "WebSearch" ] && [ "$TOOL_NAME" != "WebFetch" ]; then
   exit 0
 fi

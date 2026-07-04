@@ -15,12 +15,12 @@ Subcommands (noun -> verb): ``runs list``, ``run inspect <id>``, ``batches list`
 
 Status projection (top-down, FIRST MATCH WINS):
   1. ``delivered`` — the reused, non-bypassable ``check_delivery.blocked_reason(gate_results)``
-     returns None (Gate A ``truth-verifier==pass`` AND Gate B ``fit-evaluator==pass``). Imported
+     returns None (Gate A ``gmj-truth-verifier==pass`` AND Gate B ``gmj-fit-evaluator==pass``). Imported
      VERBATIM so ``delivered`` agrees with gmj_batch.py resume byte-for-byte — never re-derived.
   2. ``failed`` — the frozen ``retry_cap`` is an int (and not a bool) and some nested
      ``retry_counts`` counter ``>= retry_cap`` (mirrors gmj_check_cap.py's ``current >= cap`` guard).
   3. ``pending`` — no gate_results, no retry_counts, and ``current_step`` in (None,
-     "artifact-composer") — the freshly-seeded signature.
+     "gmj-artifact-composer") — the freshly-seeded signature.
   4. ``running`` — anything else.
 A missing ``state.json`` SKIPS the dir; a malformed/non-dict ``state.json`` DEGRADES to an
 ``unknown`` row and the rest of the list still prints (one bad run never aborts the table).
@@ -125,7 +125,7 @@ def project_status(state: dict) -> str:
     ):
         return "failed"
     # (3) pending — the freshly-seeded signature.
-    if not gate_results and not retry_counts and current_step in (None, "artifact-composer"):
+    if not gate_results and not retry_counts and current_step in (None, "gmj-artifact-composer"):
         return "pending"
     # (4) running — anything else.
     return "running"
@@ -143,8 +143,8 @@ def _run_row(run_id: str, state: dict) -> dict:
         "run_id": run_id,
         "status": project_status(state),
         "mode": state.get("execution_mode") or "—",
-        "gate_a": gr.get("truth-verifier") or "—",
-        "gate_b": gr.get("fit-evaluator") or "—",
+        "gate_a": gr.get("gmj-truth-verifier") or "—",
+        "gate_b": gr.get("gmj-fit-evaluator") or "—",
         "ts": _order_key(run_id)[0] or "—",
     }
 
@@ -302,8 +302,8 @@ def _cmd_run_inspect(args: argparse.Namespace) -> int:
         "run_id": state.get("run_id") or args.run_id,
         "status": project_status(state),
         "mode": state.get("execution_mode") or "—",
-        "gate_a": gr.get("truth-verifier") or "—",
-        "gate_b": gr.get("fit-evaluator") or "—",
+        "gate_a": gr.get("gmj-truth-verifier") or "—",
+        "gate_b": gr.get("gmj-fit-evaluator") or "—",
         # offer_spec_path is displayed VERBATIM — never resolved/stat'd (it may be relative).
         "offer_spec_path": state.get("offer_spec_path"),
         "offer_spec_hash": state.get("offer_spec_hash"),

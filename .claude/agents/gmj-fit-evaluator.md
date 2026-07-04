@@ -1,5 +1,5 @@
 ---
-name: fit-evaluator
+name: gmj-fit-evaluator
 description: Scores an artifact draft against the frozen offer_spec (must-have coverage first, then polish); emits a gate result. Read-only, recommendations only. Does not spawn subagents.
 tools: Read, Glob, Grep
 model: sonnet

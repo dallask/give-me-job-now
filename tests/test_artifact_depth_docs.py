@@ -8,11 +8,11 @@ are present, each behind a specific sentinel so a deleted clause fails loudly. I
 LLM green-gate — it never runs the composer or judges richness quality (that is deferred to
 Phase 15). It only proves the guidance *states* the invariants:
 
-- artifact-composer.md names the four interview-prep sections
+- gmj-artifact-composer.md names the four interview-prep sections
   (``likely_questions`` / ``star_stories`` / ``talking_points`` / ``questions_to_ask``),
 - the cover-letter tone hint is a hub-passed PARAM and the composer must NOT read the
   preferences file (COMPOSE-01 two-input DATA contract),
-- artifact-composer.md carries quantified span-cite framing guidance,
+- gmj-artifact-composer.md carries quantified span-cite framing guidance,
 - truth-rubric has the new quantified worked example (references ``professional_experience``),
 - fit-rubric states quantified framing lifts Gate C (``advisory``), not Gate B,
 - the removed pre-migration expertise key is ABSENT from the composer examples
@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-COMPOSER = REPO_ROOT / ".claude" / "agents" / "artifact-composer.md"
+COMPOSER = REPO_ROOT / ".claude" / "agents" / "gmj-artifact-composer.md"
 TRUTH_RUBRIC = REPO_ROOT / ".claude" / "skills" / "truth-rubric" / "SKILL.md"
 FIT_RUBRIC = REPO_ROOT / ".claude" / "skills" / "fit-rubric" / "SKILL.md"
 
@@ -46,7 +46,7 @@ def test_composer_names_four_sections() -> None:
     t = _read(COMPOSER)
     for section in ("likely_questions", "star_stories", "talking_points", "questions_to_ask"):
         assert section in t, (
-            f"artifact-composer.md must name the interview-prep section {section!r} (ARTIFACT-01)"
+            f"gmj-artifact-composer.md must name the interview-prep section {section!r} (ARTIFACT-01)"
         )
 
 
@@ -109,7 +109,7 @@ def test_no_pre_migration_key_in_composer() -> None:
     t = _read(COMPOSER)
     # Negative sentinel: the removed pre-migration expertise key must be absent.
     assert PRE_MIGRATION_KEY not in t, (
-        f"pre-migration schema key {PRE_MIGRATION_KEY!r} must NOT appear in artifact-composer.md examples "
+        f"pre-migration schema key {PRE_MIGRATION_KEY!r} must NOT appear in gmj-artifact-composer.md examples "
         "(use nested-schema spans only, T-14-09)"
     )
 

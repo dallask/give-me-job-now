@@ -9,7 +9,7 @@ agent self-report:
 - census==glob: the coverage manifest lists exactly the intake files (Pitfall 5),
 - ``.doc`` is flagged ``needs-conversion`` by the real ``gmj_extract.py`` (Pitfall 2),
 - an image routes to the vision reader, never ``gmj_extract.py`` (INGEST-03),
-- ``candidate-analyzer`` structurally cannot write the master YAML (INGEST-04),
+- ``gmj-candidate-analyzer`` structurally cannot write the master YAML (INGEST-04),
 - the merged candidate YAML parses through ``yaml.safe_load`` (INGEST-04),
 - every provenance sidecar key resolves into a real merged-YAML node and every
   new ingested fact carries a provenance entry (INGEST-05).
@@ -37,7 +37,7 @@ EXTRACT_PY = REPO_ROOT / "scripts" / "cv" / "gmj_extract.py"
 MANIFEST = FIXTURES / "candidate_coverage_manifest.sample.json"
 MERGED_YAML = FIXTURES / "candidate.merged.sample.yaml"
 PROVENANCE = FIXTURES / "candidate.provenance.sample.json"
-ANALYZER = REPO_ROOT / ".claude" / "agents" / "candidate-analyzer.md"
+ANALYZER = REPO_ROOT / ".claude" / "agents" / "gmj-candidate-analyzer.md"
 
 # Sections in the merged YAML that represent newly-ingested facts requiring provenance.
 NEW_FACT_SECTIONS = ("education", "certifications")
@@ -113,7 +113,7 @@ def test_image_routed_to_vision_not_extractpy() -> None:
 def test_analyzer_cannot_write_master() -> None:
     tools = _agent_frontmatter_tools(ANALYZER)
     assert "Write" not in tools, (
-        f"candidate-analyzer must not hold the Write tool; got {tools}"
+        f"gmj-candidate-analyzer must not hold the Write tool; got {tools}"
     )
 
 

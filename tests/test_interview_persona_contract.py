@@ -12,7 +12,7 @@ Asserted invariants:
 - the frontmatter OMITS ``Task`` and ``Edit`` and GRANTS ``AskUserQuestion`` /
   ``Read`` / ``Write`` / ``Bash`` (standalone persona, not the hub),
 - the body states it NEVER writes ``candidate.yaml`` and routes profile facts to
-  ``candidate-configurator``,
+  ``gmj-candidate-configurator``,
 - it emits the ``candidate_findings_v1`` / ``candidate_findings.json`` contract,
 - it reads the profile + coverage manifest before questioning,
 - it advises when ``sources/candidate`` is empty,
@@ -102,7 +102,7 @@ def test_persona_declares_never_writes_candidate_profile() -> None:
 
 def test_persona_states_write_routing() -> None:
     src = _text()
-    assert "candidate-configurator" in src, "must route profile facts to candidate-configurator"
+    assert "gmj-candidate-configurator" in src, "must route profile facts to gmj-candidate-configurator"
     assert "never" in src.lower() and "candidate.yaml" in src, (
         "must state it never writes candidate.yaml (source of truth)"
     )

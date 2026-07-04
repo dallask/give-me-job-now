@@ -12,10 +12,10 @@ if [ -z "$NAME" ]; then
 fi
 
 case "$NAME" in
-  cv-generator|artifact-composer|candidate-configurator|truth-verifier)
+  gmj-cv-generator|gmj-artifact-composer|gmj-candidate-configurator|gmj-truth-verifier)
     echo "" >&2
     echo "━━━━━━━━ job-collective reminder ━━━━━━━━" >&2
-    echo " Subagent '$NAME' stopped — have vacancy-orchestrator run the quality gate before final PASS." >&2
+    echo " Subagent '$NAME' stopped — have gmj-orchestrator run the quality gate before final PASS." >&2
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
     ;;
 esac

@@ -31,9 +31,9 @@ schema is defined in this document.
 ## 2. System Overview
 
 The collective is a **hub-and-spoke** system. A single top-level hub
-(`vacancy-orchestrator`) holds the `Task` tool and delegates to five bounded spokes; spokes
+(`gmj-orchestrator`) holds the `Task` tool and delegates to five bounded spokes; spokes
 never spawn other spokes (a nested hub loses `Task` in Claude Code). Two retained supporting
-agents (`candidate-analyzer`, `candidate-configurator`) sit outside the 5-spoke artifact
+agents (`gmj-candidate-analyzer`, `gmj-candidate-configurator`) sit outside the 5-spoke artifact
 roster but feed the canonical profile.
 
 Every hop below is a **typed file artifact** identified by its path — never a conversation
@@ -44,25 +44,25 @@ paths and emits file paths, so no spoke inherits another spoke's context.
                          config/sources.yaml  (board/geo/lang allow-list)
                                      │  (mandatory read before any web search)
                                      ▼
-   offer (URL / pasted text) ──▶  offer-scout  ──▶  offer_spec  (frozen, hashed)   [Phase 3]
+   offer (URL / pasted text) ──▶  gmj-offer-scout  ──▶  offer_spec  (frozen, hashed)   [Phase 3]
                                                           │        file artifact
                                                           ▼
-        config/candidate.yaml  ─────────▶  artifact-composer  ◀──  offer_spec
+        config/candidate.yaml  ─────────▶  gmj-artifact-composer  ◀──  offer_spec
             (canonical truth)                     │
                                           artifact_draft  (CV / cover letter / interview-prep)
                                                   │   file artifact
                                                   ▼
-                                          truth-verifier   (Gate A: truthfulness — HARD BLOCK)
+                                          gmj-truth-verifier   (Gate A: truthfulness — HARD BLOCK)
                                                   │   gate_result (Gate A)
                                                   │   ── every claim must trace to candidate.yaml
                                           pass ◀──┘   fail ──▶ names offending lines, loop to composer
                                                   ▼
-                                          fit-evaluator    (Gate B: target-fit HARD BLOCK,
+                                          gmj-fit-evaluator    (Gate B: target-fit HARD BLOCK,
                                                   │          Gate C: polish ADVISORY)
                                                   │   gate_result (Gate B/C)
                                           pass ◀──┘   fail ──▶ loop to composer (bounded retry)
                                                   ▼
-                                          cv-generator ──▶ output/cv/*.pdf   (via scripts/cv/gmj_render_cv.py)
+                                          gmj-cv-generator ──▶ output/cv/*.pdf   (via scripts/cv/gmj_render_cv.py)
 ```
 
 **Every arrow is a typed file artifact path, not a transcript.** Gate A (truth) must pass
@@ -77,14 +77,14 @@ two retained supporting agents. This table matches `.planning/PROJECT.md`'s lock
 
 | Member | Kind | Role (one line) | Disposition | Owning phase |
 |--------|------|-----------------|-------------|--------------|
-| `vacancy-orchestrator` | Hub | Holds `Task`; routes/delegates, runs gates, tracks cycles | Retained (hub) | Phase 2 (routing rewire) |
-| `offer-scout` | Spoke | Find + normalize + rank offers within `sources.yaml` scope; emit a frozen offer-spec | New (merges scraper + researcher) | Phase 3 (Offer Intake) |
-| `artifact-composer` | Spoke | From `candidate.yaml` + offer-spec, produce CV / cover letter / interview-prep; owns the gap-report pass and enhance loop | New (merges composer + enhancer + reviewer gap-role) | Phase 4 (Compose) |
-| `truth-verifier` | Spoke | Re-ground every artifact claim against `candidate.yaml`; hard-block fabrications (Gate A) | New (no legacy equivalent) | Phase 5 (Truth) |
-| `fit-evaluator` | Spoke | Score target-fit (coverage-led hard-block, Gate B) and polish (advisory, Gate C) | New (reviewer scoring-role) | Phase 6 (Fit) |
-| `cv-generator` | Spoke | Render artifact PDF(s) via Python (`gmj_render_cv.py`) | Retained & extended | Phase 8 (E2E) |
-| `candidate-analyzer` | Supporting | Parse candidate source materials; extract structured data | Retained (supporting) | Phase 3.1 (Ingestion) |
-| `candidate-configurator` | Supporting | Canonical write/merge into `config/candidate.yaml` | Retained (supporting) | Phase 3.1 (INGEST-04) |
+| `gmj-orchestrator` | Hub | Holds `Task`; routes/delegates, runs gates, tracks cycles | Retained (hub) | Phase 2 (routing rewire) |
+| `gmj-offer-scout` | Spoke | Find + normalize + rank offers within `sources.yaml` scope; emit a frozen offer-spec | New (merges scraper + researcher) | Phase 3 (Offer Intake) |
+| `gmj-artifact-composer` | Spoke | From `candidate.yaml` + offer-spec, produce CV / cover letter / interview-prep; owns the gap-report pass and enhance loop | New (merges composer + enhancer + reviewer gap-role) | Phase 4 (Compose) |
+| `gmj-truth-verifier` | Spoke | Re-ground every artifact claim against `candidate.yaml`; hard-block fabrications (Gate A) | New (no legacy equivalent) | Phase 5 (Truth) |
+| `gmj-fit-evaluator` | Spoke | Score target-fit (coverage-led hard-block, Gate B) and polish (advisory, Gate C) | New (reviewer scoring-role) | Phase 6 (Fit) |
+| `gmj-cv-generator` | Spoke | Render artifact PDF(s) via Python (`gmj_render_cv.py`) | Retained & extended | Phase 8 (E2E) |
+| `gmj-candidate-analyzer` | Supporting | Parse candidate source materials; extract structured data | Retained (supporting) | Phase 3.1 (Ingestion) |
+| `gmj-candidate-configurator` | Supporting | Canonical write/merge into `config/candidate.yaml` | Retained (supporting) | Phase 3.1 (INGEST-04) |
 
 > **Reconciling "exactly."** `.claude/agents/` also contains ~35 `gsd-*.md` files and
 > `ai-agents-architect.md`. Those are **unrelated GSD / general tooling, not the job
@@ -101,41 +101,41 @@ budget is a hard ceiling (over-budget input is a contract violation — see §6)
 kinds are forward-referenced only; their schemas land in Phase 2 under `schemas/`.
 Input-budget figures are provisional bounded defaults; each spoke's own phase finalizes them.
 
-### 4.1 offer-scout
+### 4.1 gmj-offer-scout
 - **Role:** Discover, normalize, and rank job offers within `config/sources.yaml` scope, and
   emit a single frozen, hash-stamped offer-spec.
 - **Receives:** an offer URL / pasted text (single-offer intake) **or** a board-search
   request; `config/sources.yaml` (allow-list) — read before any web search.
-- **Must NEVER receive:** `config/candidate.yaml` or any candidate PII (offer-scout is
+- **Must NEVER receive:** `config/candidate.yaml` or any candidate PII (gmj-offer-scout is
   offer-side only); another spoke's transcript (paths only); freedom to search outside the
   `sources.yaml` boards / geos / languages.
 - **Emits:** `agent_result_v1` with an `offer_spec` artifact (schema: Phase 2).
 - **Input budget:** ≤ 64 KB structured input.
 
-### 4.2 artifact-composer
+### 4.2 gmj-artifact-composer
 - **Role:** From canonical `candidate.yaml` + the frozen offer-spec, compose all three
   artifacts (CV, cover letter, interview-prep); owns the gap-report pass and the enhance loop.
 - **Receives:** `config/candidate.yaml` (read-only), the frozen `offer_spec` artifact, and
   gate feedback (`gate_result` files) when looping.
-- **Must NEVER receive:** raw web/offer-board access (offer-scout already froze the
+- **Must NEVER receive:** raw web/offer-board access (gmj-offer-scout already froze the
   offer-spec); write access to `config/candidate.yaml` (canonical profile is never mutated by
   a pipeline run); another spoke's transcript.
 - **Emits:** `agent_result_v1` with an `artifact_draft` artifact per artifact type (schema: Phase 2).
 - **Input budget:** ≤ 256 KB structured input (profile + offer-spec + prior gate feedback).
 
-### 4.3 truth-verifier
+### 4.3 gmj-truth-verifier
 - **Role:** Re-ground every claim in each artifact draft against `candidate.yaml`; hard-block
   any fabrication (Gate A). Reframing/emphasis is allowed; invention is blocked.
 - **Receives:** an `artifact_draft` artifact and `config/candidate.yaml` (read-only) as the
   ground-truth source.
-- **Must NEVER receive:** fit/market/target-fit scoring inputs or `fit-evaluator` outputs —
+- **Must NEVER receive:** fit/market/target-fit scoring inputs or `gmj-fit-evaluator` outputs —
   the truth gate is deliberately isolated from the fit gate so the safety-critical check
   stays narrow and un-diluted; any offer-board access; another spoke's transcript.
 - **Emits:** `agent_result_v1` with a `gate_result` artifact (Gate A); on failure it names the
   offending lines (schema: Phase 2).
 - **Input budget:** ≤ 256 KB structured input (draft + canonical profile).
 
-### 4.4 fit-evaluator
+### 4.4 gmj-fit-evaluator
 - **Role:** Score target-fit — must-have coverage is the primary metric (Gate B, hard-block)
   — plus advisory polish (Gate C: clarity, concision, formatting, quantified impact).
 - **Receives:** an `artifact_draft` that has already passed Gate A, and the frozen
@@ -147,7 +147,7 @@ Input-budget figures are provisional bounded defaults; each spoke's own phase fi
   thresholds/weights are defined in Phase 6 (schema: Phase 2).
 - **Input budget:** ≤ 256 KB structured input (draft + offer-spec).
 
-### 4.5 cv-generator
+### 4.5 gmj-cv-generator
 - **Role:** Render the approved artifact(s) to PDF via Python (`scripts/cv/gmj_render_cv.py`);
   deterministic, no content authoring.
 - **Receives:** a gate-passed `artifact_draft` / the CV YAML path to render.
@@ -162,19 +162,19 @@ Input-budget figures are provisional bounded defaults; each spoke's own phase fi
 ## 5. Data Flow (narrative)
 
 1. **Intake.** The user supplies an offer URL/text, or requests a board search.
-   `offer-scout` reads `config/sources.yaml` (mandatory) and, staying within its allow-list,
+   `gmj-offer-scout` reads `config/sources.yaml` (mandatory) and, staying within its allow-list,
    normalizes and ranks offers, then freezes the chosen one as a hash-stamped `offer_spec`
    file. Downstream spokes all read that same frozen artifact.
-2. **Compose.** `artifact-composer` reads canonical `config/candidate.yaml` plus the
+2. **Compose.** `gmj-artifact-composer` reads canonical `config/candidate.yaml` plus the
    `offer_spec` and emits `artifact_draft` files (CV, cover letter, interview-prep). It owns
    the gap-report pass and the enhance loop.
-3. **Gate A — truth.** `truth-verifier` reads each `artifact_draft` and `candidate.yaml`,
+3. **Gate A — truth.** `gmj-truth-verifier` reads each `artifact_draft` and `candidate.yaml`,
    re-grounds every claim, and emits a `gate_result`. A fabrication is a hard block: the draft
    loops back to the composer with the offending lines named. Gate A must pass first.
-4. **Gate B/C — fit + polish.** `fit-evaluator` reads the Gate-A-passed draft and the
+4. **Gate B/C — fit + polish.** `gmj-fit-evaluator` reads the Gate-A-passed draft and the
    `offer_spec`, scores must-have coverage (Gate B hard-block) and polish (Gate C advisory),
    and emits a `gate_result`. A Gate-B failure loops back to the composer (bounded retry).
-5. **Render.** A draft that passes both gates reaches `cv-generator`, which renders it to
+5. **Render.** A draft that passes both gates reaches `gmj-cv-generator`, which renders it to
    `output/cv/*.pdf` via `gmj_render_cv.py`.
 
 At every hop the exchanged unit is a **named file artifact path**, never a transcript.
@@ -186,7 +186,7 @@ At every hop the exchanged unit is a **named file artifact path**, never a trans
 The §5 data flow describes *what* moves between spokes. This section describes *how* the
 hub drives it at runtime: a **two-layer control plane**. A *deterministic layer* of small
 single-purpose Python scripts (exit 0/1, no LLM, no network) makes every safety decision;
-the *LLM layer* — the `vacancy-orchestrator` hub, the only `Task` holder — dispatches spokes
+the *LLM layer* — the `gmj-orchestrator` hub, the only `Task` holder — dispatches spokes
 and calls those scripts via `Bash` for every control decision. Safety lives entirely in the
 deterministic layer: the model never decides whether a gate passed, whether the retry cap is
 hit, or whether an artifact is deliverable.
@@ -209,13 +209,13 @@ hit, or whether an artifact is deliverable.
            FAIL ⇒ gmj_record_retry.py --increment
                   gmj_check_cap.py
                     ├ below cap ⇒ gmj_map_feedback.py → {missing_must_haves,
-                    │              fabricated_claims, gate} → Task(artifact-composer) ↺
+                    │              fabricated_claims, gate} → Task(gmj-artifact-composer) ↺
                     └ at cap    ⇒ HARD STOP report (names failing artifact + reason)
            PASS ⇒ (HITL: pause for human) → route advances
    3. deliver:   gmj_check_delivery.py   (Gate A ∧ Gate B recorded pass?)  else blocked
                                      │
                                      ▼
-                     output/cv/*.pdf  (cv-generator)
+                     output/cv/*.pdf  (gmj-cv-generator)
 ```
 
 **Mode gates only the pause, never the gate.** `execution_mode` (frozen at `init_run`) is
@@ -291,14 +291,14 @@ history-preserving. See `example/` for the moved prior-art files.
 
 | Legacy agent(s) | New home | Disposition |
 |-----------------|----------|-------------|
-| `vacancy-scraper` + `job-market-researcher` | `offer-scout` | Merged (find + normalize + rank) |
-| `cv-composer` + `cv-enhancer` + `cv-reviewer` (gap-report role) | `artifact-composer` | Merged (compose + enhance loop) |
-| `cv-reviewer` (scoring role) | `fit-evaluator` | Split out (scoring only) |
-| — (no legacy equivalent) | `truth-verifier` | New spoke |
-| `cv-generator` | `cv-generator` | Retained & extended |
-| `vacancy-orchestrator` | `vacancy-orchestrator` | Retained (hub) |
-| `candidate-analyzer` | `candidate-analyzer` | Retained (supporting) |
-| `candidate-configurator` | `candidate-configurator` | Retained (supporting) |
+| `vacancy-scraper` + `job-market-researcher` | `gmj-offer-scout` | Merged (find + normalize + rank) |
+| `cv-composer` + `cv-enhancer` + `cv-reviewer` (gap-report role) | `gmj-artifact-composer` | Merged (compose + enhance loop) |
+| `cv-reviewer` (scoring role) | `gmj-fit-evaluator` | Split out (scoring only) |
+| — (no legacy equivalent) | `gmj-truth-verifier` | New spoke |
+| `gmj-cv-generator` | `gmj-cv-generator` | Retained & extended |
+| `gmj-orchestrator` | `gmj-orchestrator` | Retained (hub) |
+| `gmj-candidate-analyzer` | `gmj-candidate-analyzer` | Retained (supporting) |
+| `gmj-candidate-configurator` | `gmj-candidate-configurator` | Retained (supporting) |
 | `vacancy-router` | — → `example/` | Retired (Phase 2 replaces LLM routing with a deterministic state-machine) |
 | `cv-deliverable-gate` | — → `example/` | Retired (concept folds into Gate A/B/C stages, Phases 6/7) |
 | `candidate-translator` | — → `example/` | Retired (single target language per offer in v1) |

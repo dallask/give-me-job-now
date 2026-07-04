@@ -9,16 +9,16 @@ This repository supports a **hub-and-spoke job/CV collective**: vacancy research
 ## Architecture
 
 > **Authoritative source of truth: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).**
-> That document defines the redesigned hub + 5-spoke roster (`offer-scout`,
-> `artifact-composer`, `fit-evaluator`, `truth-verifier`, `cv-generator` + retained
-> `candidate-analyzer` / `candidate-configurator`), per-spoke boundaries, the offer→render
+> That document defines the redesigned hub + 5-spoke roster (`gmj-offer-scout`,
+> `gmj-artifact-composer`, `gmj-fit-evaluator`, `gmj-truth-verifier`, `gmj-cv-generator` + retained
+> `gmj-candidate-analyzer` / `gmj-candidate-configurator`), per-spoke boundaries, the offer→render
 > data flow, and the anti-drift principles. The inline agent list and pipeline prose below
 > describe the **superseded legacy 13-agent pipeline** — retained for reference only while
 > the collective is consolidated in Phase 1. Do not treat the roster below as current.
 
 ## Hub-and-spoke rules
 
-1. **`vacancy-orchestrator`** (the hub **persona**—see `/job-collective`) is the **only** role that calls `Task` to spawn other agents. That persona must run at **top level** in the session (follow `vacancy-orchestrator.md` in the main chat). **Do not** `Task`-spawn `vacancy-orchestrator` itself: nested hubs do not get `Task` in Claude Code, so spokes cannot run.
+1. **`gmj-orchestrator`** (the hub **persona**—see `/job-collective`) is the **only** role that calls `Task` to spawn other agents. That persona must run at **top level** in the session (follow `gmj-orchestrator.md` in the main chat). **Do not** `Task`-spawn `gmj-orchestrator` itself: nested hubs do not get `Task` in Claude Code, so spokes cannot run.
 2. Routing schema: **User Request → Routing Analysis → Agent Selection → Task Delegation → Quality Gate → Result**.
 3. Subagents do **not** call `Task` (no peer-to-peer chaining).
 
@@ -46,11 +46,11 @@ CV PDFs are produced **only** via Python (`scripts/cv/gmj_render_cv.py`), not by
 
 ## Agents (`.claude/agents/`)
 
-- `vacancy-orchestrator`, `vacancy-router`
-- `job-market-researcher`, `vacancy-scraper`, `candidate-analyzer`, `candidate-configurator`
+- `gmj-orchestrator`, `vacancy-router`
+- `job-market-researcher`, `vacancy-scraper`, `gmj-candidate-analyzer`, `gmj-candidate-configurator`
 - `candidate-translator` — translates prose fields to `ua`/`ru`, writes `config/candidate.{lang}.yaml` overlays
 - `cv-composer` — reads `candidate.yaml`, extracts skill-relevant content, identifies gaps, writes `config/cv/cv.[skill].[lang].yaml`
-- `cv-template-creator` (Playwright MCP: `mcp__playwright__browser_*` in agent tools; `.mcp.json` server `playwright`), `cv-generator`, `cv-reviewer`, `cv-enhancer`, `cv-deliverable-gate`
+- `cv-template-creator` (Playwright MCP: `mcp__playwright__browser_*` in agent tools; `.mcp.json` server `playwright`), `gmj-cv-generator`, `cv-reviewer`, `cv-enhancer`, `cv-deliverable-gate`
 
 ## Entrypoints
 

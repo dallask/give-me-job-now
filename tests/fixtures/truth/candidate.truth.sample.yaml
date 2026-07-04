@@ -1,11 +1,11 @@
-# Synthetic grounding candidate.yaml for the truth-verifier adversarial fixture set (TRUTH-04).
+# Synthetic grounding candidate.yaml for the gmj-truth-verifier adversarial fixture set (TRUTH-04).
 # Every value below is invented — no real PII. Real top-level candidate schema keys only
 # (see .claude/skills/candidate-yaml-schema). This is the grounding set that every draft
 # fixture span resolves into; the ONE exception is the deliberate out-of-range span
 # certifications[0].credentials[9], which the credentials list is kept short enough to miss.
 name: 'Dana Testcase'
 title: 'Sample Backend Engineer'
-summary: 'Synthetic profile fragment authored for truth-verifier fixtures; every claim traces here.'
+summary: 'Synthetic profile fragment authored for gmj-truth-verifier fixtures; every claim traces here.'
 professional_experience:
   - company: 'Acme'
     position: 'Backend Engineer'

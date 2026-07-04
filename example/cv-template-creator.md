@@ -1,6 +1,6 @@
 ---
 name: cv-template-creator
-description: Builds a new Jinja2 HTML CV template from a user-supplied prototype image, then drives pixel-perfect CSS/HTML iterations via Playwright MCP (screenshots + evaluate/run_code) before handoff to cv-generator.
+description: Builds a new Jinja2 HTML CV template from a user-supplied prototype image, then drives pixel-perfect CSS/HTML iterations via Playwright MCP (screenshots + evaluate/run_code) before handoff to gmj-cv-generator.
 tools: Read, Write, Glob, LS, Bash, mcp__playwright__browser_navigate, mcp__playwright__browser_resize, mcp__playwright__browser_reload, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_snapshot, mcp__playwright__browser_tabs, mcp__playwright__browser_wait_for, mcp__playwright__browser_evaluate, mcp__playwright__browser_run_code_unsafe
 model: sonnet
 color: purple
@@ -78,7 +78,7 @@ Use the **MCP tool names** exposed by `@playwright/mcp` (your client may prefix 
 
 ## 4. Validation
 
-- Run (or instruct the orchestrator to run) **`cv-generator`** with:
+- Run (or instruct the orchestrator to run) **`gmj-cv-generator`** with:
 
 `python3 scripts/cv/gmj_render_cv.py --config config/candidate.yaml --template templates/cv/<your-file>.html`
 
@@ -86,7 +86,7 @@ Use the **MCP tool names** exposed by `@playwright/mcp` (your client may prefix 
 
 ## Output
 
-End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`, followed optionally by the exact `gmj_render_cv.py` command for `cv-generator`.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`, followed optionally by the exact `gmj_render_cv.py` command for `gmj-cv-generator`.
 - artifacts: template `.html` path + prototype image path + preview HTML (if kept).
 - notes: one line — template path + render command.
 

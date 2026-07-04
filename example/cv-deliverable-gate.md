@@ -43,7 +43,7 @@ QUALITY_GATE_RESULT: PASS|FAIL
 CHECKLIST:
 - [PASS|FAIL] ...
 REMEDIATION:
-- If FAIL: which agent should rerun (`vacancy-orchestrator` delegates)
+- If FAIL: which agent should rerun (`gmj-orchestrator` delegates)
 ```
 
 Then emit the `agent_result_v1` block as your **final output**.

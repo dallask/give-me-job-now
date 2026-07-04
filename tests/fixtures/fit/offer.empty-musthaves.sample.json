@@ -2,7 +2,7 @@
   "schema": "agent_result_v1",
   "schema_version": "1.0",
   "kind": "offer_spec",
-  "agent": "offer-scout",
+  "agent": "gmj-offer-scout",
   "status": "success",
   "content": {
     "title": "Open-Ended Generalist Role",

@@ -1,7 +1,7 @@
 {
   "kind": "gate_result",
   "schema": "agent_result_v1",
-  "agent": "truth-verifier",
+  "agent": "gmj-truth-verifier",
   "pipeline_run_id": "run-2026-07-03-006",
   "status": "success",
   "artifacts": [],

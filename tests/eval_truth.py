@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Scored-eval harness for the truth-verifier's LLM 4-rule accuracy (TRUTH-04, UAT).
+"""Scored-eval harness for the gmj-truth-verifier's LLM 4-rule accuracy (TRUTH-04, UAT).
 
 This is a **reporting** harness, NOT a green-gated assertion suite. It is deliberately
 named ``eval_truth.py`` (not ``test_*.py``) so the ``python3 tests/test_*.py`` regression
 loop never runs it as a blocking gate. It computes, over the **LLM-category** labels in
-``tests/fixtures/truth/expected.jsonl``, how often the truth-verifier agent's per-claim
+``tests/fixtures/truth/expected.jsonl``, how often the gmj-truth-verifier agent's per-claim
 verdict matches the expected verdict, and PRINTS a human-readable report.
 
 Why non-blocking: the R1-R4 reframe/fabrication boundary is an agent-in-loop judgment, so
@@ -18,7 +18,7 @@ by ``tests/test_check_truth.py`` (blocking-green, Plan 05-04); this harness scor
 ``category == "llm"`` rows so the two layers never overlap.
 
 Verdicts input: a JSON map ``"<fixture>::<claim_index>" -> "pass"|"fail"`` produced by a
-manual truth-verifier run over ``tests/fixtures/truth/*.draft.json``.
+manual gmj-truth-verifier run over ``tests/fixtures/truth/*.draft.json``.
 
 CLI: ``eval_truth.py [--expected FILE] --verdicts FILE``
 Exit 0 on a successful scoring run (any accuracy); exit 1 only when ``--verdicts`` is
@@ -101,7 +101,7 @@ def _parse_verdicts(verdicts_path: Path) -> dict:
 
 def _report(result: dict) -> None:
     pct = result["accuracy"] * 100.0
-    print("truth-verifier LLM 4-rule accuracy (UAT, non-blocking)")
+    print("gmj-truth-verifier LLM 4-rule accuracy (UAT, non-blocking)")
     print(f"  LLM-category rows : {result['total']}")
     print(f"  correct           : {result['correct']}")
     print(f"  accuracy          : {result['accuracy']:.4f} ({pct:.1f}%)")
@@ -118,7 +118,7 @@ def _report(result: dict) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Score truth-verifier LLM 4-rule accuracy (UAT).")
+    parser = argparse.ArgumentParser(description="Score gmj-truth-verifier LLM 4-rule accuracy (UAT).")
     parser.add_argument("--expected", type=Path, default=DEFAULT_EXPECTED,
                         help="path to expected.jsonl label file")
     parser.add_argument("--verdicts", type=Path, required=True,

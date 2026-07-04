@@ -187,17 +187,17 @@ def test_delivery_requires_both_gates_recorded_pass() -> None:
     An independent backstop — even a loop bug cannot ship a draft missing a gate verdict.
     """
     ok_state = _seed_state(
-        {"gate_results": {"truth-verifier": "pass", "fit-evaluator": "pass"}}
+        {"gate_results": {"gmj-truth-verifier": "pass", "gmj-fit-evaluator": "pass"}}
     )
     result = run("scripts/pipeline/gmj_check_delivery.py", "--state", str(ok_state))
     assert result.returncode == 0, f"A∧B recorded pass must be deliverable: {result.stderr}"
     assert result.stdout.strip() == "deliverable", result.stdout
 
     blocked_states = [
-        {"gate_results": {"truth-verifier": "fail", "fit-evaluator": "pass"}},
-        {"gate_results": {"truth-verifier": "pass", "fit-evaluator": "fail"}},
-        {"gate_results": {"fit-evaluator": "pass"}},  # truth verdict missing
-        {"gate_results": {"truth-verifier": "pass"}},  # fit verdict missing
+        {"gate_results": {"gmj-truth-verifier": "fail", "gmj-fit-evaluator": "pass"}},
+        {"gate_results": {"gmj-truth-verifier": "pass", "gmj-fit-evaluator": "fail"}},
+        {"gate_results": {"gmj-fit-evaluator": "pass"}},  # truth verdict missing
+        {"gate_results": {"gmj-truth-verifier": "pass"}},  # fit verdict missing
         {"current_step": "compose"},  # gate_results absent entirely
     ]
     for state in blocked_states:
@@ -274,12 +274,12 @@ def test_e2e_dryrun_sample_draft_renders_pdf() -> None:
     assert_valid_pdf(DRYRUN_PDF)
 
 
-CV_GENERATOR_AGENT = REPO_ROOT / ".claude" / "agents" / "cv-generator.md"
+CV_GENERATOR_AGENT = REPO_ROOT / ".claude" / "agents" / "gmj-cv-generator.md"
 RUNBOOK = REPO_ROOT / "docs" / "RUNBOOK.md"
 
 
 def test_cv_generator_wired_to_draft_render() -> None:
-    """cv-generator.md draft-mode wires the bridge + all three renderers (E2E-02).
+    """gmj-cv-generator.md draft-mode wires the bridge + all three renderers (E2E-02).
 
     Positive presence checks — the additive draft-mode branch must name the bridge
     (gmj_draft_to_cv_yaml.py) and each renderer (gmj_render_cv.py / gmj_render_cover_letter.py /
@@ -292,7 +292,7 @@ def test_cv_generator_wired_to_draft_render() -> None:
         "gmj_render_interview_prep.py",
         "gmj_render_cv.py",
     ):
-        assert token in text, f"cv-generator.md missing draft-mode wiring token: {token}"
+        assert token in text, f"gmj-cv-generator.md missing draft-mode wiring token: {token}"
 
 
 def test_runbook_maps_done_criteria() -> None:

@@ -81,7 +81,7 @@ or padding keywords (that would fail Gate A truth verification anyway).
 
 **Quantified framing → Gate C, not Gate B.** When the composer foregrounds a real, span-traced metric
 (e.g. "led a 20-person team"), that quantified-achievement framing lifts the Gate C `quantified_impact`
-dimension — which is **advisory only, never blocking** — and may help the fit-evaluator's semantic
+dimension — which is **advisory only, never blocking** — and may help the gmj-fit-evaluator's semantic
 coverage mapping read a claim as covering a must-have. It does **NOT** mechanically raise the Gate B
 coverage hard-block: Gate B is a coverage-only literal ID/count match against the offer's `must_haves[]`,
 not a numeric-density metric. Quantified density never changes the Gate B verdict; only covering more

@@ -276,7 +276,7 @@ def test_inspect_verdicts_artifacts_attempts() -> None:
         f"delivered run must surface both gates pass: {payload}"
     )
     # gate-log filenames present among artifacts; attempts non-empty (both gate logs)
-    for fn in ("gate_fit-evaluator_cv_1.json", "gate_truth-verifier_cv_1.json"):
+    for fn in ("gate_gmj-fit-evaluator_cv_1.json", "gate_gmj-truth-verifier_cv_1.json"):
         assert fn in payload["artifacts"], f"artifact {fn} must be listed: {payload['artifacts']}"
         assert fn in payload["attempts"], f"attempt {fn} must be listed: {payload['attempts']}"
     assert payload["attempts"], "attempts must be non-empty for a run with gate logs"

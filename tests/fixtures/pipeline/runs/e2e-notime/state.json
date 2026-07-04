@@ -1,8 +1,8 @@
 {
   "execution_mode": "autonomous",
   "gate_results": {
-    "fit-evaluator": "pass",
-    "truth-verifier": "pass"
+    "gmj-fit-evaluator": "pass",
+    "gmj-truth-verifier": "pass"
   },
   "offer_spec_hash": "ffff00000000000000000000000000000000000000000000000000000notime",
   "offer_spec_path": "/Users/example/give-me-job/sources/offers/e2e.offer-spec.json",

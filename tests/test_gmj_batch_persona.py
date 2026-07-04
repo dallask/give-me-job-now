@@ -11,11 +11,11 @@ keep the batch hub safe:
 - reads the shortlist (SELECT-01),
 - accepts multi-select (`1,3,5` / `all`) (SELECT-01),
 - hub at top level / never nested — documents the forbidden call
-  ``subagent_type: vacancy-orchestrator`` as prohibited (T-12-06),
+  ``subagent_type: gmj-orchestrator`` as prohibited (T-12-06),
 - drives the EXISTING per-offer pipeline loop (names ``gmj_route.py`` + ``gmj_check_delivery.py``)
   and the deterministic batch engine (``gmj_batch.py`` init/record-spec/mark/resume),
-- thin → ``offer-scout`` re-field is the primary freeze source, real spec stamped
-  post-freeze (``offer-scout`` + ``gmj_freeze_offer.py`` + ``gmj_batch.py record-spec``)
+- thin → ``gmj-offer-scout`` re-field is the primary freeze source, real spec stamped
+  post-freeze (``gmj-offer-scout`` + ``gmj_freeze_offer.py`` + ``gmj_batch.py record-spec``)
   (SELECT-02),
 - per-(offer, artifact_type) gates never batched (T-12-02),
 - frontmatter grants ``Task(*)`` and ``Bash(*)``.
@@ -53,8 +53,8 @@ def test_accepts_multi_select() -> None:
 def test_hub_at_top_level_never_nested() -> None:
     t = _persona_text()
     # The forbidden-call sentinel must appear, documented as prohibited (never-nest rule).
-    assert "subagent_type: vacancy-orchestrator" in t, (
-        "persona must state the forbidden call 'subagent_type: vacancy-orchestrator' "
+    assert "subagent_type: gmj-orchestrator" in t, (
+        "persona must state the forbidden call 'subagent_type: gmj-orchestrator' "
         "(never-nest-the-hub rule, T-12-06)"
     )
     assert "Never" in t or "never" in t, "persona must forbid nesting the hub (never-nest rule)"
@@ -75,7 +75,7 @@ def test_drives_existing_pipeline_per_offer() -> None:
 
 def test_thin_offer_scout_refield_then_stamp() -> None:
     t = _persona_text()
-    assert "offer-scout" in t, "persona must route thin offers through offer-scout re-field (SELECT-02)"
+    assert "gmj-offer-scout" in t, "persona must route thin offers through gmj-offer-scout re-field (SELECT-02)"
     assert "gmj_freeze_offer.py" in t, "persona must freeze via gmj_freeze_offer.py after re-field (SELECT-02)"
     assert "gmj_batch.py record-spec" in t, (
         "persona must stamp the real offer-spec into the manifest post-freeze "

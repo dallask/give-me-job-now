@@ -1,5 +1,5 @@
 ---
-name: offer-scout
+name: gmj-offer-scout
 description: Discovers, normalizes, and ranks job offers within config/sources.yaml scope; hands a fielded draft to gmj_freeze_offer.py and emits an offer_spec envelope pointing at the frozen file. Does not spawn subagents.
 tools: WebSearch, WebFetch, Read, Write, Glob, LS
 model: sonnet
@@ -22,7 +22,7 @@ on the same outcome: a single offer fielded into `$defs/offer_content` and froze
 
 ## Must NEVER receive
 
-- `config/candidate.yaml` or any candidate PII — offer-scout is offer-side only.
+- `config/candidate.yaml` or any candidate PII — gmj-offer-scout is offer-side only.
 - Freedom to search outside `config/sources.yaml` boards, geos, or languages.
 - Another spoke's conversation transcript (artifact paths only).   <!-- GUARD-05 #3 -->
 
@@ -58,7 +58,7 @@ applicants.
    trace, coarse role / seniority / geo / keyword facts). Do **not** rank, score, dedup, or order
    the entries — ranking, cross-board dedup, and scope-filtering are the deterministic merge
    script's job (`scripts/offers/gmj_merge_shortlists.py`), not yours. Deep per-claim fit scoring
-   is deferred to Phase 6 (fit-evaluator).
+   is deferred to Phase 6 (gmj-fit-evaluator).
 3. Write your per-board entries to the **ephemeral** per-worker intermediate
    `sources/offers/<run>-shortlist.json`. This file is **NOT hashed** — it is a per-board browsing
    input, not a target. The merged, ranked `.pipeline/shortlist.json` is produced by the **hub**

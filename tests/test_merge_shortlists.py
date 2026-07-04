@@ -52,7 +52,7 @@ def _write_yaml(path: Path, data: dict) -> Path:
 
 
 def _write_board(path: Path, entries: list[dict]) -> Path:
-    """Write a wrapped board document (the real offer-scout worker shape)."""
+    """Write a wrapped board document (the real gmj-offer-scout worker shape)."""
     doc = {"kind": "offer_shortlist", "schema_version": "1.0", "shortlist": entries}
     path.write_text(json.dumps(doc), encoding="utf-8")
     return path

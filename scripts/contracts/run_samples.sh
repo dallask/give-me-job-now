@@ -66,12 +66,12 @@ A=$(python3 "$HASHER" --kind offer_spec --file "$SAMPLES/offer_spec.valid.json")
 B=$(python3 "$HASHER" --kind offer_spec --file "$SAMPLES/offer_spec.valid.json")
 if [ "$A" = "$B" ]; then check "hash reproducible (identical input → identical hash)" 0 0; else check "hash reproducible" 0 1; fi
 
-# 3. Deterministic route (ARCH-06): sample state → fit-evaluator, no LLM
+# 3. Deterministic route (ARCH-06): sample state → gmj-fit-evaluator, no LLM
 ROUTE_OUT=$(python3 "$ROUTER" --state "$SAMPLES/state.sample.json" --dag "$DAG" 2>/dev/null || true)
-if printf '%s' "$ROUTE_OUT" | grep -q 'fit-evaluator'; then check "route sample state → fit-evaluator" 0 0; else check "route sample state → fit-evaluator (got: $ROUTE_OUT)" 0 1; fi
+if printf '%s' "$ROUTE_OUT" | grep -q 'gmj-fit-evaluator'; then check "route sample state → gmj-fit-evaluator" 0 0; else check "route sample state → gmj-fit-evaluator (got: $ROUTE_OUT)" 0 1; fi
 
 # 4. SubagentStop hook extraction+validation path (ARCH-04): must BLOCK the mock malformed envelope
-HOOK_INPUT=$(printf '{"transcript_path":"%s/%s","agent_id":"offer-scout"}' "$REPO_ROOT" "$MOCK")
+HOOK_INPUT=$(printf '{"transcript_path":"%s/%s","agent_id":"gmj-offer-scout"}' "$REPO_ROOT" "$MOCK")
 HOOK_RC=$(set +e; printf '%s' "$HOOK_INPUT" | CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$HOOK" >/dev/null 2>&1; printf '%s' $?; set -e)
 check "hook blocks malformed mock envelope" nonzero "$HOOK_RC"
 # The block must be recorded with a structured field-path error naming the offending field.

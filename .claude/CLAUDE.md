@@ -22,7 +22,7 @@ must actually target the offer.
 - **Tech stack**: Python for all PDF/document rendering (`gmj_render_cv.py`) — no manual binary/PDF authoring in chat. Keeps rendering deterministic and reproducible.
 - **Architecture**: Hub-and-spoke only. One top-level orchestrator holds `Task`; spokes never spawn spokes (nested hubs lose `Task`). Preserves criteria/cycle tracking and prevents chain drift.
 - **Truthfulness**: `config/candidate.yaml` is the single source of truth; every artifact claim must trace to it. Reframing/emphasis allowed; invention hard-blocked.
-- **Search scope**: `offer-scout` may never search outside the boards/geos/languages declared in `config/sources.yaml`; the mandatory `sources.yaml` read stays enforced.
+- **Search scope**: `gmj-offer-scout` may never search outside the boards/geos/languages declared in `config/sources.yaml`; the mandatory `sources.yaml` read stays enforced.
 - **Runtime**: Runs inside Claude Code via `claude --dangerously-skip-permissions`; single-threaded event loop (parallelism is orchestrated task fan-out, not OS threads).
 - **Safety**: Hard gates (truth, target-fit) are non-bypassable in any mode; autonomous mode removes the human pause, never the machine gate. Auto-loops are bounded by a retry cap.
 
@@ -94,7 +94,7 @@ must actually target the offer.
 ## Naming Patterns
 
 - Python scripts: `snake_case.py` (e.g., `gmj_render_cv.py`, `gmj_extract.py`)
-- Agent definitions: `kebab-case.md` (e.g., `candidate-analyzer.md`, `cv-generator.md`)
+- Agent definitions: `kebab-case.md` (e.g., `gmj-candidate-analyzer.md`, `gmj-cv-generator.md`)
 - YAML configuration: `kebab-case.yaml` or `name.[lang].yaml` (e.g., `candidate.yaml`, `candidate.ua.yaml`)
 - Markdown documentation: `UPPERCASE.md` (e.g., `CLAUDE.md`, `README.md`) or `lowercase.md` for agent/skill docs
 - Python: snake_case (e.g., `extract_pdf()`, `load_candidate()`, `photo_path_for()`)
@@ -185,9 +185,9 @@ must actually target the offer.
 ## Architecture
 
 > **Authoritative source of truth: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).**
-> That document defines the redesigned hub + 5-spoke roster (`offer-scout`,
-> `artifact-composer`, `fit-evaluator`, `truth-verifier`, `cv-generator` + retained
-> `candidate-analyzer` / `candidate-configurator`), per-spoke boundaries, the offer→render
+> That document defines the redesigned hub + 5-spoke roster (`gmj-offer-scout`,
+> `gmj-artifact-composer`, `gmj-fit-evaluator`, `gmj-truth-verifier`, `gmj-cv-generator` + retained
+> `gmj-candidate-analyzer` / `gmj-candidate-configurator`), per-spoke boundaries, the offer→render
 > data flow, and the anti-drift principles. The inline architecture prose below describes
 > the **superseded legacy 13-agent pipeline** — retained for reference only while the
 > collective is consolidated in Phase 1. Do not treat the roster below as current.
@@ -202,15 +202,15 @@ must actually target the offer.
 
 | Component | Responsibility | File |
 |-----------|----------------|------|
-| **vacancy-orchestrator** | Hub: routing, task delegation, quality gates, cycle tracking | `.claude/agents/vacancy-orchestrator.md` |
+| **gmj-orchestrator** | Hub: routing, task delegation, quality gates, cycle tracking | `.claude/agents/gmj-orchestrator.md` |
 | **vacancy-router** | Route user goal to appropriate spoke; emit ROUTING_DECISION | `.claude/agents/vacancy-router.md` |
 | **job-market-researcher** | Web search for job trends, keywords, salary bands scoped to `sources.yaml` | `.claude/agents/job-market-researcher.md` |
 | **vacancy-scraper** | Fetch job postings from URLs in `sources.yaml` sites; normalize to markdown | `.claude/agents/vacancy-scraper.md` |
-| **candidate-analyzer** | Parse resumes, spreadsheets, docs in `sources/candidate/`; extract structured data | `.claude/agents/candidate-analyzer.md` |
-| **candidate-configurator** | Merge candidate findings into `config/candidate.yaml` | `.claude/agents/candidate-configurator.md` |
+| **gmj-candidate-analyzer** | Parse resumes, spreadsheets, docs in `sources/candidate/`; extract structured data | `.claude/agents/gmj-candidate-analyzer.md` |
+| **gmj-candidate-configurator** | Merge candidate findings into `config/candidate.yaml` | `.claude/agents/gmj-candidate-configurator.md` |
 | **candidate-translator** | Translate prose fields to ua/ru; write `config/candidate.{lang}.yaml` overlays | `.claude/agents/candidate-translator.md` |
 | **cv-composer** | Two-pass skill CV extraction: Pass 1 gap report, Pass 2 write `config/cv/cv.{skill}.{lang}.yaml` | `.claude/agents/cv-composer.md` |
-| **cv-generator** | Render PDF from YAML using `scripts/cv/gmj_render_cv.py` (ReportLab or HTML template) | `.claude/agents/cv-generator.md` |
+| **gmj-cv-generator** | Render PDF from YAML using `scripts/cv/gmj_render_cv.py` (ReportLab or HTML template) | `.claude/agents/gmj-cv-generator.md` |
 | **cv-template-creator** | Create HTML template from user prototype/screenshot using Playwright MCP | `.claude/agents/cv-template-creator.md` |
 | **cv-reviewer** | Gap analysis: score CV vs vacancy and market brief; output `sources/analysis/cv-review-*.md` | `.claude/agents/cv-reviewer.md` |
 | **cv-enhancer** | Apply review edits to `config/cv/cv.{skill}.{lang}.yaml` or `config/candidate.yaml` | `.claude/agents/cv-enhancer.md` |
@@ -218,7 +218,7 @@ must actually target the offer.
 
 ## Pattern Overview
 
-- **Single delegation hub** (`vacancy-orchestrator`) runs at top level; spokes never spawn other spokes via `Task`
+- **Single delegation hub** (`gmj-orchestrator`) runs at top level; spokes never spawn other spokes via `Task`
 - **Mandatory routing** all goals flow through `vacancy-router` to extract `ROUTING_DECISION` JSON with acceptance criteria
 - **Criteria tracking** across the pipeline: each spoke receives `criteria_items[]` array (id + text), must return pass/fail mapping
 - **Quality gates** after critical operations (configurator, generator, enhancer); gate verifies criteria met before next phase
@@ -228,22 +228,22 @@ must actually target the offer.
 ## Layers
 
 - Purpose: Route user requests, delegate tasks, track quality gates, cap iterations
-- Location: `.claude/agents/vacancy-orchestrator.md` (hub), `.claude/agents/vacancy-router.md` (routing logic)
+- Location: `.claude/agents/gmj-orchestrator.md` (hub), `.claude/agents/vacancy-router.md` (routing logic)
 - Contains: Task invocations, routing decision parsing, cycle tracking, quality gate handling
 - Depends on: All spokes return `agent_result_v1` envelopes; orchestrator parses them
 - Used by: Entry point `/job-collective` command
 - Purpose: Gather market trends, job postings, candidate materials
-- Location: `.claude/agents/job-market-researcher.md`, `.claude/agents/vacancy-scraper.md`, `.claude/agents/candidate-analyzer.md`
+- Location: `.claude/agents/job-market-researcher.md`, `.claude/agents/vacancy-scraper.md`, `.claude/agents/gmj-candidate-analyzer.md`
 - Contains: Web searches, document parsing, structured extraction
 - Depends on: `config/sources.yaml` for site/city/language scope; `sources/` for input materials
 - Used by: Orchestrator delegates based on user goal
 - Purpose: Normalize candidate data to master YAML; translate prose to target languages
-- Location: `.claude/agents/candidate-configurator.md`, `.claude/agents/candidate-translator.md`
+- Location: `.claude/agents/gmj-candidate-configurator.md`, `.claude/agents/candidate-translator.md`
 - Contains: YAML schema validation, structured merging, language overlays
-- Depends on: `config/candidate.yaml` schema; candidate-analyzer output
+- Depends on: `config/candidate.yaml` schema; gmj-candidate-analyzer output
 - Used by: CV generation pipeline
 - Purpose: Extract skill-relevant content, render PDFs with optional HTML templating
-- Location: `.claude/agents/cv-composer.md`, `.claude/agents/cv-generator.md`, `.claude/agents/cv-template-creator.md`
+- Location: `.claude/agents/cv-composer.md`, `.claude/agents/gmj-cv-generator.md`, `.claude/agents/cv-template-creator.md`
 - Contains: Confidence scoring, skill filtering, gap detection, Python rendering via `scripts/cv/gmj_render_cv.py`
 - Depends on: `config/candidate.yaml`, market briefs, optional HTML templates in `templates/cv/`
 - Used by: Skill-specific CV pipeline; simple full-CV pipeline
@@ -272,11 +272,11 @@ must actually target the offer.
 |------|-----------|-------------|---------|
 | Research | (WebSearch/WebFetch) | `sources/research/{topic}-market-brief.md` | job-market-researcher |
 | Vacancies | (WebFetch URLs from sources.yaml) | `sources/vacancies/{posting}.md` | vacancy-scraper |
-| Candidate docs | `sources/candidate/*` | (analyzed in memory) | candidate-analyzer |
-| Configuration | candidate-analyzer output | `config/candidate.yaml` | candidate-configurator |
+| Candidate docs | `sources/candidate/*` | (analyzed in memory) | gmj-candidate-analyzer |
+| Configuration | gmj-candidate-analyzer output | `config/candidate.yaml` | gmj-candidate-configurator |
 | Translation | `config/candidate.yaml` | `config/candidate.{lang}.yaml` | candidate-translator |
 | CV composition | `config/candidate.yaml` + market briefs | `config/cv/cv.{skill}.{lang}.yaml` | cv-composer |
-| CV generation | `config/candidate.yaml` or `config/cv/` | `output/cv/*.pdf` | cv-generator (via gmj_render_cv.py) |
+| CV generation | `config/candidate.yaml` or `config/cv/` | `output/cv/*.pdf` | gmj-cv-generator (via gmj_render_cv.py) |
 | CV review | `output/cv/*.pdf` + `sources/vacancies/*.md` + market brief | `sources/analysis/cv-review-*.md` | cv-reviewer |
 | CV enhancement | review output | `config/cv/` or `config/candidate.yaml` updated | cv-enhancer |
 
@@ -308,7 +308,7 @@ must actually target the offer.
 
 - Location: `.claude/commands/job-collective.md`
 - Triggers: User invokes slash command in Claude Code session
-- Responsibilities: Instructs hub orchestrator to load `.claude/agents/vacancy-orchestrator.md` and await user goal in same turn; hub must use `Task` only to spawn spokes (never nest orchestrator inside Task)
+- Responsibilities: Instructs hub orchestrator to load `.claude/agents/gmj-orchestrator.md` and await user goal in same turn; hub must use `Task` only to spawn spokes (never nest orchestrator inside Task)
 - Location: `.claude/settings.json` → SessionStart hooks → `.claude/hooks/session-bootstrap.sh`
 - Triggers: On session startup, resume, or clear
 - Responsibilities: Initialize session state, print bootstrap banner, prepare environment for orchestrator
@@ -345,7 +345,7 @@ must actually target the offer.
 
 - **File not found:** Spoke logs file path, returns `status: fail`; orchestrator checks manifest + re-runs search if needed
 - **Invalid YAML:** Spoke calls `python3 -c "yaml.safe_load(...)"` to validate; returns error message; orchestrator asks user to fix or re-run configurator
-- **PDF generation error:** `cv-generator` captures stderr from `gmj_render_cv.py`; returns `status: fail` with error details
+- **PDF generation error:** `gmj-cv-generator` captures stderr from `gmj_render_cv.py`; returns `status: fail` with error details
 - **Criteria mismatch:** Gate computes `criteria_hash` and compares to router's hash; if mismatch, returns `status: fail` with mismatched ID list
 - **Max cycles reached:** After 2 enhancer+generator pairs, gate returns `status: fail` + `cycle_number >= 2`; orchestrator stops and asks user for guidance
 
@@ -363,7 +363,7 @@ must actually target the offer.
 | candidate-yaml-schema | Schema and editing rules for config/candidate.yaml and config/cv/cv.[skill].[lang].yaml in give-me-job. | `.claude/skills/candidate-yaml-schema/SKILL.md` |
 | cv-pdf-python | Python commands to extract text and render CV PDFs for give-me-job. | `.claude/skills/cv-pdf-python/SKILL.md` |
 | cv-review-rubric | Scoring dimensions for CV vs vacancy and market alignment. | `.claude/skills/cv-review-rubric/SKILL.md` |
-| orchestrator-pipelines | Skill-CV pipeline steps and pre-flight checks for vacancy-orchestrator. Loaded dynamically via Read tool when goal matches — NOT statically included. | `.claude/skills/orchestrator-pipelines/SKILL.md` |
+| orchestrator-pipelines | Skill-CV pipeline steps and pre-flight checks for gmj-orchestrator. Loaded dynamically via Read tool when goal matches — NOT statically included. | `.claude/skills/orchestrator-pipelines/SKILL.md` |
 | sources-config-enforcement | Mandatory sources.yaml read-and-enforce protocol for web search agents (job-market-researcher, vacancy-scraper). | `.claude/skills/sources-config-enforcement/SKILL.md` |
 | sources-ingestion | Conventions for placing candidate and vacancy materials under sources/. | `.claude/skills/sources-ingestion/SKILL.md` |
 | vacancy-research-rubric | Rubric for web vacancy search and market-aligned research outputs. | `.claude/skills/vacancy-research-rubric/SKILL.md` |

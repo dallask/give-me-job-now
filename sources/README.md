@@ -1,6 +1,6 @@
 # Candidate source materials
 
-Place materials for **candidate-analyzer** here:
+Place materials for **gmj-candidate-analyzer** here:
 
 - **Documents**: `.pdf`, `.docx`, `.xlsx`, images (`.png`, `.jpg`, …)
 - **Notes**: `.md` or `.txt` for pasted JD text, recruiter emails, or URLs to summarize manually

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static wiring assertions for the rewired hub (.claude/agents/vacancy-orchestrator.md).
+"""Static wiring assertions for the rewired hub (.claude/agents/gmj-orchestrator.md).
 
 Runnable as a plain assertion script (no pytest dependency), mirroring
 tests/test_route.py. Every assertion is a file read — no live Task, no subprocess
@@ -18,9 +18,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 AGENTS_DIR = REPO_ROOT / ".claude" / "agents"
 COMMANDS_DIR = REPO_ROOT / ".claude" / "commands"
-HUB_PATH = AGENTS_DIR / "vacancy-orchestrator.md"
+HUB_PATH = AGENTS_DIR / "gmj-orchestrator.md"
 
-SPOKES = ["offer-scout", "artifact-composer", "truth-verifier", "fit-evaluator", "cv-generator"]
+SPOKES = ["gmj-offer-scout", "gmj-artifact-composer", "gmj-truth-verifier", "gmj-fit-evaluator", "gmj-cv-generator"]
 CONTROL_SCRIPTS = [
     "gmj_route.py",
     "gmj_check_offer.py",

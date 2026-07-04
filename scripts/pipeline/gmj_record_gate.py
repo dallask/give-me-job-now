@@ -23,7 +23,7 @@ to ``^[A-Za-z0-9._-]+$`` with ``.`` / ``..`` rejected before the join (V12, thre
 Malformed gate stdout (invalid JSON / missing ``content.verdict``) degrades to structured
 stderr + exit 1 with no traceback (threat T-07-11).
 
-CLI: ``gmj_record_gate.py --state <path> --node <truth-verifier|fit-evaluator>
+CLI: ``gmj_record_gate.py --state <path> --node <gmj-truth-verifier|gmj-fit-evaluator>
       --result <gate-stdout.json | -> --run-dir <.pipeline/runs/<run_id>>
       --artifact-type <cv|cover_letter|interview_prep> --attempt <int>``
 """
@@ -38,7 +38,7 @@ from pathlib import Path
 
 # Gate DAG node names — MUST match the gate nodes in config/pipeline.dag.yaml exactly,
 # because gmj_route.py reads state.gate_results[<this node>].
-GATE_NODES = ["truth-verifier", "fit-evaluator"]
+GATE_NODES = ["gmj-truth-verifier", "gmj-fit-evaluator"]
 ARTIFACT_TYPES = ["cv", "cover_letter", "interview_prep"]
 
 # Safe filesystem path component: alphanumerics plus . _ - only (V12, threat T-07-08).

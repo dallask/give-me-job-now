@@ -31,7 +31,7 @@ empty-state message (below) and stop. The reference path is confined under `sour
 
 This persona is the **only** Task-holder. Use `Task` to spawn the **`gmj-template-creator`**
 spoke (which holds no `Task`). **Do NOT** nest the hub: never call `Task` with
-`subagent_type: vacancy-orchestrator` — nesting the hub inside `Task` removes `Task` from
+`subagent_type: gmj-orchestrator` — nesting the hub inside `Task` removes `Task` from
 that context ("Task is not available inside subagents") and breaks the loop. The spoke
 synthesizes/re-skins the template; this persona decides when to stop.
 
@@ -94,7 +94,7 @@ Operator messages (machine-truthful; never claim pixel-perfect):
 - **Success (cap, best kept):** "Iteration cap (5) reached — kept the best version
   (diff-ratio {r}). Not pixel-perfect by design; review and accept or refine the screenshot."
 - **Empty state (no screenshot):** "No design screenshot detected. Paste a CV design image in
-  chat, or name an existing template to render (`cv-generator <template-slug>`)."
+  chat, or name an existing template to render (`gmj-cv-generator <template-slug>`)."
 - **Error (sample-string lint fail):** "Template rejected: it contains literal sample-profile
   text ({flagged tokens}). All content must bind via `{{ candidate.* }}` — regenerating with
   data bindings."

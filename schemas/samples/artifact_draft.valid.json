@@ -2,7 +2,7 @@
   "kind": "artifact_draft",
   "schema": "agent_result_v1",
   "schema_version": "1.0",
-  "agent": "artifact-composer",
+  "agent": "gmj-artifact-composer",
   "pipeline_run_id": "run-2026-07-03-003",
   "status": "success",
   "artifacts": [
@@ -11,6 +11,6 @@
   "acceptance_criteria_met": ["crit-draft-composed"],
   "acceptance_criteria_failed": [],
   "next_action": "handoff",
-  "handoff_target": "truth-verifier",
+  "handoff_target": "gmj-truth-verifier",
   "notes": "Composed draft CV from candidate.yaml; 3 sections targeted to offer"
 }

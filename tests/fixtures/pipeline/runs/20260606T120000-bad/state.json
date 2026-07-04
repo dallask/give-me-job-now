@@ -2,4 +2,4 @@
   "run_id": "20260606T120000-bad",
   "execution_mode": "human_in_the_loop",
   "gate_results": {
-    "truth-verifier": "pass",
+    "gmj-truth-verifier": "pass",

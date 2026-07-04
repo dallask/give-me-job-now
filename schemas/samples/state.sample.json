@@ -1,7 +1,7 @@
 {
-  "current_step": "truth-verifier",
-  "completed_steps": ["offer-scout", "artifact-composer"],
+  "current_step": "gmj-truth-verifier",
+  "completed_steps": ["gmj-offer-scout", "gmj-artifact-composer"],
   "gate_results": {
-    "truth-verifier": "pass"
+    "gmj-truth-verifier": "pass"
   }
 }

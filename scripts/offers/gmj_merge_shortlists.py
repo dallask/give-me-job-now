@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic, LLM-free merge authority for parallel multi-board offer-scout (SCOUT-02/04).
+"""Deterministic, LLM-free merge authority for parallel multi-board gmj-offer-scout (SCOUT-02/04).
 
 Unions per-board shortlist worker outputs, dedups cross-posts by a canonical key, hard
 scope-filters against ``config/sources.yaml`` (fail-closed), scores every entry with ONE
@@ -281,7 +281,7 @@ def _entries_from_doc(doc: object, origin: str) -> list[dict]:
     """Extract the entry list from a loaded board document.
 
     Accepts BOTH the wrapped ``{..., "shortlist": [<entry>, ...]}`` document that the real
-    offer-scout per-board worker emits (and that shortlist.sample.json is) AND a bare JSON list
+    gmj-offer-scout per-board worker emits (and that shortlist.sample.json is) AND a bare JSON list
     of entry objects. Any other top-level type is an error.
     """
     if isinstance(doc, list):

@@ -27,7 +27,7 @@ fi
 # Non-collective agents (Explore, Plan, general-purpose, etc.) are exempt.
 # vacancy-router is exempt: it has its own structured contract (ROUTING_DECISION JSON)
 # and runs on haiku which does not reliably emit a second output block.
-COLLECTIVE_AGENTS="candidate-analyzer candidate-configurator offer-scout artifact-composer fit-evaluator truth-verifier cv-generator"
+COLLECTIVE_AGENTS="gmj-candidate-analyzer gmj-candidate-configurator gmj-offer-scout gmj-artifact-composer gmj-fit-evaluator gmj-truth-verifier gmj-cv-generator"
 IS_COLLECTIVE="false"
 for known in $COLLECTIVE_AGENTS; do
   if [ "$AGENT" = "$known" ]; then

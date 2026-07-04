@@ -19,7 +19,7 @@ For each selected shortlist entry it:
      trace.excerpt->raw_text_excerpt) and dropping every non-schema key; flags ``thin`` when
      ``must_haves`` is absent/empty OR the excerpt is missing (SELECT-02),
   3. derives three per-(offer, artifact_type) run_ids ``<run_id>-cv``/``-cl``/``-ip``, freezes each
-     via the existing ``gmj_state_write.py`` and seeds ``current_step: artifact-composer`` (gmj_route.py
+     via the existing ``gmj_state_write.py`` and seeds ``current_step: gmj-artifact-composer`` (gmj_route.py
      raises without it) — three distinct seeded ``state.json`` per offer, none at the bare run_id
      (SELECT-03),
   4. writes an offer-centric canonical manifest validated against
@@ -136,7 +136,7 @@ def is_thin(entry: dict) -> bool:
     """True when the coarse entry cannot seed a viable freeze (SELECT-02 fallback signal).
 
     Thin is the PRIMARY path: a coarse shortlist entry never carries ``must_haves``, so the hub
-    re-fields it via offer-scout single-offer intake. Thin whenever ``must_haves`` is absent/empty
+    re-fields it via gmj-offer-scout single-offer intake. Thin whenever ``must_haves`` is absent/empty
     OR the excerpt is missing.
     """
     mh = entry.get("must_haves")
@@ -221,7 +221,7 @@ def _seed_state(
     if _freeze_run_config(state, freeze_args) != 0:
         return 1
     # Seed current_step into the in-memory dict BEFORE the single write.
-    state["current_step"] = "artifact-composer"
+    state["current_step"] = "gmj-artifact-composer"
     state_path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(state, ensure_ascii=False, indent=2) + "\n"
     # Atomic publish: write a temp sibling then rename over the target (no partial/no-current_step
@@ -440,7 +440,7 @@ def _cmd_resume(args: argparse.Namespace) -> int:
 
     A run counts as delivered ONLY when BOTH hold: (1) its manifest ``status`` label is
     ``"delivered"`` — set by the ``/gmj-batch`` persona via ``mark`` ONLY after the terminal
-    ``cv-generator`` render+delivery completes, so the label is the render-complete signal
+    ``gmj-cv-generator`` render+delivery completes, so the label is the render-complete signal
     (gate-pass alone is one DAG step too early — CR-01); AND (2) the reused, non-bypassable
     ``check_delivery.blocked_reason`` (Gate A ∧ Gate B) still passes on that run's own
     ``state.json`` gate_results — a cross-check so a forged/corrupt ``"delivered"`` label
@@ -479,7 +479,7 @@ def _cmd_resume(args: argparse.Namespace) -> int:
                     return 1
                 if isinstance(state, dict) and isinstance(state.get("gate_results"), dict):
                     gate_results = state["gate_results"]
-            # Delivered ONLY when the terminal cv-generator render+delivery completed — the
+            # Delivered ONLY when the terminal gmj-cv-generator render+delivery completed — the
             # persona sets the manifest label to 'delivered' via `mark` AFTER render, so the
             # label is the render-complete signal (gates alone are one DAG step too early,
             # CR-01) — AND the reused, non-bypassable Gate A ∧ Gate B predicate still passes
