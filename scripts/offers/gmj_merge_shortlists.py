@@ -337,7 +337,7 @@ def main() -> int:
         print(f"Invalid board input: {exc}", file=sys.stderr)
         return 1
 
-    # Load preferences (soft-rank signals). Absent/unparsable → empty (scores degrade to 0).
+    # Load preferences (soft-rank signals). Absent → empty (scores degrade to 0); unparsable → exit 1.
     prefs: dict = {}
     prefs_path = args.preferences.expanduser().resolve()
     if prefs_path.is_file():
