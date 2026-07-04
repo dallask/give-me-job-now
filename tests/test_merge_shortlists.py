@@ -331,6 +331,63 @@ def test_out_path_traversal_rejected() -> None:  # WR-03 containment guard
             assert not (cwd / "escape.json").exists(), f"{label} must not escape .pipeline/"
 
 
+def test_dual_shape_loader() -> None:  # WR-04 dual-shape board loader
+    # The loader accepts a wrapped {...,'shortlist':[...]} doc, a BARE top-level JSON list,
+    # and a --stdin bundle; a non-list/non-object top level is the error path.
+    entries = [
+        _entry("SoftPeak", "Lead PHP Engineer", "https://www.work.ua/",
+               "https://www.work.ua/j/1", salary=4000, mode="remote"),
+    ]
+    # (1) bare top-level JSON list.
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        board = cwd / "bare.json"
+        board.write_text(json.dumps(entries), encoding="utf-8")  # bare list, no wrapper
+        src = _write_yaml(cwd / "sources.yaml", _SOURCES)
+        pref = _write_yaml(cwd / "preferences.yaml", _PREFS)
+        result = _cli(
+            ["--board-file", str(board), "--sources", str(src),
+             "--preferences", str(pref), "--out", ".pipeline/bare.json"],
+            cwd=cwd,
+        )
+        assert result.returncode == 0, f"bare-list board must load (exit 0): {result.stderr}"
+        shortlist = json.loads((cwd / ".pipeline/bare.json").read_text())["shortlist"]
+        assert len(shortlist) == 1, f"bare-list entry must survive to output: {shortlist}"
+
+    # (2) --stdin bundle (wrapped shape via stdin).
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        src = _write_yaml(cwd / "sources.yaml", _SOURCES)
+        pref = _write_yaml(cwd / "preferences.yaml", _PREFS)
+        board_doc = {"kind": "offer_shortlist", "schema_version": "1.0", "shortlist": entries}
+        result = subprocess.run(
+            [sys.executable, str(MERGER), "--stdin", "--sources", str(src),
+             "--preferences", str(pref), "--out", ".pipeline/stdin.json"],
+            cwd=str(cwd), capture_output=True, text=True, input=json.dumps(board_doc),
+            env={**os.environ},
+        )
+        assert result.returncode == 0, f"--stdin bundle must load (exit 0): {result.stderr}"
+        shortlist = json.loads((cwd / ".pipeline/stdin.json").read_text())["shortlist"]
+        assert len(shortlist) == 1, f"--stdin entry must survive to output: {shortlist}"
+
+    # (3) error path: a top-level JSON scalar is neither a list nor an object-with-shortlist.
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        board = cwd / "scalar.json"
+        board.write_text("42", encoding="utf-8")
+        src = _write_yaml(cwd / "sources.yaml", _SOURCES)
+        pref = _write_yaml(cwd / "preferences.yaml", _PREFS)
+        result = _cli(
+            ["--board-file", str(board), "--sources", str(src),
+             "--preferences", str(pref), "--out", ".pipeline/err.json"],
+            cwd=cwd,
+        )
+        assert result.returncode == 1, f"a scalar top level must be an error (exit 1): {result.stdout}"
+        assert "Invalid board input" in result.stderr, (
+            f"stderr must flag the invalid board shape: {result.stderr}"
+        )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
