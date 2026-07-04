@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "cover_letter",
+    "language": "en",
+    "claims": [
+      {
+        "text": "Led a 20-person delivery team adopting AI-assisted engineering.",
+        "source_span": "professional_experience[0].achievements[0]",
+        "section": "opening"
+      },
+      {
+        "text": "Cut delivery time by 40% on recurring project types.",
+        "source_span": "professional_experience[1].achievements[3]",
+        "section": "body"
+      }
+    ]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "cover_letter",
+    "language": "en",
+    "claims": [
+      {
+        "text": "Led a 20-person delivery team adopting AI-assisted engineering.",
+        "source_span": "professional_experience[0].achievements[0]",
+        "section": "opening"
+      },
+      {
+        "text": "Raised core-module unit test coverage to 80%+.",
+        "source_span": "key_achievements[6].description",
+        "section": "body"
+      },
+      {
+        "text": "Currently leading a 20-person team within a 47-member delivery org.",
+        "source_span": "summary",
+        "section": "body"
+      }
+    ]
+  }
+}
