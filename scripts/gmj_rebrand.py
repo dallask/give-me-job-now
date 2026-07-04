@@ -324,16 +324,32 @@ def build_rules(entries: list[dict], atype: str) -> list[tuple[re.Pattern, str, 
 
 # --------------------------------------------------------------------------- tree walk + rewrite
 
-def iter_app_files() -> "list[Path]":
-    """Sorted list of app-tree files, pruning framework / ephemeral / self dirs and gsd-* files."""
+def iter_app_files(framework_globs: list[str] | None = None) -> "list[Path]":
+    """Sorted list of app-tree files, pruning framework / ephemeral / self dirs and framework files.
+
+    Beyond ``EXCLUDE_DIRS`` and the ``gsd-`` prefix, every path matching the manifest's
+    ``framework_globs`` is pruned (WR-02) so declared-framework files (``ai-agents-architect.md``,
+    ``.claude/hooks/lib/**``, ``managed-hooks-registry.cjs``) never have their CONTENT rewritten —
+    upholding the "framework files are never touched" doctrine. When ``framework_globs`` is not
+    supplied it is loaded best-effort from the default manifest.
+    """
+    if framework_globs is None:
+        framework_globs = _framework_globs_cached()
     out: list[Path] = []
     for root, dirs, filenames in os.walk(REPO_ROOT):
-        dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS and not d.startswith("gsd-")]
+        dirs[:] = [
+            d for d in dirs
+            if d not in EXCLUDE_DIRS
+            and not d.startswith("gsd-")
+            and not is_framework_path(Path(root) / d, framework_globs)
+        ]
         for fn in filenames:
             if fn.startswith("gsd-"):
                 continue
             p = Path(root) / fn
             if p.resolve() in SELF_EXCLUDE:
+                continue
+            if is_framework_path(p, framework_globs):
                 continue
             out.append(p)
     return sorted(out)
@@ -460,7 +476,7 @@ def main() -> int:
         return 1
 
     rules = build_rules(entries, args.type)
-    files = iter_app_files()
+    files = iter_app_files(framework_globs)
 
     if not do_apply:
         print(f"# DRY-RUN plan for --type {args.type} ({len(entries)} app files)")

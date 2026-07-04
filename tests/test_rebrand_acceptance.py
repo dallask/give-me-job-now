@@ -289,6 +289,36 @@ def test_engine_refuses_framework_file_listed_in_app() -> None:
         assert "framework" in proc.stderr.lower(), f"expected a framework-refusal message: {proc.stderr!r}"
 
 
+def test_framework_files_pruned_from_rewrite_walk() -> None:
+    """WR-02: declared-framework files must NOT appear in the reference-rewrite tree walk.
+
+    iter_app_files feeds apply_rewrites; anything it yields can have its content rewritten. Prove
+    the framework artifacts (ai-agents-architect.md, hooks/lib/**, managed-hooks-registry.cjs) are
+    pruned, so their content is never touched."""
+    walked = {p.resolve() for p in R.iter_app_files()}
+    assert walked, "iter_app_files yielded nothing (walk is broken)"
+
+    framework_files = [
+        R.AGENTS_DIR / "ai-agents-architect.md",
+        R.HOOKS_DIR / "managed-hooks-registry.cjs",
+    ]
+    lib_dir = R.HOOKS_DIR / "lib"
+    if lib_dir.is_dir():
+        framework_files.extend(f for f in lib_dir.rglob("*") if f.is_file())
+
+    checked = 0
+    for ff in framework_files:
+        if ff.exists():
+            checked += 1
+            assert ff.resolve() not in walked, f"framework file present in rewrite walk: {R._rel(ff)}"
+    assert checked >= 2, f"expected to verify at least 2 on-disk framework files, saw {checked}"
+
+    # Control: a genuine app file IS in the walk (the walk is not vacuously empty of app files).
+    app_ctrl = R.AGENTS_DIR / "gmj-orchestrator.md"
+    if app_ctrl.exists():
+        assert app_ctrl.resolve() in walked, "app control file missing from rewrite walk"
+
+
 # --------------------------------------------------------------------------- hooks
 
 def _registered_hook_paths() -> list[str]:
