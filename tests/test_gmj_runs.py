@@ -42,7 +42,7 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures" / "pipeline"
 # Import the canonical Gate A ∧ Gate B predicate for the delivered-parity assertion — compare
 # the CLI label against blocked_reason itself, NEVER a re-derived predicate (T-16-06).
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "pipeline"))
-import check_delivery  # noqa: E402
+import gmj_check_delivery as check_delivery  # noqa: E402
 
 
 def _cli(

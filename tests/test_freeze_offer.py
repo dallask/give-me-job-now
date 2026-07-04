@@ -2,7 +2,7 @@
 """Behavior tests for the offer-freeze utility (INTAKE-01, INTAKE-03).
 
 Runnable as a plain assertion script (no pytest dependency), mirroring
-``tests/test_hash_artifact.py``. Proves that ``scripts/offers/freeze_offer.py``:
+``tests/test_hash_artifact.py``. Proves that ``scripts/offers/gmj_freeze_offer.py``:
 
 - wraps the fielded offer body in a ``content`` object with ``captured_at`` and
   ``offer_spec_hash`` as siblings OUTSIDE it,
@@ -28,12 +28,12 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRAFT = REPO_ROOT / "sources" / "offers" / "sample-offer-draft.json"
-FREEZER = REPO_ROOT / "scripts" / "offers" / "freeze_offer.py"
+FREEZER = REPO_ROOT / "scripts" / "offers" / "gmj_freeze_offer.py"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "offers"))
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "contracts"))
-import freeze_offer  # noqa: E402
-import hash_artifact  # noqa: E402
+import gmj_freeze_offer as freeze_offer  # noqa: E402
+import gmj_hash_artifact as hash_artifact  # noqa: E402
 
 _HEX = set("0123456789abcdef")
 _SLUG_RE = re.compile(r"^[a-z0-9-]+$")

@@ -9,12 +9,12 @@ description: Freeze the offer draft into an immutable offer-spec and freeze mode
 
 - **Freeze the offer** (immutable, hash-stamped):
   ```bash
-  python3 scripts/offers/freeze_offer.py --file <fielded-offer-draft.json>
+  python3 scripts/offers/gmj_freeze_offer.py --file <fielded-offer-draft.json>
   # → offer-spec.json + offer_spec_hash
   ```
 - **Init / freeze run facts** into run-scoped state (mode + cap + run_id, plus the frozen offer-spec path/hash):
   ```bash
-  python3 scripts/pipeline/state_write.py \
+  python3 scripts/pipeline/gmj_state_write.py \
     --state .pipeline/runs/<run_id>/state.json \
     --config config/pipeline.config.yaml \
     --execution-mode <human_in_the_loop|autonomous> \

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic-category unit tests for the score_fit.py Gate-B scorer (Plan 06-04).
+"""Deterministic-category unit tests for the gmj_score_fit.py Gate-B scorer (Plan 06-04).
 
 Runnable as a plain assertion script (no pytest), matching the repo convention of
 ``python3 tests/test_*.py``. Each test proves an EXECUTED deterministic invariant of the
@@ -35,9 +35,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "contracts"))
-from validate_envelope import build_registry  # noqa: E402  reuse the local schema registry
+from gmj_validate_envelope import build_registry  # noqa: E402  reuse the local schema registry
 
-SCORE_FIT = REPO_ROOT / "scripts" / "artifacts" / "score_fit.py"
+SCORE_FIT = REPO_ROOT / "scripts" / "artifacts" / "gmj_score_fit.py"
 FIT = FIXTURES / "fit"
 SCHEMA_DIR = REPO_ROOT / "schemas"
 GATE_RESULT_SCHEMA = SCHEMA_DIR / "gate_result.schema.json"
@@ -160,7 +160,7 @@ def test_reproducible_across_runs() -> None:
         f"both runs must exit 0, got {first.returncode}/{second.returncode}"
     )
     assert first.stdout == second.stdout, (
-        "SC1: score_fit.py must emit byte-identical stdout across repeated runs on "
+        "SC1: gmj_score_fit.py must emit byte-identical stdout across repeated runs on "
         "unchanged input (coverage_map is an input, count_coverage is pure)"
     )
 
@@ -299,7 +299,7 @@ def test_no_escape_flag() -> None:
         )
     for expected in ("--file", "--offer", "--coverage-map", "--thresholds"):
         assert expected in source, (
-            f"score_fit.py must still expose its documented input {expected!r}"
+            f"gmj_score_fit.py must still expose its documented input {expected!r}"
         )
 
 

@@ -19,7 +19,7 @@ must actually target the offer.
 
 ### Constraints
 
-- **Tech stack**: Python for all PDF/document rendering (`render_cv.py`) — no manual binary/PDF authoring in chat. Keeps rendering deterministic and reproducible.
+- **Tech stack**: Python for all PDF/document rendering (`gmj_render_cv.py`) — no manual binary/PDF authoring in chat. Keeps rendering deterministic and reproducible.
 - **Architecture**: Hub-and-spoke only. One top-level orchestrator holds `Task`; spokes never spawn spokes (nested hubs lose `Task`). Preserves criteria/cycle tracking and prevents chain drift.
 - **Truthfulness**: `config/candidate.yaml` is the single source of truth; every artifact claim must trace to it. Reframing/emphasis allowed; invention hard-blocked.
 - **Search scope**: `offer-scout` may never search outside the boards/geos/languages declared in `config/sources.yaml`; the mandatory `sources.yaml` read stays enforced.
@@ -34,7 +34,7 @@ must actually target the offer.
 
 ## Languages
 
-- Python 3 - CV generation, PDF rendering, document extraction (`scripts/cv/render_cv.py`, `scripts/cv/extract.py`)
+- Python 3 - CV generation, PDF rendering, document extraction (`scripts/cv/gmj_render_cv.py`, `scripts/cv/gmj_extract.py`)
 - YAML - Configuration and data storage (`config/candidate.yaml`, `config/sources.yaml`, skill-specific CV YAML)
 - Shell (Bash) - Hooks and session management (`.claude/hooks/`)
 - JavaScript/Node.js - Package management and MCP (`.claude/package.json`, `.mcp.json`)
@@ -64,7 +64,7 @@ must actually target the offer.
 - PyYAML - Mandatory for candidate profile parsing; all CV pipelines depend on YAML configs (`config/candidate.yaml`, language overlays)
 - ReportLab - Core PDF rendering engine for built-in CV template (ReportLab-only mode)
 - Jinja2 - Required for HTML CV template rendering before WeasyPrint
-- python-docx, openpyxl, pypdf, Pillow - Support document extraction tools; not required for core CV generation but enable `scripts/cv/extract.py` to ingest candidate source files (Word, Excel, PDF)
+- python-docx, openpyxl, pypdf, Pillow - Support document extraction tools; not required for core CV generation but enable `scripts/cv/gmj_extract.py` to ingest candidate source files (Word, Excel, PDF)
 
 ## Configuration
 
@@ -93,7 +93,7 @@ must actually target the offer.
 
 ## Naming Patterns
 
-- Python scripts: `snake_case.py` (e.g., `render_cv.py`, `extract.py`)
+- Python scripts: `snake_case.py` (e.g., `gmj_render_cv.py`, `gmj_extract.py`)
 - Agent definitions: `kebab-case.md` (e.g., `candidate-analyzer.md`, `cv-generator.md`)
 - YAML configuration: `kebab-case.yaml` or `name.[lang].yaml` (e.g., `candidate.yaml`, `candidate.ua.yaml`)
 - Markdown documentation: `UPPERCASE.md` (e.g., `CLAUDE.md`, `README.md`) or `lowercase.md` for agent/skill docs
@@ -129,15 +129,15 @@ must actually target the offer.
 - Graceful degradation: missing overlays, fonts, templates skip without crashing
 - Exit codes: `return 0` on success, `return 1` on error
 - stderr output: `print(..., file=sys.stderr)` for error messages
-- `extract.py` catches `OSError` for unreadable files, returns fallback "binary" type
-- `render_cv.py` validates YAML structure (`isinstance(base, dict)`) before processing
+- `gmj_extract.py` catches `OSError` for unreadable files, returns fallback "binary" type
+- `gmj_render_cv.py` validates YAML structure (`isinstance(base, dict)`) before processing
 - Font registration walks multiple directories; uses fallback "Helvetica" if DejaVu unavailable
 
 ## Logging
 
 - Quiet by default (no debug logging; progress printed to stdout only when needed)
 - Errors print to stderr with context (e.g., "Template not found: {path}")
-- JSON output via `--json` flag (e.g., `extract.py --json` outputs structured results)
+- JSON output via `--json` flag (e.g., `gmj_extract.py --json` outputs structured results)
 - Agent output contract (`agent_result_v1`) used for agent status reporting
 
 ## Comments
@@ -210,7 +210,7 @@ must actually target the offer.
 | **candidate-configurator** | Merge candidate findings into `config/candidate.yaml` | `.claude/agents/candidate-configurator.md` |
 | **candidate-translator** | Translate prose fields to ua/ru; write `config/candidate.{lang}.yaml` overlays | `.claude/agents/candidate-translator.md` |
 | **cv-composer** | Two-pass skill CV extraction: Pass 1 gap report, Pass 2 write `config/cv/cv.{skill}.{lang}.yaml` | `.claude/agents/cv-composer.md` |
-| **cv-generator** | Render PDF from YAML using `scripts/cv/render_cv.py` (ReportLab or HTML template) | `.claude/agents/cv-generator.md` |
+| **cv-generator** | Render PDF from YAML using `scripts/cv/gmj_render_cv.py` (ReportLab or HTML template) | `.claude/agents/cv-generator.md` |
 | **cv-template-creator** | Create HTML template from user prototype/screenshot using Playwright MCP | `.claude/agents/cv-template-creator.md` |
 | **cv-reviewer** | Gap analysis: score CV vs vacancy and market brief; output `sources/analysis/cv-review-*.md` | `.claude/agents/cv-reviewer.md` |
 | **cv-enhancer** | Apply review edits to `config/cv/cv.{skill}.{lang}.yaml` or `config/candidate.yaml` | `.claude/agents/cv-enhancer.md` |
@@ -244,7 +244,7 @@ must actually target the offer.
 - Used by: CV generation pipeline
 - Purpose: Extract skill-relevant content, render PDFs with optional HTML templating
 - Location: `.claude/agents/cv-composer.md`, `.claude/agents/cv-generator.md`, `.claude/agents/cv-template-creator.md`
-- Contains: Confidence scoring, skill filtering, gap detection, Python rendering via `scripts/cv/render_cv.py`
+- Contains: Confidence scoring, skill filtering, gap detection, Python rendering via `scripts/cv/gmj_render_cv.py`
 - Depends on: `config/candidate.yaml`, market briefs, optional HTML templates in `templates/cv/`
 - Used by: Skill-specific CV pipeline; simple full-CV pipeline
 - Purpose: Score CV vs vacancy/market; apply improvements in iteration loop
@@ -276,13 +276,13 @@ must actually target the offer.
 | Configuration | candidate-analyzer output | `config/candidate.yaml` | candidate-configurator |
 | Translation | `config/candidate.yaml` | `config/candidate.{lang}.yaml` | candidate-translator |
 | CV composition | `config/candidate.yaml` + market briefs | `config/cv/cv.{skill}.{lang}.yaml` | cv-composer |
-| CV generation | `config/candidate.yaml` or `config/cv/` | `output/cv/*.pdf` | cv-generator (via render_cv.py) |
+| CV generation | `config/candidate.yaml` or `config/cv/` | `output/cv/*.pdf` | cv-generator (via gmj_render_cv.py) |
 | CV review | `output/cv/*.pdf` + `sources/vacancies/*.md` + market brief | `sources/analysis/cv-review-*.md` | cv-reviewer |
 | CV enhancement | review output | `config/cv/` or `config/candidate.yaml` updated | cv-enhancer |
 
 - **Master candidate YAML** (`config/candidate.yaml`) is never modified by pipelines; only orchestrator or human hands edit it
 - **Skill CVs** (`config/cv/cv.{skill}.{lang}.yaml`) are generated by cv-composer and updated by cv-enhancer; isolated per skill+lang
-- **Language overlays** (`config/candidate.{lang}.yaml`) contain only prose; rendered overlaid at PDF time via `render_cv.py` merge logic
+- **Language overlays** (`config/candidate.{lang}.yaml`) contain only prose; rendered overlaid at PDF time via `gmj_render_cv.py` merge logic
 - **Analysis artifacts** (`sources/analysis/`) are ephemeral reports; not fed back into config
 - **Acceptance criteria** tracked via `criteria_items[]` (id+text) and `criteria_hash` across task boundaries; gate verifies completeness
 
@@ -298,7 +298,7 @@ must actually target the offer.
 - Examples: `{"status": "success", "artifacts": [{"type": "pdf", "path": "/abs/path/file.pdf"}], "notes": "...", "cycle_number": 0}`
 - Pattern: Always JSON block at end of agent output; status one of (success, fail, handoff, gap_report_ready); artifacts list of {type, path} objects
 - Purpose: Minimize YAML duplication by merging prose fields only at render time
-- Examples: `config/candidate.ua.yaml` contains only translated prose; `render_cv.py` deep-merges over base
+- Examples: `config/candidate.ua.yaml` contains only translated prose; `gmj_render_cv.py` deep-merges over base
 - Pattern: Overlay same list structure as base; only translatable fields (name, title, summary, prose descriptions); skills/urls/dates inherited
 - Purpose: Score every content item (job, skill, cert) 0–100 against skill domain; include only ≥ threshold
 - Examples: cv-composer uses threshold 70 by default; can be overridden per run
@@ -324,9 +324,9 @@ must actually target the offer.
 - **Threading:** Single-threaded event loop (Claude Code runtime). Spokes run sequentially; orchestrator awaits each `Task` completion before delegating next
 - **Global state:** Candidate YAML is singleton master (`config/candidate.yaml`); never modified during runs. Skill CVs are isolated per (skill, lang) pair; safe for concurrent creation (though runs are sequential)
 - **Circular imports:** None observed; agent module structure is flat (agents don't import each other; orchestrator imports all agents as strings for Task delegation)
-- **File I/O:** All spokes use `Read`/`Write`/`Edit` tools; no direct file system access. Rendering via `Bash` call to `render_cv.py` script
+- **File I/O:** All spokes use `Read`/`Write`/`Edit` tools; no direct file system access. Rendering via `Bash` call to `gmj_render_cv.py` script
 - **Task nesting:** Forbidden. Orchestrator runs at top level; `Task` contexts do not receive `Task` tool (nest-safe). Spokes never call `Task`
-- **Python environment:** `scripts/cv/render_cv.py` requires `pyyaml` and `reportlab` (or `weasyprint` for HTML templates); dependencies listed in `scripts/cv/requirements.txt`
+- **Python environment:** `scripts/cv/gmj_render_cv.py` requires `pyyaml` and `reportlab` (or `weasyprint` for HTML templates); dependencies listed in `scripts/cv/requirements.txt`
 - **Criteria tracking:** Every routing decision generates `criteria_hash` (SHA-1 of sorted `acceptance_criteria`); gate verifies hash matches to catch modified/corrupted criteria
 
 ## Anti-Patterns
@@ -345,7 +345,7 @@ must actually target the offer.
 
 - **File not found:** Spoke logs file path, returns `status: fail`; orchestrator checks manifest + re-runs search if needed
 - **Invalid YAML:** Spoke calls `python3 -c "yaml.safe_load(...)"` to validate; returns error message; orchestrator asks user to fix or re-run configurator
-- **PDF generation error:** `cv-generator` captures stderr from `render_cv.py`; returns `status: fail` with error details
+- **PDF generation error:** `cv-generator` captures stderr from `gmj_render_cv.py`; returns `status: fail` with error details
 - **Criteria mismatch:** Gate computes `criteria_hash` and compares to router's hash; if mismatch, returns `status: fail` with mismatched ID list
 - **Max cycles reached:** After 2 enhancer+generator pairs, gate returns `status: fail` + `cycle_number >= 2`; orchestrator stops and asks user for guidance
 

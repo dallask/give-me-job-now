@@ -2,7 +2,7 @@
 #
 # Every field only NARROWS or RANKS within config/sources.yaml. The `scope` block
 # below may only restrict the boards/geos/languages already declared in sources.yaml —
-# it can NEVER widen them. scripts/preferences/validate_preferences.py enforces the
+# it can NEVER widen them. scripts/preferences/gmj_validate_preferences.py enforces the
 # subset-of-sources.yaml invariant (fail-closed) and never writes sources.yaml.
 salary:
   min: 3000

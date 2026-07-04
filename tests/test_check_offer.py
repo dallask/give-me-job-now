@@ -2,7 +2,7 @@
 """Behavior tests for the frozen offer-spec staleness re-check (INTAKE-02, INTAKE-03).
 
 Runnable as a plain assertion script (no pytest dependency), mirroring
-``tests/test_hash_artifact.py``. Proves that ``scripts/offers/check_offer.py``
+``tests/test_hash_artifact.py``. Proves that ``scripts/offers/gmj_check_offer.py``
 enforces immutability by recompute-and-compare (RESEARCH Pattern 4), NOT by
 filesystem permissions:
 
@@ -17,7 +17,7 @@ filesystem permissions:
   traceback.
 
 The frozen docs are built INLINE here (via the audited ``canonical_hash``) so
-this test stays independent of ``freeze_offer.py``.
+this test stays independent of ``gmj_freeze_offer.py``.
 """
 
 from __future__ import annotations
@@ -30,10 +30,10 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-CHECKER = REPO_ROOT / "scripts" / "offers" / "check_offer.py"
+CHECKER = REPO_ROOT / "scripts" / "offers" / "gmj_check_offer.py"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "contracts"))
-import hash_artifact  # noqa: E402
+import gmj_hash_artifact as hash_artifact  # noqa: E402
 
 
 def _content() -> dict:

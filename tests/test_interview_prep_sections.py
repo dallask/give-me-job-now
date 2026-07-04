@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plain-python3 tests for section-grouping in scripts/cv/render_interview_prep.py (ARTIFACT-01).
+"""Plain-python3 tests for section-grouping in scripts/cv/gmj_render_interview_prep.py (ARTIFACT-01).
 
 Proves the renderer groups an approved interview_prep draft's claims by the required
 ``claim.section`` field under ``## <Section Title>`` markdown headers, in
@@ -17,7 +17,7 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = REPO_ROOT / "scripts" / "cv" / "render_interview_prep.py"
+SCRIPT = REPO_ROOT / "scripts" / "cv" / "gmj_render_interview_prep.py"
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "interview_prep.rich.draft.json"
 
 

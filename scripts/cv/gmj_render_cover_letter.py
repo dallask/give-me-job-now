@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render an approved cover_letter artifact_draft to a PDF via ReportLab.
 
-Thin sibling of render_cv.py: imports ONLY the shared Cyrillic font setup
+Thin sibling of gmj_render_cv.py: imports ONLY the shared Cyrillic font setup
 (_register_unicode_font) and never touches the CV layout renderer / the CV
 path (T-08-05, Pitfall 4). One Paragraph per ordered claim.text; every claim
 text is XML-escaped before it reaches ReportLab's mini-markup parser
@@ -19,7 +19,7 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 sys.path.insert(0, str(Path(__file__).parent))
-from render_cv import _register_unicode_font  # noqa: E402  (share font setup only)
+from gmj_render_cv import _register_unicode_font  # noqa: E402  (share font setup only)
 
 LANGS = ("en", "ua", "ru")
 
@@ -50,7 +50,7 @@ def render_cover_letter(paragraphs: list[str], out_path: Path) -> None:
     )
     story: list = []
     for p in paragraphs:
-        # escape() is the XML/markup-injection mitigation (render_cv.py:17 pattern).
+        # escape() is the XML/markup-injection mitigation (gmj_render_cv.py:17 pattern).
         story.append(Paragraph(escape(p), body))
         story.append(Spacer(1, 8))
     doc.build(story)

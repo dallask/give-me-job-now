@@ -191,12 +191,22 @@ def _script_rules(entries: list[dict]) -> list[tuple[re.Pattern, str, dict]]:
 
     Only ``from <stem> import`` / ``import <stem>`` / ``<stem>.py`` (bare or path-prefixed) —
     never the bare stem, so "router/routing" and "extraction" prose is untouched (Pitfall 2).
+
+    Plain module imports (``import <stem>``) are rewritten to an ALIASED form
+    ``import gmj_<stem> as <stem>`` rather than bare ``import gmj_<stem>``: importers that use
+    the module-qualified access pattern (``<stem>.func(...)``, e.g. ``route.next_step`` /
+    ``hash_artifact.hash_artifact``) would otherwise raise ``NameError`` at first call, since a
+    bare-stem qualified-reference rewrite (``<stem>.`` -> ``gmj_<stem>.``) cannot be applied
+    tree-wide without corrupting prose ("we extract." / "the route.") — Pitfall 2. Aliasing the
+    import preserves the local binding name so every downstream ``<stem>.`` reference keeps
+    resolving, while the physical module file is still renamed (``git mv``) and grep-0 stays
+    green (no ``import <stem>`` / ``from <stem> import`` / ``<stem>.py`` reference form survives).
     """
     rules = []
     for e in entries:
         old, new = re.escape(e["old"]), e["new"]
         rules.append((re.compile(rf"(?<![A-Za-z0-9_])from {old} import"), f"from {new} import", e))
-        rules.append((re.compile(rf"(?<![A-Za-z0-9_])import {old}(?![A-Za-z0-9_])"), f"import {new}", e))
+        rules.append((re.compile(rf"(?<![A-Za-z0-9_])import {old}(?![A-Za-z0-9_])"), f"import {new} as {e['old']}", e))
         rules.append((re.compile(rf"(?<![A-Za-z0-9_]){old}\.py(?![A-Za-z0-9_])"), f"{new}.py", e))
     return rules
 

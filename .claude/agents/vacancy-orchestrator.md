@@ -49,22 +49,22 @@ passed, whether the retry cap is hit, or whether an artifact is deliverable. The
 
 | Script | Path | Job |
 |---|---|---|
-| `state_write.py` | `scripts/pipeline/state_write.py` | Freeze `execution_mode` + `retry_cap` + `run_id` into `.pipeline/runs/<run_id>/state.json` at init |
-| `route.py` | `scripts/pipeline/route.py` | Pure `(state, dag) → next_step` — the deterministic router over `config/pipeline.dag.yaml` |
-| `check_offer.py` | `scripts/offers/check_offer.py` | Freshness/integrity check of the frozen offer-spec — STALE ⇒ abort |
-| `check_truth.py` | `scripts/artifacts/check_truth.py` | Gate A (truth) verdict — exit 0/1, **no mode argument** |
-| `score_fit.py` | `scripts/artifacts/score_fit.py` | Gate B (target-fit) verdict — exit 0/1, **no mode argument** |
-| `record_gate.py` | `scripts/pipeline/record_gate.py` | Write the normalized `gate_result` artifact under `runs/<run_id>/` AND set `state.gate_results[<node>]` |
-| `record_retry.py` | `scripts/artifacts/record_retry.py` | Increment `state.retry_counts[...]` on a gate FAIL |
-| `check_cap.py` | `scripts/pipeline/check_cap.py` | Is `retry_count == retry_cap`? (below cap vs exhausted) |
-| `map_feedback.py` | `scripts/pipeline/map_feedback.py` | Pure `gate_result → gate_feedback` projection for the composer loop |
-| `check_delivery.py` | `scripts/pipeline/check_delivery.py` | Refuse delivery unless Gate A ∧ Gate B are recorded pass |
+| `gmj_state_write.py` | `scripts/pipeline/gmj_state_write.py` | Freeze `execution_mode` + `retry_cap` + `run_id` into `.pipeline/runs/<run_id>/state.json` at init |
+| `gmj_route.py` | `scripts/pipeline/gmj_route.py` | Pure `(state, dag) → next_step` — the deterministic router over `config/pipeline.dag.yaml` |
+| `gmj_check_offer.py` | `scripts/offers/gmj_check_offer.py` | Freshness/integrity check of the frozen offer-spec — STALE ⇒ abort |
+| `gmj_check_truth.py` | `scripts/artifacts/gmj_check_truth.py` | Gate A (truth) verdict — exit 0/1, **no mode argument** |
+| `gmj_score_fit.py` | `scripts/artifacts/gmj_score_fit.py` | Gate B (target-fit) verdict — exit 0/1, **no mode argument** |
+| `gmj_record_gate.py` | `scripts/pipeline/gmj_record_gate.py` | Write the normalized `gate_result` artifact under `runs/<run_id>/` AND set `state.gate_results[<node>]` |
+| `gmj_record_retry.py` | `scripts/artifacts/gmj_record_retry.py` | Increment `state.retry_counts[...]` on a gate FAIL |
+| `gmj_check_cap.py` | `scripts/pipeline/gmj_check_cap.py` | Is `retry_count == retry_cap`? (below cap vs exhausted) |
+| `gmj_map_feedback.py` | `scripts/pipeline/gmj_map_feedback.py` | Pure `gate_result → gate_feedback` projection for the composer loop |
+| `gmj_check_delivery.py` | `scripts/pipeline/gmj_check_delivery.py` | Refuse delivery unless Gate A ∧ Gate B are recorded pass |
 
 ## Control loop (per offer, per artifact type)
 
 ### 1. init_run
 
-Run `scripts/pipeline/state_write.py` to freeze `execution_mode` (interactive default, or
+Run `scripts/pipeline/gmj_state_write.py` to freeze `execution_mode` (interactive default, or
 `autonomous` when the run requests it), `retry_cap`, and `run_id` into
 `.pipeline/runs/<run_id>/state.json`. Passing an existing `run_id` resumes that run; a fresh
 `run_id` starts a new one. `run_id` is sanitized to a safe charset before it becomes a
@@ -72,13 +72,13 @@ directory name.
 
 ### 2. loop
 
-Repeat until `route.py` signals `status: done` or a hard stop fires:
+Repeat until `gmj_route.py` signals `status: done` or a hard stop fires:
 
-- **a. Next step.** Run `scripts/pipeline/route.py --state .pipeline/runs/<run_id>/state.json`
+- **a. Next step.** Run `scripts/pipeline/gmj_route.py --state .pipeline/runs/<run_id>/state.json`
   to get the next DAG node. This is a pure function of the persisted state — no LLM routing,
   no reasoning about which spoke is next.
 - **b. Freshness check BEFORE each dispatch.** Run
-  `scripts/offers/check_offer.py --file <offer-spec>` **before every spoke dispatch**
+  `scripts/offers/gmj_check_offer.py --file <offer-spec>` **before every spoke dispatch**
   (INTAKE-02). If it reports STALE, **abort** — never dispatch a spoke against a stale
   offer-spec.
 - **c. Dispatch the spoke via Task.** `Task(<spoke for next_step>)` with the
@@ -92,21 +92,21 @@ Repeat until `route.py` signals `status: done` or a hard stop fires:
   transcript.
 - **e. Gate node?** When the next node is a gate (`truth-verifier` = Gate A,
   `fit-evaluator` = Gate B):
-  1. Run the deterministic gate: `scripts/artifacts/check_truth.py` (Gate A) or
-     `scripts/artifacts/score_fit.py` (Gate B). **Invoke with NO mode argument** — both
+  1. Run the deterministic gate: `scripts/artifacts/gmj_check_truth.py` (Gate A) or
+     `scripts/artifacts/gmj_score_fit.py` (Gate B). **Invoke with NO mode argument** — both
      gates block identically in every mode; there is no bypass, force, or skip flag.
-  2. Run `scripts/pipeline/record_gate.py` to write the normalized `gate_result` artifact
+  2. Run `scripts/pipeline/gmj_record_gate.py` to write the normalized `gate_result` artifact
      under `.pipeline/runs/<run_id>/` **and** set `state.gate_results[<node>]`. `record_gate`
-     unwraps `score_fit.py`'s `{gate_b, gate_c}` wrapper to a uniform `gate_result` envelope;
-     Gate C is advisory (stored separately, never entering the verdict). `route.py` RAISES on
+     unwraps `gmj_score_fit.py`'s `{gate_b, gate_c}` wrapper to a uniform `gate_result` envelope;
+     Gate C is advisory (stored separately, never entering the verdict). `gmj_route.py` RAISES on
      a gate node with no recorded verdict, so `record_gate` MUST run after every gate.
   3. **On PASS:** consult `execution_mode` ONLY here (see the human-pause rule below), then
-     let `route.py` advance.
-  4. **On FAIL:** run `scripts/artifacts/record_retry.py --increment`, then
-     `scripts/pipeline/check_cap.py`:
-     - **Below cap →** run `scripts/pipeline/map_feedback.py --file <gate_result artifact>`
+     let `gmj_route.py` advance.
+  4. **On FAIL:** run `scripts/artifacts/gmj_record_retry.py --increment`, then
+     `scripts/pipeline/gmj_check_cap.py`:
+     - **Below cap →** run `scripts/pipeline/gmj_map_feedback.py --file <gate_result artifact>`
        where `--file` points at the **`record_gate`-normalized `gate_result` artifact under
-       `.pipeline/runs/<run_id>/`** — **NOT** raw `score_fit.py` stdout (that stdout is a
+       `.pipeline/runs/<run_id>/`** — **NOT** raw `gmj_score_fit.py` stdout (that stdout is a
        `{gate_b, gate_c}` wrapper with no top-level `.content` and would break the
        projection). `record_gate` always runs before `map_feedback` in this loop, so the
        normalized artifact exists. Then `Task(artifact-composer)` with the structured
@@ -120,10 +120,10 @@ Repeat until `route.py` signals `status: done` or a hard stop fires:
 
 ### 3. deliver
 
-Before declaring anything delivered, run `scripts/pipeline/check_delivery.py`. It refuses to
+Before declaring anything delivered, run `scripts/pipeline/gmj_check_delivery.py`. It refuses to
 deliver any artifact lacking a recorded **Gate A ∧ Gate B** pass — so even a loop bug cannot
 ship a failed draft (GUARD-03). Only a delivery-checked draft reaches `cv-generator`, which
-renders `output/cv/*.pdf` via `scripts/cv/render_cv.py`.
+renders `output/cv/*.pdf` via `scripts/cv/gmj_render_cv.py`.
 
 ## Cover-letter tone hint (hub param)
 
@@ -141,7 +141,7 @@ composer reads.
 - On a **below-cap recompose** (`Task(artifact-composer)` in the FAIL path), re-attach the
   same `cover_letter_tone` param so the tone survives an enhance retry.
 
-This changes **no** gate invocation: `check_truth.py` (Gate A) and `score_fit.py` (Gate B)
+This changes **no** gate invocation: `gmj_check_truth.py` (Gate A) and `gmj_score_fit.py` (Gate B)
 are still called with **no mode/bypass flag** — the tone hint never touches the gate path.
 
 ## Mode gates only the pause, never the gate
@@ -149,7 +149,7 @@ are still called with **no mode/bypass flag** — the tone hint never touches th
 `execution_mode` (frozen at init_run) is consulted at **exactly ONE point**: the
 **post-PASS human-pause decision**. In `human_in_the_loop` you pause for human approval after
 a gate PASS; in `autonomous` you proceed automatically. The mode value is **never** passed to
-`check_truth.py` / `score_fit.py` and never alters the fail path. Autonomous mode removes the
+`gmj_check_truth.py` / `gmj_score_fit.py` and never alters the fail path. Autonomous mode removes the
 *human* pause, never the *machine* gate; truthfulness is never bypassed in any mode.
 
 ## Parallel fan-out, sequential gates
@@ -204,16 +204,16 @@ recorded gate verdicts, and state next actions.
 - Master data: `config/candidate.yaml` — the single source of truth, **never modified** by a
   pipeline run. Rendered PDFs land in `output/cv/`; per-run state + gate logs live under
   `.pipeline/runs/<run_id>/` (git-ignored).
-- Every gate verdict is recorded (`record_gate.py`) and delivery is precondition-checked
-  (`check_delivery.py`) — nothing reaches "delivered" without a recorded Gate A ∧ Gate B
+- Every gate verdict is recorded (`gmj_record_gate.py`) and delivery is precondition-checked
+  (`gmj_check_delivery.py`) — nothing reaches "delivered" without a recorded Gate A ∧ Gate B
   pass.
-- The retry loop is bounded by `check_cap.py`; at cap you HARD STOP with a named failure —
+- The retry loop is bounded by `gmj_check_cap.py`; at cap you HARD STOP with a named failure —
   never ship a failed draft.
 
 ## Task invocation is non-negotiable
 
-- When `route.py` returns a spoke node, you **must** call the **`Task`** tool **in that same
-  assistant turn** (after running `check_offer.py`).
+- When `gmj_route.py` returns a spoke node, you **must** call the **`Task`** tool **in that same
+  assistant turn** (after running `gmj_check_offer.py`).
 - **Forbidden:** ending with only prose like "Now I will delegate via Task" without an actual
   `Task` tool call. That is a **failed** orchestration turn.
 - After `Bash`/`Read`/`Glob`/`LS` to gather context or run a control script, the **immediate

@@ -19,7 +19,7 @@ For each selected shortlist entry it:
      trace.excerpt->raw_text_excerpt) and dropping every non-schema key; flags ``thin`` when
      ``must_haves`` is absent/empty OR the excerpt is missing (SELECT-02),
   3. derives three per-(offer, artifact_type) run_ids ``<run_id>-cv``/``-cl``/``-ip``, freezes each
-     via the existing ``state_write.py`` and seeds ``current_step: artifact-composer`` (route.py
+     via the existing ``gmj_state_write.py`` and seeds ``current_step: artifact-composer`` (gmj_route.py
      raises without it) — three distinct seeded ``state.json`` per offer, none at the bare run_id
      (SELECT-03),
   4. writes an offer-centric canonical manifest validated against
@@ -28,7 +28,7 @@ For each selected shortlist entry it:
 All error paths print a structured stderr message and ``return 1`` — never a traceback. Ids are
 sanitized to ``^[A-Za-z0-9._-]+$`` (rejecting ``.``/``..``/``/``/``\\``) before they can become a
 run-dir path component (T-12-01, V12 path-traversal); the manifest write is additionally
-contained under the resolved batches dir (defence in depth, mirrors freeze_offer.py).
+contained under the resolved batches dir (defence in depth, mirrors gmj_freeze_offer.py).
 """
 
 from __future__ import annotations
@@ -43,16 +43,16 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 # Reuse the audited Gate A ∧ Gate B delivery predicate verbatim — never re-judge a gate here
-# (Pitfall 2 / T-12-04). check_delivery.py lives in this same scripts/pipeline dir, which is on
+# (Pitfall 2 / T-12-04). gmj_check_delivery.py lives in this same scripts/pipeline dir, which is on
 # sys.path both when this file is run as a script and when imported via a sys.path insert (tests).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from check_delivery import blocked_reason  # noqa: E402
+from gmj_check_delivery import blocked_reason  # noqa: E402
 
-# Reuse state_write.py's frozen-run-config helper IN-PROCESS (not via subprocess) so the seeded
+# Reuse gmj_state_write.py's frozen-run-config helper IN-PROCESS (not via subprocess) so the seeded
 # state is built and written once already containing current_step — no non-atomic window where
-# route.py could observe a state without current_step (WR-02). It freezes the exact same fields
+# gmj_route.py could observe a state without current_step (WR-02). It freezes the exact same fields
 # (execution_mode, retry_cap, run_id) and prints its own structured stderr on any error.
-from state_write import _freeze_run_config  # noqa: E402
+from gmj_state_write import _freeze_run_config  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # scripts/pipeline/ -> repo root
 SCHEMA_PATH = REPO_ROOT / "schemas" / "batch_manifest.schema.json"
@@ -180,7 +180,7 @@ def write_manifest(manifest: dict, out: Path, batches_dir: Path) -> Path:
     """Validate then write the canonical byte-identical manifest, contained under ``batches_dir``.
 
     The containment base and the output path share the same resolved anchor, so a crafted
-    ``batch_id`` cannot escape (defence in depth on top of ``_safe_id``; mirrors freeze_offer.py).
+    ``batch_id`` cannot escape (defence in depth on top of ``_safe_id``; mirrors gmj_freeze_offer.py).
     """
     resolved = out.expanduser().resolve()
     base = batches_dir.expanduser().resolve()
@@ -200,10 +200,10 @@ def _seed_state(
 ) -> int:
     """Build the frozen+seeded state IN-PROCESS and publish it in a single atomic write.
 
-    Reuses ``state_write._freeze_run_config`` to freeze the exact same fields state_write.py
+    Reuses ``state_write._freeze_run_config`` to freeze the exact same fields gmj_state_write.py
     records (execution_mode, retry_cap, run_id), sets ``current_step`` on the in-memory dict
     BEFORE writing, then publishes via a temp-file rename. There is therefore never a moment
-    where ``state.json`` exists on disk without ``current_step`` (route.py:33-34) — closing the
+    where ``state.json`` exists on disk without ``current_step`` (gmj_route.py:33-34) — closing the
     non-atomic double-write window and removing the per-state subprocess spawn (WR-02).
 
     Returns 0 on success, 1 after a structured stderr message on any failure.
@@ -225,7 +225,7 @@ def _seed_state(
     state_path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(state, ensure_ascii=False, indent=2) + "\n"
     # Atomic publish: write a temp sibling then rename over the target (no partial/no-current_step
-    # state is ever visible to a concurrent route.py read).
+    # state is ever visible to a concurrent gmj_route.py read).
     tmp_path = state_path.with_name(state_path.name + ".tmp")
     tmp_path.write_text(payload, encoding="utf-8")
     tmp_path.replace(state_path)

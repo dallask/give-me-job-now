@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plain-python3 tests for scripts/pipeline/map_feedback.py (GUARD-04).
+"""Plain-python3 tests for scripts/pipeline/gmj_map_feedback.py (GUARD-04).
 
 Proves the gate_result -> gate_feedback projection emits EXACTLY the frozen
 tests/fixtures/gate_feedback.sample.json field names — the PLURAL claims_index,
@@ -22,18 +22,18 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = REPO_ROOT / "scripts" / "pipeline" / "map_feedback.py"
+SCRIPT = REPO_ROOT / "scripts" / "pipeline" / "gmj_map_feedback.py"
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "gate_feedback.sample.json"
 SCHEMA_DIR = REPO_ROOT / "schemas"
 GATE_FEEDBACK_SCHEMA = SCHEMA_DIR / "gate_feedback.schema.json"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "contracts"))
-from validate_envelope import build_registry  # noqa: E402  local-only schema registry
+from gmj_validate_envelope import build_registry  # noqa: E402  local-only schema registry
 
 FEEDBACK_KEYS = {"gate", "missing_must_haves", "fabricated_claims"}
 
 # Deterministic RULE_REASON sentences expected in the projection (mirror of the
-# map_feedback.py lookup — asserted here so a drift to model prose fails the test).
+# gmj_map_feedback.py lookup — asserted here so a drift to model prose fails the test).
 EXPECTED_REASON = {
     "unresolved_span": "source_span does not resolve in candidate.yaml",
     "numeric_invention": "numeric value absent from the cited candidate.yaml span",
@@ -92,11 +92,11 @@ def _run(*args: str) -> subprocess.CompletedProcess:
 
 
 def _project(envelope: dict) -> dict:
-    """Write *envelope* to a tempfile, run map_feedback.py --file, parse stdout."""
+    """Write *envelope* to a tempfile, run gmj_map_feedback.py --file, parse stdout."""
     tmp = Path(tempfile.mkdtemp()) / "gate_result.json"
     tmp.write_text(json.dumps(envelope) + "\n", encoding="utf-8")
     result = _run("--file", str(tmp))
-    assert result.returncode == 0, f"map_feedback.py failed: {result.stderr}"
+    assert result.returncode == 0, f"gmj_map_feedback.py failed: {result.stderr}"
     return json.loads(result.stdout)
 
 

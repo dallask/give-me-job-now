@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plain-python3 tests for scripts/pipeline/check_delivery.py (GUARD-03).
+"""Plain-python3 tests for scripts/pipeline/gmj_check_delivery.py (GUARD-03).
 
 Proves delivery is a gated state transition: an artifact is ``deliverable``
 (exit 0) ONLY when BOTH recorded gate verdicts are present and pass —
@@ -19,7 +19,7 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = REPO_ROOT / "scripts" / "pipeline" / "check_delivery.py"
+SCRIPT = REPO_ROOT / "scripts" / "pipeline" / "gmj_check_delivery.py"
 
 
 def _run(*args: str) -> subprocess.CompletedProcess:

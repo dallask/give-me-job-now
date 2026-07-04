@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plain-python3 tests for scripts/artifacts/record_retry.py (COMPOSE-02).
+"""Plain-python3 tests for scripts/artifacts/gmj_record_retry.py (COMPOSE-02).
 
 Proves the per-(offer,type) retry counter is recorded by executed code, that pre-existing
 state keys survive the update (T-04-07), that per-type recording is isolated, and that an
@@ -16,7 +16,7 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = REPO_ROOT / "scripts" / "artifacts" / "record_retry.py"
+SCRIPT = REPO_ROOT / "scripts" / "artifacts" / "gmj_record_retry.py"
 
 # Sentinel pre-existing keys that MUST survive a counter update.
 SEED_STATE = {
@@ -53,7 +53,7 @@ def test_records_counter_preserving_existing_keys() -> None:
         "--artifact-type", "cv",
         "--count", "1",
     )
-    assert result.returncode == 0, f"record_retry.py failed: {result.stderr}"
+    assert result.returncode == 0, f"gmj_record_retry.py failed: {result.stderr}"
     state = _load(state_path)
     assert state["retry_counts"]["acme"]["cv"] == 1, (
         f"counter not recorded: {state.get('retry_counts')!r}"

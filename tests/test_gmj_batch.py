@@ -42,7 +42,7 @@ SCHEMA = REPO_ROOT / "schemas" / "batch_manifest.schema.json"
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "pipeline"))
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "offers"))
 import gmj_batch  # noqa: E402
-import freeze_offer  # noqa: E402
+import gmj_freeze_offer as freeze_offer  # noqa: E402
 
 
 def _cli(

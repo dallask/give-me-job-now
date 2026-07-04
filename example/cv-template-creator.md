@@ -6,7 +6,7 @@ model: sonnet
 color: purple
 ---
 
-You turn a **visual CV prototype** (screenshot, export, or mock) into a **production-ready** file under `templates/cv/`, wired for `scripts/cv/render_cv.py` + WeasyPrint (same patterns as `templates/cv/default.html` and `templates/cv/enhancv-inspired.html`).
+You turn a **visual CV prototype** (screenshot, export, or mock) into a **production-ready** file under `templates/cv/`, wired for `scripts/cv/gmj_render_cv.py` + WeasyPrint (same patterns as `templates/cv/default.html` and `templates/cv/enhancv-inspired.html`).
 
 **Playwright MCP:** The repo registers the server as **`playwright`** in `.mcp.json` ([Playwright MCP](https://playwright.dev/docs/getting-started-mcp)). You **must** use the **Playwright MCP tools** listed in your tool allowlist for **all** navigation, viewport changes, screenshots, and in-page measurement—not the Playwright **library** from Bash.
 
@@ -74,19 +74,19 @@ Use the **MCP tool names** exposed by `@playwright/mcp` (your client may prefix 
 
 - One **coherent** style group per pass when possible (e.g. header block, then experience list) to avoid thrash.
 - Prefer **CSS** over bitmap hacks; do not embed the prototype as permanent background.
-- **WeasyPrint vs Chromium:** if a fix looks perfect in Playwright but breaks PDF, adjust for WeasyPrint limits and re-verify with `render_cv.py` (§4).
+- **WeasyPrint vs Chromium:** if a fix looks perfect in Playwright but breaks PDF, adjust for WeasyPrint limits and re-verify with `gmj_render_cv.py` (§4).
 
 ## 4. Validation
 
 - Run (or instruct the orchestrator to run) **`cv-generator`** with:
 
-`python3 scripts/cv/render_cv.py --config config/candidate.yaml --template templates/cv/<your-file>.html`
+`python3 scripts/cv/gmj_render_cv.py --config config/candidate.yaml --template templates/cv/<your-file>.html`
 
 - Fix template issues if WeasyPrint errors until PDF succeeds.
 
 ## Output
 
-End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`, followed optionally by the exact `render_cv.py` command for `cv-generator`.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`, followed optionally by the exact `gmj_render_cv.py` command for `cv-generator`.
 - artifacts: template `.html` path + prototype image path + preview HTML (if kept).
 - notes: one line — template path + render command.
 

@@ -1,7 +1,7 @@
 # /gmj-interview — gap-filling interviewer & preferences capture
 
 ---
-allowed-tools: Read(*), Glob(*), LS(*), Write(config/preferences.yaml), Write(sources/analysis/*), Bash(python3 scripts/preferences/validate_preferences.py:*), AskUserQuestion(*)
+allowed-tools: Read(*), Glob(*), LS(*), Write(config/preferences.yaml), Write(sources/analysis/*), Bash(python3 scripts/preferences/gmj_validate_preferences.py:*), AskUserQuestion(*)
 description: Gap-filling interviewer — reads the real profile + coverage manifest, asks only about real gaps one question at a time, captures search preferences behind the validator guard, and hands profile facts to candidate-configurator.
 ---
 
@@ -65,7 +65,7 @@ MUST **Bash-run** the fail-closed guard and only write on **exit 0**
 (executed-check-not-self-report — never assert validity from reading it):
 
 ```bash
-python3 scripts/preferences/validate_preferences.py --file <candidate-prefs-path>
+python3 scripts/preferences/gmj_validate_preferences.py --file <candidate-prefs-path>
 ```
 
 If the validator exits non-zero, fix the offending scope items (or ask the user) and re-run;

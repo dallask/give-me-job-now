@@ -62,7 +62,7 @@ paths and emits file paths, so no spoke inherits another spoke's context.
                                                   │   gate_result (Gate B/C)
                                           pass ◀──┘   fail ──▶ loop to composer (bounded retry)
                                                   ▼
-                                          cv-generator ──▶ output/cv/*.pdf   (via scripts/cv/render_cv.py)
+                                          cv-generator ──▶ output/cv/*.pdf   (via scripts/cv/gmj_render_cv.py)
 ```
 
 **Every arrow is a typed file artifact path, not a transcript.** Gate A (truth) must pass
@@ -82,7 +82,7 @@ two retained supporting agents. This table matches `.planning/PROJECT.md`'s lock
 | `artifact-composer` | Spoke | From `candidate.yaml` + offer-spec, produce CV / cover letter / interview-prep; owns the gap-report pass and enhance loop | New (merges composer + enhancer + reviewer gap-role) | Phase 4 (Compose) |
 | `truth-verifier` | Spoke | Re-ground every artifact claim against `candidate.yaml`; hard-block fabrications (Gate A) | New (no legacy equivalent) | Phase 5 (Truth) |
 | `fit-evaluator` | Spoke | Score target-fit (coverage-led hard-block, Gate B) and polish (advisory, Gate C) | New (reviewer scoring-role) | Phase 6 (Fit) |
-| `cv-generator` | Spoke | Render artifact PDF(s) via Python (`render_cv.py`) | Retained & extended | Phase 8 (E2E) |
+| `cv-generator` | Spoke | Render artifact PDF(s) via Python (`gmj_render_cv.py`) | Retained & extended | Phase 8 (E2E) |
 | `candidate-analyzer` | Supporting | Parse candidate source materials; extract structured data | Retained (supporting) | Phase 3.1 (Ingestion) |
 | `candidate-configurator` | Supporting | Canonical write/merge into `config/candidate.yaml` | Retained (supporting) | Phase 3.1 (INGEST-04) |
 
@@ -148,7 +148,7 @@ Input-budget figures are provisional bounded defaults; each spoke's own phase fi
 - **Input budget:** ≤ 256 KB structured input (draft + offer-spec).
 
 ### 4.5 cv-generator
-- **Role:** Render the approved artifact(s) to PDF via Python (`scripts/cv/render_cv.py`);
+- **Role:** Render the approved artifact(s) to PDF via Python (`scripts/cv/gmj_render_cv.py`);
   deterministic, no content authoring.
 - **Receives:** a gate-passed `artifact_draft` / the CV YAML path to render.
 - **Must NEVER receive:** freedom to alter artifact content (render-only — content is fixed
@@ -175,7 +175,7 @@ Input-budget figures are provisional bounded defaults; each spoke's own phase fi
    `offer_spec`, scores must-have coverage (Gate B hard-block) and polish (Gate C advisory),
    and emits a `gate_result`. A Gate-B failure loops back to the composer (bounded retry).
 5. **Render.** A draft that passes both gates reaches `cv-generator`, which renders it to
-   `output/cv/*.pdf` via `render_cv.py`.
+   `output/cv/*.pdf` via `gmj_render_cv.py`.
 
 At every hop the exchanged unit is a **named file artifact path**, never a transcript.
 
@@ -195,24 +195,24 @@ hit, or whether an artifact is deliverable.
  CLI: claude --dangerously-skip-permissions  →  /pipeline-run  (params: mode?, offer, run_id?)
                                      │
                                      ▼
-   1. init_run   state_write.py   freeze execution_mode + retry_cap + run_id  ─┐
+   1. init_run   gmj_state_write.py   freeze execution_mode + retry_cap + run_id  ─┐
                                   into .pipeline/runs/<run_id>/state.json       │
    2. loop:                                                                     ▼
-      a. route.py  --state runs/<run_id>/state.json  →  next_step   (pure (state,dag)→step)
-      b. check_offer.py  --file offer-spec.json      (before each dispatch; STALE ⇒ abort)
+      a. gmj_route.py  --state runs/<run_id>/state.json  →  next_step   (pure (state,dag)→step)
+      b. gmj_check_offer.py  --file offer-spec.json      (before each dispatch; STALE ⇒ abort)
       c. Task(spoke for next_step)                   (parallel fan-out for 3 artifacts / N offers)
       d. spoke emits a file artifact (draft / gate_result)
       e. GATE node?
-           check_truth.py (Gate A) | score_fit.py (Gate B)   exit 0/1 — NO bypass flag
-           record_gate.py  → writes gate_result artifact under runs/<run_id>/
+           gmj_check_truth.py (Gate A) | gmj_score_fit.py (Gate B)   exit 0/1 — NO bypass flag
+           gmj_record_gate.py  → writes gate_result artifact under runs/<run_id>/
                              AND sets state.gate_results[node]
-           FAIL ⇒ record_retry.py --increment
-                  check_cap.py
-                    ├ below cap ⇒ map_feedback.py → {missing_must_haves,
+           FAIL ⇒ gmj_record_retry.py --increment
+                  gmj_check_cap.py
+                    ├ below cap ⇒ gmj_map_feedback.py → {missing_must_haves,
                     │              fabricated_claims, gate} → Task(artifact-composer) ↺
                     └ at cap    ⇒ HARD STOP report (names failing artifact + reason)
            PASS ⇒ (HITL: pause for human) → route advances
-   3. deliver:   check_delivery.py   (Gate A ∧ Gate B recorded pass?)  else blocked
+   3. deliver:   gmj_check_delivery.py   (Gate A ∧ Gate B recorded pass?)  else blocked
                                      │
                                      ▼
                      output/cv/*.pdf  (cv-generator)
@@ -221,14 +221,14 @@ hit, or whether an artifact is deliverable.
 **Mode gates only the pause, never the gate.** `execution_mode` (frozen at `init_run`) is
 consulted at exactly ONE point: the **post-PASS human-pause decision**. In
 `human_in_the_loop` the hub pauses for approval after a gate PASS; in `autonomous` it
-proceeds automatically. The mode value is **never** passed to `check_truth.py` /
-`score_fit.py` and never alters the fail path — both gates block identically in both modes.
+proceeds automatically. The mode value is **never** passed to `gmj_check_truth.py` /
+`gmj_score_fit.py` and never alters the fail path — both gates block identically in both modes.
 Autonomous mode removes the *human* pause, never the *machine* gate; truthfulness is never
 bypassed.
 
 **Cap exhaustion is a hard stop, never ship-last-attempt.** At `retry_count == retry_cap`,
-`check_cap.py` reports exhaustion and the hub emits a hard-stop report naming the failing
-artifact + the last gate's reason. Independently, `check_delivery.py` refuses to deliver any
+`gmj_check_cap.py` reports exhaustion and the hub emits a hard-stop report naming the failing
+artifact + the last gate's reason. Independently, `gmj_check_delivery.py` refuses to deliver any
 artifact lacking a recorded Gate A ∧ Gate B pass — so even a loop bug cannot ship a failed
 draft.
 
@@ -237,8 +237,8 @@ per-run **`.pipeline/runs/<run_id>/state.json`**, which holds the resumable run 
 (`current_step`, `completed_steps`, `gate_results`, `offer_spec_path`, `offer_spec_hash`,
 `retry_counts`, plus the Phase-7 frozen keys `execution_mode`, `retry_cap`, `run_id`)
 alongside the logged `gate_result` audit artifacts (`gate_<node>_<type>_<attempt>.json`).
-`route.py` reads that file, so resume is a pure `(state, dag) → next_step` replay: passing an
-existing `run_id` resumes; a single step runs exactly the one node `route.py` returns.
+`gmj_route.py` reads that file, so resume is a pure `(state, dag) → next_step` replay: passing an
+existing `run_id` resumes; a single step runs exactly the one node `gmj_route.py` returns.
 `run_id` is sanitized to a safe charset before it becomes a directory name (no path
 traversal), and `.pipeline/` is git-ignored (per-run state + gate logs stay local).
 

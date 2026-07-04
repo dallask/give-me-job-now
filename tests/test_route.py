@@ -21,7 +21,7 @@ DAG_PATH = REPO_ROOT / "config" / "pipeline.dag.yaml"
 SAMPLE_STATE_PATH = REPO_ROOT / "schemas" / "samples" / "state.sample.json"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "pipeline"))
-import route  # noqa: E402
+import gmj_route as route  # noqa: E402
 
 
 def _load_dag() -> dict:

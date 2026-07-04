@@ -8,7 +8,7 @@ field subset, never asserted by an agent (T-02-09).
 Fixed canonical form (repo-wide, do not vary per producer):
     json.dumps(subset, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
 then UTF-8 encoded and SHA-256 hashed. ``ensure_ascii=False`` is load-bearing and
-matches ``scripts/cv/extract.py`` so Cyrillic (ua/ru) content never diverges by
+matches ``scripts/cv/gmj_extract.py`` so Cyrillic (ua/ru) content never diverges by
 encoding; ``sort_keys=True`` makes key order irrelevant; the compact separators
 strip incidental whitespace (T-02-10).
 
@@ -21,7 +21,7 @@ volatile fields never move the hash — Pitfall 5):
 - ``claims``: the extracted claim set — the ``claims`` collection when present,
   else the payload minus ``VOLATILE_FIELDS``.
 
-CLI: ``hash_artifact.py --kind {offer_spec,claims} (--file <path> | --stdin)``
+CLI: ``gmj_hash_artifact.py --kind {offer_spec,claims} (--file <path> | --stdin)``
 prints a 64-char lowercase hex SHA-256 and exits 0; errors go to stderr, exit 1.
 ``--kind`` is constrained to the known set and ``--file`` is guarded with
 ``.is_file()`` (path/kind-traversal mitigation, T-02-11).

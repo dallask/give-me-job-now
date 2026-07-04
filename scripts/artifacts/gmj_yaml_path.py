@@ -3,7 +3,7 @@
 
 This module is the *one* parser for the provenance/source-span path grammar first
 established by the Phase 3.1 provenance sidecar (``tests/test_candidate_ingestion.py``)
-and reused by ``check_claims.py`` (Plan 04) and the Phase 5 truth-verifier. Keeping a
+and reused by ``gmj_check_claims.py`` (Plan 04) and the Phase 5 truth-verifier. Keeping a
 single importable owner is the anti-drift guarantee (Pitfall 1 / threat T-04-05): a
 divergent second regex can no longer exist because every consumer imports from here.
 

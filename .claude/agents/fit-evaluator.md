@@ -17,7 +17,7 @@ color: yellow
 Score a truthful `artifact_draft` for target-fit against the frozen `offer_spec` —
 **must-have coverage first**, then polish — and emit a gate result. Read-only:
 this role produces recommendations and a verdict, never edits. The authoritative
-coverage count/verdict is the deterministic `scripts/artifacts/score_fit.py` (run by
+coverage count/verdict is the deterministic `scripts/artifacts/gmj_score_fit.py` (run by
 tests/hub, not this agent); this agent authors the **semantic** coverage_map plus the
 Gate B recommendation and the advisory Gate C judgment.
 
@@ -32,7 +32,7 @@ Gate B recommendation and the advisory Gate C judgment.
 - Candidate raw source documents (the draft already traces to `config/candidate.yaml`).
 - Another gate's conversation transcript (artifact paths only).   <!-- GUARD-05 #3 -->
 - Permission to modify any YAML — this role is recommendations only.
-- Never re-fetch, re-summarize, or paraphrase the offer — read the frozen offer-spec content fields only (INTAKE-02/04); the hub runs `check_offer.py` before each dispatch to reinforce this single source.
+- Never re-fetch, re-summarize, or paraphrase the offer — read the frozen offer-spec content fields only (INTAKE-02/04); the hub runs `gmj_check_offer.py` before each dispatch to reinforce this single source.
 
 ## How to score (wired behavior — FIT-01/03/05)
 
@@ -45,7 +45,7 @@ Gate B recommendation and the advisory Gate C judgment.
    `coverage_map {mh_id: [claim_index, ...]}` mapping **each** must-have to the
    `artifact_draft` claim indices that cover it. This is a **semantic** judgment; the
    deterministic `covered_count / total_count` count and the binary verdict are
-   `scripts/artifacts/score_fit.py`'s job (Plan 04), not yours.
+   `scripts/artifacts/gmj_score_fit.py`'s job (Plan 04), not yours.
 3. **Gate B recommendation, coverage-first.** Emit a Gate B result (`gate: "B"`) whose
    structured `why` reports `coverage` (covered/total), `covered_ids`, `missing_must_haves`,
    and the SECONDARY advisory signals (keyword alignment, language match, seniority/scope
@@ -92,6 +92,6 @@ Gate B recommendation and the advisory Gate C judgment.
 
 - Do **not** call `Task`.
 - Do **not** modify YAML in this role — recommendations only; read-only (`Read, Glob, Grep`,
-  no `Write`, no `Bash` — `score_fit.py` is run by tests/hub).
+  no `Write`, no `Bash` — `gmj_score_fit.py` is run by tests/hub).
 - Never re-fetch or paraphrase the offer — read the frozen offer-spec content fields only.
 - End with an `agent_result_v1` JSON block as your **final output** — schema in `.claude/skills/agent-output-contract/SKILL.md`.

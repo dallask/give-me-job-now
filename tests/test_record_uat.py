@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic tests for scripts/testing/record_uat.py (plain python3, no pytest).
+"""Deterministic tests for scripts/testing/gmj_record_uat.py (plain python3, no pytest).
 
 All writes are scoped to a mkdtemp() dir via --results-file/--state-file, so the real
 .planning/STATE.md and UAT-RESULTS.md are never touched.
@@ -13,7 +13,7 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = REPO_ROOT / "scripts" / "testing" / "record_uat.py"
+SCRIPT = REPO_ROOT / "scripts" / "testing" / "gmj_record_uat.py"
 
 STATE_STUB = """# Project State
 

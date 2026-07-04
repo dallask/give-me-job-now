@@ -9,7 +9,7 @@
 
   Portable-Cyrillic fix (TEMPLATE-05): unlike enhancv-inspired.html, this template
   injects two explicit @font-face rules pointing at the repo-relative bundled DejaVu
-  TTFs. render_cv.py::render_weasyprint_html sets base_url to the repo-root file URI,
+  TTFs. gmj_render_cv.py::render_weasyprint_html sets base_url to the repo-root file URI,
   so the relative src resolves deterministically — Cyrillic no longer depends on
   accidental system fontconfig discovery. Only weights 400/700 are used (DejaVu ships
   regular + bold only; 600 silently falls back to 400 and breaks the visual diff).

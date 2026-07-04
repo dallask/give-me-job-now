@@ -7,14 +7,14 @@ One script does two jobs so the audit log and the routing state can never disagr
   Job 1 (artifact): write the emitted ``gate_result`` envelope verbatim to
     ``<run-dir>/gate_<node>_<artifact-type>_<attempt>.json`` — the written file IS the
     GUARD-03 audit record, not an agent claim.
-  Job 2 (state): set ``state.gate_results[<node>] = "pass"|"fail"`` so route.py can branch
-    (Wiring Fact 1 — route.py RAISES on a gate node with no recorded verdict). Existing
+  Job 2 (state): set ``state.gate_results[<node>] = "pass"|"fail"`` so gmj_route.py can branch
+    (Wiring Fact 1 — gmj_route.py RAISES on a gate node with no recorded verdict). Existing
     sibling keys (``current_step``, ``retry_counts``, ``offer_spec_hash`` …) are preserved
-    on update via the read-modify-preserve body cloned from ``record_retry.py``.
+    on update via the read-modify-preserve body cloned from ``gmj_record_retry.py``.
 
-Normalization (Wiring Fact 2, threat T-07-10): score_fit.py emits a ``{gate_b, gate_c}``
+Normalization (Wiring Fact 2, threat T-07-10): gmj_score_fit.py emits a ``{gate_b, gate_c}``
 wrapper. When the result stdout has a top-level ``gate_b`` key it is unwrapped to
-``payload["gate_b"]`` before recording, so the audit log, map_feedback.py, and the delivery
+``payload["gate_b"]`` before recording, so the audit log, gmj_map_feedback.py, and the delivery
 check all see a uniform gate_result envelope. Gate C is advisory (FIT-05): it is stored
 separately (a sibling ``gate_c_<...>.json``) and NEVER enters ``gate_results`` or the verdict.
 
@@ -23,7 +23,7 @@ to ``^[A-Za-z0-9._-]+$`` with ``.`` / ``..`` rejected before the join (V12, thre
 Malformed gate stdout (invalid JSON / missing ``content.verdict``) degrades to structured
 stderr + exit 1 with no traceback (threat T-07-11).
 
-CLI: ``record_gate.py --state <path> --node <truth-verifier|fit-evaluator>
+CLI: ``gmj_record_gate.py --state <path> --node <truth-verifier|fit-evaluator>
       --result <gate-stdout.json | -> --run-dir <.pipeline/runs/<run_id>>
       --artifact-type <cv|cover_letter|interview_prep> --attempt <int>``
 """
@@ -37,7 +37,7 @@ import sys
 from pathlib import Path
 
 # Gate DAG node names — MUST match the gate nodes in config/pipeline.dag.yaml exactly,
-# because route.py reads state.gate_results[<this node>].
+# because gmj_route.py reads state.gate_results[<this node>].
 GATE_NODES = ["truth-verifier", "fit-evaluator"]
 ARTIFACT_TYPES = ["cv", "cover_letter", "interview_prep"]
 
@@ -108,7 +108,7 @@ def main() -> int:
     payload = _read_result(args.result)
     if payload is None:
         return 1
-    # A top-level 'gate_b' key means this is score_fit.py's {gate_b, gate_c} wrapper: unwrap
+    # A top-level 'gate_b' key means this is gmj_score_fit.py's {gate_b, gate_c} wrapper: unwrap
     # to the inner gate_b envelope so everything downstream sees a uniform gate_result shape.
     envelope = payload.get("gate_b") if isinstance(payload.get("gate_b"), dict) else payload
     gate_c = payload.get("gate_c") if "gate_b" in payload else None
@@ -165,7 +165,7 @@ def main() -> int:
     else:
         state = {}
 
-    # Wiring Fact 1: this exact key is what route.py reads to branch a gate node.
+    # Wiring Fact 1: this exact key is what gmj_route.py reads to branch a gate node.
     state.setdefault("gate_results", {})[node] = verdict
 
     try:

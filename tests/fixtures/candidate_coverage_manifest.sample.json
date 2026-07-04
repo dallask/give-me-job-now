@@ -6,14 +6,14 @@
       "path": "tests/fixtures/candidate/sample-resume.txt",
       "suffix": ".txt",
       "status": "extracted",
-      "extractor": "extract.py",
+      "extractor": "gmj_extract.py",
       "chars": 480
     },
     {
       "path": "tests/fixtures/candidate/sample-notes.docx",
       "suffix": ".docx",
       "status": "extracted",
-      "extractor": "extract.py",
+      "extractor": "gmj_extract.py",
       "chars": 140
     },
     {
@@ -27,7 +27,7 @@
       "path": "tests/fixtures/candidate/sample-old.doc",
       "suffix": ".doc",
       "status": "needs-conversion",
-      "extractor": "extract.py",
+      "extractor": "gmj_extract.py",
       "chars": 0
     }
   ],

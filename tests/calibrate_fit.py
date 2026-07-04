@@ -3,7 +3,7 @@
 
 This is a **reporting** harness, NOT a green-gated assertion suite. It is deliberately
 named ``calibrate_fit.py`` (not ``test_*.py``) so the ``python3 tests/test_*.py`` regression
-loop never runs it as a blocking gate. It runs ``scripts/artifacts/score_fit.py`` over the
+loop never runs it as a blocking gate. It runs ``scripts/artifacts/gmj_score_fit.py`` over the
 labeled Gate-B calibration fixtures in ``tests/fixtures/fit/expected.jsonl``, tabulates each
 fixture's deterministic coverage score + emitted verdict against its expected label, and
 PRINTS whether the config ``coverage_threshold`` cleanly separates the labeled-pass fixtures
@@ -16,7 +16,7 @@ this harness must NEVER ``assert accuracy == 1.0``, NEVER fail the suite on a no
 threshold or low accuracy — it only reports. The human reads the derivation and confirms the
 ``coverage_threshold`` in the human-verify checkpoint.
 
-The deterministic coverage rows are computed by actually running ``score_fit.py`` (the same
+The deterministic coverage rows are computed by actually running ``gmj_score_fit.py`` (the same
 scorer Gate B uses live), so the separation report reflects real scorer behavior, not a
 re-implementation. The OPTIONAL LLM coverage_map / polish accuracy is scored from a manual
 ``--verdicts`` input (UAT), mirroring ``eval_truth.py``'s ``score_eval``.
@@ -44,7 +44,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures" / "fit"
 DEFAULT_EXPECTED = FIXTURES_DIR / "expected.jsonl"
 DEFAULT_THRESHOLDS = REPO_ROOT / "config" / "fit_thresholds.yaml"
-SCORE_FIT = REPO_ROOT / "scripts" / "artifacts" / "score_fit.py"
+SCORE_FIT = REPO_ROOT / "scripts" / "artifacts" / "gmj_score_fit.py"
 
 
 def load_labels(expected_path: Path) -> list[dict]:
@@ -70,9 +70,9 @@ def load_threshold(thresholds_path: Path) -> float:
 
 
 def run_score_fit(row: dict, thresholds_path: Path, empty_map_path: Path) -> dict:
-    """Run ``score_fit.py`` for one fixture row; return the observed coverage score + verdict.
+    """Run ``gmj_score_fit.py`` for one fixture row; return the observed coverage score + verdict.
 
-    ``score_fit.py`` exits 1 on a labeled-fail verdict — that is EXPECTED, not an error, so we
+    ``gmj_score_fit.py`` exits 1 on a labeled-fail verdict — that is EXPECTED, not an error, so we
     parse its stdout JSON regardless of exit code. Only a genuinely malformed run (no parseable
     JSON on stdout) is an error, surfaced by the caller as a missing/malformed-input exit 1.
     """
@@ -104,7 +104,7 @@ def run_score_fit(row: dict, thresholds_path: Path, empty_map_path: Path) -> dic
         content = payload["gate_b"]["content"]
     except (json.JSONDecodeError, KeyError, TypeError) as exc:
         raise ValueError(
-            f"score_fit.py produced no parseable Gate-B output for {row['fixture']!r} "
+            f"gmj_score_fit.py produced no parseable Gate-B output for {row['fixture']!r} "
             f"(rc={proc.returncode}): {exc}\nstderr: {proc.stderr.strip()}"
         ) from exc
     return {
@@ -265,7 +265,7 @@ def main() -> int:
         print(f"error: --thresholds file not found: {args.thresholds}", file=sys.stderr)
         return 1
     if not SCORE_FIT.is_file():
-        print(f"error: score_fit.py not found: {SCORE_FIT}", file=sys.stderr)
+        print(f"error: gmj_score_fit.py not found: {SCORE_FIT}", file=sys.stderr)
         return 1
 
     try:

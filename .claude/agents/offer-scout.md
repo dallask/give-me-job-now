@@ -1,6 +1,6 @@
 ---
 name: offer-scout
-description: Discovers, normalizes, and ranks job offers within config/sources.yaml scope; hands a fielded draft to freeze_offer.py and emits an offer_spec envelope pointing at the frozen file. Does not spawn subagents.
+description: Discovers, normalizes, and ranks job offers within config/sources.yaml scope; hands a fielded draft to gmj_freeze_offer.py and emits an offer_spec envelope pointing at the frozen file. Does not spawn subagents.
 tools: WebSearch, WebFetch, Read, Write, Glob, LS
 model: sonnet
 color: blue
@@ -38,8 +38,8 @@ on the same outcome: a single offer fielded into `$defs/offer_content` and froze
    "required" / "must have" / "essential" -> `must_haves`; "preferred" / "plus" / "nice to have" /
    "bonus" -> `nice_to_haves`. Retain a `raw_text_excerpt` for traceability. If a field is
    genuinely absent, leave the string empty / the list empty — never invent requirements.
-4. Hand the fielded draft to executed code — `python3 scripts/offers/freeze_offer.py --file <draft>`
-   (or `--stdin`). freeze_offer.py validates the content, computes `offer_spec_hash`, and writes
+4. Hand the fielded draft to executed code — `python3 scripts/offers/gmj_freeze_offer.py --file <draft>`
+   (or `--stdin`). gmj_freeze_offer.py validates the content, computes `offer_spec_hash`, and writes
    `sources/offers/<slug>.offer-spec.json`. The agent does **not** compute or write the hash itself.
 
 ## Intake mode B — board search (one board per worker)
@@ -64,12 +64,12 @@ applicants.
    input, not a target. The merged, ranked `.pipeline/shortlist.json` is produced by the **hub**
    via `gmj_merge_shortlists.py` over every worker's file — never by you.
 4. Only the **chosen** offer proceeds: field it exactly as in mode A step 2–4 and hand it to
-   `freeze_offer.py`. Only that single chosen offer is frozen.
+   `gmj_freeze_offer.py`. Only that single chosen offer is frozen.
 
 ## Emits
 
 - An `agent_result_v1` `offer_spec` envelope whose `artifacts[].path` points at the frozen file
-  produced by `freeze_offer.py` (`sources/offers/<slug>.offer-spec.json`). Schema in
+  produced by `gmj_freeze_offer.py` (`sources/offers/<slug>.offer-spec.json`). Schema in
   `.claude/skills/agent-output-contract/SKILL.md`; the `offer_spec` kind is defined under `schemas/`.
 - In board-search mode, the ephemeral shortlist path may be listed as a secondary artifact, marked
   as unhashed / non-target.
@@ -78,7 +78,7 @@ applicants.
 
 - Do **not** call `Task`.
 - Do **not** fetch or store postings from domains outside `config/sources.yaml` `sites`.
-- **NEVER assert or write `offer_spec_hash`** — the hash comes only from `freeze_offer.py`
+- **NEVER assert or write `offer_spec_hash`** — the hash comes only from `gmj_freeze_offer.py`
   (executed code). Emitting an agent-computed hash is anti-pattern T-02-09 and is rejected by the
   SubagentStop envelope validation.
 - The board-search shortlist is ephemeral and unhashed; only the single chosen offer is frozen.

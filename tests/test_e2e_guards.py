@@ -9,12 +9,12 @@ The matrix drives every gate over the *existing* Phase-5 truth and Phase-6 fit
 fixtures via subprocess exit codes (the safety signal is the process exit code, never
 a self-report). Three enforced properties plus one chained dry-run:
 
-  Gate A (check_truth.py)  — a deterministic-category fabrication is hard-blocked (exit 1).
-  Gate B (score_fit.py)    — an off-target draft is hard-blocked (exit 1); on-target passes (0).
+  Gate A (gmj_check_truth.py)  — a deterministic-category fabrication is hard-blocked (exit 1).
+  Gate B (gmj_score_fit.py)    — an off-target draft is hard-blocked (exit 1); on-target passes (0).
   Delivery (check_delivery)— deliverable ONLY when both gate verdicts are recorded pass.
-  Dry-run (E2E-02/03)      — approved sample draft -> bridge -> render_cv.py -> valid PDF.
+  Dry-run (E2E-02/03)      — approved sample draft -> bridge -> gmj_render_cv.py -> valid PDF.
 
-CRITICAL scoping (Pitfall 1 / threat T-08-09): ``check_truth.py`` is only the
+CRITICAL scoping (Pitfall 1 / threat T-08-09): ``gmj_check_truth.py`` is only the
 deterministic pre-gate. It exits 1 on ``numeric_invention`` / ``unresolved_span`` but
 is NOT the arbiter of ``scope_inflation`` / ``cross_entry_merge`` — those LLM-layer
 fabrications are covered by the Phase-5 ``eval_truth.py`` UAT. The pre-gate's exit code
@@ -117,7 +117,7 @@ def test_gate_a_deterministic_fabrications_blocked() -> None:
         if expected_exit is None:
             continue  # llm-layer fabrication — Phase-5 eval_truth.py UAT owns this verdict
         result = run(
-            "scripts/artifacts/check_truth.py",
+            "scripts/artifacts/gmj_check_truth.py",
             "--file",
             f"tests/fixtures/truth/{fixture}",
             "--candidate",
@@ -156,7 +156,7 @@ def test_gate_b_offtarget_blocked_ontarget_passes() -> None:
             continue  # empty-musthaves edge needs no coverage map — out of this matrix's scope
         expected_exit = 0 if row["expected_verdict"] == "pass" else 1
         result = run(
-            "scripts/artifacts/score_fit.py",
+            "scripts/artifacts/gmj_score_fit.py",
             "--file",
             f"tests/fixtures/fit/{row['fixture']}",
             "--offer",
@@ -189,7 +189,7 @@ def test_delivery_requires_both_gates_recorded_pass() -> None:
     ok_state = _seed_state(
         {"gate_results": {"truth-verifier": "pass", "fit-evaluator": "pass"}}
     )
-    result = run("scripts/pipeline/check_delivery.py", "--state", str(ok_state))
+    result = run("scripts/pipeline/gmj_check_delivery.py", "--state", str(ok_state))
     assert result.returncode == 0, f"A∧B recorded pass must be deliverable: {result.stderr}"
     assert result.stdout.strip() == "deliverable", result.stdout
 
@@ -202,7 +202,7 @@ def test_delivery_requires_both_gates_recorded_pass() -> None:
     ]
     for state in blocked_states:
         state_path = _seed_state(state)
-        result = run("scripts/pipeline/check_delivery.py", "--state", str(state_path))
+        result = run("scripts/pipeline/gmj_check_delivery.py", "--state", str(state_path))
         assert result.returncode == 1, f"missing/failed gate must block: {state}"
         assert result.stdout.strip() != "deliverable", f"must not signal deliverable: {state}"
         assert "Traceback" not in result.stderr, f"block must degrade cleanly: {state}"
@@ -211,7 +211,7 @@ def test_delivery_requires_both_gates_recorded_pass() -> None:
 def assert_valid_pdf(path: Path) -> None:
     """Structural PDF validity: ``%PDF-`` magic bytes + pypdf pages >= 1.
 
-    Never byte-hash the output (Pitfall 5 / T-08-07): render_cv.py stamps a UTC
+    Never byte-hash the output (Pitfall 5 / T-08-07): gmj_render_cv.py stamps a UTC
     timestamp, so a real PDF is not byte-stable across runs.
     """
     p = Path(path)
@@ -225,7 +225,7 @@ def assert_valid_pdf(path: Path) -> None:
 
 
 def test_e2e_dryrun_sample_draft_renders_pdf() -> None:
-    """Deterministic dry-run: approved sample draft -> bridge -> render_cv.py -> valid PDF.
+    """Deterministic dry-run: approved sample draft -> bridge -> gmj_render_cv.py -> valid PDF.
 
     Proves the deterministic slice of E2E-02/E2E-03: an approved artifact_draft renders
     to a real PDF on disk with zero manual authoring. The intermediate CV-YAML is written
@@ -235,7 +235,7 @@ def test_e2e_dryrun_sample_draft_renders_pdf() -> None:
     """
     # (a) demonstrate the sample draft is Gate-A approved (deterministic pre-gate exit 0).
     approved = run(
-        "scripts/artifacts/check_truth.py",
+        "scripts/artifacts/gmj_check_truth.py",
         "--file",
         SAMPLE_DRAFT,
         "--candidate",
@@ -248,9 +248,9 @@ def test_e2e_dryrun_sample_draft_renders_pdf() -> None:
     tmp_dir = Path(tempfile.mkdtemp())
     cv_yaml = tmp_dir / "cv.yaml"
 
-    # (b) span-driven bridge: approved claim.text -> CV-YAML (Plan-01 draft_to_cv_yaml.py).
+    # (b) span-driven bridge: approved claim.text -> CV-YAML (Plan-01 gmj_draft_to_cv_yaml.py).
     bridged = run(
-        "scripts/cv/draft_to_cv_yaml.py",
+        "scripts/cv/gmj_draft_to_cv_yaml.py",
         "--file",
         SAMPLE_DRAFT,
         "--out",
@@ -261,7 +261,7 @@ def test_e2e_dryrun_sample_draft_renders_pdf() -> None:
 
     # (c) render the bridged CV-YAML to a real PDF (no template, explicit lang + out).
     rendered = run(
-        "scripts/cv/render_cv.py",
+        "scripts/cv/gmj_render_cv.py",
         "--config",
         str(cv_yaml),
         "--no-template",
@@ -282,15 +282,15 @@ def test_cv_generator_wired_to_draft_render() -> None:
     """cv-generator.md draft-mode wires the bridge + all three renderers (E2E-02).
 
     Positive presence checks — the additive draft-mode branch must name the bridge
-    (draft_to_cv_yaml.py) and each renderer (render_cv.py / render_cover_letter.py /
-    render_interview_prep.py) so no artifact is hand-authored (T-08-11).
+    (gmj_draft_to_cv_yaml.py) and each renderer (gmj_render_cv.py / gmj_render_cover_letter.py /
+    gmj_render_interview_prep.py) so no artifact is hand-authored (T-08-11).
     """
     text = CV_GENERATOR_AGENT.read_text(encoding="utf-8")
     for token in (
-        "draft_to_cv_yaml.py",
-        "render_cover_letter.py",
-        "render_interview_prep.py",
-        "render_cv.py",
+        "gmj_draft_to_cv_yaml.py",
+        "gmj_render_cover_letter.py",
+        "gmj_render_interview_prep.py",
+        "gmj_render_cv.py",
     ):
         assert token in text, f"cv-generator.md missing draft-mode wiring token: {token}"
 

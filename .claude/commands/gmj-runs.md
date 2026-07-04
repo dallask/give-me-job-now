@@ -55,7 +55,7 @@ The inspector **prints** the exact resume command; the **operator** runs it. Thi
 never executes a resume itself (hub-holds-Task, ERGO-04):
 
 - **Resume a run:** a run resumes via **`/pipeline-run`** by passing the existing
-  `run_id` (its `route.py` loop picks up where the run left off). `run inspect <id>`
+  `run_id` (its `gmj_route.py` loop picks up where the run left off). `run inspect <id>`
   surfaces this command as a string to copy.
 - **Resume a batch:** a batch resumes via **`/gmj-batch --resume <batch_id>`**.
   `batch inspect <id>` surfaces this command as a string to copy.

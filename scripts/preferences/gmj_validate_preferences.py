@@ -12,7 +12,7 @@ Fails CLOSED: any shape error, any out-of-scope scope-axis item, or a missing/un
 sources.yaml exits non-zero (a missing allow-list means "no scope defined", never "all
 allowed"). NEVER writes sources.yaml (opens it read-only via ``yaml.safe_load``).
 
-CLI: ``validate_preferences.py --file <preferences.yaml> [--sources config/sources.yaml]
+CLI: ``gmj_validate_preferences.py --file <preferences.yaml> [--sources config/sources.yaml]
 [--schema schemas/preferences.schema.json]``; exit 0 = OK, exit 1 = shape error /
 out-of-scope / missing-sources. Dual-use: runnable standalone AND invocable as the
 /gmj-interview persona's pre-write guard.
@@ -30,7 +30,7 @@ import yaml
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
-# scripts/preferences/ -> repo root (same depth as scripts/contracts/validate_envelope.py).
+# scripts/preferences/ -> repo root (same depth as scripts/contracts/gmj_validate_envelope.py).
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_SOURCES = REPO_ROOT / "config" / "sources.yaml"
 DEFAULT_SCHEMA = REPO_ROOT / "schemas" / "preferences.schema.json"
@@ -72,7 +72,7 @@ def build_registry(schema_dir: Path) -> Registry:
     """Build a Registry from every local schemas/*.schema.json, keyed on its $id.
 
     Local files only — no network/remote retrieval, so cross-file ``$ref`` resolves
-    without SSRF risk (mirrors scripts/contracts/validate_envelope.py).
+    without SSRF risk (mirrors scripts/contracts/gmj_validate_envelope.py).
     """
     resources = []
     for path in sorted(schema_dir.glob("*.schema.json")):

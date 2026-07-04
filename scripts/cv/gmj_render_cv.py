@@ -18,9 +18,9 @@ from xml.sax.saxutils import escape
 
 # Import the single-owner candidate.yaml field-name registry (SCHEMA-06) so this
 # consumer never re-declares key literals that could drift from the schema owner.
-# Same import idiom as scripts/cv/draft_to_cv_yaml.py (scripts/artifacts on sys.path).
+# Same import idiom as scripts/cv/gmj_draft_to_cv_yaml.py (scripts/artifacts on sys.path).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "artifacts"))
-from schema_fields import CONTACT, WEBSITE_GROUPS  # noqa: E402  (both must be USED, not just imported)
+from gmj_schema_fields import CONTACT, WEBSITE_GROUPS  # noqa: E402  (both must be USED, not just imported)
 
 LANGS = ("en", "ua", "ru")
 DEFAULT_LANG = "en"

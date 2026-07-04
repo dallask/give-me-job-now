@@ -20,7 +20,7 @@ Persona (`.claude/commands/gmj-template.md`):
 - confines writes to ``templates/cv/`` + ``sources/design/``.
 
 Agent (`.claude/agents/gmj-template-creator.md`):
-- names all three tools (``gmj_template_lint.py``, ``gmj_visual_diff.py``, ``render_cv.py``),
+- names all three tools (``gmj_template_lint.py``, ``gmj_visual_diff.py``, ``gmj_render_cv.py``),
 - states the ``@font-face`` DejaVu injection rule (TEMPLATE-05),
 - ends with ``agent_result_v1``,
 - contains NO ``mcp__playwright`` (Playwright excluded from the loop),
@@ -128,7 +128,7 @@ def test_persona_writes_confined() -> None:
 
 def test_agent_names_three_tools() -> None:
     t = _agent_text()
-    for sentinel in ("gmj_template_lint.py", "gmj_visual_diff.py", "render_cv.py"):
+    for sentinel in ("gmj_template_lint.py", "gmj_visual_diff.py", "gmj_render_cv.py"):
         assert sentinel in t, f"agent must name the tool {sentinel!r} it drives in the loop"
 
 

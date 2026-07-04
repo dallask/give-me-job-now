@@ -1,7 +1,7 @@
 # /gmj-template — screenshot→branded-CV-template creator
 
 ---
-allowed-tools: Read(*), Glob(*), LS(*), Task(*), Write(templates/cv/*.html), Write(sources/design/*), Bash(python3 scripts/cv/gmj_visual_diff.py:*), Bash(python3 scripts/cv/gmj_template_lint.py:*), Bash(python3 scripts/cv/render_cv.py:*), AskUserQuestion(*)
+allowed-tools: Read(*), Glob(*), LS(*), Task(*), Write(templates/cv/*.html), Write(sources/design/*), Bash(python3 scripts/cv/gmj_visual_diff.py:*), Bash(python3 scripts/cv/gmj_template_lint.py:*), Bash(python3 scripts/cv/gmj_render_cv.py:*), AskUserQuestion(*)
 description: Paste a CV design screenshot → generate a reusable {{ candidate.* }}-bound HTML/Jinja2 template under templates/cv/, matched to the design via a bounded WeasyPrint compare==ship loop (cap 5, diff-ratio ≤ 0.10, keep-best).
 ---
 
@@ -48,7 +48,7 @@ Drive the match loop with these bounds (UI-SPEC Fidelity Bar):
 
 ### 4. compare == ship — the diffed artifact IS the shipped WeasyPrint PDF
 
-The artifact you diff via `gmj_visual_diff.py` (which renders through `render_cv.py`) IS
+The artifact you diff via `gmj_visual_diff.py` (which renders through `gmj_render_cv.py`) IS
 exactly the WeasyPrint PDF that ships. **Playwright is NOT used in the match loop** — a
 browser render diverges from the WeasyPrint ship and would break the compare==ship
 guarantee (TEMPLATE-04). Never substitute a Playwright/browser render as the fidelity oracle.

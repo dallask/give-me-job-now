@@ -16,10 +16,10 @@ never trips staleness (Pitfall 1). This is a content-integrity fingerprint, not
 a MAC — it detects careless staleness, not a motivated editor who also recomputes
 the hash (T-03-integrity, accepted for a single-user local CLI).
 
-The hub runs this before EACH downstream spoke dispatch; ``route.py`` stays a pure
+The hub runs this before EACH downstream spoke dispatch; ``gmj_route.py`` stays a pure
 DAG traversal and is NOT modified to gate on the hash (D-04 / Pitfall 4).
 
-CLI: ``check_offer.py --file <path>`` exits 0 (fresh) or 1 (stale / missing file /
+CLI: ``gmj_check_offer.py --file <path>`` exits 0 (fresh) or 1 (stale / missing file /
 invalid JSON / malformed doc); all errors go to stderr with no traceback.
 """
 
@@ -32,7 +32,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # scripts/offers/ -> repo root
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "contracts"))
-from hash_artifact import canonical_hash  # noqa: E402  reuse the audited canonical form
+from gmj_hash_artifact import canonical_hash  # noqa: E402  reuse the audited canonical form
 
 
 def is_stale(doc: dict) -> bool:

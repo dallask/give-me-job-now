@@ -12,10 +12,10 @@ keep the batch hub safe:
 - accepts multi-select (`1,3,5` / `all`) (SELECT-01),
 - hub at top level / never nested — documents the forbidden call
   ``subagent_type: vacancy-orchestrator`` as prohibited (T-12-06),
-- drives the EXISTING per-offer pipeline loop (names ``route.py`` + ``check_delivery.py``)
+- drives the EXISTING per-offer pipeline loop (names ``gmj_route.py`` + ``gmj_check_delivery.py``)
   and the deterministic batch engine (``gmj_batch.py`` init/record-spec/mark/resume),
 - thin → ``offer-scout`` re-field is the primary freeze source, real spec stamped
-  post-freeze (``offer-scout`` + ``freeze_offer.py`` + ``gmj_batch.py record-spec``)
+  post-freeze (``offer-scout`` + ``gmj_freeze_offer.py`` + ``gmj_batch.py record-spec``)
   (SELECT-02),
 - per-(offer, artifact_type) gates never batched (T-12-02),
 - frontmatter grants ``Task(*)`` and ``Bash(*)``.
@@ -62,7 +62,7 @@ def test_hub_at_top_level_never_nested() -> None:
 
 def test_drives_existing_pipeline_per_offer() -> None:
     t = _persona_text()
-    for sentinel in ("route.py", "check_delivery.py"):
+    for sentinel in ("gmj_route.py", "gmj_check_delivery.py"):
         assert sentinel in t, f"persona must name the existing per-offer loop script {sentinel!r}"
     for sentinel in (
         "gmj_batch.py init",
@@ -76,7 +76,7 @@ def test_drives_existing_pipeline_per_offer() -> None:
 def test_thin_offer_scout_refield_then_stamp() -> None:
     t = _persona_text()
     assert "offer-scout" in t, "persona must route thin offers through offer-scout re-field (SELECT-02)"
-    assert "freeze_offer.py" in t, "persona must freeze via freeze_offer.py after re-field (SELECT-02)"
+    assert "gmj_freeze_offer.py" in t, "persona must freeze via gmj_freeze_offer.py after re-field (SELECT-02)"
     assert "gmj_batch.py record-spec" in t, (
         "persona must stamp the real offer-spec into the manifest post-freeze "
         "(gmj_batch.py record-spec)"

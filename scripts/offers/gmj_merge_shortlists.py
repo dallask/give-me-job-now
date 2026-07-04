@@ -10,10 +10,10 @@ Reproducibility doctrine (SCOUT-04): all order-/dedup-/scope-/rank-critical logi
 never in an LLM. Output is ``json.dumps(sort_keys=True, ensure_ascii=False, indent=2)`` + a
 trailing newline over a total-ordered ``sorted()`` — so identical inputs yield byte-identical
 bytes even across different ``PYTHONHASHSEED`` values. ``ensure_ascii=False`` is load-bearing
-for Cyrillic (ua/ru) parity (same rationale as scripts/contracts/hash_artifact.py).
+for Cyrillic (ua/ru) parity (same rationale as scripts/contracts/gmj_hash_artifact.py).
 
 Normalization, subset logic, and the slug are IMPORTED from the audited helpers
-(validate_preferences.py, freeze_offer.py) — never re-derived — so host normalization stays
+(gmj_validate_preferences.py, gmj_freeze_offer.py) — never re-derived — so host normalization stays
 byte-parity with the sources-scope-guard hook.
 
 CLI: ``gmj_merge_shortlists.py (--board-file <f> ... | --stdin) [--sources config/sources.yaml]
@@ -33,8 +33,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # scripts/offers/ -> 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "preferences"))
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "contracts"))
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "offers"))
-from validate_preferences import _norm_site, subset_offenders, load_yaml  # noqa: E402,F401
-from freeze_offer import slugify  # noqa: E402  ([a-z0-9-] slug; returns "offer" when empty)
+from gmj_validate_preferences import _norm_site, subset_offenders, load_yaml  # noqa: E402,F401
+from gmj_freeze_offer import slugify  # noqa: E402  ([a-z0-9-] slug; returns "offer" when empty)
 from jsonschema import Draft202012Validator  # noqa: E402
 
 SHORTLIST_SCHEMA = REPO_ROOT / "schemas" / "shortlist.schema.json"
@@ -256,7 +256,7 @@ def write_shortlist(ranked: list[dict], out: Path) -> Path:
     """Write the canonical byte-identical JSON + sibling job-seeker ``.md`` under ``.pipeline/``.
 
     Asserts the resolved output path stays under ``.pipeline/`` before writing (path-traversal
-    defence in depth, mirrors freeze_offer.py containment).
+    defence in depth, mirrors gmj_freeze_offer.py containment).
     """
     resolved = out.expanduser().resolve()
     pipeline_dir = PIPELINE_SUBDIR.resolve()
@@ -359,7 +359,7 @@ def main() -> int:
     else:
         # A MISSING allow-list is a misconfiguration, not "no matches": exit non-zero so an
         # operator/orchestrator can tell "scope config missing" from a legitimate empty run
-        # (mirrors validate_preferences.py's missing-sources fail-closed) (WR-06).
+        # (mirrors gmj_validate_preferences.py's missing-sources fail-closed) (WR-06).
         print(
             f"FAIL-CLOSED: sources.yaml not found: {sources_path} "
             "(a missing allow-list means no scope is defined, never all-allowed)",

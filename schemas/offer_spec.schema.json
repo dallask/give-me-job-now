@@ -73,7 +73,7 @@
     },
     "offer_spec_hash": {
       "type": "string",
-      "description": "Canonical SHA-256 over the frozen offer-spec content subset (computed by Plan 04's hash_artifact.py)."
+      "description": "Canonical SHA-256 over the frozen offer-spec content subset (computed by Plan 04's gmj_hash_artifact.py)."
     }
   },
   "required": ["kind", "schema_version"]

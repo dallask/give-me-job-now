@@ -24,4 +24,4 @@ description: Conventions for placing candidate and vacancy materials under sourc
 
 ## Analyzer workflow
 
-- Run `python3 scripts/cv/extract.py "<file>" --json` from repo root for structured text.
+- Run `python3 scripts/cv/gmj_extract.py "<file>" --json` from repo root for structured text.

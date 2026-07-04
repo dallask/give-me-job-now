@@ -27,7 +27,7 @@ dispatches on ``content.gate``, and prints the projection as JSON to stdout.
 Malformed/oversized input degrades to structured stderr + exit 1 with no traceback
 (threat T-07-07).
 
-CLI: ``map_feedback.py --file <gate_result.json>``
+CLI: ``gmj_map_feedback.py --file <gate_result.json>``
 """
 
 from __future__ import annotations

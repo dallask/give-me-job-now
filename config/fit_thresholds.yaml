@@ -6,7 +6,7 @@
 # in the gap between the highest labeled-fail coverage and the lowest labeled-pass
 # coverage so it cleanly separates the labeled-pass fixtures from the labeled-fail /
 # borderline fixtures. It is frozen before a run and loaded via `yaml.safe_load`
-# (never `yaml.load`) with an `isinstance` guard in score_fit.py.
+# (never `yaml.load`) with an `isinstance` guard in gmj_score_fit.py.
 #
 # The `weights` block feeds ONLY an optional advisory composite reported in `why`.
 # It NEVER contributes to the Gate B hard-block verdict, which is coverage-only:

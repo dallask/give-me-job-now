@@ -16,7 +16,7 @@ Asserted invariants:
 - it emits the ``candidate_findings_v1`` / ``candidate_findings.json`` contract,
 - it reads the profile + coverage manifest before questioning,
 - it advises when ``sources/candidate`` is empty,
-- it runs the ``validate_preferences.py`` pre-write guard,
+- it runs the ``gmj_validate_preferences.py`` pre-write guard,
 - it hands off (no ``Task(`` spawn) via ``/job-collective``.
 """
 
@@ -73,7 +73,7 @@ def test_persona_write_scoped_excludes_candidate_yaml() -> None:
     )
     assert "Bash(*)" not in fm, (
         "frontmatter must NOT grant unrestricted Bash(*) — an unscoped shell can write "
-        "config/candidate.yaml; scope Bash to the validate_preferences.py invocation"
+        "config/candidate.yaml; scope Bash to the gmj_validate_preferences.py invocation"
     )
     assert "Write(config/preferences.yaml)" in fm, (
         "frontmatter must scope Write to config/preferences.yaml"
@@ -130,7 +130,7 @@ def test_persona_has_empty_sources_advisory() -> None:
 
 def test_persona_runs_validator_guard() -> None:
     src = _text()
-    assert "validate_preferences.py" in src, "must run validate_preferences.py as a pre-write guard"
+    assert "gmj_validate_preferences.py" in src, "must run gmj_validate_preferences.py as a pre-write guard"
 
 
 def test_persona_no_task_spawn() -> None:

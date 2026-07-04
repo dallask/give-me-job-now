@@ -27,7 +27,7 @@ FAIL claim makes the artifact verdict FAIL and exits 1 unconditionally in every 
 clean draft exits 0. There is simply no escape path (a unit test greps this source to
 prove the forbidden flag tokens are absent).
 
-CLI: ``check_truth.py --file <draft.json> --candidate <candidate.yaml> [--schema-dir DIR]``
+CLI: ``gmj_check_truth.py --file <draft.json> --candidate <candidate.yaml> [--schema-dir DIR]``
 """
 
 from __future__ import annotations
@@ -43,10 +43,10 @@ from jsonschema import Draft202012Validator
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # scripts/artifacts/ -> repo root
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "contracts"))
-from validate_envelope import build_registry  # noqa: E402  reuse the local schema registry
+from gmj_validate_envelope import build_registry  # noqa: E402  reuse the local schema registry
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "artifacts"))
-from yaml_path import resolve_path  # noqa: E402  promoted shared source-span resolver
+from gmj_yaml_path import resolve_path  # noqa: E402  promoted shared source-span resolver
 
 DEFAULT_SCHEMA_DIR = REPO_ROOT / "schemas"
 GATE_RESULT_SCHEMA = "gate_result.schema.json"

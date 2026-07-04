@@ -18,7 +18,7 @@ Status projection (top-down, FIRST MATCH WINS):
      returns None (Gate A ``truth-verifier==pass`` AND Gate B ``fit-evaluator==pass``). Imported
      VERBATIM so ``delivered`` agrees with gmj_batch.py resume byte-for-byte — never re-derived.
   2. ``failed`` — the frozen ``retry_cap`` is an int (and not a bool) and some nested
-     ``retry_counts`` counter ``>= retry_cap`` (mirrors check_cap.py's ``current >= cap`` guard).
+     ``retry_counts`` counter ``>= retry_cap`` (mirrors gmj_check_cap.py's ``current >= cap`` guard).
   3. ``pending`` — no gate_results, no retry_counts, and ``current_step`` in (None,
      "artifact-composer") — the freshly-seeded signature.
   4. ``running`` — anything else.
@@ -41,10 +41,10 @@ import sys
 from pathlib import Path
 
 # Reuse the audited Gate A ∧ Gate B delivery predicate verbatim — never re-judge a gate here
-# (Pitfall 2 / T-12-04). check_delivery.py lives in this same scripts/pipeline dir, which is on
+# (Pitfall 2 / T-12-04). gmj_check_delivery.py lives in this same scripts/pipeline dir, which is on
 # sys.path both when this file is run as a script and when imported via a sys.path insert (tests).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from check_delivery import blocked_reason  # noqa: E402
+from gmj_check_delivery import blocked_reason  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # scripts/pipeline/ -> repo root
 
@@ -294,7 +294,7 @@ def _cmd_run_inspect(args: argparse.Namespace) -> int:
 
     gr = _gate_results(state)
     artifacts, attempts = _gate_logs(run_dir)
-    # Resume is PRINTED, never executed — an existing run_id resumes via route.py (pipeline-run.md).
+    # Resume is PRINTED, never executed — an existing run_id resumes via gmj_route.py (pipeline-run.md).
     resume_command = f"/pipeline-run  (resume: pass run_id={args.run_id})"
 
     payload = {

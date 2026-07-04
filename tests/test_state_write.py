@@ -2,17 +2,17 @@
 """Behavior tests for the pipeline state writer (INTAKE-02).
 
 Runnable as a plain assertion script (no pytest dependency). Proves that
-``scripts/pipeline/state_write.py`` records ``offer_spec_path`` + ``offer_spec_hash``
+``scripts/pipeline/gmj_state_write.py`` records ``offer_spec_path`` + ``offer_spec_hash``
 into ``.pipeline/state.json`` while:
 
 - preserving existing state keys (current_step / completed_steps / gate_results) on
   update — seeded from the committed state.sample.json,
 - creating the file (and parent dir) with the two offer fields when it is absent,
 - exiting 1 cleanly (stderr, no traceback) on invalid existing JSON,
-- leaving ``route.py`` importable and unchanged (no hash-gating leaked in).
+- leaving ``gmj_route.py`` importable and unchanged (no hash-gating leaked in).
 
 The writer never computes the hash — it only records the value produced by the
-executed ``freeze_offer.py``.
+executed ``gmj_freeze_offer.py``.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-WRITER = REPO_ROOT / "scripts" / "pipeline" / "state_write.py"
+WRITER = REPO_ROOT / "scripts" / "pipeline" / "gmj_state_write.py"
 SAMPLE_STATE = REPO_ROOT / "schemas" / "samples" / "state.sample.json"
 
 _HASH = "a" * 64
@@ -96,11 +96,11 @@ def test_invalid_json_exits_one_cleanly() -> None:
 
 
 def test_route_py_unchanged_and_importable() -> None:
-    # route.py must remain a pure router: importable and free of any offer-spec hash logic.
-    route_src = (REPO_ROOT / "scripts" / "pipeline" / "route.py").read_text(encoding="utf-8")
-    assert "offer_spec_hash" not in route_src, "route.py must not gain hash logic (D-04)"
+    # gmj_route.py must remain a pure router: importable and free of any offer-spec hash logic.
+    route_src = (REPO_ROOT / "scripts" / "pipeline" / "gmj_route.py").read_text(encoding="utf-8")
+    assert "offer_spec_hash" not in route_src, "gmj_route.py must not gain hash logic (D-04)"
     sys.path.insert(0, str(REPO_ROOT / "scripts" / "pipeline"))
-    import route  # noqa: F401  import must succeed
+    import gmj_route as route  # noqa: F401  import must succeed
 
 
 def main() -> int:

@@ -4,7 +4,7 @@
 #   - execution_mode: whether the run pauses for human approval or runs autonomously.
 #   - retry_cap: the maximum number of enhance/generate retry cycles a run may spend.
 #
-# FREEZE CONTRACT: at run start, state_write.py copies these values into
+# FREEZE CONTRACT: at run start, gmj_state_write.py copies these values into
 # .pipeline/runs/<run_id>/state.json (the run-scoped state). Every downstream control
 # decision reads that FROZEN copy — never this file mid-run. A mid-run edit to this file
 # therefore cannot change an in-flight run (EXEC-03: "thresholds frozen before a run

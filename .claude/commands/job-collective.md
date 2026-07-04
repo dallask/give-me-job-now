@@ -12,7 +12,7 @@ description: Run the vacancy-orchestrator collective (routing schema + CV toolch
 3. Paths:
    - Inputs: `sources/` (see `.claude/skills/sources-ingestion/SKILL.md`)
    - Candidate data: `config/candidate.yaml`
-   - PDF output: `output/cv/` via `scripts/cv/render_cv.py` (see `.claude/skills/cv-pdf-python/SKILL.md`)
+   - PDF output: `output/cv/` via `scripts/cv/gmj_render_cv.py` (see `.claude/skills/cv-pdf-python/SKILL.md`)
 
 ## User message template
 

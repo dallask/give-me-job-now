@@ -39,7 +39,7 @@ import yaml
 from pypdf import PdfReader
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = REPO_ROOT / "scripts" / "cv" / "render_cv.py"
+SCRIPT = REPO_ROOT / "scripts" / "cv" / "gmj_render_cv.py"
 TEMPLATE = REPO_ROOT / "templates" / "cv" / "gmj-baseline.html"
 CONFIG = REPO_ROOT / "config" / "candidate.yaml"
 UA_OVERLAY = REPO_ROOT / "config" / "candidate.ua.yaml"

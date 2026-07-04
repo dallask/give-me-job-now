@@ -30,7 +30,7 @@ color: purple
 ## Emits
 
 - The generated Jinja2 template `templates/cv/<slug>.html` as a `file` artifact.
-- The shipped WeasyPrint PDF produced by `render_cv.py` during the match loop (the diffed
+- The shipped WeasyPrint PDF produced by `gmj_render_cv.py` during the match loop (the diffed
   artifact IS the shipped artifact — compare == ship) as a `file` artifact.
 
 ## Commands
@@ -54,18 +54,18 @@ python3 scripts/cv/gmj_visual_diff.py --config config/candidate.yaml --template 
 ```
 
 Ship render — the WeasyPrint PDF that IS the diffed artifact (compare == ship). Always
-render through `render_cv.py`; never hand-author a PDF and never re-import WeasyPrint
+render through `gmj_render_cv.py`; never hand-author a PDF and never re-import WeasyPrint
 directly:
 
 ```bash
-python3 scripts/cv/render_cv.py --config config/candidate.yaml --template templates/cv/<slug>.html
+python3 scripts/cv/gmj_render_cv.py --config config/candidate.yaml --template templates/cv/<slug>.html
 ```
 
 Verify Cyrillic robustness by also rendering a longer-than-sample Cyrillic profile
 (`--lang ua` loads the `config/candidate.ua.yaml` overlay) and confirming no section clips:
 
 ```bash
-python3 scripts/cv/render_cv.py --config config/candidate.yaml --lang ua --template templates/cv/<slug>.html
+python3 scripts/cv/gmj_render_cv.py --config config/candidate.yaml --lang ua --template templates/cv/<slug>.html
 ```
 
 ## Rules
@@ -97,7 +97,7 @@ python3 scripts/cv/render_cv.py --config config/candidate.yaml --lang ua --templ
 - **No fixed-height / `overflow: hidden` prose containers** — text blocks must reflow so a
   longer-than-sample CV does not clip or overrun (do not over-fit to the sample length).
   Body line-height ≥ 1.3 on any block carrying Cyrillic.
-- **Never hand-author a PDF binary** — render only through `render_cv.py` (compare == ship);
+- **Never hand-author a PDF binary** — render only through `gmj_render_cv.py` (compare == ship);
   the diffed artifact is exactly the shipped WeasyPrint PDF.
 - **NEVER wire the Playwright MCP browser tools into the match loop** — a browser render
   diverges from the WeasyPrint ship and would break the compare==ship guarantee

@@ -4,7 +4,7 @@
 Determinism doctrine: DPI, diff canvas size, resample filter and colorspace are pinned
 as module constants so the ≤0.10 visual-match bar is reproducible across machines and runs.
 
-compare == ship: the diffed PDF is rendered through ``render_cv.py::render_weasyprint_html``
+compare == ship: the diffed PDF is rendered through ``gmj_render_cv.py::render_weasyprint_html``
 (the real ship path), NEVER by importing WeasyPrint's HTML class directly. A direct import
 would skip the macOS DYLD fallback and the base64 photo embed and thus diverge from the
 shipped artifact. The shipped PDF is rasterized (page 1) via PyMuPDF (fitz) before diffing.
@@ -36,11 +36,11 @@ from PIL import Image
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # scripts/cv/ -> repo root
 
-# Import the ship render from render_cv.py (same sibling-import idiom render_cv.py uses for
+# Import the ship render from gmj_render_cv.py (same sibling-import idiom gmj_render_cv.py uses for
 # schema_fields). NEVER import weasyprint directly here — compare==ship requires the exact
-# ship path (DYLD fallback + embedded photo). (render_cv.py:22-23, :438-465)
+# ship path (DYLD fallback + embedded photo). (gmj_render_cv.py:22-23, :438-465)
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # scripts/cv on path
-from render_cv import (  # noqa: E402
+from gmj_render_cv import (  # noqa: E402
     render_weasyprint_html,
     candidate_with_embedded_photo,
     load_candidate,

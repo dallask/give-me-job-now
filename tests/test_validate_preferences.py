@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for scripts/preferences/validate_preferences.py (INTERVIEW-06 / INTERVIEW-03).
+"""Tests for scripts/preferences/gmj_validate_preferences.py (INTERVIEW-06 / INTERVIEW-03).
 
 Plain-python3 self-running harness (NO pytest) — run with
 ``python3 tests/test_validate_preferences.py``. Proves the EXECUTED validator, not a
@@ -28,7 +28,7 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-VALIDATOR = REPO_ROOT / "scripts" / "preferences" / "validate_preferences.py"
+VALIDATOR = REPO_ROOT / "scripts" / "preferences" / "gmj_validate_preferences.py"
 
 
 def _write(tmp: Path, name: str, data) -> Path:

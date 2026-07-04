@@ -6,7 +6,7 @@
   },
   "certifications[0]": {
     "source": "tests/fixtures/candidate/sample-resume.txt",
-    "extractor": "extract.py",
+    "extractor": "gmj_extract.py",
     "confidence": 0.95
   }
 }

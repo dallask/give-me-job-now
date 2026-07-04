@@ -20,7 +20,7 @@ Deterministic only: span resolution is machine-checkable; the LLM Gate-A verdict
 judgment and is NOT asserted here (repo discipline).
 
 No pytest — run with ``python3 tests/test_schema_migration.py``. This harness is EXPECTED
-to be RED at the end of plan 09-01 because ``render_cv.py`` still reads ``technical_expertise``
+to be RED at the end of plan 09-01 because ``gmj_render_cv.py`` still reads ``technical_expertise``
 and does not yet import ``schema_fields``; later plans (09-02+) turn it green.
 """
 
@@ -35,7 +35,7 @@ import yaml
 from pypdf import PdfReader
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = REPO_ROOT / "scripts" / "cv" / "render_cv.py"
+SCRIPT = REPO_ROOT / "scripts" / "cv" / "gmj_render_cv.py"
 CONFIG = REPO_ROOT / "config" / "candidate.yaml"
 UA_OVERLAY = REPO_ROOT / "config" / "candidate.ua.yaml"
 ARTIFACTS_DIR = REPO_ROOT / "scripts" / "artifacts"
@@ -86,7 +86,7 @@ def test_no_container_repr_and_nonempty() -> None:
 
 def test_span_round_trip() -> None:
     sys.path.insert(0, str(ARTIFACTS_DIR))
-    from yaml_path import resolve_path
+    from gmj_yaml_path import resolve_path
 
     candidate = yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
     assert resolve_path(candidate, "expertise[0].skills[0]"), "real new-key span must resolve to a truthy value"
@@ -102,7 +102,7 @@ def test_schema_fields_single_owner() -> None:
     import ast
 
     src = SCRIPT.read_text(encoding="utf-8")
-    assert "from schema_fields import" in src, "render_cv.py must import the schema_fields registry (SCHEMA-06)"
+    assert "from gmj_schema_fields import" in src, "gmj_render_cv.py must import the schema_fields registry (SCHEMA-06)"
     # A green gate must prove USE, not just the presence of an import string: an
     # imported-but-unused constant is exactly the hollow Direction-B failure this
     # harness exists to catch. Parse the renderer AST and require the registry
@@ -111,7 +111,7 @@ def test_schema_fields_single_owner() -> None:
     used = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
     for const in ("CONTACT", "WEBSITE_GROUPS"):
         assert const in used, (
-            f"render_cv.py imports {const} but never USES it — the single-owner "
+            f"gmj_render_cv.py imports {const} but never USES it — the single-owner "
             f"registry is hollow (SCHEMA-06)"
         )
 

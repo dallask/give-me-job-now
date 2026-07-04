@@ -59,12 +59,12 @@ The deterministic control plane makes every safety decision; the hub calls scrip
 
 1. **init_run** — freeze `execution_mode` + `retry_cap` + `run_id` into
    `.pipeline/runs/<run_id>/state.json`.
-2. **route** — `route.py` picks the next step; `check_offer.py` runs before each dispatch
+2. **route** — `gmj_route.py` picks the next step; `gmj_check_offer.py` runs before each dispatch
    (stale offer aborts); `Task(spoke)` produces a draft or gate_result.
-3. **gate** — at a gate node, `check_truth.py` (Gate A) / `score_fit.py` (Gate B) exit 0/1
-   with no bypass; `record_gate.py` records the verdict. FAIL → `record_retry.py` →
-   `check_cap.py` (below cap: `map_feedback.py` → re-compose; at cap: HARD STOP).
-4. **deliver** — `check_delivery.py` confirms **Gate A ∧ Gate B recorded pass** before any
+3. **gate** — at a gate node, `gmj_check_truth.py` (Gate A) / `gmj_score_fit.py` (Gate B) exit 0/1
+   with no bypass; `gmj_record_gate.py` records the verdict. FAIL → `gmj_record_retry.py` →
+   `gmj_check_cap.py` (below cap: `gmj_map_feedback.py` → re-compose; at cap: HARD STOP).
+4. **deliver** — `gmj_check_delivery.py` confirms **Gate A ∧ Gate B recorded pass** before any
    artifact is delivered.
 
 `execution_mode` gates **only the human pause**, never the machine gate: HITL pauses for
@@ -78,10 +78,10 @@ approval after a PASS; autonomous proceeds automatically. Truth (Gate A) and tar
 Each delivered artifact passes **Gate A (truth)** and **Gate B (target-fit)** before it
 ships:
 
-- **CV** — PDF under `output/cv/` (draft → `draft_to_cv_yaml.py` bridge →
-  `render_cv.py --lang <lang>`).
-- **Cover letter** — PDF under `output/cv/` (`render_cover_letter.py`).
-- **Interview-prep** — markdown document (`render_interview_prep.py`).
+- **CV** — PDF under `output/cv/` (draft → `gmj_draft_to_cv_yaml.py` bridge →
+  `gmj_render_cv.py --lang <lang>`).
+- **Cover letter** — PDF under `output/cv/` (`gmj_render_cover_letter.py`).
+- **Interview-prep** — markdown document (`gmj_render_interview_prep.py`).
 
 Gate verdicts and run state are logged under **`.pipeline/runs/<run_id>/`** — the audit
 trail (GUARD-03 / T-08-13): the recorded `gate_result` artifacts prove which verdicts
@@ -94,7 +94,7 @@ passed for each delivered artifact.
 | Criterion | What it proves | How it is exercised | Status |
 |-----------|----------------|---------------------|--------|
 | **E2E-01** | Deterministic guard enforcement: nothing fabricated/off-target ships; an approved draft renders to a real PDF with zero manual authoring | `python3 tests/test_e2e_guards.py` (matrix + dry-run + wiring + runbook assertions) | **DONE** — deterministic, repeatable |
-| **E2E-02** | CV + cover letter rendered via Python, no manual PDF authoring | bridge (`draft_to_cv_yaml.py`) + renderers (`render_cv.py`, `render_cover_letter.py`, `render_interview_prep.py`), wired in `.claude/agents/cv-generator.md` | Covered |
+| **E2E-02** | CV + cover letter rendered via Python, no manual PDF authoring | bridge (`gmj_draft_to_cv_yaml.py`) + renderers (`gmj_render_cv.py`, `gmj_render_cover_letter.py`, `gmj_render_interview_prep.py`), wired in `.claude/agents/cv-generator.md` | Covered |
 | **E2E-03** | Live real-offer run produces accepted artifacts end to end | `/pipeline-run` on a real offer + populated `config/candidate.yaml` | **Human-acceptance UAT** — operator drives + accepts |
 
 **E2E-01** is the deterministic floor (machine-proven). **E2E-03** is the live acceptance

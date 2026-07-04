@@ -3,7 +3,7 @@
 
 Plain-python3 self-running harness (NO pytest) — run with
 ``python3 tests/test_preferences_tone.py``. Proves the EXECUTED validator
-(scripts/preferences/validate_preferences.py) both:
+(scripts/preferences/gmj_validate_preferences.py) both:
 
 - ACCEPTS a preferences.yaml carrying an optional ``cover_letter_tone`` string (exit 0), and
 - still FAILS CLOSED on an unknown/misspelled top-level key (root
@@ -24,7 +24,7 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-VALIDATOR = REPO_ROOT / "scripts" / "preferences" / "validate_preferences.py"
+VALIDATOR = REPO_ROOT / "scripts" / "preferences" / "gmj_validate_preferences.py"
 
 
 def _write(tmp: Path, name: str, data) -> Path:

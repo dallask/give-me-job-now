@@ -4,7 +4,7 @@
 This is the *write-side inverse* of ``scripts/artifacts/yaml_path.resolve_path``.
 Where ``resolve_path`` walks a dotted/indexed ``source_span`` to *read* a value out
 of ``candidate.yaml``, this module walks the same span to *write* each approved
-claim's ``text`` into a fresh CV-YAML tree that ``scripts/cv/render_cv.py`` consumes
+claim's ``text`` into a fresh CV-YAML tree that ``scripts/cv/gmj_render_cv.py`` consumes
 (Pitfall 2: the artifact_draft claims shape is NOT the CV-YAML shape).
 
 No-invention guarantee (core value / threat T-08-04): every scalar leaf written into
@@ -32,12 +32,12 @@ bridge-draft seam defect (repo memory ``pipeline-draft-bridge-defect``): the com
 supplies header claims rather than the bridge inventing them from the master profile.
 
 Grammar ownership (anti-drift T-04-05 / T-08-01): the segment grammar is imported as
-``SEGMENT`` from ``scripts/artifacts/yaml_path.py`` — the single owner. No second
+``SEGMENT`` from ``scripts/artifacts/gmj_yaml_path.py`` — the single owner. No second
 regex is declared here. ``set_path`` reuses the read-side strictness: ``fullmatch``
 each segment, walk dict-key + non-negative ``[int]`` list indices only — never
 attribute-set, never a negative index, never path traversal.
 
-Run:  python3 scripts/cv/draft_to_cv_yaml.py --file <draft.json> --out <cv.yaml>
+Run:  python3 scripts/cv/gmj_draft_to_cv_yaml.py --file <draft.json> --out <cv.yaml>
 """
 
 from __future__ import annotations
@@ -52,14 +52,14 @@ import yaml
 
 # Single grammar owner — import, never re-declare (anti-drift T-04-05 / T-08-01).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "artifacts"))
-from yaml_path import SEGMENT  # noqa: E402
+from gmj_yaml_path import SEGMENT  # noqa: E402
 
 
 def _steps(dotted: str) -> list[tuple[str, object]]:
     """Flatten a dotted/indexed span into an ordered list of walk steps.
 
     Each step is ``("key", name)`` or ``("idx", int)``. A segment failing
-    ``SEGMENT.fullmatch`` raises KeyError (mirrors yaml_path.py:34-35). Only
+    ``SEGMENT.fullmatch`` raises KeyError (mirrors gmj_yaml_path.py:34-35). Only
     non-negative integer indices are producible (``\\[\\d+\\]`` — no sign).
     """
     steps: list[tuple[str, object]] = []
@@ -171,7 +171,7 @@ def set_path(tree: dict, dotted: str, value: object, compaction: dict) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Span-driven bridge: reconstruct an approved cv artifact_draft "
-        "into a render_cv.py-consumable CV-YAML by writing each claim.text at the "
+        "into a gmj_render_cv.py-consumable CV-YAML by writing each claim.text at the "
         "path named by its source_span. Zero invented content; any unsafe/out-of-"
         "range span exits 1."
     )
@@ -188,7 +188,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    # Degrade-without-traceback (copied in spirit from check_truth.py:176-199).
+    # Degrade-without-traceback (copied in spirit from gmj_check_truth.py:176-199).
     draft_path = args.file.expanduser().resolve()
     if not draft_path.is_file():
         print(f"Not a file: {draft_path}", file=sys.stderr)

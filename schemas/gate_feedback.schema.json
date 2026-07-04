@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:give-me-job:schema:gate_feedback",
   "title": "gate_feedback projection",
-  "description": "Structured-only composer-retry feedback projected from a gate_result by scripts/pipeline/map_feedback.py (GUARD-04). Field names are locked to the frozen tests/fixtures/gate_feedback.sample.json shape and are NEVER renamed: fabricated_claims items carry the PLURAL claims_index (matching the fixture), source_span, and a deterministic reason sentence; missing_must_haves is a plain string array. additionalProperties:false forbids any evaluator prose / transcript / gate stdout leaking into a retry.",
+  "description": "Structured-only composer-retry feedback projected from a gate_result by scripts/pipeline/gmj_map_feedback.py (GUARD-04). Field names are locked to the frozen tests/fixtures/gate_feedback.sample.json shape and are NEVER renamed: fabricated_claims items carry the PLURAL claims_index (matching the fixture), source_span, and a deterministic reason sentence; missing_must_haves is a plain string array. additionalProperties:false forbids any evaluator prose / transcript / gate stdout leaking into a retry.",
   "type": "object",
   "properties": {
     "gate": {

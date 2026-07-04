@@ -5,11 +5,11 @@ Runnable as a plain assertion script (no pytest), matching the repo convention o
 ``python3 tests/test_*.py``. This proves the EXISTING Gate A + Gate B mechanisms stay
 green on the depth-phase fixtures — no new gate is added, no gate flag is changed:
 
-- Gate A on the rich interview-prep fixture: ``check_claims.py`` exit 0 AND
-  ``check_truth.py`` exit 0 (every span resolves, every number in-span).
-- Gate A on the toned cover-letter fixture: ``check_claims.py`` exit 0 AND
-  ``check_truth.py`` exit 0 (offer-register tone is phrasing only — still span-traced).
-- Gate B on the rich interview-prep fixture: ``score_fit.py`` exit 0 against the committed
+- Gate A on the rich interview-prep fixture: ``gmj_check_claims.py`` exit 0 AND
+  ``gmj_check_truth.py`` exit 0 (every span resolves, every number in-span).
+- Gate A on the toned cover-letter fixture: ``gmj_check_claims.py`` exit 0 AND
+  ``gmj_check_truth.py`` exit 0 (offer-register tone is phrasing only — still span-traced).
+- Gate B on the rich interview-prep fixture: ``gmj_score_fit.py`` exit 0 against the committed
   ``offer.python-mid.sample.json`` with the plan's coverage_map + ``fit_thresholds.yaml``.
 
 Every gate is invoked with NO mode/bypass flag — the gates block identically in all modes.
@@ -26,9 +26,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
-CHECK_CLAIMS = REPO_ROOT / "scripts" / "artifacts" / "check_claims.py"
-CHECK_TRUTH = REPO_ROOT / "scripts" / "artifacts" / "check_truth.py"
-SCORE_FIT = REPO_ROOT / "scripts" / "artifacts" / "score_fit.py"
+CHECK_CLAIMS = REPO_ROOT / "scripts" / "artifacts" / "gmj_check_claims.py"
+CHECK_TRUTH = REPO_ROOT / "scripts" / "artifacts" / "gmj_check_truth.py"
+SCORE_FIT = REPO_ROOT / "scripts" / "artifacts" / "gmj_score_fit.py"
 
 CANDIDATE = REPO_ROOT / "config" / "candidate.yaml"
 THRESHOLDS = REPO_ROOT / "config" / "fit_thresholds.yaml"

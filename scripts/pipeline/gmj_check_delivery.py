@@ -9,10 +9,10 @@ from ``config/pipeline.dag.yaml``. Any missing/failed verdict, or absent
 
 This is an INDEPENDENT backstop that refuses delivery regardless of any loop
 state: even a loop bug cannot ship a failed draft (Pitfall 2 defense-in-depth,
-T-07-13). Control flow mirrors ``scripts/offers/check_offer.py`` (read → boolean
+T-07-13). Control flow mirrors ``scripts/offers/gmj_check_offer.py`` (read → boolean
 → exit 0/1). All error paths go to stderr with no traceback.
 
-CLI: ``check_delivery.py --state <path>`` prints ``deliverable`` + exit 0, or a
+CLI: ``gmj_check_delivery.py --state <path>`` prints ``deliverable`` + exit 0, or a
 structured ``blocked: <which gate missing/failed>`` to stderr + exit 1 (also on
 missing file / invalid JSON / non-dict state).
 """

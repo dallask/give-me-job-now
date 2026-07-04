@@ -2,9 +2,9 @@
 # Full-suite runner for the Phase 02 contract layer (ARCH-04/05/06, GUARD-01).
 #
 # Wraps the RESEARCH Code Examples into one gate:
-#   - per-kind valid/invalid schema validation (validate_envelope.py),
-#   - hash reproducibility demo (hash_artifact.py, ARCH-05),
-#   - deterministic route demo (route.py, ARCH-06),
+#   - per-kind valid/invalid schema validation (gmj_validate_envelope.py),
+#   - hash reproducibility demo (gmj_hash_artifact.py, ARCH-05),
+#   - deterministic route demo (gmj_route.py, ARCH-06),
 #   - the SubagentStop hook's offline extraction+validation path against the
 #     mock transcript fixture (validate-envelope.sh must BLOCK the malformed envelope).
 #
@@ -16,9 +16,9 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
-VALIDATOR="scripts/contracts/validate_envelope.py"
-HASHER="scripts/contracts/hash_artifact.py"
-ROUTER="scripts/pipeline/route.py"
+VALIDATOR="scripts/contracts/gmj_validate_envelope.py"
+HASHER="scripts/contracts/gmj_hash_artifact.py"
+ROUTER="scripts/pipeline/gmj_route.py"
 HOOK=".claude/hooks/validate-envelope.sh"
 SAMPLES="schemas/samples"
 DAG="config/pipeline.dag.yaml"

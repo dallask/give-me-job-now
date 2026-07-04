@@ -37,12 +37,12 @@ This repository supports a **hub-and-spoke job/CV collective**: vacancy research
 | Normalized vacancies | `sources/vacancies/` |
 | Analyzer / review artifacts | `sources/analysis/` |
 | CV PDFs | `output/cv/` |
-| Extract & render CLI | `scripts/cv/extract.py`, `scripts/cv/render_cv.py` |
+| Extract & render CLI | `scripts/cv/gmj_extract.py`, `scripts/cv/gmj_render_cv.py` |
 | Optional HTML PDF template | `templates/cv/default.html` (requires WeasyPrint) |
 
 ## PDF generation
 
-CV PDFs are produced **only** via Python (`scripts/cv/render_cv.py`), not by manual binary authoring in chat.
+CV PDFs are produced **only** via Python (`scripts/cv/gmj_render_cv.py`), not by manual binary authoring in chat.
 
 ## Agents (`.claude/agents/`)
 
@@ -60,10 +60,10 @@ CV PDFs are produced **only** via Python (`scripts/cv/render_cv.py`), not by man
 ## CV generation pipelines
 
 **Simple pipeline** — full CV, no skill filter:
-`candidate.yaml` → `render_cv.py [--lang ua|ru]` → PDF
+`candidate.yaml` → `gmj_render_cv.py [--lang ua|ru]` → PDF
 
 **Skill-specific pipeline** — targeted CV for a role:
-`candidate.yaml` → `cv-composer` → `config/cv/cv.[skill].[lang].yaml` → `render_cv.py` → PDF → review/enhance loop
+`candidate.yaml` → `cv-composer` → `config/cv/cv.[skill].[lang].yaml` → `gmj_render_cv.py` → PDF → review/enhance loop
 
 The skill-specific pipeline is triggered by goals like "generate CV for [role] in [language]". The orchestrator handles market research, gap approval, and the review-enhance loop automatically.
 

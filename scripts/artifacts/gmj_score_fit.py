@@ -33,7 +33,7 @@ Non-bypass (threat T-06-12): the CLI exposes ONLY ``--file``/``--offer``/``--cov
 force, or mode argument — a below-threshold coverage exits 1 unconditionally; there is simply
 no escape path (a unit test greps this source to prove the forbidden flag tokens are absent).
 
-CLI: ``score_fit.py --file <draft.json> --offer <offer_spec.json> --coverage-map <map.json>
+CLI: ``gmj_score_fit.py --file <draft.json> --offer <offer_spec.json> --coverage-map <map.json>
       [--thresholds config/fit_thresholds.yaml] [--schema-dir DIR] [--polish <polish.json>]``
 """
 
@@ -50,7 +50,7 @@ from jsonschema import Draft202012Validator
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # scripts/artifacts/ -> repo root
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "contracts"))
-from validate_envelope import build_registry  # noqa: E402  reuse the local schema registry
+from gmj_validate_envelope import build_registry  # noqa: E402  reuse the local schema registry
 
 DEFAULT_SCHEMA_DIR = REPO_ROOT / "schemas"
 DEFAULT_THRESHOLDS = REPO_ROOT / "config" / "fit_thresholds.yaml"

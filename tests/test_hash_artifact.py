@@ -2,7 +2,7 @@
 """Behavior tests for the executed artifact hasher (ARCH-05).
 
 Runnable as a plain assertion script (no pytest dependency). Proves that
-``scripts/contracts/hash_artifact.py`` computes a content-integrity fingerprint
+``scripts/contracts/gmj_hash_artifact.py`` computes a content-integrity fingerprint
 that is:
 
 - deterministic — identical input yields the identical 64-char lowercase hex
@@ -27,14 +27,14 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SAMPLES = REPO_ROOT / "schemas" / "samples"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-HASHER = REPO_ROOT / "scripts" / "contracts" / "hash_artifact.py"
+HASHER = REPO_ROOT / "scripts" / "contracts" / "gmj_hash_artifact.py"
 
 SAMPLE = SAMPLES / "offer_spec.valid.json"
 CYRILLIC = FIXTURES / "hash_cyrillic.json"
 VOLATILE = FIXTURES / "hash_volatile.json"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "contracts"))
-import hash_artifact  # noqa: E402
+import gmj_hash_artifact as hash_artifact  # noqa: E402
 
 _HEX = set("0123456789abcdef")
 

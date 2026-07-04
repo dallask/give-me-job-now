@@ -20,7 +20,7 @@ Also requires: latest `sources/analysis/cv-review-*.md` or explicit edit list fr
 - Apply edits conservatively: wording, ordering, keyword alignment, bullet strengthening.
 - Do not invent employers, dates, or credentials.
 - In the skill-cv pipeline: edit **only** `config/cv/cv.{slug}.{lang}.yaml` — never touch `config/candidate.yaml`.
-- If PDF refresh is required, state the exact `render_cv.py` command for **`cv-generator`** rather than running Bash unless orchestrator placed you in a session that allows Bash—in default collective flow, orchestrator runs **`cv-generator`** after you finish.
+- If PDF refresh is required, state the exact `gmj_render_cv.py` command for **`cv-generator`** rather than running Bash unless orchestrator placed you in a session that allows Bash—in default collective flow, orchestrator runs **`cv-generator`** after you finish.
 
 ## Rules
 

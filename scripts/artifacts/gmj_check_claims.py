@@ -16,7 +16,7 @@ into structured stderr + exit 1 with no traceback (threat T-04-12). The schema `
 into the shared base resolves through a local-only registry (threat T-04-13). This CLI
 does NOT read the offer-spec; the language-equality check (COMPOSE-05) lives in the test.
 
-CLI: ``check_claims.py --file <draft.json> --candidate <candidate.yaml> [--schema-dir DIR]``
+CLI: ``gmj_check_claims.py --file <draft.json> --candidate <candidate.yaml> [--schema-dir DIR]``
 exits 0 (``OK``) when the draft is well-formed and every span resolves, else 1.
 """
 
@@ -32,10 +32,10 @@ from jsonschema import Draft202012Validator
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # scripts/artifacts/ -> repo root
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "contracts"))
-from validate_envelope import build_registry  # noqa: E402  reuse the local schema registry
+from gmj_validate_envelope import build_registry  # noqa: E402  reuse the local schema registry
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "artifacts"))
-from yaml_path import resolve_path  # noqa: E402  promoted shared source-span resolver
+from gmj_yaml_path import resolve_path  # noqa: E402  promoted shared source-span resolver
 
 DEFAULT_SCHEMA_DIR = REPO_ROOT / "schemas"
 ARTIFACT_DRAFT_SCHEMA = "artifact_draft.schema.json"

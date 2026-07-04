@@ -9,7 +9,7 @@ description: Select several shortlisted offers; freeze + run each as its own gat
 
 You are the **top-level hub persona** for a multi-offer batch. You read the shortlist,
 prompt the user to pick several offers, and drive the **EXISTING single-offer pipeline
-loop once per selected offer** — the same `route.py → check_offer.py → Task(spoke) →
+loop once per selected offer** — the same `gmj_route.py → gmj_check_offer.py → Task(spoke) →
 gates → deliver` loop documented in `.claude/agents/vacancy-orchestrator.md`, only wrapped
 per offer under a resumable batch manifest. The deterministic engine
 `scripts/pipeline/gmj_batch.py` does the **deciding** (selection resolve, manifest CRUD,
@@ -29,9 +29,9 @@ pipeline (Pitfall 4). `scripts/pipeline/gmj_batch.py` is invoked via **`Bash`** 
 
 Drive the deterministic control plane via **`Bash`** for every safety decision — the hub
 never judges a gate, a cap, freeze integrity, or delivery. `gmj_batch.py` (the batch
-engine) and the per-run scripts (`route.py`, `check_offer.py`, `check_truth.py`,
-`score_fit.py`, `record_gate.py`, `record_retry.py`, `check_cap.py`, `map_feedback.py`,
-`check_delivery.py`) own those verdicts. **Do NOT restate or reimplement gate / cap /
+engine) and the per-run scripts (`gmj_route.py`, `gmj_check_offer.py`, `gmj_check_truth.py`,
+`gmj_score_fit.py`, `gmj_record_gate.py`, `gmj_record_retry.py`, `gmj_check_cap.py`, `gmj_map_feedback.py`,
+`gmj_check_delivery.py`) own those verdicts. **Do NOT restate or reimplement gate / cap /
 freeze / route logic in prose** beyond naming the existing scripts; the persona
 orchestrates, it never re-judges a gate.
 
@@ -60,7 +60,7 @@ orchestrates, it never re-judges a gate.
      `trace.source_url` + title/company** (NOT a fresh board search) to produce a
      gate-quality fielded offer draft. If `thin: false`, use the coarse seed draft that
      `init` already wrote under `.pipeline/batches/<batch_id>/drafts/offer-<i>.draft.json`.
-   - **Freeze:** `Bash: python3 scripts/offers/freeze_offer.py --file <draft-path>` →
+   - **Freeze:** `Bash: python3 scripts/offers/gmj_freeze_offer.py --file <draft-path>` →
      prints the immutable, hash-stamped offer-spec path; read the `offer_spec_hash` from
      that written offer-spec file.
    - **Stamp the manifest:**
@@ -69,23 +69,23 @@ orchestrates, it never re-judges a gate.
      init placeholders Phase 16 inspects).
    - **Record the hash into each per-type state:** for **each** of that offer's three
      per-(offer, artifact_type) run_ids (`<base_run_id>-cv` / `-cl` / `-ip`):
-     `Bash: python3 scripts/pipeline/state_write.py --state .pipeline/runs/<per_type_run_id>/state.json --offer-spec-path <path> --offer-spec-hash <hash>`
-     so `check_offer.py` can integrity-check that per-type run against the frozen spec.
+     `Bash: python3 scripts/pipeline/gmj_state_write.py --state .pipeline/runs/<per_type_run_id>/state.json --offer-spec-path <path> --offer-spec-hash <hash>`
+     so `gmj_check_offer.py` can integrity-check that per-type run against the frozen spec.
      `init` already froze mode/cap/run_id + seeded `current_step` into all three — record
      ONLY the offer-spec here; do not re-init.
 
 4. **Per offer, SEQUENTIALLY, run the UNCHANGED per-offer pipeline loop** (single-threaded
    default; parallel deferred) scoped to that offer's run_ids. For **each** artifact type
    (`cv` / `cover_letter` / `interview_prep`) run the `vacancy-orchestrator` loop verbatim:
-   `route.py` (next step) → `check_offer.py` before each dispatch → `Task(<spoke>)` →
-   on a gate node: `check_truth.py` (Gate A) → `record_gate.py` → `score_fit.py` (Gate B) →
-   `record_gate.py` → on FAIL: `record_retry.py --increment` → `check_cap.py`
-   (below-cap → `map_feedback.py` → `Task(artifact-composer)` recompose; at-cap → **HARD
-   STOP** naming the failing artifact + the last gate's reason) → `check_delivery.py`
+   `gmj_route.py` (next step) → `gmj_check_offer.py` before each dispatch → `Task(<spoke>)` →
+   on a gate node: `gmj_check_truth.py` (Gate A) → `gmj_record_gate.py` → `gmj_score_fit.py` (Gate B) →
+   `gmj_record_gate.py` → on FAIL: `gmj_record_retry.py --increment` → `gmj_check_cap.py`
+   (below-cap → `gmj_map_feedback.py` → `Task(artifact-composer)` recompose; at-cap → **HARD
+   STOP** naming the failing artifact + the last gate's reason) → `gmj_check_delivery.py`
    (Gate A ∧ Gate B recorded pass) → `Task(cv-generator)` render. Consult `execution_mode`
    ONLY for the post-PASS human pause; both gates block identically in every mode.
 
-5. **Mark delivered.** After a per-artifact-type run's `check_delivery.py` passes and it
+5. **Mark delivered.** After a per-artifact-type run's `gmj_check_delivery.py` passes and it
    renders:
    `Bash: python3 scripts/pipeline/gmj_batch.py mark --batch <batch_id> --run-id <per_type_run_id> --status delivered`.
 

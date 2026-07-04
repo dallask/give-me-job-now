@@ -22,10 +22,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_DIR = REPO_ROOT / "schemas"
 SAMPLES = SCHEMA_DIR / "samples"
-VALIDATOR = REPO_ROOT / "scripts" / "contracts" / "validate_envelope.py"
+VALIDATOR = REPO_ROOT / "scripts" / "contracts" / "gmj_validate_envelope.py"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "contracts"))
-import validate_envelope  # noqa: E402
+import gmj_validate_envelope as validate_envelope  # noqa: E402
 
 KINDS = ("offer_spec", "artifact_draft", "gate_result")
 

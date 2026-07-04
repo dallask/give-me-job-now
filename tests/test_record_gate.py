@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plain-python3 tests for scripts/pipeline/record_gate.py (GUARD-03).
+"""Plain-python3 tests for scripts/pipeline/gmj_record_gate.py (GUARD-03).
 
 Proves the gate-verdict recorder does BOTH jobs atomically so the audit log and the
 routing state can never disagree (Pattern 5, threat T-07-09):
@@ -7,7 +7,7 @@ routing state can never disagree (Pattern 5, threat T-07-09):
   1. The emitted gate_result envelope is written verbatim as an artifact under the run
      dir (``gate_<node>_<type>_<attempt>.json``).
   2. ``state.gate_results[<node>]`` is set to the envelope's ``content.verdict`` so
-     route.py can branch (Wiring Fact 1 — route.py RAISES on a gate node with no recorded
+     gmj_route.py can branch (Wiring Fact 1 — gmj_route.py RAISES on a gate node with no recorded
      verdict).
 
 Also proves the Gate-B ``{gate_b, gate_c}`` wrapper is normalized to the inner gate_b
@@ -28,11 +28,11 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = REPO_ROOT / "scripts" / "pipeline" / "record_gate.py"
+SCRIPT = REPO_ROOT / "scripts" / "pipeline" / "gmj_record_gate.py"
 DAG_PATH = REPO_ROOT / "config" / "pipeline.dag.yaml"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "pipeline"))
-import route  # noqa: E402  drives the Wiring Fact 1 no-raise regression case
+import gmj_route as route  # noqa: E402  drives the Wiring Fact 1 no-raise regression case
 
 # Sentinel pre-existing keys that MUST survive a gate-verdict update.
 SEED_STATE = {
@@ -41,14 +41,14 @@ SEED_STATE = {
     "offer_spec_hash": "deadbeef",
 }
 
-# A bare Gate-A gate_result envelope, exactly as check_truth.py emits it to stdout.
+# A bare Gate-A gate_result envelope, exactly as gmj_check_truth.py emits it to stdout.
 GATE_A_ENVELOPE = {
     "schema_version": "1.0",
     "kind": "gate_result",
     "content": {"gate": "A", "verdict": "pass", "offending_claims": []},
 }
 
-# score_fit.py's {gate_b, gate_c} wrapper stdout — the wrapper is what record_gate normalizes.
+# gmj_score_fit.py's {gate_b, gate_c} wrapper stdout — the wrapper is what record_gate normalizes.
 GATE_B_WRAPPER = {
     "gate_b": {
         "schema_version": "1.0",
@@ -110,7 +110,7 @@ def test_gate_a_bare_envelope_recorded_as_artifact_and_state() -> None:
         "--artifact-type", "cv",
         "--attempt", "0",
     )
-    assert r.returncode == 0, f"record_gate.py failed: {r.stderr}"
+    assert r.returncode == 0, f"gmj_record_gate.py failed: {r.stderr}"
 
     artifact = run_dir / "gate_truth-verifier_cv_0.json"
     assert artifact.is_file(), f"artifact not written under run dir: {artifact}"
@@ -135,7 +135,7 @@ def test_gate_b_wrapper_normalized_to_inner_envelope() -> None:
         "--artifact-type", "cv",
         "--attempt", "1",
     )
-    assert r.returncode == 0, f"record_gate.py failed: {r.stderr}"
+    assert r.returncode == 0, f"gmj_record_gate.py failed: {r.stderr}"
 
     artifact = run_dir / "gate_fit-evaluator_cv_1.json"
     assert artifact.is_file(), f"artifact not written: {artifact}"
@@ -166,7 +166,7 @@ def test_sibling_state_keys_survive() -> None:
         "--artifact-type", "cv",
         "--attempt", "0",
     )
-    assert r.returncode == 0, f"record_gate.py failed: {r.stderr}"
+    assert r.returncode == 0, f"gmj_record_gate.py failed: {r.stderr}"
     state = _load(state_path)
     assert state["current_step"] == "truth-verifier", "current_step clobbered"
     assert state["retry_counts"] == {"acme": {"cv": 1}}, "retry_counts clobbered"
@@ -185,7 +185,7 @@ def test_stdin_result_supported() -> None:
         "--attempt", "2",
         stdin=json.dumps(GATE_A_ENVELOPE),
     )
-    assert r.returncode == 0, f"record_gate.py failed on stdin: {r.stderr}"
+    assert r.returncode == 0, f"gmj_record_gate.py failed on stdin: {r.stderr}"
     assert (run_dir / "gate_truth-verifier_cover_letter_2.json").is_file()
 
 
@@ -236,7 +236,7 @@ def test_missing_verdict_rejected() -> None:
 
 
 def test_route_does_not_raise_on_produced_state() -> None:
-    """Wiring Fact 1 regression: the recorded verdict lets route.py branch, not raise."""
+    """Wiring Fact 1 regression: the recorded verdict lets gmj_route.py branch, not raise."""
     state_path = _seed_state()
     run_dir = _run_dir()
     result_path = _write_result(GATE_A_ENVELOPE)
@@ -248,7 +248,7 @@ def test_route_does_not_raise_on_produced_state() -> None:
         "--artifact-type", "cv",
         "--attempt", "0",
     )
-    assert r.returncode == 0, f"record_gate.py failed: {r.stderr}"
+    assert r.returncode == 0, f"gmj_record_gate.py failed: {r.stderr}"
 
     state = _load(state_path)
     state["current_step"] = "truth-verifier"  # route reads gate_results[current_step]

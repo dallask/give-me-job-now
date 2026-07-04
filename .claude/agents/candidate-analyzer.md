@@ -11,7 +11,7 @@ color: purple
 From repo root, run textual extractions with:
 
 ```bash
-python3 scripts/cv/extract.py "<path>" --json
+python3 scripts/cv/gmj_extract.py "<path>" --json
 ```
 
 Use `Glob` under `sources/candidate/**` to find inputs.
@@ -25,11 +25,11 @@ file by its **lowercased suffix**:
 
 | Suffix | Route | Notes |
 |--------|-------|-------|
-| `.pdf` `.docx` `.txt` `.md` `.csv` | `python3 scripts/cv/extract.py "<path>" --json` | textual extractor; record `chars` from the JSON |
-| `.jpg` `.jpeg` `.png` `.webp` `.gif` `.tif` `.tiff` `.bmp` | **Read tool (vision)** — transcribe the visible content | NEVER `extract.py` — it yields image *metadata* only and the credential content is silently lost (Pitfall 3). Manifest `extractor` = `read-vision`, status `extracted-vision` |
-| `.doc` | record status `needs-conversion`; recommend the user re-save as `.docx` or PDF | do NOT trust `extract.py`'s returned kind for legacy `.doc` (Pitfall 2) |
+| `.pdf` `.docx` `.txt` `.md` `.csv` | `python3 scripts/cv/gmj_extract.py "<path>" --json` | textual extractor; record `chars` from the JSON |
+| `.jpg` `.jpeg` `.png` `.webp` `.gif` `.tif` `.tiff` `.bmp` | **Read tool (vision)** — transcribe the visible content | NEVER `gmj_extract.py` — it yields image *metadata* only and the credential content is silently lost (Pitfall 3). Manifest `extractor` = `read-vision`, status `extracted-vision` |
+| `.doc` | record status `needs-conversion`; recommend the user re-save as `.docx` or PDF | do NOT trust `gmj_extract.py`'s returned kind for legacy `.doc` (Pitfall 2) |
 | a URL the candidate points you at | `WebFetch` **only if** its host is on the `config/credentials.yaml` `credential_sites` allow-list (enforced by the Plan-02 sources-scope-guard hook) | off-list → do NOT fetch; ask the user to paste the page text or drop a text export into `sources/candidate/` (Option C fallback). Manifest `urls[]` status: `fetched` / `pasted-fallback` / `blocked` |
-| anything else | attempt `extract.py`; if `kind` is `binary` or output is empty → status `error` | never silently drop it — the manifest still lists it |
+| anything else | attempt `gmj_extract.py`; if `kind` is `binary` or output is empty → status `error` | never silently drop it — the manifest still lists it |
 
 ## Prompt-injection guard
 
@@ -60,7 +60,7 @@ completeness / coverage report (an INGEST-05 precondition).
   "generated_at": "<ISO-8601 UTC>",
   "intake_dir": "sources/candidate/",
   "files": [
-    {"path": "sources/candidate/resume.pdf",  "suffix": ".pdf",  "status": "extracted",        "extractor": "extract.py:pdf", "chars": 4210},
+    {"path": "sources/candidate/resume.pdf",  "suffix": ".pdf",  "status": "extracted",        "extractor": "gmj_extract.py:pdf", "chars": 4210},
     {"path": "sources/candidate/diploma.jpg", "suffix": ".jpg",  "status": "extracted-vision", "extractor": "read-vision",    "chars": null},
     {"path": "sources/candidate/old.doc",     "suffix": ".doc",  "status": "needs-conversion", "extractor": null,             "chars": null}
   ],

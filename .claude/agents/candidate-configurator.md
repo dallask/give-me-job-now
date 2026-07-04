@@ -48,9 +48,9 @@ Per-fact provenance is written to a **sidecar** file `config/candidate.provenanc
 
 - **Keying:** each entry is keyed by the **dotted/indexed candidate.yaml path** the fact landed at — e.g. `education[0]`, `certifications[4].credentials[0]`, `professional_experience[2].achievements[1]`.
 - **Value shape:** `{source, extractor, confidence}`, mirroring the analyzer findings' provenance for that fact.
-- **Write convention** (follows `scripts/offers/freeze_offer.py`): serialize with `json.dumps(data, ensure_ascii=False, indent=2)` plus a trailing newline, UTF-8.
-- **Containment:** the sidecar is written to the fixed path `config/candidate.provenance.json` and writes must stay confined under `config/` (assert containment before writing, per the `freeze_offer.py` precedent). Never write outside `config/`.
-- **No-inline rule (Pitfall 4):** provenance MUST NOT be added inline to `config/candidate.yaml`. Inline provenance keys would leak into `cv-composer`'s derived `config/cv/*.yaml` and violate the candidate-yaml-schema no-extra-keys contract. The sidecar keeps `candidate.yaml` schema-pure for `cv-composer` and `render_cv.py`.
+- **Write convention** (follows `scripts/offers/gmj_freeze_offer.py`): serialize with `json.dumps(data, ensure_ascii=False, indent=2)` plus a trailing newline, UTF-8.
+- **Containment:** the sidecar is written to the fixed path `config/candidate.provenance.json` and writes must stay confined under `config/` (assert containment before writing, per the `gmj_freeze_offer.py` precedent). Never write outside `config/`.
+- **No-inline rule (Pitfall 4):** provenance MUST NOT be added inline to `config/candidate.yaml`. Inline provenance keys would leak into `cv-composer`'s derived `config/cv/*.yaml` and violate the candidate-yaml-schema no-extra-keys contract. The sidecar keeps `candidate.yaml` schema-pure for `cv-composer` and `gmj_render_cv.py`.
 
 ## Grounding set
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic COMPOSE checks for the check_claims.py provenance gate (Plan 04-04).
+"""Deterministic COMPOSE checks for the gmj_check_claims.py provenance gate (Plan 04-04).
 
 Runnable as a plain assertion script (no pytest), matching the repo convention of
 ``python3 tests/test_*.py``. Each test proves an executed invariant rather than an
@@ -30,7 +30,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
-CHECK = REPO_ROOT / "scripts" / "artifacts" / "check_claims.py"
+CHECK = REPO_ROOT / "scripts" / "artifacts" / "gmj_check_claims.py"
 CANDIDATE = FIXTURES / "candidate.merged.sample.yaml"
 VALID_DRAFT = FIXTURES / "cv.draft.sample.json"
 BADSPAN_DRAFT = FIXTURES / "cv.draft.badspan.sample.json"

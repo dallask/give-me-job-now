@@ -7,8 +7,8 @@ fixtures under ``tests/fixtures/`` and proves an executed invariant rather than 
 agent self-report:
 
 - census==glob: the coverage manifest lists exactly the intake files (Pitfall 5),
-- ``.doc`` is flagged ``needs-conversion`` by the real ``extract.py`` (Pitfall 2),
-- an image routes to the vision reader, never ``extract.py`` (INGEST-03),
+- ``.doc`` is flagged ``needs-conversion`` by the real ``gmj_extract.py`` (Pitfall 2),
+- an image routes to the vision reader, never ``gmj_extract.py`` (INGEST-03),
 - ``candidate-analyzer`` structurally cannot write the master YAML (INGEST-04),
 - the merged candidate YAML parses through ``yaml.safe_load`` (INGEST-04),
 - every provenance sidecar key resolves into a real merged-YAML node and every
@@ -28,12 +28,12 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "artifacts"))
-from yaml_path import resolve_path  # noqa: E402
+from gmj_yaml_path import resolve_path  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 CANDIDATE_DIR = FIXTURES / "candidate"
 
-EXTRACT_PY = REPO_ROOT / "scripts" / "cv" / "extract.py"
+EXTRACT_PY = REPO_ROOT / "scripts" / "cv" / "gmj_extract.py"
 MANIFEST = FIXTURES / "candidate_coverage_manifest.sample.json"
 MERGED_YAML = FIXTURES / "candidate.merged.sample.yaml"
 PROVENANCE = FIXTURES / "candidate.provenance.sample.json"
@@ -90,7 +90,7 @@ def test_doc_flagged_needs_conversion() -> None:
         text=True,
         cwd=str(REPO_ROOT),
     )
-    assert result.returncode == 0, f"extract.py failed: {result.stderr}"
+    assert result.returncode == 0, f"gmj_extract.py failed: {result.stderr}"
     payload = json.loads(result.stdout)
     assert payload["kind"] == "needs-conversion", (
         f"legacy .doc must be flagged needs-conversion, got {payload['kind']!r}"
@@ -105,8 +105,8 @@ def test_image_routed_to_vision_not_extractpy() -> None:
     assert entry["extractor"] == "read-vision", (
         f".jpg must route to read-vision, got {entry['extractor']!r}"
     )
-    assert "extract.py" not in entry["extractor"], (
-        "images must never be routed through extract.py (Pitfall 3)"
+    assert "gmj_extract.py" not in entry["extractor"], (
+        "images must never be routed through gmj_extract.py (Pitfall 3)"
     )
 
 

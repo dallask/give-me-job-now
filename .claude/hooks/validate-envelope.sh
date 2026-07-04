@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SubagentStop — schema-validate the spoke's agent_result_v1 envelope; block on failure.
 #
-# ARCH-04 / GUARD-01: this is a THIN wrapper around scripts/contracts/validate_envelope.py.
+# ARCH-04 / GUARD-01: this is a THIN wrapper around scripts/contracts/gmj_validate_envelope.py.
 # It does NOT re-implement jsonschema validation in Bash.
 #
 # RESEARCH Pitfall 1: SubagentStop stdin carries {transcript_path, agent_id, agent_type}
@@ -110,7 +110,7 @@ fi
 
 # Thin-wrapper delegation: the executed validator owns all jsonschema logic and emits
 # structured "<field/path>: <message>" errors on stderr (GUARD-01).
-VALIDATOR="${PROJECT_DIR}/scripts/contracts/validate_envelope.py"
+VALIDATOR="${PROJECT_DIR}/scripts/contracts/gmj_validate_envelope.py"
 set +e
 ERR_OUT=$(printf '%s' "$ENVELOPE" | python3 "$VALIDATOR" --stdin 2>&1 >/dev/null)
 RC=$?

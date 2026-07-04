@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plain-python3 tests for scripts/pipeline/check_cap.py (EXEC-03).
+"""Plain-python3 tests for scripts/pipeline/gmj_check_cap.py (EXEC-03).
 
 Proves the retry loop honestly hard-stops at the FROZEN cap: below the cap the
 guard prints ``continue`` and exits 0; at or over the cap it emits a distinct
@@ -18,7 +18,7 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = REPO_ROOT / "scripts" / "pipeline" / "check_cap.py"
+SCRIPT = REPO_ROOT / "scripts" / "pipeline" / "gmj_check_cap.py"
 
 
 def _run(*args: str) -> subprocess.CompletedProcess:

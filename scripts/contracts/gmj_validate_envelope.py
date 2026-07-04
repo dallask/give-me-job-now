@@ -25,7 +25,7 @@ from referencing import Registry, Resource
 KNOWN_KINDS = ("offer_spec", "artifact_draft", "gate_result")
 
 # Fixed base dir: the repo's schemas/ directory (this file lives at
-# scripts/contracts/validate_envelope.py, so repo root is two parents up).
+# scripts/contracts/gmj_validate_envelope.py, so repo root is two parents up).
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_SCHEMA_DIR = REPO_ROOT / "schemas"
 

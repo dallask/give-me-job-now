@@ -13,7 +13,7 @@ routes each file by type:
 
 | You drop | How it is read |
 |----------|----------------|
-| `.txt` `.md` `.pdf` `.docx` `.csv` | text extraction via `python3 scripts/cv/extract.py "<file>" --json` |
+| `.txt` `.md` `.pdf` `.docx` `.csv` | text extraction via `python3 scripts/cv/gmj_extract.py "<file>" --json` |
 | `.jpg` `.jpeg` `.png` `.webp` `.gif` `.tif` `.bmp` | read visually (vision) — a diploma/badge screenshot is transcribed |
 | `.doc` (legacy binary Word) | flagged **needs-conversion** — re-save as `.docx` or PDF and drop that instead |
 | anything else | attempted, and if it cannot be read it is recorded as an error — never silently dropped |

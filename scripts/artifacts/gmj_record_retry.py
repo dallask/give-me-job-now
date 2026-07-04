@@ -6,13 +6,13 @@ Minimal executed writer that records ``retry_counts[offer_slug][artifact_type] =
 its OWN retry counter, so the count becomes a resumable, executed fact — never an agent claim
 (T-04-07). Existing state keys (``current_step``, ``completed_steps``, ``gate_results``,
 ``offer_spec_path``/``offer_spec_hash``) are preserved on update; the file is created when
-absent (read-modify-preserve, cloned from ``state_write.py``).
+absent (read-modify-preserve, cloned from ``gmj_state_write.py``).
 
 Cap ENFORCEMENT + cap-exhaustion honest-stop are explicitly DEFERRED to Phase 7 (hub not yet
 rewired). This code adds NO cap check, ceiling, or refusal — it only records the count that
 Phase 7 will later read to enforce the retry cap.
 
-CLI: ``record_retry.py --state <path> --offer-slug <s> --artifact-type <cv|cover_letter|
+CLI: ``gmj_record_retry.py --state <path> --offer-slug <s> --artifact-type <cv|cover_letter|
 interview_prep> (--count N | --increment)`` exits 0 after printing the written path; invalid
 existing JSON goes to stderr, exit 1 (no traceback).
 """

@@ -3,7 +3,7 @@
 
 Proves the visual-diff metric is deterministic and size-invariant, and that the diffed
 artifact is the REAL shipped WeasyPrint PDF (compare==ship): rendering routes through
-``render_cv.py::render_weasyprint_html``, the shipped PDF starts with ``%PDF-`` and is
+``gmj_render_cv.py::render_weasyprint_html``, the shipped PDF starts with ``%PDF-`` and is
 rasterized to a non-empty PNG. Unit tests build synthetic PNGs with Pillow — no render
 needed — so the determinism assertions run fast and offline. No pytest — run with
 ``python3 tests/test_gmj_visual_diff.py``.
@@ -25,7 +25,7 @@ SCRIPT = REPO_ROOT / "scripts" / "cv" / "gmj_visual_diff.py"
 # Put scripts/cv on the path to import the metric functions directly for unit tests.
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "cv"))
 from gmj_visual_diff import diff_ratio, pdf_first_page_png  # noqa: E402
-from render_cv import (  # noqa: E402
+from gmj_render_cv import (  # noqa: E402
     render_weasyprint_html,
     candidate_with_embedded_photo,
     load_candidate,
@@ -111,7 +111,7 @@ def test_compare_is_ship() -> None:
         ratio = float(result.stdout.strip())
         assert 0.0 <= ratio <= 1.0, f"ratio out of range: {ratio}"
 
-        # Independently prove compare==ship: render through render_cv.py and rasterize.
+        # Independently prove compare==ship: render through gmj_render_cv.py and rasterize.
         repo_root = repo_root_from_config(config)
         labels = _load_labels(repo_root, "en")
         candidate = load_candidate(config, "en")

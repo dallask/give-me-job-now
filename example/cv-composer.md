@@ -9,7 +9,7 @@ color: blue
 ## Purpose
 
 Produce `config/cv/cv.[skill].[lang].yaml` — a standalone, skill-focused, fully-translated
-subset of `config/candidate.yaml` ready for `render_cv.py` without any overlay logic.
+subset of `config/candidate.yaml` ready for `gmj_render_cv.py` without any overlay logic.
 
 ## Inputs (from orchestrator prompt)
 
@@ -114,7 +114,7 @@ Confidence threshold: {threshold}
    - Translate: `name` (transliterate), `title`, `summary`, `professional_experience[*].company_description`, `professional_experience[*].achievements` (each bullet), `education[*].program`, `key_achievements[*].title`, `key_achievements[*].description`.
    - Do NOT translate: company names, technology names, URLs, dates, skills, certifications issuers.
    - Use formal register (ua: офіційно-діловий; ru: официально-деловой).
-5. Write `config/cv/cv.{skill_slug}.{lang}.yaml` — a **standalone complete file** using the same schema as `config/candidate.yaml`. No `_meta` keys; render_cv.py reads it directly.
+5. Write `config/cv/cv.{skill_slug}.{lang}.yaml` — a **standalone complete file** using the same schema as `config/candidate.yaml`. No `_meta` keys; gmj_render_cv.py reads it directly.
 6. Return `agent_result_v1` with `status: success`.
 
 ---

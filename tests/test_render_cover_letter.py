@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plain-python3 tests for scripts/cv/render_cover_letter.py (E2E-02).
+"""Plain-python3 tests for scripts/cv/gmj_render_cover_letter.py (E2E-02).
 
 Proves an approved cover_letter draft renders to a REAL PDF via ReportLab:
 magic bytes ``%PDF-`` + ``pypdf`` page count >= 1. PDF validity is asserted
@@ -20,7 +20,7 @@ from pathlib import Path
 from pypdf import PdfReader
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = REPO_ROOT / "scripts" / "cv" / "render_cover_letter.py"
+SCRIPT = REPO_ROOT / "scripts" / "cv" / "gmj_render_cover_letter.py"
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "cover_letter.draft.sample.json"
 
 

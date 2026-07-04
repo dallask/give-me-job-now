@@ -2,7 +2,7 @@
 """Honest hard-stop at the FROZEN retry cap (EXEC-03).
 
 Reads the per-(offer-slug, artifact_type) retry counter recorded by
-``record_retry.py`` and compares it to the FROZEN ``state.retry_cap``:
+``gmj_record_retry.py`` and compares it to the FROZEN ``state.retry_cap``:
 
 - below cap — ``retry_count < retry_cap``: print ``continue`` to stdout, exit 0,
 - at/over cap — ``retry_count >= retry_cap``: print a distinct EXHAUSTED report
@@ -13,11 +13,11 @@ There is NO "deliver best-effort" / ship-last-attempt branch anywhere: cap
 exhaustion is a repudiation-proof stop, not a downgrade (Pitfall 2, T-07-12).
 The cap is the FROZEN state value — this guard never re-reads
 ``config/pipeline.config.yaml`` mid-run (Pattern 1, T-07-14); a bool or missing
-cap is rejected. Control flow mirrors ``scripts/offers/check_offer.py``
+cap is rejected. Control flow mirrors ``scripts/offers/gmj_check_offer.py``
 (``.is_file()`` guard → ``json.loads`` try/except → ``isinstance`` guard →
 compute → distinct stdout token + exit code).
 
-CLI: ``check_cap.py --state <path> --offer-slug <s> --artifact-type
+CLI: ``gmj_check_cap.py --state <path> --offer-slug <s> --artifact-type
 <cv|cover_letter|interview_prep> [--reason <str>]`` exits 0 (continue) or nonzero
 (exhausted / missing file / invalid JSON / malformed cap); all errors go to
 stderr with no traceback.

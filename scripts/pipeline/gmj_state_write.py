@@ -6,7 +6,7 @@ existing state key is ever dropped and ``.pipeline/state.json`` is created when 
 
 1. Offer-spec recording (INTAKE-02): stamps ``offer_spec_path`` + ``offer_spec_hash``
    (recorded only when BOTH are supplied). This code never computes the hash — it only
-   records the value produced by the executed ``freeze_offer.py`` (T-02-09).
+   records the value produced by the executed ``gmj_freeze_offer.py`` (T-02-09).
 
 2. Run-config freeze (EXEC-01, GUARD-03): when ``--run-id`` is supplied, copies
    ``execution_mode`` + ``retry_cap`` from ``config/pipeline.config.yaml`` (with optional
@@ -17,7 +17,7 @@ existing state key is ever dropped and ``.pipeline/state.json`` is created when 
    ``run_id`` is sanitized to ``^[A-Za-z0-9._-]+$`` — "/" and ".." are rejected before it
    can become a run-dir path component (V12 path-traversal, T-07-01).
 
-``route.py`` stays a pure ``(state, dag) -> decision`` function and gains NO config logic.
+``gmj_route.py`` stays a pure ``(state, dag) -> decision`` function and gains NO config logic.
 All error paths print a structured stderr message and return 1 — never a traceback.
 """
 
@@ -96,7 +96,7 @@ def main() -> int:
         "--offer-spec-path", default=None, help="Path to the frozen offer-spec.json"
     )
     parser.add_argument(
-        "--offer-spec-hash", default=None, help="offer_spec_hash from freeze_offer.py"
+        "--offer-spec-hash", default=None, help="offer_spec_hash from gmj_freeze_offer.py"
     )
     parser.add_argument(
         "--config",

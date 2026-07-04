@@ -31,7 +31,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MERGER = REPO_ROOT / "scripts" / "offers" / "gmj_merge_shortlists.py"
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "preferences"))
-from validate_preferences import _norm_site  # noqa: E402
+from gmj_validate_preferences import _norm_site  # noqa: E402
 
 
 def _cli(

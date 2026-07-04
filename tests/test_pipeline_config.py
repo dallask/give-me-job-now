@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Plain-python3 tests for the run-config freeze path in state_write.py (EXEC-01, GUARD-03).
+"""Plain-python3 tests for the run-config freeze path in gmj_state_write.py (EXEC-01, GUARD-03).
 
-Proves that scripts/pipeline/state_write.py freezes execution_mode + retry_cap + run_id
+Proves that scripts/pipeline/gmj_state_write.py freezes execution_mode + retry_cap + run_id
 from config/pipeline.config.yaml into run-scoped state at run start, while:
 
 - preserving pre-existing sibling state keys (current_step / gate_results /
@@ -23,7 +23,7 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = REPO_ROOT / "scripts" / "pipeline" / "state_write.py"
+SCRIPT = REPO_ROOT / "scripts" / "pipeline" / "gmj_state_write.py"
 
 # Sentinel pre-existing keys that MUST survive a run-config freeze.
 SEED_STATE = {

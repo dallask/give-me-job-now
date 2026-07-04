@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic-category unit tests for the check_truth.py Gate-A pre-gate (Plan 05-04).
+"""Deterministic-category unit tests for the gmj_check_truth.py Gate-A pre-gate (Plan 05-04).
 
 Runnable as a plain assertion script (no pytest), matching the repo convention of
 ``python3 tests/test_*.py``. Each test proves an EXECUTED deterministic invariant — never
@@ -33,9 +33,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "contracts"))
-from validate_envelope import build_registry  # noqa: E402  reuse the local schema registry
+from gmj_validate_envelope import build_registry  # noqa: E402  reuse the local schema registry
 
-CHECK = REPO_ROOT / "scripts" / "artifacts" / "check_truth.py"
+CHECK = REPO_ROOT / "scripts" / "artifacts" / "gmj_check_truth.py"
 TRUTH = FIXTURES / "truth"
 CANDIDATE = TRUTH / "candidate.truth.sample.yaml"
 SCHEMA_DIR = REPO_ROOT / "schemas"
@@ -198,7 +198,7 @@ def test_no_bypass_flag() -> None:
             f"TRUTH-03 non-bypass: forbidden flag token {flag!r} must not appear in source"
         )
     assert "--file" in source and "--candidate" in source, (
-        "check_truth.py must still expose its --file/--candidate inputs"
+        "gmj_check_truth.py must still expose its --file/--candidate inputs"
     )
 
 

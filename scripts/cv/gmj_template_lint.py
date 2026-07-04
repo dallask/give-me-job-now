@@ -20,7 +20,7 @@ Section labels (``Experience`` / ``Education`` / ``Skills`` …) and every ``lab
 value are allowlisted so structural heading text never false-positives.
 
 The canonical binding-key registry (``TOP_LEVEL`` / ``CONTACT`` / ``WEBSITE_GROUPS``) is
-imported from the single-owner ``scripts/artifacts/schema_fields.py`` — never re-declared
+imported from the single-owner ``scripts/artifacts/gmj_schema_fields.py`` — never re-declared
 here — so the field names the lint reasons about cannot drift from the schema owner.
 
 CLI: ``gmj_template_lint.py --template templates/cv/<slug>.html [--sample-tokens "a,b,c"]``
@@ -39,9 +39,9 @@ from pathlib import Path
 
 # Single-owner candidate.yaml field-name registry (SCHEMA-06). Import the binding-key
 # constants rather than re-declaring literals that could drift from the schema owner.
-# Same sibling-import idiom as scripts/cv/render_cv.py (scripts/artifacts on sys.path).
+# Same sibling-import idiom as scripts/cv/gmj_render_cv.py (scripts/artifacts on sys.path).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "artifacts"))
-from schema_fields import CONTACT, TOP_LEVEL, WEBSITE_GROUPS  # noqa: E402  (all three USED below)
+from gmj_schema_fields import CONTACT, TOP_LEVEL, WEBSITE_GROUPS  # noqa: E402  (all three USED below)
 
 # The binding keys the lint reasons about are exactly the schema owner's names: a value
 # that should have flowed through candidate.<TOP_LEVEL> / candidate.contact.<CONTACT> /

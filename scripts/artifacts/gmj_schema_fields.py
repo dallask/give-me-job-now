@@ -3,9 +3,9 @@
 
 This module is the *one* place that names every top-level and nested-contact field
 of ``config/candidate.yaml``. It mirrors the anti-drift discipline of
-``scripts/artifacts/yaml_path.py`` (the single owner of the source-span *grammar*):
+``scripts/artifacts/gmj_yaml_path.py`` (the single owner of the source-span *grammar*):
 a module docstring that declares single-owner intent, followed by module-level
-UPPERCASE tuple constants. Consumers — the renderer (``scripts/cv/render_cv.py``)
+UPPERCASE tuple constants. Consumers — the renderer (``scripts/cv/gmj_render_cv.py``)
 and the migration validators — import these constants rather than re-declaring key
 literals, so a divergent second copy of the field names can no longer drift out of
 sync (Pitfall 1 / threat T-09-02).

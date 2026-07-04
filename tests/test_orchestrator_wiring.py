@@ -22,12 +22,12 @@ HUB_PATH = AGENTS_DIR / "vacancy-orchestrator.md"
 
 SPOKES = ["offer-scout", "artifact-composer", "truth-verifier", "fit-evaluator", "cv-generator"]
 CONTROL_SCRIPTS = [
-    "route.py",
-    "check_offer.py",
-    "record_gate.py",
-    "check_cap.py",
-    "map_feedback.py",
-    "check_delivery.py",
+    "gmj_route.py",
+    "gmj_check_offer.py",
+    "gmj_record_gate.py",
+    "gmj_check_cap.py",
+    "gmj_map_feedback.py",
+    "gmj_check_delivery.py",
 ]
 # Retired legacy tokens — the old cv-* review/enhance roster, the deliverable gate,
 # the fast-path label, the enhance-cycle constant, and the LLM router — must be ABSENT
@@ -69,7 +69,7 @@ def test_hub_references_all_control_scripts() -> None:
 
 def test_check_offer_runs_before_dispatch() -> None:
     hub = _read(HUB_PATH)
-    assert "check_offer.py" in hub, "check_offer.py not referenced in hub"
+    assert "gmj_check_offer.py" in hub, "gmj_check_offer.py not referenced in hub"
     # The doc must tie check_offer to running before each dispatch (INTAKE-02).
     assert "before each" in hub.lower() or "before every" in hub.lower(), (
         "hub does not state check_offer runs before each/every spoke dispatch"
