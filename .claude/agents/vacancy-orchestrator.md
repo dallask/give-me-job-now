@@ -134,6 +134,35 @@ Independent work is dispatched as **parallel `Task` calls in a single hub turn**
 deliver) run **sequentially per artifact**. This is orchestrated task fan-out on Claude
 Code's single-threaded event loop — not OS threads.
 
+### Board-search fan-out (one offer-scout Task per board)
+
+For a **board-search** goal (discover the best offers across the configured boards), fan out
+`offer-scout` **one Task per board** and let the deterministic merge script rank the union:
+
+1. **Read scope.** Read `config/sources.yaml` (the board `sites` + allowed `cities` /
+   `languages` / `limits.*`) and `config/preferences.yaml` (the ranking weights) to determine
+   the set of boards to search. These files are the scope authority; the per-board split you
+   are about to make is only a wall-clock optimization layered on top of that global scope
+   guard, **not** an extra restriction.
+2. **Fan out per board.** Dispatch **one `offer-scout` `Task` per board in a SINGLE hub turn**
+   (parallel fan-out). Each Task prompt carries the `pipeline_run_id` preamble, names **exactly
+   one board** for that worker, and passes **artifact/config paths only** (never a transcript).
+   Each worker searches only its one assigned board and writes an ephemeral, unscored per-board
+   `sources/offers/<run>-shortlist.json`.
+3. **Collect.** Gather each worker's per-board entry file path from its `agent_result_v1`
+   envelope.
+4. **Merge deterministically.** Invoke `python3 scripts/offers/gmj_merge_shortlists.py` via
+   `Bash`, passing every collected per-board file (`--board-file <f> ...`) plus
+   `--sources config/sources.yaml` and `--preferences config/preferences.yaml`, to produce the
+   canonical `.pipeline/shortlist.json` (+ `.md` job-seeker view). **The merge script is the
+   deterministic ranking / dedup / scope-filter authority** — union, cross-board dedup, hard
+   fail-closed scope-filter, and soft-rank all live in that Python (exit 0/1, no LLM). You
+   **never** order, score, or dedup offers in the LLM layer; you only dispatch the workers and
+   run the script.
+
+Board assignment lives in the Task prompt as a per-worker hint; it never loosens or replaces
+the `sources.yaml` scope guard, which still bounds every worker globally.
+
 ## Result
 
 Summarize outcomes, list **absolute paths** of artifacts from spoke envelopes and the
