@@ -16,6 +16,7 @@ Runnable as a plain assertion script (no pytest), matching the repo convention o
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -52,10 +53,28 @@ def test_invented_number_fails_as_numeric_invention() -> None:
         "an invented number absent from the cited span must hard-FAIL Gate A (exit 1), got "
         f"{result.returncode}\nstderr: {result.stderr}"
     )
-    combined = result.stdout + result.stderr
-    assert "numeric_invention" in combined, (
-        "the invented number must FAIL as rule numeric_invention; "
-        f"output: {combined}"
+    # Parse the machine-readable gate result and assert the offending set is
+    # EXACTLY the invented claim — not merely that the substring appears
+    # somewhere. A substring check would still pass if the non-target claim 0
+    # later regressed (e.g. failing as unresolved_span), masking a fixture
+    # regression while claiming to prove the FAIL is due to numeric_invention.
+    try:
+        doc = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise AssertionError(
+            f"check_truth.py must emit a JSON gate_result on stdout; got: {result.stdout!r}"
+            f"\nstderr: {result.stderr}"
+        ) from exc
+    offending = doc["content"]["offending_claims"]
+    assert offending == [
+        {
+            "claim_index": 1,
+            "rule_violated": "numeric_invention",
+            "offending_span": "professional_experience[1].achievements[3]",
+        }
+    ], (
+        "expected ONLY claim 1 to fail as numeric_invention (implicitly proving "
+        f"claim 0 stayed Gate-A-clean); got {offending}"
     )
 
 
