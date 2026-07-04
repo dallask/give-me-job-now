@@ -424,12 +424,18 @@ def _cmd_record_spec(args: argparse.Namespace) -> int:
 
 
 def _cmd_resume(args: argparse.Namespace) -> int:
-    """Print the non-delivered per-(offer, artifact_type) runs, recomputed from recorded gates.
+    """Print the non-delivered per-(offer, artifact_type) runs (label-AND-gate, SELECT-04).
 
-    Delivery is the reused ``check_delivery.blocked_reason`` predicate (Gate A ∧ Gate B) on each
-    run's own ``state.json`` gate_results — NEVER the manifest ``status`` label, and NEVER a
-    rendered-PDF path convention (Pitfall 2, T-12-04). Rendered-artifact existence is a
-    Manual-Only UAT check (12-VALIDATION.md), not part of this automated predicate.
+    A run counts as delivered ONLY when BOTH hold: (1) its manifest ``status`` label is
+    ``"delivered"`` — set by the ``/gmj-batch`` persona via ``mark`` ONLY after the terminal
+    ``cv-generator`` render+delivery completes, so the label is the render-complete signal
+    (gate-pass alone is one DAG step too early — CR-01); AND (2) the reused, non-bypassable
+    ``check_delivery.blocked_reason`` (Gate A ∧ Gate B) still passes on that run's own
+    ``state.json`` gate_results — a cross-check so a forged/corrupt ``"delivered"`` label
+    without a real gate pass is never trusted. A crash before ``mark delivered`` leaves the
+    label pending/running, so the run is re-listed (re-run/re-render). Rendered-artifact
+    existence stays a Manual-Only UAT check (12-VALIDATION.md); this predicate never guesses a
+    rendered-PDF path (Pitfall 2, T-12-04).
     """
     pipeline_dir = Path(args.pipeline_dir).expanduser().resolve()
     runs_dir = pipeline_dir / "runs"
@@ -448,9 +454,9 @@ def _cmd_resume(args: argparse.Namespace) -> int:
             run_id = run.get("run_id")
             if _safe_id(str(run_id), "run_id") is None:
                 return 1
+            label = run.get("status")
             state_path = runs_dir / run_id / "state.json"
             gate_results: dict = {}
-            delivered = False
             if state_path.is_file():
                 try:
                     state = json.loads(state_path.read_text(encoding="utf-8"))
@@ -459,8 +465,13 @@ def _cmd_resume(args: argparse.Namespace) -> int:
                     return 1
                 if isinstance(state, dict) and isinstance(state.get("gate_results"), dict):
                     gate_results = state["gate_results"]
-                # Reused, non-bypassable Gate A ∧ Gate B predicate — never re-judged here.
-                delivered = blocked_reason(gate_results) is None
+            # Delivered ONLY when the terminal cv-generator render+delivery completed — the
+            # persona sets the manifest label to 'delivered' via `mark` AFTER render, so the
+            # label is the render-complete signal (gates alone are one DAG step too early,
+            # CR-01) — AND the reused, non-bypassable Gate A ∧ Gate B predicate still passes
+            # (cross-check: a forged/corrupt 'delivered' label without a real gate pass is
+            # never trusted). Anything else stays in the resume set (re-run/re-render).
+            delivered = label == "delivered" and blocked_reason(gate_results) is None
             if not delivered:
                 out_lines.append(
                     f"offer_index={offer_index} artifact_type={artifact_type} run_id={run_id}"

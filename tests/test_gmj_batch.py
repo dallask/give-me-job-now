@@ -276,13 +276,16 @@ def test_unsafe_batch_id_rejected() -> None:
 
 # --- SELECT-04 / SELECT-03 status-lifecycle: mark, resume, record-spec --------
 #
-# Delivery truth here is the RECORDED gate verdict ONLY — each per-(offer, artifact_type)
-# run's `state.json` `gate_results` re-checked via check_delivery.blocked_reason (Gate A ∧
-# Gate B). Never the manifest `status` label, and NEVER a rendered-PDF path convention
-# (state.json records no artifact path; renderers emit timestamped non-run-keyed filenames;
-# interview_prep is a .md; render_cv prunes older PDFs — a PDF conjunct would spuriously
-# re-run delivered offers). Rendered-artifact existence is a Manual-Only UAT check
-# (12-VALIDATION.md), never part of this automated resume predicate.
+# Delivery truth here is label-AND-gate (CR-01): a run is delivered ONLY when its manifest
+# `status` label == "delivered" (set by the persona via `mark` AFTER the terminal cv-generator
+# render — the render-complete signal; gate-pass alone is one DAG step too early) AND the
+# recorded gate verdict still passes — each per-(offer, artifact_type) run's `state.json`
+# `gate_results` re-checked via check_delivery.blocked_reason (Gate A ∧ Gate B), a cross-check
+# so a forged/corrupt "delivered" label without a real gate pass is never trusted. NEVER a
+# rendered-PDF path convention (state.json records no artifact path; renderers emit timestamped
+# non-run-keyed filenames; interview_prep is a .md; render_cv prunes older PDFs — a PDF conjunct
+# would spuriously re-run delivered offers). Rendered-artifact existence is a Manual-Only UAT
+# check (12-VALIDATION.md), never part of this automated resume predicate.
 
 
 def _mark(
@@ -417,33 +420,59 @@ def test_resume_skips_delivered() -> None:
         cwd = Path(tmp)
         assert _init(cwd, "1,2").returncode == 0
         rids = _run_ids(_load_manifest(cwd))
-        # offer 0 cv: BOTH gates pass -> delivered (blocked_reason None) -> omitted from resume set.
+        # offer 0 cv: BOTH gates pass AND the terminal render marked the label 'delivered'
+        # (label-AND-gate) -> delivered (blocked_reason None) -> omitted from resume set.
         _set_gates(cwd, rids[(0, "cv")], truth="pass", fit="pass")
-        # every other run keeps its init-seeded state (no gate_results) -> non-delivered.
+        assert _mark(cwd, rids[(0, "cv")], "delivered").returncode == 0
+        # every other run keeps its init-seeded state (pending, no gate_results) -> non-delivered.
         r = _resume(cwd)
         assert r.returncode == 0, f"resume must exit 0: {r.stderr}"
         assert "Traceback" not in r.stderr, r.stderr
         out_ids = {x["run_id"] for x in _parse_resume(r.stdout)}
-        assert rids[(0, "cv")] not in out_ids, "a genuinely-delivered run must be skipped (omitted)"
+        assert rids[(0, "cv")] not in out_ids, (
+            "a genuinely-delivered run (label 'delivered' AND gates pass) must be skipped (omitted)"
+        )
         assert rids[(0, "cover_letter")] in out_ids, "a non-delivered run must be re-listed"
-        # delivery asserted purely from recorded gate_results — no PDF fixture involved.
 
 
-def test_resume_ignores_stale_running_label() -> None:
+def test_resume_running_label_not_delivered_even_with_passing_gates() -> None:
+    # CR-01: gate-pass is one render-step too early. cv-generator (the terminal DAG node)
+    # renders AFTER both gates, so a 'running' (non-'delivered') label means the artifact was
+    # never rendered/delivered even though BOTH gates recorded pass. The run MUST appear in the
+    # resume set so it is re-run/re-rendered — the exact deliverable-loss this feature prevents.
     with tempfile.TemporaryDirectory() as tmp:
         cwd = Path(tmp)
         assert _init(cwd, "1").returncode == 0
         target = _run_ids(_load_manifest(cwd))[(0, "cv")]
         # recorded gates BOTH pass...
         _set_gates(cwd, target, truth="pass", fit="pass")
-        # ...but a crash left a stale 'running' manifest label.
+        # ...but a crash before cv-generator left the label at 'running' (never 'delivered').
         assert _mark(cwd, target, "running").returncode == 0
         r = _resume(cwd)
         assert r.returncode == 0, f"resume must exit 0: {r.stderr}"
         assert "Traceback" not in r.stderr, r.stderr
         out_ids = {x["run_id"] for x in _parse_resume(r.stdout)}
-        assert target not in out_ids, (
-            "gates pass => delivered; the stale 'running' label must be ignored, run omitted"
+        assert target in out_ids, (
+            "gates pass but label != 'delivered' => render never completed => run must be resumed"
+        )
+
+
+def test_resume_delivered_label_but_gate_failed_is_not_delivered() -> None:
+    # CR-01 cross-check: a forged/corrupt 'delivered' label without a real gate pass must NOT be
+    # trusted. Label-AND-gate keeps the run in the resume set when a recorded gate has failed.
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        assert _init(cwd, "1").returncode == 0
+        target = _run_ids(_load_manifest(cwd))[(0, "cv")]
+        # Gate B recorded FAIL, yet the manifest label claims 'delivered'.
+        _set_gates(cwd, target, truth="pass", fit="fail")
+        assert _mark(cwd, target, "delivered").returncode == 0
+        r = _resume(cwd)
+        assert r.returncode == 0, f"resume must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        out_ids = {x["run_id"] for x in _parse_resume(r.stdout)}
+        assert target in out_ids, (
+            "a 'delivered' label with a FAILED gate is not trustworthy -> run must be resumed"
         )
 
 
