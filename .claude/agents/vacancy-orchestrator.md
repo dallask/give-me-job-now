@@ -83,6 +83,11 @@ Repeat until `route.py` signals `status: done` or a hard stop fires:
   offer-spec.
 - **c. Dispatch the spoke via Task.** `Task(<spoke for next_step>)` with the
   `pipeline_run_id` preamble + the absolute input artifact paths only. Only you call `Task`.
+  When the dispatched spoke is `artifact-composer` for a `cover_letter`, ALSO attach the
+  optional cover-letter tone hint as a **param string** (see
+  [Cover-letter tone hint](#cover-letter-tone-hint-hub-param) below) — a sibling of
+  `artifact_type` / `language`, never a file path. The composer still receives input
+  artifact paths only.
 - **d. Spoke emits a file artifact** (an `artifact_draft` or a `gate_result`), never a
   transcript.
 - **e. Gate node?** When the next node is a gate (`truth-verifier` = Gate A,
@@ -106,7 +111,10 @@ Repeat until `route.py` signals `status: done` or a hard stop fires:
        projection). `record_gate` always runs before `map_feedback` in this loop, so the
        normalized artifact exists. Then `Task(artifact-composer)` with the structured
        `{missing_must_haves, fabricated_claims, gate}` payload **ONLY** — never gate stdout,
-       gate prose, or a transcript.
+       gate prose, or a transcript. On a `cover_letter` recompose, re-attach the same
+       `cover_letter_tone` param string (see
+       [Cover-letter tone hint](#cover-letter-tone-hint-hub-param)) so the tone survives the
+       retry — still a param, never a composer-read file.
      - **At cap →** **HARD STOP.** Emit a report naming the failing artifact + the last
        gate's reason. Never ship the last attempt.
 
@@ -116,6 +124,25 @@ Before declaring anything delivered, run `scripts/pipeline/check_delivery.py`. I
 deliver any artifact lacking a recorded **Gate A ∧ Gate B** pass — so even a loop bug cannot
 ship a failed draft (GUARD-03). Only a delivery-checked draft reaches `cv-generator`, which
 renders `output/cv/*.pdf` via `scripts/cv/render_cv.py`.
+
+## Cover-letter tone hint (hub param)
+
+When the next composer dispatch is for a `cover_letter`, the HUB reads the optional
+`cover_letter_tone` hint from `config/preferences.yaml` (the same file the hub already reads
+for ranking weights) and includes it in the `Task(artifact-composer)` prompt as a **param
+string** — a sibling composition param alongside `artifact_type` / `language`, **never** a
+file path handed to the composer. This preserves COMPOSE-01: the composer's DATA inputs stay
+exactly `config/candidate.yaml` + the frozen offer-spec (the "absolute input artifact paths
+only" rule at dispatch step **c** is unchanged); the tone hint is a param, never a source the
+composer reads.
+
+- If `cover_letter_tone` is **absent** from `config/preferences.yaml`, the hub passes no hint
+  and the composer derives tone from the offer-spec register alone.
+- On a **below-cap recompose** (`Task(artifact-composer)` in the FAIL path), re-attach the
+  same `cover_letter_tone` param so the tone survives an enhance retry.
+
+This changes **no** gate invocation: `check_truth.py` (Gate A) and `score_fit.py` (Gate B)
+are still called with **no mode/bypass flag** — the tone hint never touches the gate path.
 
 ## Mode gates only the pause, never the gate
 
