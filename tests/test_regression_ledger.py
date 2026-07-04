@@ -69,10 +69,10 @@ def _deferred_rows(text: str) -> list[dict[str, str]]:
 def _ledger_entries(text: str) -> dict[str, dict[str, str]]:
     """Parse the REGRESSION-LEDGER.md disposition table into DV-ID -> {kind, target}.
 
-    Only rows whose first cell starts with ``DV-`` are disposition rows; the REGRESSION-01
-    audit subsection and prose lines are ignored. The last cell is ``kind:value`` (split on the
-    first ``:``): for file kinds ``value`` is a repo-relative target; for ``re_defer`` it is the
-    recorded reason.
+    Only rows whose first cell is a real ``DV-<number>`` id are disposition rows; the header
+    row (first cell ``DV-ID``), the REGRESSION-01 audit subsection, and prose lines are ignored.
+    The last cell is ``kind:value`` (split on the first ``:``): for file kinds ``value`` is a
+    repo-relative target; for ``re_defer`` it is the recorded reason.
     """
     entries: dict[str, dict[str, str]] = {}
     for line in text.splitlines():
@@ -80,12 +80,22 @@ def _ledger_entries(text: str) -> dict[str, dict[str, str]]:
         if not s.startswith("| DV-"):
             continue
         cells = [c.strip() for c in s.strip("|").split("|")]
-        if len(cells) < 5 or not cells[0].startswith("DV-"):
+        if len(cells) < 5 or not re.fullmatch(r"DV-\d+", cells[0]):
             continue
         dv_id = cells[0]
         kind, _, value = cells[4].partition(":")
         entries[dv_id] = {"kind": kind.strip(), "value": value.strip()}
     return entries
+
+
+def _orphan_ledger_ids(state_ids: set[str], ledger_text: str) -> list[str]:
+    """DV-IDs that have a ledger disposition ROW but NO matching STATE row (ledger rot).
+
+    Reverse of the STATE->ledger completeness check: a stale/renamed/typo'd disposition id
+    (e.g. ``DV-99`` with no STATE row, or ``DV-8`` where STATE has ``DV-08``) surfaces here.
+    Keyed on the structured row parse (``_ledger_entries``), NOT a loose prose regex.
+    """
+    return sorted(set(_ledger_entries(ledger_text)) - state_ids)
 
 
 def test_every_deferred_row_is_dispositioned() -> None:
@@ -96,6 +106,30 @@ def test_every_deferred_row_is_dispositioned() -> None:
     ledger_ids = set(re.findall(r"\bDV-\d+\b", ledger_text))
     missing = sorted(state_ids - ledger_ids)
     assert not missing, f"Deferred rows with NO ledger disposition: {missing}"
+
+
+def test_no_orphan_ledger_dispositions() -> None:
+    """Reverse completeness: every ledger disposition row has a matching STATE DV-ID.
+
+    Without this, an orphan/mistyped ledger id (e.g. ``DV-99`` with no STATE row) passes
+    silently — the exact 'ledger rots into a drifting checklist' failure the gate prevents.
+    """
+    state_ids = {r["id"] for r in _deferred_rows(STATE.read_text(encoding="utf-8"))}
+    orphans = _orphan_ledger_ids(state_ids, LEDGER.read_text(encoding="utf-8"))
+    assert not orphans, f"Ledger disposition rows with NO matching STATE DV-ID: {orphans}"
+
+
+def test_orphan_ledger_disposition_is_detected_red() -> None:
+    """Negative proof: an injected orphan ledger DV-ID makes the reverse check go RED."""
+    state_ids = {"DV-01"}
+    ledger_text = (
+        "| DV-ID | Phase | State | Notes | Disposition |\n"
+        "|-------|-------|-------|-------|-------------|\n"
+        "| DV-01 | 1 | done | ok | regression_test:tests/test_regression_ledger.py |\n"
+        "| DV-99 | 9 | done | ok | regression_test:tests/test_regression_ledger.py |\n"
+    )
+    orphans = _orphan_ledger_ids(state_ids, ledger_text)
+    assert orphans == ["DV-99"], f"orphan DV-99 not flagged by reverse check: {orphans}"
 
 
 def test_dispositions_are_concrete_and_resolvable() -> None:
