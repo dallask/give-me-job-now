@@ -71,6 +71,10 @@
       "description": "Optional free-form numeric weights for ranking signals.",
       "additionalProperties": { "type": "number" }
     },
+    "cover_letter_tone": {
+      "type": "string",
+      "description": "Optional soft phrasing hint for cover-letter tone (e.g. 'warm', 'formal', 'concise, direct'). Influences ONLY phrasing/emphasis in the composed cover letter — it never licenses claims outside Gate A (truth) / Gate B (target-fit) and never widens the boards/geos/languages allow-list. Read by the hub and passed to the composer as a param; the composer never reads preferences.yaml directly."
+    },
     "scope": { "$ref": "#/$defs/scope" }
   },
   "additionalProperties": false

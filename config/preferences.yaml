@@ -21,6 +21,9 @@ search_keywords:
 ranking:
   salary_weight: 0.4
   remote_weight: 0.6
+# cover_letter_tone: "warm, direct"   # OPTIONAL phrasing-only hint for cover-letter tone;
+                                       # read by the hub (never the composer); never widens scope
+                                       # and never licenses claims outside Gate A/B.
 scope:
   sites:
     - https://robota.ua/          # subset of sources.yaml.sites
