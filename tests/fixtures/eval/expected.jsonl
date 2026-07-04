@@ -1,0 +1,2 @@
+{"fixture": "interview_prep.rich.draft.json", "dimension": "richness", "metric": "distinct_sections", "threshold": 4, "expected_label": "HIGH", "category": "deterministic"}
+{"fixture": "cover_letter.toned.draft.json", "dimension": "tone", "expected_label": "ON_REGISTER", "category": "llm"}
