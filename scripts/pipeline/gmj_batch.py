@@ -86,6 +86,19 @@ _OFFER_CONTENT_FIELDS = (
 _ID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
+def _reject_nan(token: str) -> float:
+    """``json.loads`` ``parse_constant`` hook: refuse the non-finite JSON extensions.
+
+    Python's ``json`` accepts the non-standard ``NaN``/``Infinity``/``-Infinity`` literals by
+    default. A coarse->draft copies numeric-capable offer_content fields (e.g. ``salary_range``)
+    and the draft is re-emitted with ``allow_nan=False``, so a non-finite number would otherwise
+    reach an UNCAUGHT ``ValueError`` on write (a traceback, violating this module's contract).
+    Reject on load instead so every malformed document fails closed with a clear stderr message
+    and ``return 1`` — mirrors the Phase-11 hardening in ``gmj_merge_shortlists.py`` (WR-01).
+    """
+    raise ValueError(f"non-finite JSON literal not allowed: {token}")
+
+
 def _safe_id(value: str, label: str) -> str | None:
     """Return ``value`` if it is a safe single path component, else print + return None."""
     if (
@@ -152,7 +165,7 @@ def coarse_to_draft(entry: dict) -> dict:
 
 def _validate_manifest(doc: dict) -> None:
     """Validate the assembled manifest against batch_manifest.schema.json, fail closed."""
-    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"), parse_constant=_reject_nan)
     validator = Draft202012Validator(schema)
     errors = sorted(validator.iter_errors(doc), key=lambda e: list(e.absolute_path))
     if errors:
@@ -230,8 +243,8 @@ def _cmd_init(args: argparse.Namespace) -> int:
         print(f"Shortlist not found: {shortlist_path}", file=sys.stderr)
         return 1
     try:
-        doc = json.loads(shortlist_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
+        doc = json.loads(shortlist_path.read_text(encoding="utf-8"), parse_constant=_reject_nan)
+    except ValueError as exc:  # JSONDecodeError subclasses ValueError; also catches _reject_nan
         print(f"Invalid shortlist JSON: {exc}", file=sys.stderr)
         return 1
     if not isinstance(doc, dict):
@@ -350,8 +363,8 @@ def _load_manifest(pipeline_dir: Path, batch_id: str) -> tuple[dict | None, Path
         print(f"Manifest not found: {manifest_path}", file=sys.stderr)
         return None, manifest_path, batches_dir
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"), parse_constant=_reject_nan)
+    except ValueError as exc:  # JSONDecodeError subclasses ValueError; also catches _reject_nan
         print(f"Invalid manifest JSON: {exc}", file=sys.stderr)
         return None, manifest_path, batches_dir
     if not isinstance(manifest, dict):
@@ -458,8 +471,10 @@ def _cmd_resume(args: argparse.Namespace) -> int:
             gate_results: dict = {}
             if state_path.is_file():
                 try:
-                    state = json.loads(state_path.read_text(encoding="utf-8"))
-                except json.JSONDecodeError as exc:
+                    state = json.loads(
+                        state_path.read_text(encoding="utf-8"), parse_constant=_reject_nan
+                    )
+                except ValueError as exc:  # JSONDecodeError subclasses ValueError; also _reject_nan
                     print(f"Invalid state JSON at {state_path}: {exc}", file=sys.stderr)
                     return 1
                 if isinstance(state, dict) and isinstance(state.get("gate_results"), dict):

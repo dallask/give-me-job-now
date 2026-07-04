@@ -260,6 +260,29 @@ def test_manifest_byte_identical_two_hashseeds() -> None:
         assert m0 == m1, "manifest must be byte-identical across PYTHONHASHSEED 0 and 1"
 
 
+# --- WR-01: non-finite JSON literal fails closed on load ---------------------
+
+def test_shortlist_with_non_finite_number_rejected() -> None:
+    # WR-01: a non-standard NaN/Infinity literal in the shortlist (e.g. a numeric-capable
+    # offer_content field like salary_range) must fail closed on LOAD via the parse_constant
+    # guard — a clear stderr message + exit 1 — never an uncaught ValueError traceback on the
+    # allow_nan=False draft write. Mirrors the Phase-11 gmj_merge_shortlists.py hardening.
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        bad = cwd / "bad-shortlist.json"
+        bad.write_text(
+            '{"shortlist": [{"title": "X", "company": "Y", "salary_range": NaN, '
+            '"must_haves": ["a"], "trace": {"excerpt": "e"}}]}',
+            encoding="utf-8",
+        )
+        r = _init(cwd, "1", shortlist=bad)
+        assert r.returncode == 1, f"a non-finite JSON literal must exit 1: {r.stdout}"
+        assert "non-finite" in r.stderr.lower(), (
+            f"stderr must name the rejected non-finite literal: {r.stderr}"
+        )
+        assert "Traceback" not in r.stderr, r.stderr
+
+
 # --- security: path traversal ------------------------------------------------
 
 def test_unsafe_batch_id_rejected() -> None:
