@@ -103,13 +103,33 @@ def _orphan_ledger_ids(state_ids: set[str], ledger_text: str) -> list[str]:
 
 
 def test_every_deferred_row_is_dispositioned() -> None:
-    """Count-agnostic completeness: every STATE DV-ID appears in the ledger."""
+    """Count-agnostic completeness: every STATE DV-ID has an actual disposition ROW.
+
+    Keyed on the structured row parse (``_ledger_entries``), NOT a loose ``\\bDV-\\d+\\b`` scan
+    over the whole ledger — a DV-ID merely mentioned in prose does NOT count as dispositioned.
+    """
     state_ids = {r["id"] for r in _deferred_rows(STATE.read_text(encoding="utf-8"))}
     assert state_ids, "no DV-ID rows parsed from STATE.md — Deferred Verification shape changed"
     ledger_text = LEDGER.read_text(encoding="utf-8")
-    ledger_ids = set(re.findall(r"\bDV-\d+\b", ledger_text))
+    ledger_ids = set(_ledger_entries(ledger_text))
     missing = sorted(state_ids - ledger_ids)
     assert not missing, f"Deferred rows with NO ledger disposition: {missing}"
+
+
+def test_prose_mentioned_dv_id_is_not_dispositioned() -> None:
+    """Negative proof: a DV-ID only in prose (no disposition row) is NOT counted as dispositioned.
+
+    The old ``\\bDV-\\d+\\b`` scan would have counted DV-02/DV-03 here; the structured parse does
+    not, so a STATE row for DV-02 with only a prose mention would correctly FAIL the gate.
+    """
+    ledger_text = (
+        "Rows DV-02, DV-03 are LLM-judgment behaviors deferred by design (prose only).\n\n"
+        "| DV-ID | Phase | State | Notes | Disposition |\n"
+        "|-------|-------|-------|-------|-------------|\n"
+        "| DV-01 | 1 | done | ok | regression_test:tests/test_regression_ledger.py |\n"
+    )
+    dispositioned = set(_ledger_entries(ledger_text))
+    assert dispositioned == {"DV-01"}, f"prose-only DV-IDs leaked in as dispositioned: {dispositioned}"
 
 
 def test_no_orphan_ledger_dispositions() -> None:
