@@ -100,6 +100,41 @@ def test_backstop_url_and_year_flagged() -> None:
     assert _LEAK_DATE in leaks, f"backstop 4-digit year must be flagged; got {leaks}"
 
 
+def test_attribute_sample_token_flagged() -> None:
+    # Fail-closed regression (WR-02): sample data hidden in a human-facing attribute value
+    # (alt / title / aria-label / placeholder) must be caught, not silently stripped with
+    # the tag. Previously `_visible_literal_text` discarded all attributes so this returned
+    # [] — a real leak vector (visible tooltip / screen-reader text).
+    leaks = lint_template("<img alt=\"" + _LEAK_NAME + "\">", [_LEAK_NAME])
+    assert _LEAK_NAME in leaks, (
+        f"sample token hardcoded in an alt attribute must be flagged; got {leaks}"
+    )
+
+
+def test_attribute_meta_email_backstop_flagged() -> None:
+    # The email backstop must also reach <meta content> — a common LLM-authored leak spot
+    # (author/description meta) that the old all-tags-stripped path let through.
+    html = "<meta name=\"author\" content=\"" + _LEAK_EMAIL + "\">"
+    leaks = lint_template(html, [])  # empty token list — backstop must still catch it
+    assert any(_LEAK_EMAIL in leak for leak in leaks), (
+        f"email hardcoded in <meta content> must be flagged by the backstop; got {leaks}"
+    )
+
+
+def test_bound_attribute_not_false_positived() -> None:
+    # Guard the fix's boundary: a properly data-bound attribute value and a relative asset
+    # path must NOT false-positive — only human-facing text attributes are scanned, and
+    # Jinja regions inside a value are stripped first.
+    html = (
+        "<img alt=\"{{ candidate.name }}\" src=\"assets/photo.png\">"
+        "<a href=\"templates/cv/x.html\" class=\"nav-link\">{{ candidate.title }}</a>"
+    )
+    leaks = lint_template(html, [_LEAK_NAME])
+    assert leaks == [], (
+        f"bound attribute + relative asset path must not false-positive; got {leaks}"
+    )
+
+
 def test_legacy_binding_flagged() -> None:
     # A mis-binding to the legacy field name (UI-SPEC: NOT technical_expertise) is a drift
     # bug the single-owner registry must catch even though no literal is hardcoded.

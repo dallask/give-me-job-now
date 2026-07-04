@@ -117,6 +117,16 @@ _YEAR = re.compile(r"\b\d{4}\b")
 _PROPER_NOUN = re.compile(r"\b[A-Z][a-z]+(?: [A-Z][a-z]+)+\b")
 # A ``candidate.<field>[.<sub>...]`` dotted binding path inside a Jinja expression.
 _CANDIDATE_BINDING = re.compile(r"\bcandidate\.([A-Za-z_][A-Za-z0-9_.]*)")
+# Text-bearing attributes whose values are human-visible (tooltip / alt / screen-reader /
+# placeholder) or leak-prone (``<meta content>``). Their values face the same sample-token +
+# backstop checks as visible text, closing the fail-open gap where hardcoded sample data hid
+# in an attribute. Deliberately EXCLUDES src/href/class so relative asset paths never
+# false-positive. Handles both double- and single-quoted values.
+_TEXT_ATTR = re.compile(
+    r"\b(?:alt|title|aria-label|content|placeholder)\s*=\s*"
+    r"""(?:"([^"]*)"|'([^']*)')""",
+    re.IGNORECASE,
+)
 
 
 def _visible_literal_text(html: str) -> str:
@@ -137,6 +147,28 @@ def _visible_literal_text(html: str) -> str:
     text = _TAG.sub(" ", text)
     text = _htmlmod.unescape(text)
     return text
+
+
+def _visible_attribute_text(html: str) -> str:
+    """Extract the values of human-facing / leak-prone attributes for leak scanning.
+
+    ``_visible_literal_text`` discards ALL attribute values (to avoid false-positives on
+    relative asset paths in ``src``/``href``/``class``), but that fails OPEN: sample-profile
+    data hardcoded in ``alt``/``title``/``aria-label``/``placeholder`` (a visible tooltip or
+    screen-reader string) or in ``<meta content>`` (e.g. an author email) slips past BOTH the
+    primary sample-token rule and the email/URL/year/proper-noun backstops. Scan a small
+    allowlist of text-bearing attributes so those leaks fail closed, while still ignoring
+    ``src``/``href``/``class`` so legitimate relative asset paths do not false-positive.
+    Jinja regions inside a value (``alt="{{ candidate.name }}"``) are stripped first, so a
+    properly data-bound attribute is never flagged.
+    """
+    import html as _htmlmod
+
+    text = _JINJA.sub(" ", html)
+    text = _STYLE_SCRIPT.sub(" ", text)
+    text = _HTML_COMMENT.sub(" ", text)
+    values = [dq or sq for dq, sq in _TEXT_ATTR.findall(text)]
+    return _htmlmod.unescape(" ".join(values))
 
 
 def _is_allowlisted(value: str) -> bool:
@@ -187,9 +219,12 @@ def lint_template(html: str, sample_tokens: list[str] | None = None) -> list[str
     A leak is sample-profile data that appears in the template's visible literal text
     (outside every ``{{ ... }}`` / ``{% ... %}`` region) and is not an allowlisted
     section label. Detection is the union of the explicit ``sample_tokens`` primary rule
-    and the email/URL/year/proper-noun backstop regexes.
+    and the email/URL/year/proper-noun backstop regexes. Both rule layers scan the visible
+    tag text AND the values of human-facing / leak-prone attributes (``alt``, ``title``,
+    ``aria-label``, ``content``, ``placeholder``), so hardcoded sample data hidden in an
+    attribute fails closed instead of slipping through.
     """
-    text = _visible_literal_text(html)
+    text = _visible_literal_text(html) + " \n " + _visible_attribute_text(html)
     leaks: list[str] = []
     seen: set[str] = set()
 
