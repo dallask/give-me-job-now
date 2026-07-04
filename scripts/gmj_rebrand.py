@@ -337,10 +337,20 @@ def apply_rewrites(rules, files: "list[Path]") -> int:
 
 
 def git_mv(old_path: Path, new_path: Path) -> None:
-    """History-preserving ``git mv``, sanitizing the new basename before the shell-out."""
+    """History-preserving ``git mv``, sanitizing the destination before the shell-out.
+
+    A safe basename is NOT sufficient (WR-06): a manifest ``new`` value like ``../../evil``
+    yields a destination whose ``.name`` passes ``SAFE_COMPONENT`` yet escapes the tree. Reject
+    any parent-traversal (``..``) component and assert the resolved destination stays under
+    ``REPO_ROOT`` (also catches an absolute ``new`` value, which resets the join outside the repo).
+    """
     new_name = new_path.name
     if new_name in (".", "..") or not SAFE_COMPONENT.match(new_name):
         raise ValueError(f"Unsafe rename target component: {new_name!r}")
+    if ".." in new_path.parts:
+        raise ValueError(f"Unsafe rename destination (parent traversal): {new_path}")
+    if not new_path.resolve().is_relative_to(REPO_ROOT):
+        raise ValueError(f"Refusing rename destination outside repo root: {new_path}")
     subprocess.run(["git", "mv", str(old_path), str(new_path)], cwd=str(REPO_ROOT), check=True)
 
 

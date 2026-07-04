@@ -220,6 +220,29 @@ def test_aliased_import_rewrite_preserves_alias() -> None:
     assert _apply_script_rules(entry, "import extractor as e\n") == "import extractor as e\n"
 
 
+def test_git_mv_rejects_out_of_tree_destination() -> None:
+    """WR-06: git_mv must fail-closed on a traversal / absolute destination (before shelling out)."""
+    old = R.AGENTS_DIR / "vacancy-orchestrator.md"
+
+    # Parent-traversal: safe basename (evil.md) but `..` components escape the tree.
+    traversal = R.AGENTS_DIR / ".." / ".." / ".." / "evil.md"
+    raised = False
+    try:
+        R.git_mv(old, traversal)
+    except ValueError:
+        raised = True
+    assert raised, "git_mv accepted a parent-traversal destination"
+
+    # Absolute destination (a manifest `new` value that is an absolute path).
+    absolute = Path("/tmp/gmj-evil.md")
+    raised_abs = False
+    try:
+        R.git_mv(old, absolute)
+    except ValueError:
+        raised_abs = True
+    assert raised_abs, "git_mv accepted an absolute out-of-tree destination"
+
+
 # --------------------------------------------------------------------------- hooks
 
 def _registered_hook_paths() -> list[str]:
