@@ -2,7 +2,7 @@
 
 Operator guide for running the give-me-job collective against a **real, current job
 offer** and producing the truthful, offer-optimized artifacts (CV PDF + cover-letter PDF +
-interview-prep document) end to end via `/pipeline-run`.
+interview-prep document) end to end via `/gmj-pipeline-run`.
 
 This runbook maps the two done-criteria for Phase 8:
 
@@ -40,7 +40,7 @@ to it):
 ```bash
 claude --dangerously-skip-permissions
 # then, in the session:
-/pipeline-run
+/gmj-pipeline-run
 # state your: mode (human_in_the_loop | autonomous), offer (URL/text or offer-spec.json), run_id?
 ```
 
@@ -95,7 +95,7 @@ passed for each delivered artifact.
 |-----------|----------------|---------------------|--------|
 | **E2E-01** | Deterministic guard enforcement: nothing fabricated/off-target ships; an approved draft renders to a real PDF with zero manual authoring | `python3 tests/test_e2e_guards.py` (matrix + dry-run + wiring + runbook assertions) | **DONE** — deterministic, repeatable |
 | **E2E-02** | CV + cover letter rendered via Python, no manual PDF authoring | bridge (`gmj_draft_to_cv_yaml.py`) + renderers (`gmj_render_cv.py`, `gmj_render_cover_letter.py`, `gmj_render_interview_prep.py`), wired in `.claude/agents/gmj-cv-generator.md` | Covered |
-| **E2E-03** | Live real-offer run produces accepted artifacts end to end | `/pipeline-run` on a real offer + populated `config/candidate.yaml` | **Human-acceptance UAT** — operator drives + accepts |
+| **E2E-03** | Live real-offer run produces accepted artifacts end to end | `/gmj-pipeline-run` on a real offer + populated `config/candidate.yaml` | **Human-acceptance UAT** — operator drives + accepts |
 
 **E2E-01** is the deterministic floor (machine-proven). **E2E-03** is the live acceptance
 run a human performs with a real offer; it cannot be auto-asserted because it depends on a

@@ -12,7 +12,7 @@ keep the inspector safe:
   INVERSION of test_gmj_batch_persona.py, which asserts ``Task(*)`` is present (T-16-07),
 - names the CLI ``gmj_runs.py`` and its four subcommands + the ``--json`` flag (ERGO-02),
 - states it is read-only and never executes a resume (ERGO-04 / T-16-08),
-- surfaces both resume commands ``/pipeline-run`` and ``/gmj-batch --resume`` (ERGO-03).
+- surfaces both resume commands ``/gmj-pipeline-run`` and ``/gmj-batch --resume`` (ERGO-03).
 
 Discipline: every assertion carries a message naming the missing sentinel, so a removed
 clause fails with a readable reason (not a bare AssertionError).
@@ -74,7 +74,7 @@ def test_states_read_only_and_never_executes_resume() -> None:
 
 def test_surfaces_both_resume_commands() -> None:
     t = _persona_text()
-    assert "/pipeline-run" in t, "persona must surface the run resume command /pipeline-run (ERGO-03)"
+    assert "/gmj-pipeline-run" in t, "persona must surface the run resume command /gmj-pipeline-run (ERGO-03)"
     assert "/gmj-batch --resume" in t, (
         "persona must surface the batch resume command /gmj-batch --resume (ERGO-03)"
     )

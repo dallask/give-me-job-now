@@ -192,7 +192,7 @@ deterministic layer: the model never decides whether a gate passed, whether the 
 hit, or whether an artifact is deliverable.
 
 ```
- CLI: claude --dangerously-skip-permissions  →  /pipeline-run  (params: mode?, offer, run_id?)
+ CLI: claude --dangerously-skip-permissions  →  /gmj-pipeline-run  (params: mode?, offer, run_id?)
                                      │
                                      ▼
    1. init_run   gmj_state_write.py   freeze execution_mode + retry_cap + run_id  ─┐
@@ -251,8 +251,8 @@ Gated/dependent steps (compose → Gate A → Gate B → deliver) run **sequenti
 artifact**. This is orchestrated task fan-out on Claude Code's single-threaded event loop —
 not OS threads.
 
-The CLI entry points for this loop are `.claude/commands/pipeline-run.md` (whole flow) and
-`.claude/commands/pipeline/{scout,freeze,compose,verify,evaluate,generate}.md` (per step);
+The CLI entry points for this loop are `.claude/commands/gmj-pipeline-run.md` (whole flow) and
+`.claude/commands/gmj-pipeline/{scout,freeze,compose,verify,evaluate,generate}.md` (per step);
 each per-step command is a thin wrapper naming the exact script/Task above, with no control
 logic duplicated.
 

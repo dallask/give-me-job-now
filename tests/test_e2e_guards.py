@@ -301,7 +301,7 @@ def test_runbook_maps_done_criteria() -> None:
     for token in (
         "E2E-01",
         "E2E-03",
-        "/pipeline-run",
+        "/gmj-pipeline-run",
         "pip install -r scripts/cv/requirements.txt",
     ):
         assert token in text, f"RUNBOOK.md missing required token: {token}"

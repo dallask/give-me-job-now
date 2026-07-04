@@ -17,7 +17,7 @@ Asserted invariants:
 - it reads the profile + coverage manifest before questioning,
 - it advises when ``sources/candidate`` is empty,
 - it runs the ``gmj_validate_preferences.py`` pre-write guard,
-- it hands off (no ``Task(`` spawn) via ``/job-collective``.
+- it hands off (no ``Task(`` spawn) via ``/gmj-collective``.
 """
 
 from __future__ import annotations
@@ -136,8 +136,8 @@ def test_persona_runs_validator_guard() -> None:
 def test_persona_no_task_spawn() -> None:
     src = _text()
     assert "Task(" not in src, "persona must not contain a Task( spawn (holds no delegation tool)"
-    handoff = "/job-collective" in src or "hand off" in src.lower() or "handoff" in src.lower()
-    assert handoff, "persona must state a handoff cue (/job-collective or hand off/handoff)"
+    handoff = "/gmj-collective" in src or "hand off" in src.lower() or "handoff" in src.lower()
+    assert handoff, "persona must state a handoff cue (/gmj-collective or hand off/handoff)"
 
 
 def main() -> int:

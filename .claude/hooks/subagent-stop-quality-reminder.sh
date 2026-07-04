@@ -14,7 +14,7 @@ fi
 case "$NAME" in
   gmj-cv-generator|gmj-artifact-composer|gmj-candidate-configurator|gmj-truth-verifier)
     echo "" >&2
-    echo "━━━━━━━━ job-collective reminder ━━━━━━━━" >&2
+    echo "━━━━━━━━ gmj-collective reminder ━━━━━━━━" >&2
     echo " Subagent '$NAME' stopped — have gmj-orchestrator run the quality gate before final PASS." >&2
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
     ;;

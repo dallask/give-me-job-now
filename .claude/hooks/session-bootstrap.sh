@@ -22,7 +22,7 @@ echo "   Candidate YAML:       ${ROOT}/config/candidate.yaml"
 echo "   CV PDF output:        ${ROOT}/output/cv/"
 echo "   Extract/render:       ${ROOT}/scripts/cv/"
 echo ""
-echo " Slash command: /job-collective (see .claude/commands/job-collective.md)"
+echo " Slash command: /gmj-collective (see .claude/commands/gmj-collective.md)"
 echo " Pipeline run ID: ${PIPELINE_RUN_ID}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 

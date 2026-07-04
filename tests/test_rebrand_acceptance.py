@@ -7,14 +7,19 @@ glob. It proves the three machine-checkable halves of REBRAND-02 after each wave
 
   1. ``test_grep0_selfscoped`` — for every app entry whose NEW-named file is already on disk
      (i.e. that wave has run), NO reference to its OLD name survives anywhere in the app tree.
-     SPLIT match strategy (driven off config/ownership-manifest.yaml via scripts/gmj_rebrand.py,
-     so grep and the rename engine can never drift):
-       * distinctive dash-names (agents/skills/commands/hooks) are grepped as DELIMITED tokens
-         across the WHOLE app tree — catching filename tokens (gate_<old>_cv_1.json), JSON gate
-         keys, DAG node ids, dispatch names and frontmatter — while skipping the correctly-renamed
-         ``gmj-<old>`` form and the stable ``<old>.log`` runtime-log filenames;
+     SPLIT match strategy (driven off config/ownership-manifest.yaml via scripts/gmj_rebrand.py's
+     ``build_rules`` — the SAME source of truth the rename engine uses, so grep and the rename can
+     never drift):
+       * distinctive dash-names (agents/skills/hooks + single-file commands) are grepped as
+         DELIMITED tokens across the WHOLE app tree — catching filename tokens (gate_<old>_cv_1.json),
+         JSON gate keys, DAG node ids, dispatch names and frontmatter — while skipping the
+         correctly-renamed ``gmj-<old>`` form and the stable ``<old>.log`` runtime-log filenames;
        * prose-colliding script stems (route/extract/render_cv …) stay reference-form-scoped
-         (``from <stem> import`` / ``import <stem>`` / ``<stem>.py``), never grepped bare.
+         (``from <stem> import`` / ``import <stem>`` / ``<stem>.py``), never grepped bare;
+       * a generic-word DIRECTORY-GROUP command (``pipeline`` — homographic with ``scripts/pipeline/``,
+         ``.pipeline/`` runtime state, ``config/pipeline.*.yaml`` and ``pipeline_dir`` identifiers)
+         is command-path-scoped (``commands/<old>`` / ``/<old>/<sub>`` / ``/<old>:``), never grepped
+         bare — so the acceptance grep is a REAL backstop, not a vacuous pass over corrupted homographs.
      Types not yet renamed are reported pending (the file is green throughout the sweep and
      fully asserting once every wave has run).
   2. ``test_grep0_backstop_fires_and_is_precise`` — a NEGATIVE self-test that PLANTS a surviving

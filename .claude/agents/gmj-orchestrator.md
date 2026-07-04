@@ -26,7 +26,7 @@ If `Task` is unavailable (nested context), stop immediately and emit:
 ```text
 HUB_CONTEXT_REQUIRED
 reason: orchestrator_nested_without_task
-fix: Run from root session / /job-collective — do not Task-spawn gmj-orchestrator.
+fix: Run from root session / /gmj-collective — do not Task-spawn gmj-orchestrator.
 ```
 
 ## Pipeline run ID
@@ -221,7 +221,7 @@ recorded gate verdicts, and state next actions.
 
 ## CLI entry points
 
-The runtime loop is driven from `.claude/commands/pipeline-run.md` (whole flow) and the
-per-step wrappers `.claude/commands/pipeline/{scout,freeze,compose,verify,evaluate,generate}.md`.
+The runtime loop is driven from `.claude/commands/gmj-pipeline-run.md` (whole flow) and the
+per-step wrappers `.claude/commands/gmj-pipeline/{scout,freeze,compose,verify,evaluate,generate}.md`.
 Each per-step command is a thin wrapper naming the exact script/Task above, with no control
 logic duplicated.

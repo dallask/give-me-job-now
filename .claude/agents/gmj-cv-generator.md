@@ -117,7 +117,7 @@ the gates; the agent authors no content and no PDF itself.
 
 **Delivery precondition (hub-enforced):** before dispatching a render, the hub runs
 `python3 scripts/pipeline/gmj_check_delivery.py --state .pipeline/runs/<run_id>/state.json`
-(named in `.claude/commands/pipeline/generate.md`). The agent renders **only** approved
+(named in `.claude/commands/gmj-pipeline/generate.md`). The agent renders **only** approved
 drafts — a draft missing either recorded gate verdict is never rendered.
 
 Branch on `content.artifact_type`:

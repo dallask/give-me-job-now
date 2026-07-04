@@ -20,11 +20,17 @@ can never be moved.
 Reference forms are built PER stem/name from the manifest map, NEVER from bare stems:
   * scripts (``gmj_`` prefix): ``from <stem> import`` / ``import <stem>`` / ``<stem>.py`` path
     forms only — so prose "router/routing" / "extraction" is never corrupted (Pitfall 1/2).
-  * agents/skills/commands/hooks (``gmj-`` prefix): the distinctive name as a DELIMITED token
-    (``_ - . /`` and line bounds act as delimiters), skipping the already-renamed ``gmj-<old>``
-    form and the stable ``<old>.log`` runtime-log filenames — so gate-artifact filename tokens,
-    JSON gate keys, DAG node ids, dispatch names, ``name:`` frontmatter and hook paths all move
-    together (the gate-cluster rides the agents wave atomically).
+  * agents/skills/hooks + DISTINCTIVE single-file commands (``gmj-`` prefix): the distinctive
+    name as a DELIMITED token (``_ - . /`` and line bounds act as delimiters), skipping the
+    already-renamed ``gmj-<old>`` form and the stable ``<old>.log`` runtime-log filenames — so
+    gate-artifact filename tokens, JSON gate keys, DAG node ids, dispatch names, ``name:``
+    frontmatter and hook paths all move together (the gate-cluster rides the agents wave atomically).
+  * DIRECTORY-GROUP commands whose short name is a generic word (e.g. ``pipeline`` — which also
+    names ``scripts/pipeline/``, ``.pipeline/`` runtime state, ``config/pipeline.*.yaml`` and
+    ``pipeline_dir`` identifiers): scoped to COMMAND-PATH reference forms ONLY (``commands/<old>``
+    dir path, ``/<old>/<sub>`` slash-command invocation, ``/<old>:`` colon form) — NEVER a bare
+    token, so structural/runtime/prose ``pipeline`` uses are left untouched (Pitfall 1/2, mirrors
+    the prose-safe script-stem scoping above).
 
 CLI: ``gmj_rebrand.py --type <scripts|agents|commands|skills|hooks> [--dry-run | --apply]
       [--manifest config/ownership-manifest.yaml]``; exit 0 (+ printed plan/summary) on success,
@@ -211,8 +217,56 @@ def _script_rules(entries: list[dict]) -> list[tuple[re.Pattern, str, dict]]:
     return rules
 
 
+def _is_dir_group_command(entry: dict) -> bool:
+    """True when a command entry resolves to a DIRECTORY group (e.g. ``pipeline/``), not a leaf ``.md``.
+
+    Stable across waves: ``_resolve_pair`` returns the ``<name>.md`` file pair when either the old
+    or the new leaf exists, else the bare ``<name>`` directory pair — so a dir-group command is
+    exactly one whose resolved path has no ``.md`` suffix.
+    """
+    return not str(entry["old_path"]).endswith(".md")
+
+
+def _command_path_rules(entries: list[dict]) -> list[tuple[re.Pattern, str, dict]]:
+    """Command-path-scoped rules for DIRECTORY-GROUP commands (generic-word-safe).
+
+    A dir-group command's short name (e.g. ``pipeline``) collides with ubiquitous non-command
+    tokens: the ``scripts/pipeline/`` source dir (NOT renamed), the ``.pipeline/`` runtime-state
+    dir, ``config/pipeline.*.yaml`` config files (stable per REBRAND-01), ``pipeline_dir`` /
+    ``pipeline_config`` Python identifiers, and plain prose. A bare delimited-token match (the
+    ``_dash_rules`` strategy) would corrupt all of those — so, mirroring the prose-safe
+    ``_script_rules``, match ONLY genuine command-reference forms:
+
+      * ``commands/<old>`` — the command dir path (``.claude/commands/<old>``, ``commands/<old>/``),
+        NOT the sibling ``commands/<old>-run`` single-file command;
+      * ``/<old>/<sub>`` — a slash-command invocation whose leading ``/`` is a command anchor, NOT
+        a path separator (so ``scripts/pipeline/…`` and ``.pipeline/…`` are excluded);
+      * ``/<old>:`` — the colon-namespaced invocation form.
+    """
+    rules = []
+    for e in entries:
+        old, new = re.escape(e["old"]), e["new"]
+        # commands/<old> dir-path ref; lookahead protects the sibling commands/<old>-run leaf.
+        rules.append((re.compile(rf"commands/{old}(?![A-Za-z0-9_-])"), f"commands/{new}", e))
+        # /<old>/ slash-command — leading / must NOT be a path separator (excludes scripts/<old>/,
+        # .<old>/ handled by the . in the negative lookbehind class).
+        rules.append((re.compile(rf"(?<![A-Za-z0-9_.])/{old}/"), f"/{new}/", e))
+        # /<old>: colon-namespaced invocation form (same anchor as the slash form).
+        rules.append((re.compile(rf"(?<![A-Za-z0-9_.])/{old}:"), f"/{new}:", e))
+    return rules
+
+
 def build_rules(entries: list[dict], atype: str) -> list[tuple[re.Pattern, str, dict]]:
-    return _script_rules(entries) if atype == "scripts" else _dash_rules(entries)
+    if atype == "scripts":
+        return _script_rules(entries)
+    if atype == "commands":
+        # Split: distinctive single-file commands (job-collective, pipeline-run) keep the safe
+        # bare-token rule; a generic-word dir-group command (pipeline) is command-path-scoped so
+        # its ubiquitous non-command homographs are never rewritten (Option-1 root-cause fix).
+        single = [e for e in entries if not _is_dir_group_command(e)]
+        dir_group = [e for e in entries if _is_dir_group_command(e)]
+        return _dash_rules(single) + _command_path_rules(dir_group)
+    return _dash_rules(entries)
 
 
 # --------------------------------------------------------------------------- tree walk + rewrite

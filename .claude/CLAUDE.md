@@ -231,7 +231,7 @@ must actually target the offer.
 - Location: `.claude/agents/gmj-orchestrator.md` (hub), `.claude/agents/vacancy-router.md` (routing logic)
 - Contains: Task invocations, routing decision parsing, cycle tracking, quality gate handling
 - Depends on: All spokes return `agent_result_v1` envelopes; orchestrator parses them
-- Used by: Entry point `/job-collective` command
+- Used by: Entry point `/gmj-collective` command
 - Purpose: Gather market trends, job postings, candidate materials
 - Location: `.claude/agents/job-market-researcher.md`, `.claude/agents/vacancy-scraper.md`, `.claude/agents/gmj-candidate-analyzer.md`
 - Contains: Web searches, document parsing, structured extraction
@@ -306,7 +306,7 @@ must actually target the offer.
 
 ## Entry Points
 
-- Location: `.claude/commands/job-collective.md`
+- Location: `.claude/commands/gmj-collective.md`
 - Triggers: User invokes slash command in Claude Code session
 - Responsibilities: Instructs hub orchestrator to load `.claude/agents/gmj-orchestrator.md` and await user goal in same turn; hub must use `Task` only to spawn spokes (never nest orchestrator inside Task)
 - Location: `.claude/settings.json` → SessionStart hooks → `.claude/hooks/session-bootstrap.sh`

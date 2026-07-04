@@ -298,8 +298,8 @@ def test_inspect_verdicts_artifacts_attempts() -> None:
 def test_resume_command_printed_not_executed() -> None:
     _, payload = _inspect_json("20260601T120000-del")
     assert payload is not None
-    assert "/pipeline-run" in payload["resume_command"], (
-        f"run resume_command must contain /pipeline-run: {payload['resume_command']}"
+    assert "/gmj-pipeline-run" in payload["resume_command"], (
+        f"run resume_command must contain /gmj-pipeline-run: {payload['resume_command']}"
     )
     assert "20260601T120000-del" in payload["resume_command"], (
         f"run resume_command must name the run_id: {payload['resume_command']}"

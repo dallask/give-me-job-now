@@ -54,7 +54,7 @@ Shell each of these via `Bash`. Every subcommand accepts `--pipeline-dir <dir>` 
 The inspector **prints** the exact resume command; the **operator** runs it. This persona
 never executes a resume itself (hub-holds-Task, ERGO-04):
 
-- **Resume a run:** a run resumes via **`/pipeline-run`** by passing the existing
+- **Resume a run:** a run resumes via **`/gmj-pipeline-run`** by passing the existing
   `run_id` (its `gmj_route.py` loop picks up where the run left off). `run inspect <id>`
   surfaces this command as a string to copy.
 - **Resume a batch:** a batch resumes via **`/gmj-batch --resume <batch_id>`**.

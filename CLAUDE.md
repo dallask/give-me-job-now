@@ -18,7 +18,7 @@ This repository supports a **hub-and-spoke job/CV collective**: vacancy research
 
 ## Hub-and-spoke rules
 
-1. **`gmj-orchestrator`** (the hub **persona**—see `/job-collective`) is the **only** role that calls `Task` to spawn other agents. That persona must run at **top level** in the session (follow `gmj-orchestrator.md` in the main chat). **Do not** `Task`-spawn `gmj-orchestrator` itself: nested hubs do not get `Task` in Claude Code, so spokes cannot run.
+1. **`gmj-orchestrator`** (the hub **persona**—see `/gmj-collective`) is the **only** role that calls `Task` to spawn other agents. That persona must run at **top level** in the session (follow `gmj-orchestrator.md` in the main chat). **Do not** `Task`-spawn `gmj-orchestrator` itself: nested hubs do not get `Task` in Claude Code, so spokes cannot run.
 2. Routing schema: **User Request → Routing Analysis → Agent Selection → Task Delegation → Quality Gate → Result**.
 3. Subagents do **not** call `Task` (no peer-to-peer chaining).
 
@@ -54,7 +54,7 @@ CV PDFs are produced **only** via Python (`scripts/cv/gmj_render_cv.py`), not by
 
 ## Entrypoints
 
-- Slash command: **`/job-collective`** → `.claude/commands/job-collective.md`
+- Slash command: **`/gmj-collective`** → `.claude/commands/gmj-collective.md`
 - Session hooks: `.claude/settings.json` (bootstrap banner, Bash guardrails, handoff logging)
 
 ## CV generation pipelines

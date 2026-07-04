@@ -21,7 +21,7 @@ STATE_STUB = """# Project State
 
 | Phase | State | Item | Resume |
 |-------|-------|------|--------|
-| 08 | e2e03 | live real-offer run | run /pipeline-run |
+| 08 | e2e03 | live real-offer run | run /gmj-pipeline-run |
 
 ## Session Continuity
 

@@ -100,10 +100,10 @@ def test_only_hub_holds_task() -> None:
 
 def test_pipeline_commands_exist() -> None:
     # Plan 06 artifacts: the whole-flow command + six per-step wrappers.
-    assert (COMMANDS_DIR / "pipeline-run.md").is_file(), "missing .claude/commands/pipeline-run.md"
+    assert (COMMANDS_DIR / "gmj-pipeline-run.md").is_file(), "missing .claude/commands/gmj-pipeline-run.md"
     for step in ["scout", "freeze", "compose", "verify", "evaluate", "generate"]:
-        path = COMMANDS_DIR / "pipeline" / f"{step}.md"
-        assert path.is_file(), f"missing .claude/commands/pipeline/{step}.md"
+        path = COMMANDS_DIR / "gmj-pipeline" / f"{step}.md"
+        assert path.is_file(), f"missing .claude/commands/gmj-pipeline/{step}.md"
 
 
 def main() -> int:

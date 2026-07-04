@@ -294,8 +294,8 @@ def _cmd_run_inspect(args: argparse.Namespace) -> int:
 
     gr = _gate_results(state)
     artifacts, attempts = _gate_logs(run_dir)
-    # Resume is PRINTED, never executed — an existing run_id resumes via gmj_route.py (pipeline-run.md).
-    resume_command = f"/pipeline-run  (resume: pass run_id={args.run_id})"
+    # Resume is PRINTED, never executed — an existing run_id resumes via gmj_route.py (gmj-pipeline-run.md).
+    resume_command = f"/gmj-pipeline-run  (resume: pass run_id={args.run_id})"
 
     payload = {
         "kind": "run_inspect",

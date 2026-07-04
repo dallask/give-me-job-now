@@ -38,7 +38,7 @@ orchestrates, it never re-judges a gate.
 ## Batch loop
 
 1. **Read the shortlist.** `Read .pipeline/shortlist.json`. If it is absent, advise running
-   a board-search first (`/pipeline/scout`, or the collective via `/job-collective`) to
+   a board-search first (`/gmj-pipeline/scout`, or the collective via `/gmj-collective`) to
    produce it — do not fabricate offers. Display the ranked list **in `shortlist` array
    order** (that array order IS the authoritative 1-indexed display order) and prompt for a
    selection: **`1,3,5` | `all`**.
