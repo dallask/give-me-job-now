@@ -67,6 +67,23 @@ def _safe_id(value: str, label: str) -> str | None:
     return value
 
 
+def _safe_component(value: object) -> bool:
+    """Silent variant of ``_safe_id`` for manifest-sourced run_ids in a read-only preview.
+
+    Returns True when ``value`` is a safe single path component. Unlike ``_safe_id`` it prints
+    nothing — a crafted run_id inside a manifest simply skips the gate cross-check (the run stays
+    in the resume set) instead of aborting the whole batch preview.
+    """
+    return (
+        isinstance(value, str)
+        and value not in (".", "..")
+        and ".." not in value
+        and "/" not in value
+        and "\\" not in value
+        and bool(_ID_RE.match(value))
+    )
+
+
 def _order_key(run_id: str) -> tuple[str, str]:
     """(first \\d{8}T\\d{6} match or "", run_id). Sort ``reverse=True`` for newest-first.
 
@@ -221,6 +238,183 @@ def _cmd_batches_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def _gate_logs(run_dir: Path) -> tuple[list[str], list[str]]:
+    """Return (all filenames, gate-log filenames) present in ``run_dir`` — read-only glob.
+
+    Tolerantly matches BOTH gate-log conventions: the go-forward
+    ``gate_<node>_<type>_<attempt>.json`` / advisory ``gate_c_...`` AND the legacy
+    ``<type>.gateA[.retryN].json`` / ``<type>.gateB.json``. A missing/oddly-named log is
+    non-fatal (it simply is not classified as an attempt).
+    """
+    artifacts: list[str] = []
+    attempts: list[str] = []
+    for f in sorted(run_dir.iterdir()):
+        if not f.is_file():
+            continue
+        artifacts.append(f.name)
+        if f.name.startswith("gate_") or re.search(r"\.gate[AB]", f.name):
+            attempts.append(f.name)
+    return artifacts, attempts
+
+
+def _cmd_run_inspect(args: argparse.Namespace) -> int:
+    """Inspect one run: verdicts, run-dir artifacts, per-attempt history, printed resume command."""
+    pipeline_dir = Path(args.pipeline_dir).expanduser()
+    runs_dir = pipeline_dir / "runs"
+    if _safe_id(args.run_id, "run_id") is None:
+        return 1
+    run_dir = runs_dir / args.run_id
+    # Defence in depth: the resolved run dir must stay contained under the resolved runs dir.
+    resolved = run_dir.resolve()
+    base = runs_dir.resolve()
+    if resolved != base and base not in resolved.parents:
+        print(f"Refusing to inspect outside {base}: {resolved}", file=sys.stderr)
+        return 1
+
+    sp = run_dir / "state.json"
+    if not sp.is_file():
+        print(f"Run state not found: {sp}", file=sys.stderr)
+        return 1
+    try:
+        state = json.loads(sp.read_text(encoding="utf-8"))
+    except ValueError as exc:  # JSONDecodeError subclasses ValueError
+        print(f"Invalid state JSON at {sp}: {exc}", file=sys.stderr)
+        return 1
+    if not isinstance(state, dict):
+        print("State file must contain a JSON object.", file=sys.stderr)
+        return 1
+
+    gr = _gate_results(state)
+    artifacts, attempts = _gate_logs(run_dir)
+    # Resume is PRINTED, never executed — an existing run_id resumes via route.py (pipeline-run.md).
+    resume_command = f"/pipeline-run  (resume: pass run_id={args.run_id})"
+
+    payload = {
+        "kind": "run_inspect",
+        "run_id": state.get("run_id") or args.run_id,
+        "status": project_status(state),
+        "mode": state.get("execution_mode") or "—",
+        "gate_a": gr.get("truth-verifier") or "—",
+        "gate_b": gr.get("fit-evaluator") or "—",
+        # offer_spec_path is displayed VERBATIM — never resolved/stat'd (it may be relative).
+        "offer_spec_path": state.get("offer_spec_path"),
+        "offer_spec_hash": state.get("offer_spec_hash"),
+        "retry_cap": state.get("retry_cap"),
+        "retry_counts": state.get("retry_counts") or {},
+        "current_step": state.get("current_step"),
+        "artifacts": artifacts,
+        "attempts": attempts,
+        "resume_command": resume_command,
+    }
+
+    if args.json_out:
+        _emit_json(payload)
+    else:
+        print(f"run_id        {payload['run_id']}")
+        print(f"status        {payload['status']}")
+        print(f"mode          {payload['mode']}")
+        print(f"Gate A        {payload['gate_a']}")
+        print(f"Gate B        {payload['gate_b']}")
+        print(f"offer_spec    {payload['offer_spec_path']}")
+        print(f"offer_hash    {payload['offer_spec_hash']}")
+        print(f"retry_cap     {payload['retry_cap']}")
+        print(f"retry_counts  {json.dumps(payload['retry_counts'], sort_keys=True, ensure_ascii=False)}")
+        print(f"current_step  {payload['current_step']}")
+        print(f"artifacts     {', '.join(artifacts) or '(none)'}")
+        print(f"attempts      {', '.join(attempts) or '(none)'}")
+        print(f"resume        {resume_command}")
+    return 0
+
+
+def _cmd_batch_inspect(args: argparse.Namespace) -> int:
+    """Inspect one batch: per-offer per-artifact-type run rows + printed batch resume command.
+
+    The resume-set preview mirrors gmj_batch.py resume's label-AND-gate predicate
+    (``label == "delivered" and blocked_reason(gate_results) is None`` read from each run's own
+    state.json) so the preview matches the real resume — never trusting the manifest label alone.
+    """
+    pipeline_dir = Path(args.pipeline_dir).expanduser()
+    runs_dir = pipeline_dir / "runs"
+    if _safe_id(args.batch_id, "batch_id") is None:
+        return 1
+    batches_dir = pipeline_dir / "batches"
+    manifest_path = batches_dir / args.batch_id / "manifest.json"
+    # Defence in depth: the resolved manifest path must stay contained under the batches dir.
+    resolved = manifest_path.resolve()
+    base = batches_dir.resolve()
+    if base not in resolved.parents:
+        print(f"Refusing to inspect outside {base}: {resolved}", file=sys.stderr)
+        return 1
+    if not manifest_path.is_file():
+        print(f"Manifest not found: {manifest_path}", file=sys.stderr)
+        return 1
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except ValueError as exc:  # JSONDecodeError subclasses ValueError
+        print(f"Invalid manifest JSON: {exc}", file=sys.stderr)
+        return 1
+    if not isinstance(manifest, dict):
+        print("Manifest file must contain a JSON object.", file=sys.stderr)
+        return 1
+
+    offers_out: list[dict] = []
+    for offer in manifest.get("offers") or []:
+        if not isinstance(offer, dict):
+            continue
+        offer_index = offer.get("offer_index")
+        runs = offer.get("runs")
+        if not isinstance(runs, dict):
+            continue
+        for artifact_type, run in runs.items():
+            if not isinstance(run, dict):
+                continue
+            run_id = run.get("run_id")
+            label = run.get("status")
+            # Cross-check the manifest label against the run's own recorded gates (defence in
+            # depth): a forged/corrupt 'delivered' label without a real gate pass is not trusted.
+            gate_results: dict = {}
+            if _safe_component(run_id):
+                rsp = runs_dir / run_id / "state.json"
+                if rsp.is_file():
+                    try:
+                        rstate = json.loads(rsp.read_text(encoding="utf-8"))
+                    except ValueError:
+                        rstate = None
+                    if isinstance(rstate, dict) and isinstance(rstate.get("gate_results"), dict):
+                        gate_results = rstate["gate_results"]
+            delivered = label == "delivered" and blocked_reason(gate_results) is None
+            offers_out.append(
+                {
+                    "offer_index": offer_index,
+                    "artifact_type": artifact_type,
+                    "run_id": run_id,
+                    "status": label,
+                    "in_resume_set": not delivered,
+                }
+            )
+
+    # Resume is PRINTED, never executed (gmj-batch.md).
+    resume_command = f"/gmj-batch --resume {args.batch_id}"
+    payload = {
+        "kind": "batch_inspect",
+        "batch_id": manifest.get("batch_id") or args.batch_id,
+        "offers": offers_out,
+        "resume_command": resume_command,
+    }
+
+    if args.json_out:
+        _emit_json(payload)
+    else:
+        for r in offers_out:
+            flag = "resume" if r["in_resume_set"] else "done"
+            print(
+                f"offer_index={r['offer_index']:<3} artifact_type={r['artifact_type']:<14} "
+                f"run_id={r['run_id']:<28} status={r['status']:<10} [{flag}]"
+            )
+        print(f"resume        {resume_command}")
+    return 0
+
+
 def _add_common(parser: argparse.ArgumentParser, func) -> None:
     parser.add_argument(
         "--pipeline-dir",
@@ -243,9 +437,25 @@ def main() -> int:
     runs_sub = p_runs.add_subparsers(dest="verb", required=True)
     _add_common(runs_sub.add_parser("list", help="List runs newest-first."), _cmd_runs_list)
 
+    p_run = sub.add_parser("run", help="Single-run ops.")
+    run_sub = p_run.add_subparsers(dest="verb", required=True)
+    p_run_inspect = run_sub.add_parser(
+        "inspect", help="Inspect one run (verdicts, artifacts, attempts, resume command)."
+    )
+    p_run_inspect.add_argument("run_id", help="Run id (a single safe path component).")
+    _add_common(p_run_inspect, _cmd_run_inspect)
+
     p_batches = sub.add_parser("batches", help="Batch-collection ops.")
     batches_sub = p_batches.add_subparsers(dest="verb", required=True)
     _add_common(batches_sub.add_parser("list", help="List batches with delivered/total rollup."), _cmd_batches_list)
+
+    p_batch = sub.add_parser("batch", help="Single-batch ops.")
+    batch_sub = p_batch.add_subparsers(dest="verb", required=True)
+    p_batch_inspect = batch_sub.add_parser(
+        "inspect", help="Inspect one batch (per-offer run rows + resume command)."
+    )
+    p_batch_inspect.add_argument("batch_id", help="Batch id (a single safe path component).")
+    _add_common(p_batch_inspect, _cmd_batch_inspect)
 
     args = parser.parse_args()
     return args.func(args)
