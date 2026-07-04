@@ -35,6 +35,9 @@ sys.path.insert(0, str(REPO_ROOT / "scripts" / "contracts"))
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "offers"))
 from validate_preferences import _norm_site, subset_offenders, load_yaml  # noqa: E402,F401
 from freeze_offer import slugify  # noqa: E402  ([a-z0-9-] slug; returns "offer" when empty)
+from jsonschema import Draft202012Validator  # noqa: E402
+
+SHORTLIST_SCHEMA = REPO_ROOT / "schemas" / "shortlist.schema.json"
 
 def _reject_nan(token: str):
     """``json.loads`` ``parse_constant`` hook: refuse the non-finite JSON extensions.
@@ -229,6 +232,26 @@ def render_md(ranked: list[dict]) -> str:
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
+def _validate_against_schema(doc: dict) -> None:
+    """Validate the assembled shortlist against ``schemas/shortlist.schema.json``, fail closed.
+
+    The schema is the frozen contract Phase 12 consumes: every entry MUST carry
+    ``canonical_key``, ``board``, ``score``, and ``trace.source_url``. An entry that arrived
+    in the legacy top-level-``source_url`` shape (no ``trace``/``board``) would otherwise be
+    emitted verbatim and silently break the contract. Raise ``ValueError`` (caught in ``main``
+    → exit 1) so a non-conforming assembly never lands on disk (WR-02).
+    """
+    schema = json.loads(SHORTLIST_SCHEMA.read_text(encoding="utf-8"))
+    validator = Draft202012Validator(schema)
+    errors = sorted(validator.iter_errors(doc), key=lambda e: list(e.absolute_path))
+    if errors:
+        first = errors[0]
+        loc = "/".join(map(str, first.absolute_path)) or "<root>"
+        raise ValueError(
+            f"assembled shortlist violates shortlist.schema.json at {loc}: {first.message}"
+        )
+
+
 def write_shortlist(ranked: list[dict], out: Path) -> Path:
     """Write the canonical byte-identical JSON + sibling job-seeker ``.md`` under ``.pipeline/``.
 
@@ -242,6 +265,7 @@ def write_shortlist(ranked: list[dict], out: Path) -> Path:
 
     resolved.parent.mkdir(parents=True, exist_ok=True)
     doc = {"kind": "offer_shortlist", "schema_version": "1.0", "shortlist": ranked}
+    _validate_against_schema(doc)
     resolved.write_text(
         # allow_nan=False: a stray non-finite value fails loud, never corrupts the artifact
         # into invalid RFC-8259 JSON (mirrors the _reject_nan load guard) (SCOUT-04).

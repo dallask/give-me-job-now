@@ -212,6 +212,31 @@ def test_md_view_uses_jobseeker_wording() -> None:  # SCOUT-01
         assert "matching vacancies for you" in text, "md must use the job-seeker header"
 
 
+def test_output_schema_violation_fails_closed() -> None:  # WR-02 frozen-contract guard
+    # An assembled entry lacking the required contract keys (board/trace) must fail closed:
+    # the merge output is validated against shortlist.schema.json BEFORE writing.
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        # In-scope by its top-level source_url host, but carries neither `board` nor `trace`
+        # -> a schema-nonconforming assembled entry.
+        entry = {
+            "title": "PHP Engineer",
+            "company": "SoftPeak",
+            "location": "Kyiv",
+            "source_url": "https://www.work.ua/j/9",
+            "salary": 4000,
+            "mode": "remote",
+        }
+        result, out = _run_merge(cwd, [entry], _PREFS, _SOURCES, out_name="bad.json")
+        assert result.returncode == 1, (
+            f"a schema-nonconforming assembled entry must fail closed (exit 1): {result.stdout}"
+        )
+        assert "shortlist.schema.json" in result.stderr, (
+            f"stderr must name the schema it violated: {result.stderr}"
+        )
+        assert not out.exists(), "no shortlist must be written when the assembly violates the schema"
+
+
 def test_host_fallback_keeps_distinct_offers() -> None:  # WR-01 data-loss guard
     # Two genuinely different postings on the SAME in-scope board, both lacking
     # company/title/location, must NOT collapse to one host-only key.
