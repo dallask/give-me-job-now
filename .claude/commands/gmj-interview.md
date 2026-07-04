@@ -31,9 +31,9 @@ already answers (resumability):
 - **Glob** `sources/candidate/**` — enumerate the raw intake.
 
 Derive `GAPS` = (candidate.yaml schema sections that are empty or thin, measured against the
-`candidate-yaml-schema` top-level keys — `name`, `title`, `summary`, `contact`, `expertise`,
+`gmj-candidate-yaml-schema` top-level keys — `name`, `title`, `summary`, `contact`, `expertise`,
 `languages`, `professional_experience`, `key_achievements`, `certifications`,
-`independent_projects`, `education` — see `.claude/skills/candidate-yaml-schema/SKILL.md`)
+`independent_projects`, `education` — see `.claude/skills/gmj-candidate-yaml-schema/SKILL.md`)
 **UNION** intake gray areas from the manifest (files with `status`
 `needs-conversion`/`blocked`/`error`, urls with `status` `blocked`/`pasted-fallback`).
 **Never re-ask a field the profile already answers.**
@@ -42,7 +42,7 @@ Derive `GAPS` = (candidate.yaml schema sections that are empty or thin, measured
 
 If the `Glob` of `sources/candidate/**` returns nothing (empty or missing), **advise** the
 user to add source documents (resumes, certificates, exports) under `sources/candidate/`
-before proceeding — point them at `.claude/skills/sources-ingestion/SKILL.md` for the
+before proceeding — point them at `.claude/skills/gmj-sources-ingestion/SKILL.md` for the
 intake layout. Richer source material means fewer questions and better-grounded findings.
 
 ### 3. Ask ONE question at a time — elicit facts, never suggest them (INTERVIEW-05)

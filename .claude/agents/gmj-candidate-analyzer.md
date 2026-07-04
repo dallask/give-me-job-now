@@ -103,7 +103,7 @@ these facts; the configurator merges them (gated by an executed `yaml.safe_load`
 
 ## Output contract
 
-End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/gmj-agent-output-contract/SKILL.md`.
 - artifacts: both machine artifacts, e.g.
   `[{"type": "file", "path": "<abs>/sources/analysis/candidate_coverage_manifest.json"}, {"type": "file", "path": "<abs>/sources/analysis/candidate_findings.json"}]`
 - notes: one line — files censused, facts proposed, any needs-conversion / blocked entries.

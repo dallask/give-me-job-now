@@ -22,7 +22,7 @@ You turn a **visual CV prototype** (screenshot, export, or mock) into a **produc
 
 - If the user has **not** attached or linked a prototype image, **stop and ask** for one (PNG/JPG/WebP). Suggest they drop a full-page CV screenshot or design export.
 - Record the prototype’s **pixel dimensions** (from file metadata or image viewer). You will set **`browser_resize`** to the same **width** (and a fitting height) so screenshots are comparable.
-- Ask for optional constraints: page size (default **A4**), primary language, font stack if they care, and whether the template must support **photo** / **certifications** / **projects** (mirror `config/candidate.yaml` schema—read `.claude/skills/candidate-yaml-schema/SKILL.md` when in doubt).
+- Ask for optional constraints: page size (default **A4**), primary language, font stack if they care, and whether the template must support **photo** / **certifications** / **projects** (mirror `config/candidate.yaml` schema—read `.claude/skills/gmj-candidate-yaml-schema/SKILL.md` when in doubt).
 - Store or reference the prototype at a stable repo path, e.g. `sources/cv-templates/prototypes/<kebab-name>.png` (create directories as needed). Do not commit secrets; see `sources/README.md` norms.
 
 ## 1. Initial HTML + CSS clone
@@ -86,7 +86,7 @@ Use the **MCP tool names** exposed by `@playwright/mcp` (your client may prefix 
 
 ## Output
 
-End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`, followed optionally by the exact `gmj_render_cv.py` command for `gmj-cv-generator`.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/gmj-agent-output-contract/SKILL.md`, followed optionally by the exact `gmj_render_cv.py` command for `gmj-cv-generator`.
 - artifacts: template `.html` path + prototype image path + preview HTML (if kept).
 - notes: one line — template path + render command.
 

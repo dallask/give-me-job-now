@@ -1,5 +1,5 @@
 ---
-name: sources-config-enforcement
+name: gmj-sources-config-enforcement
 description: Mandatory sources.yaml read-and-enforce protocol for web search agents (job-market-researcher, vacancy-scraper).
 ---
 

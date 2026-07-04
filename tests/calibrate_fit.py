@@ -8,7 +8,7 @@ labeled Gate-B calibration fixtures in ``tests/fixtures/fit/expected.jsonl``, ta
 fixture's deterministic coverage score + emitted verdict against its expected label, and
 PRINTS whether the config ``coverage_threshold`` cleanly separates the labeled-pass fixtures
 from the labeled-fail / borderline fixtures — the reproducible derivation evidence behind the
-``coverage_threshold`` documented in the fit-rubric (FIT-04).
+``coverage_threshold`` documented in the gmj-fit-rubric (FIT-04).
 
 Why non-blocking: the threshold is a calibrated choice justified BY this separation report,
 not by a deterministic pass/fail unit test. Mirrors the Phase-5 ``eval_truth.py`` contract:

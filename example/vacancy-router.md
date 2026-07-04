@@ -48,4 +48,4 @@ If multiple steps are needed, set `next_agent` to the **first** spoke only; orch
 - Verify files/PDF/YAML → `cv-deliverable-gate`
 - Nothing left → `done` with `acceptance_criteria` satisfied summary
 
-After the `ROUTING_DECISION` block, emit the `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`. artifacts: `[]`, notes: next_agent selected + rationale.
+After the `ROUTING_DECISION` block, emit the `agent_result_v1` envelope — schema in `.claude/skills/gmj-agent-output-contract/SKILL.md`. artifacts: `[]`, notes: next_agent selected + rationale.

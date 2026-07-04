@@ -47,7 +47,7 @@ The output format and rubric dimensions are the same as Mode A.
 - Mode A: vacancy file(s) under `sources/vacancies/`
 - Mode B: market brief under `sources/research/`
 
-Use skill `.claude/skills/cv-review-rubric/SKILL.md` for scoring dimensions.
+Use skill `.claude/skills/gmj-cv-review-rubric/SKILL.md` for scoring dimensions.
 
 ## Output
 
@@ -62,6 +62,6 @@ Risk flags (overclaim, gaps), **Prioritized edits** (ordered list with rationale
 
 ## Output contract
 
-End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/gmj-agent-output-contract/SKILL.md`.
 - artifacts: `[{"type": "file", "path": "<absolute path to cv-review-*.md>"}]`
 - notes: one line — overall score summary.

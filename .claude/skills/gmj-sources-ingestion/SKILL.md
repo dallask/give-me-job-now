@@ -1,5 +1,5 @@
 ---
-name: sources-ingestion
+name: gmj-sources-ingestion
 description: Conventions for placing candidate and vacancy materials under sources/.
 ---
 

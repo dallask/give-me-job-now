@@ -1,5 +1,5 @@
 ---
-name: cv-review-rubric
+name: gmj-cv-review-rubric
 description: Scoring dimensions for CV vs vacancy and market alignment.
 ---
 

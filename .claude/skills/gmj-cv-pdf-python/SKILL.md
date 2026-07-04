@@ -1,5 +1,5 @@
 ---
-name: cv-pdf-python
+name: gmj-cv-pdf-python
 description: Python commands to extract text and render CV PDFs for give-me-job.
 ---
 

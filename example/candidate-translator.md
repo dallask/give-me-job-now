@@ -87,6 +87,6 @@ key_achievements:
 
 ## Output contract
 
-End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/gmj-agent-output-contract/SKILL.md`.
 - artifacts: `[{"type": "yaml_overlay", "path": "config/candidate.<lang>.yaml"}]`
 - notes: one line — target lang, fields translated, overlay path.

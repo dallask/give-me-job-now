@@ -1,5 +1,5 @@
 ---
-name: candidate-yaml-schema
+name: gmj-candidate-yaml-schema
 description: Schema and editing rules for config/candidate.yaml and config/cv/cv.[skill].[lang].yaml in give-me-job.
 ---
 

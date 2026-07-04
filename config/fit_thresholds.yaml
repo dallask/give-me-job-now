@@ -11,7 +11,7 @@
 # The `weights` block feeds ONLY an optional advisory composite reported in `why`.
 # It NEVER contributes to the Gate B hard-block verdict, which is coverage-only:
 # covered_count / total_count must be >= coverage_threshold. See
-# .claude/skills/fit-rubric/SKILL.md for the derivation record and the Gate C rubric.
+# .claude/skills/gmj-fit-rubric/SKILL.md for the derivation record and the Gate C rubric.
 
 # PRIMARY hard-block: covered_count / total_count must be >= this value.
 # Seeded at 0.7 as the placeholder anchor (Assumption A1) to be CONFIRMED by the

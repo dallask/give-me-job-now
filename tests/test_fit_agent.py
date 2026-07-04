@@ -6,7 +6,7 @@ Runnable as a plain assertion script (no pytest), matching the repo convention o
 ``.claude/agents/gmj-fit-evaluator.md`` — never LLM scoring accuracy. The invariants are:
 
 - the frontmatter ``tools:`` line is exactly ``Read, Glob, Grep`` (no ``Write``/``Bash``),
-- the body references the fit-rubric skill as its scoring authority,
+- the body references the gmj-fit-rubric skill as its scoring authority,
 - it instructs emitting a ``coverage_map`` (claims → must-have IDs),
 - it emits a Gate C (``gate: "C"``) structurally separate from the Gate B verdict,
 - it carries the injection-guard DATA-not-instructions framing,
@@ -47,8 +47,8 @@ def test_tools_are_read_only() -> None:
 
 def test_references_fit_rubric_skill() -> None:
     text = _text()
-    assert ".claude/skills/fit-rubric/SKILL.md" in text, (
-        "agent must reference the fit-rubric skill as scoring authority"
+    assert ".claude/skills/gmj-fit-rubric/SKILL.md" in text, (
+        "agent must reference the gmj-fit-rubric skill as scoring authority"
     )
 
 

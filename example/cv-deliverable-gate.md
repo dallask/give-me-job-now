@@ -50,7 +50,7 @@ Then emit the `agent_result_v1` block as your **final output**.
 
 ## Output contract
 
-End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/gmj-agent-output-contract/SKILL.md`.
 - artifacts: one entry per verified file path.
 - `status: fail` + `next_action: retry` when any criterion fails; `status: success` + `next_action: none` on full PASS.
 - notes: one line — "PASS (N/N)" or "FAIL (M/N failed)".

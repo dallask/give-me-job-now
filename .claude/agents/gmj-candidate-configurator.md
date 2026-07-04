@@ -9,18 +9,18 @@ color: orange
 ## Source of truth
 
 - Primary file: `config/candidate.yaml`
-- Follow skill **candidate-yaml-schema** in `.claude/skills/candidate-yaml-schema/SKILL.md` when editing.
+- Follow skill **gmj-candidate-yaml-schema** in `.claude/skills/gmj-candidate-yaml-schema/SKILL.md` when editing.
 - This agent is the **only** writer of `config/candidate.yaml`. Upstream spokes (e.g. `gmj-candidate-analyzer`) only *propose* findings; they must not hold `Write` on the master YAML. Every ingested fact reaches the canonical profile through this agent's schema-safe merge (INGEST-04).
 
 ## Merging ingestion findings
 
-The configurator consumes the analyzer's **findings artifact** — a list of proposed facts, each carrying `{target, value, provenance}` (where `provenance` is `{source, extractor, confidence}`) — and schema-valid **deep-merges** them into `config/candidate.yaml` per the **candidate-yaml-schema** skill:
+The configurator consumes the analyzer's **findings artifact** — a list of proposed facts, each carrying `{target, value, provenance}` (where `provenance` is `{source, extractor, confidence}`) — and schema-valid **deep-merges** them into `config/candidate.yaml` per the **gmj-candidate-yaml-schema** skill:
 
 - Merge new bullets into existing `achievements`/list fields rather than replacing whole jobs.
 - Add new `education` / `certifications` / `independent_projects` entries as list items. `certifications` are **issuer-grouped** items (`issuer`, optional `year`, `credentials[]`): merge a new credential into the matching issuer's `credentials` list; only add a new issuer object when no matching `issuer` exists.
 - The `contact` object is **nested** (`email[]`, `website.personal[]`/`company[]`/`portfolio[]`, `website.media.{linkedin,github,facebook,instagram}`, `messengers.{whatsapp,viber,telegram}`) — merge it **recursively** (dict-into-dict, list append/replace at the leaf), never flattening it back to scalar `github`/`linkedin`/second-email keys. Preserve `key_achievements[].icon` (emoji/glyph) when merging a key achievement.
 - **Preserve all existing facts** — deep-merge, never overwrite unrelated sections; the merge is additive unless the user explicitly asks to replace.
-- **Never fabricate** employers, dates, or credentials. Unknowns are flagged in chat, never invented into the YAML (candidate-yaml-schema rule 3).
+- **Never fabricate** employers, dates, or credentials. Unknowns are flagged in chat, never invented into the YAML (gmj-candidate-yaml-schema rule 3).
 - **Never introduce keys absent from the base schema.** No `_meta`, `confidence`, `source`, or other non-schema keys may land in `config/candidate.yaml`. This is exactly why per-fact provenance lives in a **sidecar**, not inline (see "Provenance sidecar" below).
 
 ### Executed post-merge gate
@@ -50,7 +50,7 @@ Per-fact provenance is written to a **sidecar** file `config/candidate.provenanc
 - **Value shape:** `{source, extractor, confidence}`, mirroring the analyzer findings' provenance for that fact.
 - **Write convention** (follows `scripts/offers/gmj_freeze_offer.py`): serialize with `json.dumps(data, ensure_ascii=False, indent=2)` plus a trailing newline, UTF-8.
 - **Containment:** the sidecar is written to the fixed path `config/candidate.provenance.json` and writes must stay confined under `config/` (assert containment before writing, per the `gmj_freeze_offer.py` precedent). Never write outside `config/`.
-- **No-inline rule (Pitfall 4):** provenance MUST NOT be added inline to `config/candidate.yaml`. Inline provenance keys would leak into `cv-composer`'s derived `config/cv/*.yaml` and violate the candidate-yaml-schema no-extra-keys contract. The sidecar keeps `candidate.yaml` schema-pure for `cv-composer` and `gmj_render_cv.py`.
+- **No-inline rule (Pitfall 4):** provenance MUST NOT be added inline to `config/candidate.yaml`. Inline provenance keys would leak into `cv-composer`'s derived `config/cv/*.yaml` and violate the gmj-candidate-yaml-schema no-extra-keys contract. The sidecar keeps `candidate.yaml` schema-pure for `cv-composer` and `gmj_render_cv.py`.
 
 ## Grounding set
 
@@ -68,6 +68,6 @@ The merged `config/candidate.yaml` is **exactly** the set that `gmj-truth-verifi
 
 ## Output contract
 
-End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/gmj-agent-output-contract/SKILL.md`.
 - artifacts: `[{"type": "yaml_section", "path": "config/candidate.yaml"}, {"type": "json", "path": "config/candidate.provenance.json"}]`
 - notes: one line — sections touched, executed yaml.safe_load gate passed, provenance sidecar updated.

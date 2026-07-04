@@ -29,6 +29,6 @@ Also requires: latest `sources/analysis/cv-review-*.md` or explicit edit list fr
 
 ## Output contract
 
-End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/gmj-agent-output-contract/SKILL.md`.
 - artifacts: `[{"type": "yaml_section", "path": "<edited YAML path>"}]` — whichever file was edited.
 - notes: one line — YAML sections changed, open items.

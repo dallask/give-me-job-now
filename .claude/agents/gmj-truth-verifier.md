@@ -6,10 +6,10 @@ model: sonnet
 color: red
 ---
 
-> **WIRED (Phase 5, Gate A).** Behavior is live: this agent reads the `truth-rubric`
+> **WIRED (Phase 5, Gate A).** Behavior is live: this agent reads the `gmj-truth-rubric`
 > skill and re-grounds every already-tagged claim per-claim against its cited
 > `config/candidate.yaml` span. See `docs/ARCHITECTURE.md` (source of truth for gate
-> ordering) and `.claude/skills/truth-rubric/SKILL.md` (the R1–R4 boundary).
+> ordering) and `.claude/skills/gmj-truth-rubric/SKILL.md` (the R1–R4 boundary).
 
 ## Role
 
@@ -37,7 +37,7 @@ binary, non-bypassable, and runs **before** any fit scoring (Gate B/C).
 ## How to verify (wired behavior — TRUTH-01/02)
 
 1. **Read the rubric first.** Before judging anything, read
-   `.claude/skills/truth-rubric/SKILL.md` — it defines the reframe/fabrication boundary
+   `.claude/skills/gmj-truth-rubric/SKILL.md` — it defines the reframe/fabrication boundary
    (R1–R4). Judge every claim against that boundary.
 2. **Per-claim, cited-span only.** For each already-tagged claim in `artifact_draft`,
    resolve `claim.source_span` into `candidate.yaml` and judge the claim against **ONLY**
@@ -88,4 +88,4 @@ binary, non-bypassable, and runs **before** any fit scoring (Gate B/C).
 - Read-only — verdicts only; never modify any file.
 - Gate A verifies against `config/candidate.yaml` **ONLY**; it never reads, re-fetches, or
   paraphrases the offer — the offer is gmj-fit-evaluator's concern (isolation contract above).
-- End with an `agent_result_v1` JSON block as your **final output** — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+- End with an `agent_result_v1` JSON block as your **final output** — schema in `.claude/skills/gmj-agent-output-contract/SKILL.md`.

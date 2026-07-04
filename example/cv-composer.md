@@ -142,6 +142,6 @@ Do not add any keys not present in the base schema (no `_meta`, no `skill_focus`
 
 ## Output contract
 
-End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/gmj-agent-output-contract/SKILL.md`.
 - **Pass 1:** `status: gap_report_ready`, `next_action: await_user_approval`, artifacts: gap report path, notes: N items kept, M gaps found, threshold used.
 - **Pass 2:** `status: success`, artifacts: `[{"type": "yaml_cv", "path": "config/cv/cv.{slug}.{lang}.yaml"}]`, notes: skill, lang, N experience entries, translated yes/no.

@@ -1,5 +1,5 @@
 ---
-name: vacancy-research-rubric
+name: gmj-vacancy-research-rubric
 description: Rubric for web vacancy search and market-aligned research outputs.
 ---
 

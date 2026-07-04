@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:give-me-job:schema:agent_result_v1",
   "title": "agent_result_v1 shared base",
-  "description": "Canonical agent_result_v1 envelope field set shared by every give-me-job spoke and referenced by the per-kind schemas via $ref. Mirrors .claude/skills/agent-output-contract/SKILL.md so existing emitters stay valid (back-compat locked).",
+  "description": "Canonical agent_result_v1 envelope field set shared by every give-me-job spoke and referenced by the per-kind schemas via $ref. Mirrors .claude/skills/gmj-agent-output-contract/SKILL.md so existing emitters stay valid (back-compat locked).",
   "$defs": {
     "artifact": {
       "type": "object",

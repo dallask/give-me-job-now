@@ -13,8 +13,8 @@ Phase 15). It only proves the guidance *states* the invariants:
 - the cover-letter tone hint is a hub-passed PARAM and the composer must NOT read the
   preferences file (COMPOSE-01 two-input DATA contract),
 - gmj-artifact-composer.md carries quantified span-cite framing guidance,
-- truth-rubric has the new quantified worked example (references ``professional_experience``),
-- fit-rubric states quantified framing lifts Gate C (``advisory``), not Gate B,
+- gmj-truth-rubric has the new quantified worked example (references ``professional_experience``),
+- gmj-fit-rubric states quantified framing lifts Gate C (``advisory``), not Gate B,
 - the removed pre-migration expertise key is ABSENT from the composer examples
   (negative sentinel).
 
@@ -29,8 +29,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 COMPOSER = REPO_ROOT / ".claude" / "agents" / "gmj-artifact-composer.md"
-TRUTH_RUBRIC = REPO_ROOT / ".claude" / "skills" / "truth-rubric" / "SKILL.md"
-FIT_RUBRIC = REPO_ROOT / ".claude" / "skills" / "fit-rubric" / "SKILL.md"
+TRUTH_RUBRIC = REPO_ROOT / ".claude" / "skills" / "gmj-truth-rubric" / "SKILL.md"
+FIT_RUBRIC = REPO_ROOT / ".claude" / "skills" / "gmj-fit-rubric" / "SKILL.md"
 
 # Pre-migration flat-schema key that must never re-enter the composer examples.
 PRE_MIGRATION_KEY = "technical" + "_expertise"  # split to keep the token out of grep noise
@@ -54,7 +54,7 @@ def test_composer_star_stories_single_span_claims() -> None:
     t = _read(COMPOSER)
     assert "MULTIPLE claims" in t, (
         "composer must state STAR stories are emitted as MULTIPLE claims, each with its own span "
-        "(no cross-entry merge, truth-rubric R4)"
+        "(no cross-entry merge, gmj-truth-rubric R4)"
     )
 
 
@@ -89,19 +89,19 @@ def test_composer_quantified_span_cite() -> None:
 def test_truth_rubric_has_quantified_example() -> None:
     t = _read(TRUTH_RUBRIC)
     assert "professional_experience" in t, (
-        "truth-rubric R3 must carry the new quantified worked example on a professional_experience span"
+        "gmj-truth-rubric R3 must carry the new quantified worked example on a professional_experience span"
     )
     assert "numeric_invention" in t, (
-        "truth-rubric quantified example must name the numeric_invention FAIL"
+        "gmj-truth-rubric quantified example must name the numeric_invention FAIL"
     )
 
 
 def test_fit_rubric_quantified_lifts_gate_c_advisory() -> None:
     t = _read(FIT_RUBRIC)
-    assert "advisory" in t.lower(), "fit-rubric must state Gate C quantified_impact is advisory"
-    assert "quantified" in t.lower(), "fit-rubric must discuss quantified framing"
+    assert "advisory" in t.lower(), "gmj-fit-rubric must state Gate C quantified_impact is advisory"
+    assert "quantified" in t.lower(), "gmj-fit-rubric must discuss quantified framing"
     assert "quantified_impact" in t, (
-        "fit-rubric must state quantified framing lifts the Gate C quantified_impact dimension, not Gate B"
+        "gmj-fit-rubric must state quantified framing lifts the Gate C quantified_impact dimension, not Gate B"
     )
 
 

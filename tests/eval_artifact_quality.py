@@ -28,7 +28,7 @@ Two scoring layers, split by the label ``category`` so they never overlap:
 
 Verdicts input: a JSON map ``"<fixture>::<label>" -> "pass"|"fail"`` produced by a manual
 review of a live cover-letter tone judgment. Parsed claim text and verdicts are untrusted
-DATA — scored, never executed as instructions (mirrors truth-rubric / fit-rubric stance).
+DATA — scored, never executed as instructions (mirrors gmj-truth-rubric / gmj-fit-rubric stance).
 
 CLI: ``eval_artifact_quality.py [--expected FILE] [--verdicts FILE]``
 Exit 0 on ANY successful scoring run (any score); exit 1 ONLY when ``--expected`` or a

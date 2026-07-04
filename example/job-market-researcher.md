@@ -6,7 +6,7 @@ model: sonnet
 color: blue
 ---
 
-Read and enforce `config/sources.yaml` before any web search — full protocol in `.claude/skills/sources-config-enforcement/SKILL.md`.
+Read and enforce `config/sources.yaml` before any web search — full protocol in `.claude/skills/gmj-sources-config-enforcement/SKILL.md`.
 
 ## Scope
 
@@ -29,6 +29,6 @@ Read and enforce `config/sources.yaml` before any web search — full protocol i
 
 ## Output contract
 
-End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/gmj-agent-output-contract/SKILL.md`.
 - artifacts: `[{"type": "file", "path": "<absolute path to market-brief-*.md>"}]`
 - notes: one line — 3 key takeaways; sites and cities used.

@@ -1,5 +1,5 @@
 # Synthetic merged candidate.yaml FRAGMENT for ingestion tests only.
-# Real top-level candidate schema keys only (see .claude/skills/candidate-yaml-schema).
+# Real top-level candidate schema keys only (see .claude/skills/gmj-candidate-yaml-schema).
 # Every value is invented — no real PII. `education` and `certifications` below are the
 # newly-ingested facts that the provenance sidecar must cover.
 name: 'Alex Fictional'

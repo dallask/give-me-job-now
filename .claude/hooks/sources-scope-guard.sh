@@ -12,7 +12,7 @@
 #     allow/block decision (the log line is the SC2 demonstrable artifact),
 #   - block an off-allow-list WebFetch host with `exit 2` (+ a {"decision":"block"} object).
 # The hook is the hard DOMAIN gate; cities/languages/limits stay the agent-side
-# sources-config-enforcement skill's job (do NOT weaken that skill).
+# gmj-sources-config-enforcement skill's job (do NOT weaken that skill).
 set -e
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"

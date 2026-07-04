@@ -1,5 +1,5 @@
 ---
-name: agent-output-contract
+name: gmj-agent-output-contract
 description: Canonical agent_result_v1 output envelope schema for all give-me-job spokes.
 ---
 

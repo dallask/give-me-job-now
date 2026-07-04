@@ -110,7 +110,7 @@ python3 scripts/cv/gmj_render_cv.py --config config/candidate.yaml --lang ua --t
 ## Output contract
 
 End with an `agent_result_v1` envelope as your **final output** — full schema and field
-rules in `.claude/skills/agent-output-contract/SKILL.md`. Report:
+rules in `.claude/skills/gmj-agent-output-contract/SKILL.md`. Report:
 
 - `status: success` when a template met the bar (or the cap was reached with a best-kept
   version), `fail` otherwise;

@@ -164,6 +164,6 @@ the agent never authors a PDF or document body by hand. Tools stay `Read, Bash, 
 
 ## Output contract
 
-End with an `agent_result_v1` envelope — full schema and field rules in `.claude/skills/agent-output-contract/SKILL.md`.
+End with an `agent_result_v1` envelope — full schema and field rules in `.claude/skills/gmj-agent-output-contract/SKILL.md`.
 - **Success:** `status: success`, artifacts: HTML path (template mode) + PDF path, notes: mode used.
 - **Handoff:** `status: handoff`, `handoff_target: "gmj-template-creator"`, artifacts: `[]`, notes: "User provided prototype image; template must be created first".

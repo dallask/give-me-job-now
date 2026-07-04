@@ -6,7 +6,7 @@ model: sonnet
 color: blue
 ---
 
-Read and enforce `config/sources.yaml` before any web search — full protocol in `.claude/skills/sources-config-enforcement/SKILL.md`. This agent also enforces `limits.max_vacancies` (default 20) for vacancy file writes.
+Read and enforce `config/sources.yaml` before any web search — full protocol in `.claude/skills/gmj-sources-config-enforcement/SKILL.md`. This agent also enforces `limits.max_vacancies` (default 20) for vacancy file writes.
 
 ## Scope
 
@@ -38,6 +38,6 @@ Read and enforce `config/sources.yaml` before any web search — full protocol i
 
 ## Output contract
 
-End with an `agent_result_v1` envelope — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+End with an `agent_result_v1` envelope — schema in `.claude/skills/gmj-agent-output-contract/SKILL.md`.
 - artifacts: one entry per vacancy file written.
 - notes: one line — N vacancies captured, sites used, cities scoped.

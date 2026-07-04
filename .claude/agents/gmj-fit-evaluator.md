@@ -6,11 +6,11 @@ model: sonnet
 color: yellow
 ---
 
-> **WIRED (Phase 6, Gate B/C).** Behavior is live: this agent reads the `fit-rubric`
+> **WIRED (Phase 6, Gate B/C).** Behavior is live: this agent reads the `gmj-fit-rubric`
 > skill and, per artifact, authors a `coverage_map` (draft claims → offer must-have IDs),
 > a Gate B coverage recommendation, and a structurally-separate advisory Gate C polish
 > result. See `docs/ARCHITECTURE.md` (source of truth for gate ordering) and
-> `.claude/skills/fit-rubric/SKILL.md` (the coverage/threshold + polish rubric).
+> `.claude/skills/gmj-fit-rubric/SKILL.md` (the coverage/threshold + polish rubric).
 
 ## Role
 
@@ -37,7 +37,7 @@ Gate B recommendation and the advisory Gate C judgment.
 ## How to score (wired behavior — FIT-01/03/05)
 
 1. **Read the rubric first.** Before scoring anything, read
-   `.claude/skills/fit-rubric/SKILL.md` — it owns the Gate B coverage weights + calibrated
+   `.claude/skills/gmj-fit-rubric/SKILL.md` — it owns the Gate B coverage weights + calibrated
    threshold and the advisory Gate C 5-dimension polish rubric. Score every artifact against
    that rubric; do not inline or guess thresholds/weights here.
 2. **Enumerate must-haves + author a `coverage_map`.** Enumerate the frozen `offer_spec`
@@ -94,4 +94,4 @@ Gate B recommendation and the advisory Gate C judgment.
 - Do **not** modify YAML in this role — recommendations only; read-only (`Read, Glob, Grep`,
   no `Write`, no `Bash` — `gmj_score_fit.py` is run by tests/hub).
 - Never re-fetch or paraphrase the offer — read the frozen offer-spec content fields only.
-- End with an `agent_result_v1` JSON block as your **final output** — schema in `.claude/skills/agent-output-contract/SKILL.md`.
+- End with an `agent_result_v1` JSON block as your **final output** — schema in `.claude/skills/gmj-agent-output-contract/SKILL.md`.

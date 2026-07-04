@@ -1,5 +1,5 @@
 ---
-name: orchestrator-pipelines
+name: gmj-orchestrator-pipelines
 description: Skill-CV pipeline steps and pre-flight checks for gmj-orchestrator. Loaded dynamically via Read tool when goal matches — NOT statically included.
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: truth-rubric
+name: gmj-truth-rubric
 description: Reframe/fabrication boundary (4 rules) for gmj-truth-verifier Gate A per-claim verdicts.
 ---
 

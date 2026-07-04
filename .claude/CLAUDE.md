@@ -359,14 +359,14 @@ must actually target the offer.
 
 | Skill | Description | Path |
 |-------|-------------|------|
-| agent-output-contract | Canonical agent_result_v1 output envelope schema for all give-me-job spokes. | `.claude/skills/agent-output-contract/SKILL.md` |
-| candidate-yaml-schema | Schema and editing rules for config/candidate.yaml and config/cv/cv.[skill].[lang].yaml in give-me-job. | `.claude/skills/candidate-yaml-schema/SKILL.md` |
-| cv-pdf-python | Python commands to extract text and render CV PDFs for give-me-job. | `.claude/skills/cv-pdf-python/SKILL.md` |
-| cv-review-rubric | Scoring dimensions for CV vs vacancy and market alignment. | `.claude/skills/cv-review-rubric/SKILL.md` |
-| orchestrator-pipelines | Skill-CV pipeline steps and pre-flight checks for gmj-orchestrator. Loaded dynamically via Read tool when goal matches — NOT statically included. | `.claude/skills/orchestrator-pipelines/SKILL.md` |
-| sources-config-enforcement | Mandatory sources.yaml read-and-enforce protocol for web search agents (job-market-researcher, vacancy-scraper). | `.claude/skills/sources-config-enforcement/SKILL.md` |
-| sources-ingestion | Conventions for placing candidate and vacancy materials under sources/. | `.claude/skills/sources-ingestion/SKILL.md` |
-| vacancy-research-rubric | Rubric for web vacancy search and market-aligned research outputs. | `.claude/skills/vacancy-research-rubric/SKILL.md` |
+| gmj-agent-output-contract | Canonical agent_result_v1 output envelope schema for all give-me-job spokes. | `.claude/skills/gmj-agent-output-contract/SKILL.md` |
+| gmj-candidate-yaml-schema | Schema and editing rules for config/candidate.yaml and config/cv/cv.[skill].[lang].yaml in give-me-job. | `.claude/skills/gmj-candidate-yaml-schema/SKILL.md` |
+| gmj-cv-pdf-python | Python commands to extract text and render CV PDFs for give-me-job. | `.claude/skills/gmj-cv-pdf-python/SKILL.md` |
+| gmj-cv-review-rubric | Scoring dimensions for CV vs vacancy and market alignment. | `.claude/skills/gmj-cv-review-rubric/SKILL.md` |
+| gmj-orchestrator-pipelines | Skill-CV pipeline steps and pre-flight checks for gmj-orchestrator. Loaded dynamically via Read tool when goal matches — NOT statically included. | `.claude/skills/gmj-orchestrator-pipelines/SKILL.md` |
+| gmj-sources-config-enforcement | Mandatory sources.yaml read-and-enforce protocol for web search agents (job-market-researcher, vacancy-scraper). | `.claude/skills/gmj-sources-config-enforcement/SKILL.md` |
+| gmj-sources-ingestion | Conventions for placing candidate and vacancy materials under sources/. | `.claude/skills/gmj-sources-ingestion/SKILL.md` |
+| gmj-vacancy-research-rubric | Rubric for web vacancy search and market-aligned research outputs. | `.claude/skills/gmj-vacancy-research-rubric/SKILL.md` |
 <!-- GSD:skills-end -->
 
 <!-- GSD:workflow-start source:GSD defaults -->

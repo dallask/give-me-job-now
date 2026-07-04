@@ -6,7 +6,7 @@ model: sonnet
 color: blue
 ---
 
-Read and enforce `config/sources.yaml` before any web search — full protocol in `.claude/skills/sources-config-enforcement/SKILL.md`. Searches outside the declared boards, geos, and languages are not permitted. The Plan 02 PreToolUse hook logs this read to `.claude/logs/sources-scope.log` and gates every `WebSearch` / `WebFetch`; the read must happen BEFORE any web call.
+Read and enforce `config/sources.yaml` before any web search — full protocol in `.claude/skills/gmj-sources-config-enforcement/SKILL.md`. Searches outside the declared boards, geos, and languages are not permitted. The Plan 02 PreToolUse hook logs this read to `.claude/logs/sources-scope.log` and gates every `WebSearch` / `WebFetch`; the read must happen BEFORE any web call.
 
 ## Role
 
@@ -70,7 +70,7 @@ applicants.
 
 - An `agent_result_v1` `offer_spec` envelope whose `artifacts[].path` points at the frozen file
   produced by `gmj_freeze_offer.py` (`sources/offers/<slug>.offer-spec.json`). Schema in
-  `.claude/skills/agent-output-contract/SKILL.md`; the `offer_spec` kind is defined under `schemas/`.
+  `.claude/skills/gmj-agent-output-contract/SKILL.md`; the `offer_spec` kind is defined under `schemas/`.
 - In board-search mode, the ephemeral shortlist path may be listed as a secondary artifact, marked
   as unhashed / non-target.
 
