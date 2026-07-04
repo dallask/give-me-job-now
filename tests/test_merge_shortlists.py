@@ -212,6 +212,54 @@ def test_md_view_uses_jobseeker_wording() -> None:  # SCOUT-01
         assert "matching vacancies for you" in text, "md must use the job-seeker header"
 
 
+def test_nan_infinity_score_rejected() -> None:  # SCOUT-04 canonical-JSON validity
+    # A raw board file carrying a non-finite numeric literal (Python's json emits bare NaN
+    # by default) must be REJECTED on load, never silently re-emitted as invalid RFC-8259
+    # JSON nor fed into the input-order-dependent NaN sort.
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        entry = _entry("SoftPeak", "Lead PHP Engineer", "https://www.work.ua/",
+                       "https://www.work.ua/j/1", salary=float("nan"), mode="remote")
+        board_doc = {"kind": "offer_shortlist", "schema_version": "1.0", "shortlist": [entry]}
+        board = cwd / "board.json"
+        # allow_nan default True -> writes a bare `NaN` literal into the file on disk.
+        board.write_text(json.dumps(board_doc), encoding="utf-8")
+        assert "NaN" in board.read_text(), "fixture must contain a bare NaN literal"
+        src = _write_yaml(cwd / "sources.yaml", _SOURCES)
+        pref = _write_yaml(cwd / "preferences.yaml", _PREFS)
+        out_rel = ".pipeline/nan.json"
+        result = _cli(
+            ["--board-file", str(board), "--sources", str(src),
+             "--preferences", str(pref), "--out", out_rel],
+            cwd=cwd,
+        )
+        assert result.returncode == 1, f"a NaN board literal must be rejected (exit 1): {result.stdout}"
+        assert "non-finite" in result.stderr.lower(), (
+            f"stderr must name the non-finite rejection: {result.stderr}"
+        )
+        assert not (cwd / out_rel).exists(), "no shortlist must be written when input is rejected"
+
+    # Infinity must be rejected the same way.
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        board = cwd / "board.json"
+        board.write_text(
+            '{"kind":"offer_shortlist","schema_version":"1.0","shortlist":'
+            '[{"board":"https://www.work.ua/","title":"X","company":"Y","location":"Kyiv",'
+            '"trace":{"source_url":"https://www.work.ua/j/2"},"salary":Infinity,"mode":"remote"}]}',
+            encoding="utf-8",
+        )
+        src = _write_yaml(cwd / "sources.yaml", _SOURCES)
+        pref = _write_yaml(cwd / "preferences.yaml", _PREFS)
+        result = _cli(
+            ["--board-file", str(board), "--sources", str(src),
+             "--preferences", str(pref), "--out", ".pipeline/inf.json"],
+            cwd=cwd,
+        )
+        assert result.returncode == 1, f"an Infinity board literal must be rejected: {result.stdout}"
+        assert "non-finite" in result.stderr.lower(), f"stderr must name it: {result.stderr}"
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

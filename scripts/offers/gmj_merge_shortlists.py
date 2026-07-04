@@ -35,6 +35,17 @@ sys.path.insert(0, str(REPO_ROOT / "scripts" / "offers"))
 from validate_preferences import _norm_site, subset_offenders, load_yaml  # noqa: E402,F401
 from freeze_offer import slugify  # noqa: E402  ([a-z0-9-] slug; returns "offer" when empty)
 
+def _reject_nan(token: str):
+    """``json.loads`` ``parse_constant`` hook: refuse the non-finite JSON extensions.
+
+    Python's ``json`` accepts the non-standard ``NaN``/``Infinity``/``-Infinity`` literals by
+    default. Allowing them defeats this module's contract: they re-emit as invalid RFC-8259
+    JSON and make the final ``(-score, ...)`` total order input-order-dependent (every ``NaN``
+    comparison is ``False``). Reject on load so a malformed board surfaces loud (SCOUT-04).
+    """
+    raise ValueError(f"non-finite JSON literal not allowed: {token}")
+
+
 DEFAULT_SOURCES = REPO_ROOT / "config" / "sources.yaml"
 DEFAULT_PREFERENCES = REPO_ROOT / "config" / "preferences.yaml"
 # cwd-relative so writes stay predictable from repo root and isolatable in tests.
@@ -216,7 +227,9 @@ def write_shortlist(ranked: list[dict], out: Path) -> Path:
     resolved.parent.mkdir(parents=True, exist_ok=True)
     doc = {"kind": "offer_shortlist", "schema_version": "1.0", "shortlist": ranked}
     resolved.write_text(
-        json.dumps(doc, sort_keys=True, ensure_ascii=False, indent=2) + "\n",
+        # allow_nan=False: a stray non-finite value fails loud, never corrupts the artifact
+        # into invalid RFC-8259 JSON (mirrors the _reject_nan load guard) (SCOUT-04).
+        json.dumps(doc, sort_keys=True, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
         encoding="utf-8",
     )
     md_path = resolved.with_suffix(".md")
@@ -246,14 +259,14 @@ def load_board_entries(board_files: list[Path] | None, use_stdin: bool) -> list[
     """Load and concatenate board entries from ``--board-file`` paths or ``--stdin``."""
     entries: list[dict] = []
     if use_stdin:
-        doc = json.loads(sys.stdin.read())
+        doc = json.loads(sys.stdin.read(), parse_constant=_reject_nan)
         entries.extend(_entries_from_doc(doc, "<stdin>"))
         return entries
     for path in board_files or []:
         resolved = path.expanduser().resolve()
         if not resolved.is_file():
             raise FileNotFoundError(f"Not a file: {resolved}")
-        doc = json.loads(resolved.read_text(encoding="utf-8"))
+        doc = json.loads(resolved.read_text(encoding="utf-8"), parse_constant=_reject_nan)
         entries.extend(_entries_from_doc(doc, str(resolved)))
     return entries
 
