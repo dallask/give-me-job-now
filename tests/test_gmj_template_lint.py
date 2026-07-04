@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""Plain-python3 harness for scripts/cv/gmj_template_lint.py (TEMPLATE-02).
+
+Proves the fail-closed zero-sample-strings gate: a template that hardcodes sample-profile
+literals (name/company/date/email) outside ``{{ }}`` is REJECTED; a template whose values
+all flow through ``{{ candidate.* }}`` bindings PASSES; and section-label heading text is
+never false-positived. No external fixture files — HTML is built inline, and the leaked
+literals are constructed by string-concatenation at runtime so they are not present verbatim
+as scannable head-comment text in this source.
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SCRIPT = REPO_ROOT / "scripts" / "cv" / "gmj_template_lint.py"
+TEMPLATES_DIR = REPO_ROOT / "templates" / "cv"
+
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "cv"))
+from gmj_template_lint import lint_template  # noqa: E402
+
+
+# Build leaked literals at runtime so they are not scannable verbatim in this file.
+_LEAK_NAME = "Jane" + " " + "Doe"
+_LEAK_COMPANY = "Acme" + " " + "Corp"
+_LEAK_DATE = "20" + "19"
+_LEAK_EMAIL = "someone" + "@" + "example" + ".com"
+
+
+def _clean_template() -> str:
+    return (
+        "<html lang=\"{{ lang }}\"><body>"
+        "<h1>{{ candidate.name }}</h1>"
+        "<p>{{ candidate.title }}</p>"
+        "<a>{{ candidate.contact.email }}</a>"
+        "{% for job in candidate.professional_experience %}"
+        "<div>{{ job.company }} — {{ job.duration }}</div>"
+        "{% endfor %}"
+        "</body></html>"
+    )
+
+
+def _leaked_template() -> str:
+    return (
+        "<html><body>"
+        "<h1>" + _LEAK_NAME + "</h1>"
+        "<div>" + _LEAK_COMPANY + " (" + _LEAK_DATE + ")</div>"
+        "<a>" + _LEAK_EMAIL + "</a>"
+        "</body></html>"
+    )
+
+
+def _labels_template() -> str:
+    return (
+        "<html><body>"
+        "<h2>Experience</h2>"
+        "{% for job in candidate.professional_experience %}<p>{{ job.company }}</p>{% endfor %}"
+        "<h2>Education</h2>"
+        "{% for e in candidate.education %}<p>{{ e.institution }}</p>{% endfor %}"
+        "<h2>Skills</h2>"
+        "{% for s in candidate.expertise %}<p>{{ s.resume_title }}</p>{% endfor %}"
+        "</body></html>"
+    )
+
+
+def test_leaked_literal_fails() -> None:
+    leaks = lint_template(_leaked_template(), [_LEAK_NAME, _LEAK_COMPANY, _LEAK_DATE])
+    assert leaks, "leaked sample literals must produce a non-empty leak list"
+    assert _LEAK_NAME in leaks, f"leaked name must be flagged; got {leaks}"
+    assert any(_LEAK_EMAIL in leak for leak in leaks), f"leaked email must be flagged; got {leaks}"
+
+
+def test_clean_bindings_pass() -> None:
+    leaks = lint_template(
+        _clean_template(), [_LEAK_NAME, _LEAK_COMPANY, _LEAK_DATE, _LEAK_EMAIL]
+    )
+    assert leaks == [], f"clean {{{{ candidate.* }}}} template must return []; got {leaks}"
+
+
+def test_section_label_not_flagged() -> None:
+    leaks = lint_template(_labels_template(), [])
+    assert leaks == [], f"section-label headings must not be flagged; got {leaks}"
+
+
+def test_backstop_email_flagged() -> None:
+    html = "<html><body><p>Contact " + _LEAK_EMAIL + "</p></body></html>"
+    leaks = lint_template(html, [])  # empty token list — backstop must still catch it
+    assert any(_LEAK_EMAIL in leak for leak in leaks), f"backstop email must be flagged; got {leaks}"
+
+
+def test_backstop_url_and_year_flagged() -> None:
+    url = "https" + "://" + "example.com/profile"
+    html = "<html><body><a>" + url + "</a><span>" + _LEAK_DATE + "</span></body></html>"
+    leaks = lint_template(html, [])
+    assert any(url in leak for leak in leaks), f"backstop URL must be flagged; got {leaks}"
+    assert _LEAK_DATE in leaks, f"backstop 4-digit year must be flagged; got {leaks}"
+
+
+def test_legacy_binding_flagged() -> None:
+    # A mis-binding to the legacy field name (UI-SPEC: NOT technical_expertise) is a drift
+    # bug the single-owner registry must catch even though no literal is hardcoded.
+    html = "<html><body>{% for s in candidate.technical_expertise %}{{ s }}{% endfor %}</body></html>"
+    leaks = lint_template(html, [])
+    assert any("technical_expertise" in leak for leak in leaks), (
+        f"legacy candidate.technical_expertise binding must be flagged; got {leaks}"
+    )
+
+
+def _write_template(name: str, html: str) -> Path:
+    path = TEMPLATES_DIR / name
+    path.write_text(html, encoding="utf-8")
+    return path
+
+
+def _run(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(SCRIPT), *args],
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_cli_exit_codes() -> None:
+    leaked_path = _write_template("_lint_test_leaked.html", _leaked_template())
+    clean_path = _write_template("_lint_test_clean.html", _clean_template())
+    try:
+        leaked = _run("--template", str(leaked_path), "--sample-tokens", _LEAK_NAME)
+        assert leaked.returncode == 1, f"leaked template CLI must exit 1; got {leaked.returncode}"
+        assert "Traceback" not in leaked.stderr, "no traceback on rejection"
+
+        clean = _run("--template", str(clean_path))
+        assert clean.returncode == 0, f"clean template CLI must exit 0; got {clean.returncode}"
+        assert clean.stdout.strip() == "clean", f"clean run must print 'clean'; got {clean.stdout!r}"
+    finally:
+        leaked_path.unlink(missing_ok=True)
+        clean_path.unlink(missing_ok=True)
+
+
+def test_cli_rejects_path_traversal() -> None:
+    result = _run("--template", "../../etc/passwd")
+    assert result.returncode == 1, "path traversal must exit 1"
+    assert "Traceback" not in result.stderr, "no traceback on traversal rejection"
+
+
+def main() -> int:
+    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
+    failed = 0
+    for test in tests:
+        try:
+            test()
+            print(f"PASS {test.__name__}")
+        except Exception as exc:  # noqa: BLE001
+            failed += 1
+            print(f"FAIL {test.__name__}: {exc}", file=sys.stderr)
+    if failed:
+        print(f"{failed}/{len(tests)} tests failed", file=sys.stderr)
+        return 1
+    print(f"all {len(tests)} tests passed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
