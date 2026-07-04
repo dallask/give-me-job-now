@@ -42,15 +42,27 @@ on the same outcome: a single offer fielded into `$defs/offer_content` and froze
    (or `--stdin`). freeze_offer.py validates the content, computes `offer_spec_hash`, and writes
    `sources/offers/<slug>.offer-spec.json`. The agent does **not** compute or write the hash itself.
 
-## Intake mode B — board search (ranked shortlist)
+## Intake mode B — board search (one board per worker)
 
-1. Read `config/sources.yaml` FIRST (enforced by the Plan 02 hook), then `WebSearch` within the
-   allowed `sites`, `cities`, and `languages` only, respecting the `limits.*` caps.
-2. **Coarse-rank** candidates by keyword / seniority / geo match against the requested role — a
-   cheap ordering to surface the best few. Deep, per-claim fit scoring is deferred to Phase 6
-   (fit-evaluator); do not attempt it here.
-3. Write a ranked **shortlist** artifact to `sources/offers/<run>-shortlist.json`. This shortlist
-   is **ephemeral** and is **NOT hashed** — it is a browsing aid, not a target.
+A board-search **worker** searches **exactly one board** — the single `config/sources.yaml`
+`site` named in its Task prompt — and never searches any other board. The hub fans out one
+worker per board (one `Task` each) in a single turn; you are one such worker. All wording here
+is job-seeker perspective — you surface **matching vacancies for the job seeker you are working
+for** ("roles that fit your search"), never recruiter framing that presents results as found
+applicants.
+
+1. Read `config/sources.yaml` FIRST (enforced by the Plan 02 hook), then `WebSearch` your one
+   assigned board within the allowed `cities` and `languages` only, respecting the `limits.*`
+   caps. Do not fetch from any other board.
+2. Field each matching vacancy into a **fielded, unscored** shortlist entry (board, canonical
+   trace, coarse role / seniority / geo / keyword facts). Do **not** rank, score, dedup, or order
+   the entries — ranking, cross-board dedup, and scope-filtering are the deterministic merge
+   script's job (`scripts/offers/gmj_merge_shortlists.py`), not yours. Deep per-claim fit scoring
+   is deferred to Phase 6 (fit-evaluator).
+3. Write your per-board entries to the **ephemeral** per-worker intermediate
+   `sources/offers/<run>-shortlist.json`. This file is **NOT hashed** — it is a per-board browsing
+   input, not a target. The merged, ranked `.pipeline/shortlist.json` is produced by the **hub**
+   via `gmj_merge_shortlists.py` over every worker's file — never by you.
 4. Only the **chosen** offer proceeds: field it exactly as in mode A step 2–4 and hand it to
    `freeze_offer.py`. Only that single chosen offer is frozen.
 
