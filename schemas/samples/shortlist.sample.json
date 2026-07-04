@@ -1,0 +1,37 @@
+{
+  "kind": "offer_shortlist",
+  "schema_version": "1.0",
+  "shortlist": [
+    {
+      "canonical_key": "softpeak-lead-backend-php-engineer-laravel-kyiv",
+      "board": "https://robota.ua/",
+      "score": 1.667,
+      "title": "Lead Backend PHP Engineer (Laravel)",
+      "company": "SoftPeak",
+      "location": "Kyiv",
+      "seniority": "lead",
+      "language": "ua",
+      "mode": "remote",
+      "salary": 4500,
+      "trace": {
+        "source_url": "https://robota.ua/company/softpeak/vacancy/325215",
+        "excerpt": "Шукаємо Lead Backend PHP інженера з комерційним досвідом Laravel"
+      }
+    },
+    {
+      "canonical_key": "ibwt-senior-backend-developer-php-laravel-kyiv",
+      "board": "https://www.work.ua/",
+      "score": 1.667,
+      "title": "Senior Backend Developer (PHP / Laravel)",
+      "company": "IBWT",
+      "location": "Kyiv",
+      "seniority": "senior",
+      "language": "ua",
+      "mode": "hybrid",
+      "salary": 4000,
+      "trace": {
+        "source_url": "https://www.work.ua/jobs/7890/"
+      }
+    }
+  ]
+}
