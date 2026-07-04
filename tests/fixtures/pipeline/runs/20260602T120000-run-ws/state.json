@@ -1,0 +1,17 @@
+{
+  "current_step": "truth-verifier",
+  "execution_mode": "human_in_the_loop",
+  "gate_results": {
+    "fit-evaluator": "fail",
+    "truth-verifier": "pass"
+  },
+  "offer_spec_hash": "bbbb0000000000000000000000000000000000000000000000000000000runws",
+  "offer_spec_path": "/Users/example/give-me-job/sources/offers/acme.offer-spec.json",
+  "retry_cap": 3,
+  "retry_counts": {
+    "acme": {
+      "cv": 2
+    }
+  },
+  "run_id": "20260602T120000-run-ws"
+}

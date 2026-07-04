@@ -1,0 +1,16 @@
+{
+  "execution_mode": "human_in_the_loop",
+  "gate_results": {
+    "fit-evaluator": "pass",
+    "truth-verifier": "pass"
+  },
+  "offer_spec_hash": "eeee000000000000000000000000000000000000000000000000000000legacy",
+  "offer_spec_path": "sources/offers/beta-cover-letter.offer-spec.json",
+  "retry_cap": 3,
+  "retry_counts": {
+    "beta": {
+      "cover_letter": 1
+    }
+  },
+  "run_id": "cl-20260605T120000-legacy"
+}

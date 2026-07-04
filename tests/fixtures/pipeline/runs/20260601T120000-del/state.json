@@ -1,0 +1,12 @@
+{
+  "current_step": "cv-generator",
+  "execution_mode": "human_in_the_loop",
+  "gate_results": {
+    "fit-evaluator": "pass",
+    "truth-verifier": "pass"
+  },
+  "offer_spec_hash": "aaaa0000000000000000000000000000000000000000000000000000000000del",
+  "offer_spec_path": "/Users/example/give-me-job/sources/offers/del.offer-spec.json",
+  "retry_cap": 2,
+  "run_id": "20260601T120000-del"
+}

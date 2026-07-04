@@ -1,0 +1,11 @@
+{
+  "execution_mode": "autonomous",
+  "gate_results": {
+    "fit-evaluator": "pass",
+    "truth-verifier": "pass"
+  },
+  "offer_spec_hash": "ffff00000000000000000000000000000000000000000000000000000notime",
+  "offer_spec_path": "/Users/example/give-me-job/sources/offers/e2e.offer-spec.json",
+  "retry_cap": 2,
+  "run_id": "e2e-notime"
+}
