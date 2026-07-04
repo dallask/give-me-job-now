@@ -191,7 +191,15 @@ def test_longer_than_sample_no_overflow() -> None:
     assert_valid_pdf(out)
 
     reader = PdfReader(str(out))
-    assert len(reader.pages) >= 1, "longer CV produced no pages"
+    # Multi-page reflow is the actual invariant this test exists to prove: the
+    # longer-than-sample merged ua CV must spill onto a SECOND page rather than clip
+    # content into a single over-fit page. A `>= 1` assertion is vacuous here (already
+    # guaranteed by assert_valid_pdf), so a silent single-page clip would pass. Require
+    # the real property.
+    assert len(reader.pages) >= 2, (
+        f"longest CV must reflow onto a second page, not clip — got "
+        f"{len(reader.pages)} page(s)"
+    )
 
     def _norm(s: str) -> str:
         # Whitespace-insensitive + case-insensitive: section titles are
