@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:give-me-job:schema:batch_manifest",
+  "title": "batch_manifest",
+  "description": "Frozen contract for the per-offer batch manifest written by scripts/pipeline/gmj_batch.py (SELECT-03/SELECT-04). Local URN $id only (never a fetchable URL — SSRF precedent, see shortlist.schema.json). The manifest is offer-centric: each offer entry groups its per-(offer, artifact_type) run_ids under `runs` (cv/cover_letter/interview_prep) because state.gate_results is per-DAG-node and would clobber across the three artifact types if they shared one run. offer_spec_path/offer_spec_hash are empty-string placeholders at `init` time and are filled post-freeze by the record-spec op (12-02); both empty and populated instances validate. Phase 16 inspects this manifest read-only.",
+  "type": "object",
+  "properties": {
+    "kind": { "const": "batch_manifest" },
+    "schema_version": { "const": "1.0" },
+    "batch_id": { "type": "string" },
+    "offers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/offer_entry" }
+    }
+  },
+  "required": ["kind", "schema_version", "batch_id", "offers"],
+  "$defs": {
+    "offer_entry": {
+      "type": "object",
+      "description": "One selected offer and its three per-artifact-type runs. offer_spec_path/offer_spec_hash carry empty-string placeholders until the record-spec op fills the frozen freeze values, so no minLength is imposed.",
+      "properties": {
+        "offer_index": { "type": "integer", "minimum": 0 },
+        "canonical_key": { "type": "string" },
+        "offer_spec_path": { "type": "string" },
+        "offer_spec_hash": { "type": "string" },
+        "runs": {
+          "type": "object",
+          "description": "Per-(offer, artifact_type) runs. Each artifact type gets its own run_id so Gate A ∧ Gate B are recorded independently and never clobber across artifact types.",
+          "properties": {
+            "cv": { "$ref": "#/$defs/run" },
+            "cover_letter": { "$ref": "#/$defs/run" },
+            "interview_prep": { "$ref": "#/$defs/run" }
+          },
+          "required": ["cv", "cover_letter", "interview_prep"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["offer_index", "canonical_key", "offer_spec_path", "offer_spec_hash", "runs"],
+      "additionalProperties": false
+    },
+    "run": {
+      "type": "object",
+      "description": "A single per-(offer, artifact_type) run: its run_id (a sanitized run-dir component) and current status.",
+      "properties": {
+        "run_id": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "running", "delivered", "failed"]
+        }
+      },
+      "required": ["run_id", "status"],
+      "additionalProperties": false
+    }
+  }
+}
