@@ -2,8 +2,9 @@
 """Emit an approved interview_prep artifact_draft as an ordered markdown document.
 
 Trivial deterministic markdown/text writer — NO ReportLab, no PDF. Reads the
-approved interview_prep draft and writes its ordered claim.text values as
-markdown lines. Mirrors the argparse/degrade/entry skeleton of
+approved interview_prep draft and groups its claims by the required
+``claim.section`` field under ``## <Section Title>`` headers, emitted in
+first-appearance order. Mirrors the argparse/degrade/entry skeleton of
 render_cover_letter.py so cv-generator can invoke it the same way.
 """
 
@@ -18,10 +19,28 @@ from pathlib import Path
 LANGS = ("en", "ua", "ru")
 
 
-def render_interview_prep(lines: list[str], out_path: Path) -> None:
-    """Write ordered interview-prep lines as a markdown document."""
-    body = "\n".join(f"- {line}" for line in lines)
-    out_path.write_text(f"# Interview Prep\n\n{body}\n", encoding="utf-8")
+def render_interview_prep(claims: list[dict], out_path: Path) -> None:
+    """Write approved interview-prep claims as section-grouped markdown.
+
+    Claims are grouped by their required ``section`` field under
+    ``## <Section Title>`` headers, emitted in first-appearance order (tracked
+    explicitly, not via implicit dict insertion order) so the render is
+    deterministic and reproducible.
+    """
+    order: list[str] = []
+    groups: dict[str, list[str]] = {}
+    for claim in claims:
+        sec = str(claim.get("section") or "notes")
+        if sec not in groups:
+            order.append(sec)  # first-appearance order (deterministic)
+            groups[sec] = []
+        groups[sec].append(str(claim.get("text", "")).strip())
+    parts = ["# Interview Prep", ""]
+    for sec in order:
+        parts.append(f"## {sec.replace('_', ' ').title()}")
+        parts.extend(f"- {t}" for t in groups[sec] if t)
+        parts.append("")
+    out_path.write_text("\n".join(parts).rstrip() + "\n", encoding="utf-8")
 
 
 def repo_root_from_here() -> Path:
@@ -34,8 +53,14 @@ def repo_root_from_here() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
-def _lines_from_draft(draft_path: Path) -> list[str] | None:
-    """Load an approved interview_prep draft; return ordered claim texts, or None on error."""
+def _claims_from_draft(draft_path: Path) -> list[dict] | None:
+    """Load an approved interview_prep draft; return usable claim dicts, or None on error.
+
+    Each returned claim dict carries its ``text`` and ``section`` for grouping.
+    Preserves the exact degrade-to-None (+ stderr message) contract: unreadable /
+    JSON-invalid draft, non-mapping root, missing/empty ``content.claims``, and no
+    claim carrying usable text each return None after printing to stderr.
+    """
     try:
         data = json.loads(draft_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -49,15 +74,11 @@ def _lines_from_draft(draft_path: Path) -> list[str] | None:
     if not isinstance(claims, list) or not claims:
         print(f"Draft has no content.claims: {draft_path}", file=sys.stderr)
         return None
-    lines = [
-        str(c.get("text")).strip()
-        for c in claims
-        if isinstance(c, dict) and c.get("text")
-    ]
-    if not lines:
+    usable = [c for c in claims if isinstance(c, dict) and c.get("text")]
+    if not usable:
         print(f"Draft claims contain no text: {draft_path}", file=sys.stderr)
         return None
-    return lines
+    return usable
 
 
 def main() -> int:
@@ -76,8 +97,8 @@ def main() -> int:
     args = parser.parse_args()
 
     draft_path = args.file.expanduser().resolve()
-    lines = _lines_from_draft(draft_path)
-    if lines is None:
+    claims = _claims_from_draft(draft_path)
+    if claims is None:
         return 1
 
     out_path = args.out
@@ -92,7 +113,7 @@ def main() -> int:
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
-        render_interview_prep(lines, out_path)
+        render_interview_prep(claims, out_path)
     except OSError as exc:  # degrade without traceback
         print(f"Interview-prep write failed: {exc}", file=sys.stderr)
         return 1
