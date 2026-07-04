@@ -1,0 +1,100 @@
+# Ownership allow-list for scripts/gmj_rebrand.py (REBRAND-03).
+#
+# This file is the app allow-list read by scripts/gmj_rebrand.py. It classifies
+# every artifact in the repo as `framework` (GSD-owned — NEVER touched) or `app`
+# (the job/CV collective's own agents/skills/commands/scripts/hooks — renamed).
+#
+# The `app` old->new map is the SINGLE SOURCE OF TRUTH consumed by:
+#   1. scripts/gmj_rebrand.py  — the manifest-gated `git mv` + reference-rewrite set.
+#   2. tests/test_rebrand_acceptance.py — the grep-0 app old-basename reference forms.
+#
+# Doctrine:
+#   - App agents / skills / commands / hooks  -> `gmj-` prefix.
+#   - App Python scripts                      -> `gmj_` prefix.
+#   - Config/data filenames stay STABLE       (candidate.yaml, sources.yaml,
+#     preferences.yaml, schemas/*, pipeline.dag.yaml, i18n) — they NEVER appear here.
+#   - `ai-agents-architect` is a GENERIC framework architect agent, NOT part of the
+#     collective -> framework, never renamed.
+#   - `gsd-*`, `**/gsd-core/**`, `.claude/hooks/lib/**`, and
+#     `.claude/hooks/managed-hooks-registry.cjs` are framework -> never touched.
+#   - The agent old->new map IS the gate-node / state.gate_results key map (no mapping
+#     layer — consumed atomically by the gate-cluster rename in 17-04).
+
+version: 1
+
+# Framework deny-globs / names — anything matching these is refused by gmj_rebrand.py.
+framework_globs:
+  - "gsd-*"
+  - "**/gsd-core/**"
+  - ".claude/hooks/lib/**"
+  - ".claude/hooks/managed-hooks-registry.cjs"
+  - "ai-agents-architect"
+
+app:
+  # 8 agents — `gmj-` prefix, drop legacy "vacancy" from the hub name.
+  agents:
+    - { old: vacancy-orchestrator, new: gmj-orchestrator }
+    - { old: offer-scout, new: gmj-offer-scout }
+    - { old: artifact-composer, new: gmj-artifact-composer }
+    - { old: truth-verifier, new: gmj-truth-verifier }
+    - { old: fit-evaluator, new: gmj-fit-evaluator }
+    - { old: cv-generator, new: gmj-cv-generator }
+    - { old: candidate-analyzer, new: gmj-candidate-analyzer }
+    - { old: candidate-configurator, new: gmj-candidate-configurator }
+
+  # 23 scripts — `gmj_` prefix (already-gmj_ scripts are absent by design).
+  scripts:
+    - { old: check_cap, new: gmj_check_cap }
+    - { old: check_claims, new: gmj_check_claims }
+    - { old: check_delivery, new: gmj_check_delivery }
+    - { old: check_offer, new: gmj_check_offer }
+    - { old: check_truth, new: gmj_check_truth }
+    - { old: draft_to_cv_yaml, new: gmj_draft_to_cv_yaml }
+    - { old: extract, new: gmj_extract }
+    - { old: freeze_offer, new: gmj_freeze_offer }
+    - { old: hash_artifact, new: gmj_hash_artifact }
+    - { old: map_feedback, new: gmj_map_feedback }
+    - { old: record_gate, new: gmj_record_gate }
+    - { old: record_retry, new: gmj_record_retry }
+    - { old: record_uat, new: gmj_record_uat }
+    - { old: render_cover_letter, new: gmj_render_cover_letter }
+    - { old: render_cv, new: gmj_render_cv }
+    - { old: render_interview_prep, new: gmj_render_interview_prep }
+    - { old: route, new: gmj_route }
+    - { old: schema_fields, new: gmj_schema_fields }
+    - { old: score_fit, new: gmj_score_fit }
+    - { old: state_write, new: gmj_state_write }
+    - { old: validate_envelope, new: gmj_validate_envelope }
+    - { old: validate_preferences, new: gmj_validate_preferences }
+    - { old: yaml_path, new: gmj_yaml_path }
+
+  # 10 skills — `gmj-` prefix (prefix-only; keep the stem to reduce blast radius).
+  skills:
+    - { old: agent-output-contract, new: gmj-agent-output-contract }
+    - { old: candidate-yaml-schema, new: gmj-candidate-yaml-schema }
+    - { old: cv-pdf-python, new: gmj-cv-pdf-python }
+    - { old: cv-review-rubric, new: gmj-cv-review-rubric }
+    - { old: fit-rubric, new: gmj-fit-rubric }
+    - { old: orchestrator-pipelines, new: gmj-orchestrator-pipelines }
+    - { old: sources-config-enforcement, new: gmj-sources-config-enforcement }
+    - { old: sources-ingestion, new: gmj-sources-ingestion }
+    - { old: truth-rubric, new: gmj-truth-rubric }
+    - { old: vacancy-research-rubric, new: gmj-vacancy-research-rubric }
+
+  # 3 command groups. `pipeline` is a DIRECTORY group: 17-05 renames the dir to
+  # `gmj-pipeline/` and keeps the six leaf names (compose/evaluate/freeze/generate/
+  # scout/verify) — the leaves are NOT individually prefixed.
+  commands:
+    - { old: job-collective, new: gmj-collective }
+    - { old: pipeline-run, new: gmj-pipeline-run }
+    - { old: pipeline, new: gmj-pipeline }
+
+  # 6 app hooks — `gmj-` prefix (gsd-*.js/.sh + lib/ + managed-hooks-registry.cjs
+  # are framework and absent here).
+  hooks:
+    - { old: block-destructive-commands, new: gmj-block-destructive-commands }
+    - { old: collective-handoff-contract, new: gmj-collective-handoff-contract }
+    - { old: session-bootstrap, new: gmj-session-bootstrap }
+    - { old: sources-scope-guard, new: gmj-sources-scope-guard }
+    - { old: subagent-stop-quality-reminder, new: gmj-subagent-stop-quality-reminder }
+    - { old: validate-envelope, new: gmj-validate-envelope }
