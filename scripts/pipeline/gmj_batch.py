@@ -43,6 +43,12 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
+# Reuse the audited Gate A ∧ Gate B delivery predicate verbatim — never re-judge a gate here
+# (Pitfall 2 / T-12-04). check_delivery.py lives in this same scripts/pipeline dir, which is on
+# sys.path both when this file is run as a script and when imported via a sys.path insert (tests).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from check_delivery import blocked_reason  # noqa: E402
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # scripts/pipeline/ -> repo root
 STATE_WRITE = REPO_ROOT / "scripts" / "pipeline" / "state_write.py"
 SCHEMA_PATH = REPO_ROOT / "schemas" / "batch_manifest.schema.json"
@@ -334,9 +340,142 @@ def _cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_manifest(pipeline_dir: Path, batch_id: str) -> tuple[dict | None, Path, Path]:
+    """Load a batch manifest with the fail-closed guards; return (manifest|None, path, batches_dir).
+
+    None signals a structured stderr message was already printed and the caller must ``return 1``.
+    """
+    batches_dir = (pipeline_dir / "batches").resolve()
+    manifest_path = pipeline_dir / "batches" / batch_id / "manifest.json"
+    if not manifest_path.is_file():
+        print(f"Manifest not found: {manifest_path}", file=sys.stderr)
+        return None, manifest_path, batches_dir
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(f"Invalid manifest JSON: {exc}", file=sys.stderr)
+        return None, manifest_path, batches_dir
+    if not isinstance(manifest, dict):
+        print("Manifest file must contain a JSON object.", file=sys.stderr)
+        return None, manifest_path, batches_dir
+    return manifest, manifest_path, batches_dir
+
+
+def _cmd_mark(args: argparse.Namespace) -> int:
+    """Set exactly one per-(offer, artifact_type) run's status (read-modify-preserve, canonical)."""
+    pipeline_dir = Path(args.pipeline_dir).expanduser().resolve()
+    if _safe_id(args.batch, "batch_id") is None:
+        return 1
+    manifest, manifest_path, batches_dir = _load_manifest(pipeline_dir, args.batch)
+    if manifest is None:
+        return 1
+
+    matched = None
+    for offer in manifest.get("offers", []):
+        for run in (offer.get("runs") or {}).values():
+            if isinstance(run, dict) and run.get("run_id") == args.run_id:
+                matched = run
+                break
+        if matched is not None:
+            break
+    if matched is None:
+        print(f"run_id not found in batch {args.batch!r}: {args.run_id!r}", file=sys.stderr)
+        return 1
+
+    matched["status"] = args.status
+    try:
+        write_manifest(manifest, manifest_path, batches_dir)
+    except ValueError as exc:
+        print(f"Manifest write error: {exc}", file=sys.stderr)
+        return 1
+    print(f"marked run_id={args.run_id} status={args.status}")
+    return 0
+
+
+def _cmd_record_spec(args: argparse.Namespace) -> int:
+    """Stamp the real freeze offer_spec_path/hash into one offer entry (read-modify-preserve)."""
+    pipeline_dir = Path(args.pipeline_dir).expanduser().resolve()
+    if _safe_id(args.batch, "batch_id") is None:
+        return 1
+    manifest, manifest_path, batches_dir = _load_manifest(pipeline_dir, args.batch)
+    if manifest is None:
+        return 1
+
+    matched = None
+    for offer in manifest.get("offers", []):
+        if offer.get("offer_index") == args.offer_index:
+            matched = offer
+            break
+    if matched is None:
+        print(
+            f"offer_index not found in batch {args.batch!r}: {args.offer_index}", file=sys.stderr
+        )
+        return 1
+
+    matched["offer_spec_path"] = args.offer_spec_path
+    matched["offer_spec_hash"] = args.offer_spec_hash
+    try:
+        write_manifest(manifest, manifest_path, batches_dir)
+    except ValueError as exc:
+        print(f"Manifest write error: {exc}", file=sys.stderr)
+        return 1
+    print(f"recorded offer_index={args.offer_index} offer_spec_hash={args.offer_spec_hash}")
+    return 0
+
+
+def _cmd_resume(args: argparse.Namespace) -> int:
+    """Print the non-delivered per-(offer, artifact_type) runs, recomputed from recorded gates.
+
+    Delivery is the reused ``check_delivery.blocked_reason`` predicate (Gate A ∧ Gate B) on each
+    run's own ``state.json`` gate_results — NEVER the manifest ``status`` label, and NEVER a
+    rendered-PDF path convention (Pitfall 2, T-12-04). Rendered-artifact existence is a
+    Manual-Only UAT check (12-VALIDATION.md), not part of this automated predicate.
+    """
+    pipeline_dir = Path(args.pipeline_dir).expanduser().resolve()
+    runs_dir = pipeline_dir / "runs"
+    if _safe_id(args.batch, "batch_id") is None:
+        return 1
+    manifest, _manifest_path, _batches_dir = _load_manifest(pipeline_dir, args.batch)
+    if manifest is None:
+        return 1
+
+    out_lines: list[str] = []
+    for offer in manifest.get("offers", []):
+        offer_index = offer.get("offer_index")
+        for artifact_type, run in (offer.get("runs") or {}).items():
+            if not isinstance(run, dict):
+                continue
+            run_id = run.get("run_id")
+            if _safe_id(str(run_id), "run_id") is None:
+                return 1
+            state_path = runs_dir / run_id / "state.json"
+            gate_results: dict = {}
+            delivered = False
+            if state_path.is_file():
+                try:
+                    state = json.loads(state_path.read_text(encoding="utf-8"))
+                except json.JSONDecodeError as exc:
+                    print(f"Invalid state JSON at {state_path}: {exc}", file=sys.stderr)
+                    return 1
+                if isinstance(state, dict) and isinstance(state.get("gate_results"), dict):
+                    gate_results = state["gate_results"]
+                # Reused, non-bypassable Gate A ∧ Gate B predicate — never re-judged here.
+                delivered = blocked_reason(gate_results) is None
+            if not delivered:
+                out_lines.append(
+                    f"offer_index={offer_index} artifact_type={artifact_type} run_id={run_id}"
+                )
+
+    if not out_lines:
+        print("nothing to resume")
+        return 0
+    print("\n".join(out_lines))
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Deterministic per-offer batch control-plane CLI (SELECT-01/02/03)."
+        description="Deterministic per-offer batch control-plane CLI (SELECT-01/02/03/04)."
     )
     sub = parser.add_subparsers(dest="op", required=True)
 
@@ -359,6 +498,57 @@ def main() -> int:
         help="Writable pipeline root (default .pipeline); resolved and used as the containment anchor.",
     )
     p_init.set_defaults(func=_cmd_init)
+
+    p_mark = sub.add_parser(
+        "mark", help="Set one per-(offer, artifact_type) run's status (read-modify-preserve)."
+    )
+    p_mark.add_argument("--batch", required=True, help="batch_id whose manifest to update.")
+    p_mark.add_argument("--run-id", required=True, help="Exact per-artifact-type run_id to update.")
+    p_mark.add_argument(
+        "--status",
+        required=True,
+        choices=["pending", "running", "delivered", "failed"],
+        help="New run status.",
+    )
+    p_mark.add_argument(
+        "--pipeline-dir",
+        default=".pipeline",
+        help="Writable pipeline root (default .pipeline); resolved as the containment anchor.",
+    )
+    p_mark.set_defaults(func=_cmd_mark)
+
+    p_resume = sub.add_parser(
+        "resume",
+        help="Print the non-delivered runs, recomputed from recorded gates (never the label).",
+    )
+    p_resume.add_argument("--batch", required=True, help="batch_id whose manifest to recompute.")
+    p_resume.add_argument(
+        "--pipeline-dir",
+        default=".pipeline",
+        help="Writable pipeline root (default .pipeline); resolved as the containment anchor.",
+    )
+    p_resume.set_defaults(func=_cmd_resume)
+
+    p_spec = sub.add_parser(
+        "record-spec",
+        help="Stamp the real freeze offer_spec_path/hash into one offer entry (post-freeze).",
+    )
+    p_spec.add_argument("--batch", required=True, help="batch_id whose manifest to update.")
+    p_spec.add_argument(
+        "--offer-index", required=True, type=int, help="offer_index of the entry to stamp."
+    )
+    p_spec.add_argument(
+        "--offer-spec-path", required=True, help="Real freeze offer_spec_path to record."
+    )
+    p_spec.add_argument(
+        "--offer-spec-hash", required=True, help="Real freeze offer_spec_hash to record."
+    )
+    p_spec.add_argument(
+        "--pipeline-dir",
+        default=".pipeline",
+        help="Writable pipeline root (default .pipeline); resolved as the containment anchor.",
+    )
+    p_spec.set_defaults(func=_cmd_record_spec)
 
     args = parser.parse_args()
     return args.func(args)
