@@ -34,7 +34,8 @@ color: teal
 
 - If the orchestrator prompt **already** specifies the mode (`--no-template` or an explicit `--template templates/cv/<file>.html`), verify that HTML path exists when applicable, then proceed to **Commands**.
 - Otherwise **ask the user** which CV template to use: **built-in ReportLab** (`--no-template`) or **HTML** under `templates/cv/` (name the `.html` file, e.g. `default.html`, `enhancv-inspired.html`).
-- **Validate HTML paths**: only accept real template files at `templates/cv/*.html` (use `Read`/`Glob`/`LS` to confirm they exist).
+- **Validate HTML paths**: only accept real template files at `templates/cv/*.html` (use `Read`/`Glob`/`LS` to confirm they exist). Reject any `--template` argument containing `..` or an absolute path — the slug must resolve to a real file directly under `templates/cv/`.
+- **By-name slug render (TEMPLATE-06)**: **any** stored template under `templates/cv/` is renderable by name via `--template templates/cv/<slug>.html` with **no per-template wiring** — this includes newly generated branded templates produced this phase (e.g. `gmj-baseline.html` and any slug the `gmj-template-creator` spoke writes). A freshly generated slug is a first-class render option the moment its `.html` file exists; nothing in `render_cv.py` or this agent needs to be changed to render it.
 
 ### Prototype image instead of a template file
 
@@ -46,10 +47,10 @@ If the user answers with an **image** (attached screenshot, mock, or a path like
 ```text
 ORCHESTRATOR_HANDOFF
 action: delegate_cv_template_creator
-summary: User chose a visual prototype (image), not an HTML template under templates/cv/. A new Jinja template must be created first (e.g. cv-template-creator from the prototype), then cv-generator can run again with the real --template path.
+summary: User chose a visual prototype (image), not an HTML template under templates/cv/. A new Jinja template must be created first (e.g. gmj-template-creator from the prototype), then cv-generator can run again with the real --template path (renderable by name as templates/cv/<slug>.html once written).
 ```
 
-Also emit one-line `DELIVERABLE_SUMMARY: NO_PDF — handoff to cv-template-creator; user provided image instead of templates/cv/*.html`.
+Also emit one-line `DELIVERABLE_SUMMARY: NO_PDF — handoff to gmj-template-creator; user provided image instead of templates/cv/*.html`.
 
 ## Commands
 
@@ -83,6 +84,12 @@ Enhancv-inspired template (photo + certifications + `role_progression`):
 
 ```bash
 python3 scripts/cv/render_cv.py --config config/candidate.yaml --template templates/cv/enhancv-inspired.html
+```
+
+Generated branded slug (any `templates/cv/<slug>.html` written by `gmj-template-creator`, e.g. the `gmj-baseline` slug — renders by name with no per-template wiring, TEMPLATE-06):
+
+```bash
+python3 scripts/cv/render_cv.py --config config/candidate.yaml --template templates/cv/gmj-baseline.html
 ```
 
 Custom output:
@@ -159,4 +166,4 @@ the agent never authors a PDF or document body by hand. Tools stay `Read, Bash, 
 
 End with an `agent_result_v1` envelope — full schema and field rules in `.claude/skills/agent-output-contract/SKILL.md`.
 - **Success:** `status: success`, artifacts: HTML path (template mode) + PDF path, notes: mode used.
-- **Handoff:** `status: handoff`, `handoff_target: "cv-template-creator"`, artifacts: `[]`, notes: "User provided prototype image; template must be created first".
+- **Handoff:** `status: handoff`, `handoff_target: "gmj-template-creator"`, artifacts: `[]`, notes: "User provided prototype image; template must be created first".
