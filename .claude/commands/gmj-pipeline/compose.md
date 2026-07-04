@@ -1,4 +1,4 @@
-# /pipeline/compose — Step 3: compose one artifact type
+# /gmj-pipeline/compose — Step 3: compose one artifact type
 
 ---
 allowed-tools: Task(*), Read(*), Glob(*), LS(*), Bash(*)

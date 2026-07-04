@@ -1,4 +1,4 @@
-# /pipeline-run — Whole offer→artifacts pipeline (dual-mode, retry-capped)
+# /gmj-pipeline-run — Whole offer→artifacts pipeline (dual-mode, retry-capped)
 
 ---
 allowed-tools: Task(*), Read(*), Glob(*), LS(*), Bash(*)
@@ -25,14 +25,14 @@ description: Run the full offer→artifacts pipeline end to end (dual-mode HITL/
 ```bash
 claude --dangerously-skip-permissions
 # then, in the session:
-/pipeline-run   # then state your mode / offer / run_id
+/gmj-pipeline-run   # then state your mode / offer / run_id
 ```
 
 There is no UI — the collective runs entirely from the CLI.
 
 ## Per-step commands
 
-Each step is independently invocable (EXEC-05) — see `.claude/commands/pipeline/`:
-`/pipeline/scout`, `/pipeline/freeze`, `/pipeline/compose`, `/pipeline/verify`,
-`/pipeline/evaluate`, `/pipeline/generate`. Use them to run or resume a single step;
-`/pipeline-run` runs the whole flow.
+Each step is independently invocable (EXEC-05) — see `.claude/commands/gmj-pipeline/`:
+`/gmj-pipeline/scout`, `/gmj-pipeline/freeze`, `/gmj-pipeline/compose`, `/gmj-pipeline/verify`,
+`/gmj-pipeline/evaluate`, `/gmj-pipeline/generate`. Use them to run or resume a single step;
+`/gmj-pipeline-run` runs the whole flow.

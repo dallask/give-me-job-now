@@ -1,4 +1,4 @@
-# /pipeline/freeze — Step 2: freeze offer-spec + init run state
+# /gmj-pipeline/freeze — Step 2: freeze offer-spec + init run state
 
 ---
 allowed-tools: Bash(*), Read(*), LS(*)

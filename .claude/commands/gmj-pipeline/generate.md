@@ -1,4 +1,4 @@
-# /pipeline/generate — Step 6: render the approved artifact
+# /gmj-pipeline/generate — Step 6: render the approved artifact
 
 ---
 allowed-tools: Task(*), Read(*), Glob(*), LS(*), Bash(*)

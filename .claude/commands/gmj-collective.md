@@ -1,4 +1,4 @@
-# /job-collective — Hub-and-spoke job/CV pipeline
+# /gmj-collective — Hub-and-spoke job/CV pipeline
 
 ---
 allowed-tools: Task(*), Read(*), Glob(*), LS(*)
