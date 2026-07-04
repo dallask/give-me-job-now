@@ -37,6 +37,19 @@ legitimate reframe may restate an existing number as a word-fraction without add
 - PASS: span `duration: "2010 - 2014"` → claim "studied over four years" (word-fraction of the span's own dates; no new digit).
 - FAIL: span `program: "BSc Sample Engineering"` (no number) → claim "top 5% of the BSc Sample Engineering cohort" (invents a percentage absent from the span).
 
+### Quantified-framing reframe vs invention (worked example)
+
+Foregrounding a real metric is a legitimate reframe **only when the digit is literally in the cited
+span**. Cite the exact span whose stringified value contains the number — never a topically-close
+neighbour that lacks it, and never an estimate or round-up.
+
+- PASS: span `professional_experience[0].achievements[0]: "Led AI-assisted engineering adoption across the 20-person delivery team in 2025–2026 ..."` → claim "Led a 20-person delivery team" (the digit "20" is literally present in the cited span — real metric surfaced, not invented).
+- FAIL: span `professional_experience[0].achievements[0]: "Led AI-assisted engineering adoption across the 20-person delivery team ..."` (no percentage) → claim "Cut delivery time by 40%" (the digit "40" is absent from the cited span — invented metric, `numeric_invention` FAIL).
+- PASS (word-fraction): span `professional_experience[0].achievements[0]: "... 20-person delivery team ..."` → claim "led a delivery team of roughly two dozen" (restates the span's own number in words, adds no new digit).
+
+The blanket rule still holds: **any number in the claim must be present in the cited span.** A
+quantified reframe never weakens it.
+
 ## R4 Cross-entry-merge — BLOCKED (FAIL)
 
 Facts from two distinct candidate entries combined into one false composite that cites only
