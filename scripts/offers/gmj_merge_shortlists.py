@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -68,11 +69,25 @@ def _entry_source_url(entry: dict) -> str:
     return url if isinstance(url, str) else ""
 
 
+def _url_path(url: str) -> str:
+    """The path/query portion of a URL after the host (mirrors ``_norm_site`` scheme handling).
+
+    Used to keep the host-only dedup fallback discriminating: two distinct postings on one
+    board that both lack company/title/location must NOT collapse to the same key.
+    """
+    s = re.sub(r"^[a-z][a-z0-9+.-]*://", "", str(url).strip().lower())
+    parts = s.split("/", 1)
+    return parts[1] if len(parts) > 1 else ""
+
+
 def canonical_key(entry: dict) -> str:
-    """Stable dedup key: slug of company+title+location, falling back to the source host.
+    """Stable dedup key: slug of company+title+location, falling back to source host + path.
 
     Reuses ``slugify`` (returns the sentinel ``"offer"`` for an empty composite), so the URL
-    fallback fires on BOTH an empty slug and that sentinel.
+    fallback fires on BOTH an empty slug and that sentinel. The fallback folds the URL path
+    into the key (``host::path-slug``) so two genuinely distinct postings on the same board
+    that both lack company/title/location stay distinct instead of silently deduping to one
+    (WR-01 data-loss guard).
     """
     slug = slugify(
         str(entry.get("company", "")),
@@ -80,7 +95,8 @@ def canonical_key(entry: dict) -> str:
     )
     if slug and slug != "offer":
         return slug
-    return _norm_site(_entry_source_url(entry))
+    url = _entry_source_url(entry)
+    return f"{_norm_site(url)}::{slugify('', _url_path(url))}"
 
 
 def _board_host(entry: dict) -> str:

@@ -212,6 +212,28 @@ def test_md_view_uses_jobseeker_wording() -> None:  # SCOUT-01
         assert "matching vacancies for you" in text, "md must use the job-seeker header"
 
 
+def test_host_fallback_keeps_distinct_offers() -> None:  # WR-01 data-loss guard
+    # Two genuinely different postings on the SAME in-scope board, both lacking
+    # company/title/location, must NOT collapse to one host-only key.
+    entries = [
+        {"board": "https://www.work.ua/", "trace": {"source_url": "https://www.work.ua/j/1001"},
+         "mode": "remote", "salary": 4000},
+        {"board": "https://www.work.ua/", "trace": {"source_url": "https://www.work.ua/j/2002"},
+         "mode": "remote", "salary": 4000},
+    ]
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        result, out = _run_merge(cwd, entries, _PREFS, _SOURCES)
+        assert result.returncode == 0, f"CLI must exit 0: {result.stderr}"
+        shortlist = json.loads(out.read_text())["shortlist"]
+        keys = [e["canonical_key"] for e in shortlist]
+        assert len(shortlist) == 2, (
+            f"distinct same-host offers must both survive, not dedup-collapse: {keys}"
+        )
+        assert len(set(keys)) == 2, f"host-fallback keys must stay distinct: {keys}"
+        assert all("work.ua" in k for k in keys), f"keys must still key off the host: {keys}"
+
+
 def test_nan_infinity_score_rejected() -> None:  # SCOUT-04 canonical-JSON validity
     # A raw board file carrying a non-finite numeric literal (Python's json emits bare NaN
     # by default) must be REJECTED on load, never silently re-emitted as invalid RFC-8259
