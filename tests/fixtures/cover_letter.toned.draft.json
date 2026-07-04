@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "cover_letter",
+    "language": "en",
+    "claims": [
+      {
+        "text": "I am energized to bring 19+ years of shipping production web systems at enterprise scale directly to the problems your team is solving.",
+        "source_span": "summary",
+        "section": "body",
+        "reframing_note": "Offer-register phrasing ('energized', 'directly to the problems your team is solving') layered on the candidate summary; every fact traces to the span."
+      },
+      {
+        "text": "In my current role I led AI-assisted engineering adoption across a 20-person delivery team through 2025-2026, standardizing modern tooling so the whole squad shipped faster.",
+        "source_span": "professional_experience[0].achievements[0]",
+        "section": "body",
+        "reframing_note": "Tone lifted to the offer's fast-moving delivery register; the 20-person team and 2025-2026 span are in-source."
+      },
+      {
+        "text": "I introduced CI/CD tooling and Capistrano automation to achieve zero-downtime releases - exactly the kind of reliable, always-on delivery an analytics platform depends on.",
+        "source_span": "key_achievements[4].description",
+        "section": "body",
+        "reframing_note": "Framed toward the offer's platform-reliability register; the zero-downtime CI/CD claim traces to the span."
+      },
+      {
+        "text": "I raise engineering quality where it counts: I lifted core-module test coverage to 80%+ by enforcing PHPUnit and PHP Code Sniffer across delivery squads.",
+        "source_span": "key_achievements[6].description",
+        "section": "body",
+        "reframing_note": "Confident offer-register phrasing; the 80%+ coverage figure is present in the cited span."
+      },
+      {
+        "text": "As a Lead Software Engineer I would welcome the chance to bring that same enterprise-scale focus to your team.",
+        "source_span": "professional_experience[0].position",
+        "section": "closing"
+      }
+    ]
+  }
+}
