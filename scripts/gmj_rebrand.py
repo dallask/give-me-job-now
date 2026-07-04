@@ -212,7 +212,14 @@ def _script_rules(entries: list[dict]) -> list[tuple[re.Pattern, str, dict]]:
     for e in entries:
         old, new = re.escape(e["old"]), e["new"]
         rules.append((re.compile(rf"(?<![A-Za-z0-9_])from {old} import"), f"from {new} import", e))
-        rules.append((re.compile(rf"(?<![A-Za-z0-9_])import {old}(?![A-Za-z0-9_])"), f"import {new} as {e['old']}", e))
+        # Plain ``import <stem>`` with NO existing alias -> aliased compat form binding the old
+        # stem, so downstream ``<stem>.func`` module-qualified references keep resolving. The
+        # ``(?!\s+as\s)`` guard skips an already-aliased import (handled by the next rule) — WR-03.
+        rules.append((re.compile(rf"(?<![A-Za-z0-9_])import {old}(?![A-Za-z0-9_])(?!\s+as\s)"), f"import {new} as {e['old']}", e))
+        # ``import <stem> as <alias>`` -> ``import gmj_<stem> as <alias>``: rewrite only the module
+        # name and PRESERVE the existing alias. Appending a second ``as`` (the old single-rule bug)
+        # produced ``import gmj_<stem> as <stem> as <alias>`` — a syntax error (WR-03).
+        rules.append((re.compile(rf"(?<![A-Za-z0-9_])import {old}(?![A-Za-z0-9_])(?=\s+as\s)"), f"import {new}", e))
         rules.append((re.compile(rf"(?<![A-Za-z0-9_]){old}\.py(?![A-Za-z0-9_])"), f"{new}.py", e))
     return rules
 

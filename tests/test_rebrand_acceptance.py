@@ -188,6 +188,38 @@ def test_apply_stages_content_rewrite_of_renamed_file() -> None:
         assert "+# see gmj_route.py for details" in diff, "rewritten content line not staged as added"
 
 
+def _apply_script_rules(entry: dict, text: str) -> str:
+    """Run the script reference-form rules over one text blob (test helper)."""
+    out = text
+    for pat, repl, _e in R._script_rules([entry]):
+        out = pat.sub(lambda m, r=repl: r, out)
+    return out
+
+
+def test_aliased_import_rewrite_preserves_alias() -> None:
+    """WR-03: ``import <stem> as <alias>`` rewrites to valid Python, preserving the alias."""
+    import ast
+
+    entry = {"old": "extract", "new": "gmj_extract",
+             "old_path": REPO_ROOT / "x", "new_path": REPO_ROOT / "y"}
+
+    # Aliased import: rewrite the module name only, keep the alias — no double ``as``.
+    aliased = _apply_script_rules(entry, "import extract as ex\n")
+    assert aliased == "import gmj_extract as ex\n", f"aliased import corrupted: {aliased!r}"
+    ast.parse(aliased)  # must be valid Python (the old bug produced a SyntaxError here)
+
+    # Plain import (no alias): still gets the compat alias binding the old stem.
+    plain = _apply_script_rules(entry, "import extract\n")
+    assert plain == "import gmj_extract as extract\n", f"plain import wrong: {plain!r}"
+    ast.parse(plain)
+
+    # from-import form and prose are unaffected.
+    assert _apply_script_rules(entry, "from extract import foo\n") == "from gmj_extract import foo\n"
+    assert _apply_script_rules(entry, "we extract the value\n") == "we extract the value\n"
+    # A longer stem that merely starts with the old name must not be touched.
+    assert _apply_script_rules(entry, "import extractor as e\n") == "import extractor as e\n"
+
+
 # --------------------------------------------------------------------------- hooks
 
 def _registered_hook_paths() -> list[str]:
