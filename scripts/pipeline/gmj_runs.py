@@ -407,9 +407,15 @@ def _cmd_batch_inspect(args: argparse.Namespace) -> int:
     else:
         for r in offers_out:
             flag = "resume" if r["in_resume_set"] else "done"
+            # Coerce nullable manifest-sourced fields to a display string BEFORE the width spec:
+            # a partial manifest (missing offer_index/run_id/status -> None) must degrade to a
+            # readable row, never raise `f"{None:<3}"` TypeError (never-a-traceback contract).
+            oi = "—" if r["offer_index"] is None else str(r["offer_index"])
+            rid = "—" if r["run_id"] is None else str(r["run_id"])
+            st = "—" if r["status"] is None else str(r["status"])
             print(
-                f"offer_index={r['offer_index']:<3} artifact_type={r['artifact_type']:<14} "
-                f"run_id={r['run_id']:<28} status={r['status']:<10} [{flag}]"
+                f"offer_index={oi:<3} artifact_type={r['artifact_type']:<14} "
+                f"run_id={rid:<28} status={st:<10} [{flag}]"
             )
         print(f"resume        {resume_command}")
     return 0
