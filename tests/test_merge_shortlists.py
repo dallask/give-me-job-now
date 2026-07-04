@@ -307,6 +307,30 @@ def test_nan_infinity_score_rejected() -> None:  # SCOUT-04 canonical-JSON valid
         assert "non-finite" in result.stderr.lower(), f"stderr must name it: {result.stderr}"
 
 
+def test_out_path_traversal_rejected() -> None:  # WR-03 containment guard
+    # The --out containment guard must reject any path outside .pipeline/, both an absolute
+    # escape and a ../ escape, with exit 1 and the sentinel — and write nothing outside.
+    for out_arg, label in (("__ABS__", "absolute escape"), (".pipeline/../escape.json", "../ escape")):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            board = _write_board(cwd / "board.json", _mixed_board())
+            src = _write_yaml(cwd / "sources.yaml", _SOURCES)
+            pref = _write_yaml(cwd / "preferences.yaml", _PREFS)
+            escape_abs = cwd / "escape.json"
+            out_val = str(escape_abs) if out_arg == "__ABS__" else out_arg
+            result = _cli(
+                ["--board-file", str(board), "--sources", str(src),
+                 "--preferences", str(pref), "--out", out_val],
+                cwd=cwd,
+            )
+            assert result.returncode == 1, f"{label} must exit 1: {result.stdout}"
+            assert "Refusing to write outside" in result.stderr, (
+                f"{label} must print the containment sentinel: {result.stderr}"
+            )
+            assert not escape_abs.exists(), f"{label} must not create a file outside .pipeline/"
+            assert not (cwd / "escape.json").exists(), f"{label} must not escape .pipeline/"
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
