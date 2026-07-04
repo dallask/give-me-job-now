@@ -36,7 +36,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,8 +48,13 @@ from jsonschema import Draft202012Validator
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_delivery import blocked_reason  # noqa: E402
 
+# Reuse state_write.py's frozen-run-config helper IN-PROCESS (not via subprocess) so the seeded
+# state is built and written once already containing current_step — no non-atomic window where
+# route.py could observe a state without current_step (WR-02). It freezes the exact same fields
+# (execution_mode, retry_cap, run_id) and prints its own structured stderr on any error.
+from state_write import _freeze_run_config  # noqa: E402
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # scripts/pipeline/ -> repo root
-STATE_WRITE = REPO_ROOT / "scripts" / "pipeline" / "state_write.py"
 SCHEMA_PATH = REPO_ROOT / "schemas" / "batch_manifest.schema.json"
 DEFAULT_CONFIG = REPO_ROOT / "config" / "pipeline.config.yaml"
 
@@ -181,42 +185,37 @@ def write_manifest(manifest: dict, out: Path, batches_dir: Path) -> Path:
 def _seed_state(
     run_id: str, runs_dir: Path, config: Path, execution_mode: str | None, retry_cap: int | None
 ) -> int:
-    """Freeze run-config via state_write.py, then seed current_step (read-modify-preserve).
+    """Build the frozen+seeded state IN-PROCESS and publish it in a single atomic write.
+
+    Reuses ``state_write._freeze_run_config`` to freeze the exact same fields state_write.py
+    records (execution_mode, retry_cap, run_id), sets ``current_step`` on the in-memory dict
+    BEFORE writing, then publishes via a temp-file rename. There is therefore never a moment
+    where ``state.json`` exists on disk without ``current_step`` (route.py:33-34) — closing the
+    non-atomic double-write window and removing the per-state subprocess spawn (WR-02).
 
     Returns 0 on success, 1 after a structured stderr message on any failure.
     """
     state_path = runs_dir / run_id / "state.json"
-    cmd = [
-        sys.executable,
-        str(STATE_WRITE),
-        "--state",
-        str(state_path),
-        "--run-id",
-        run_id,
-        "--config",
-        str(config),
-    ]
-    if execution_mode is not None:
-        cmd += ["--execution-mode", execution_mode]
-    if retry_cap is not None:
-        cmd += ["--retry-cap", str(retry_cap)]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    if proc.returncode != 0:
-        print(f"state_write failed for run_id {run_id!r}: {proc.stderr.strip()}", file=sys.stderr)
-        return 1
-    # Read-modify-preserve: seed current_step without dropping the frozen keys (route.py:33-34).
-    try:
-        state = json.loads(state_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        print(f"Cannot re-read seeded state {state_path}: {exc}", file=sys.stderr)
-        return 1
-    if not isinstance(state, dict):
-        print(f"Seeded state must be a JSON object: {state_path}", file=sys.stderr)
-        return 1
-    state["current_step"] = "artifact-composer"
-    state_path.write_text(
-        json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    state: dict = {}
+    freeze_args = argparse.Namespace(
+        run_id=run_id,
+        config=Path(config),
+        execution_mode=execution_mode,
+        retry_cap=retry_cap,
     )
+    # _freeze_run_config prints its own structured stderr message and returns 1 on any error
+    # (bad run_id charset, missing/invalid config, bad execution_mode/retry_cap).
+    if _freeze_run_config(state, freeze_args) != 0:
+        return 1
+    # Seed current_step into the in-memory dict BEFORE the single write.
+    state["current_step"] = "artifact-composer"
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(state, ensure_ascii=False, indent=2) + "\n"
+    # Atomic publish: write a temp sibling then rename over the target (no partial/no-current_step
+    # state is ever visible to a concurrent route.py read).
+    tmp_path = state_path.with_name(state_path.name + ".tmp")
+    tmp_path.write_text(payload, encoding="utf-8")
+    tmp_path.replace(state_path)
     return 0
 
 
