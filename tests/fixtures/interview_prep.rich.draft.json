@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "interview_prep",
+    "language": "en",
+    "claims": [
+      {
+        "text": "How would you lead AI-assisted engineering adoption across a delivery team while keeping code-quality gates intact?",
+        "source_span": "professional_experience[0].achievements[0]",
+        "section": "likely_questions"
+      },
+      {
+        "text": "Standardized Claude Code, GitHub Copilot, and Cursor across the 20-person delivery team in 2025–2026, accelerating recurring Drupal and React delivery.",
+        "source_span": "professional_experience[0].achievements[0]",
+        "section": "star_stories"
+      },
+      {
+        "text": "Reduced environment-related regression incidents by ~30% through CI/CD tooling and Capistrano automation, achieving zero-downtime releases across multi-site environments.",
+        "source_span": "professional_experience[0].achievements[8]",
+        "section": "star_stories"
+      },
+      {
+        "text": "Raised core-module unit test coverage to 80%+ by introducing PHPUnit and PHP Code Sniffer enforcement across delivery squads.",
+        "source_span": "key_achievements[6].description",
+        "section": "talking_points"
+      },
+      {
+        "text": "What does your current AI-assisted engineering workflow look like across code generation, review, and test scaffolding?",
+        "source_span": "professional_experience[0].achievements[0]",
+        "section": "questions_to_ask"
+      }
+    ]
+  }
+}
