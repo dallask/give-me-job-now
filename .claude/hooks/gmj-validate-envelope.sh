@@ -19,7 +19,7 @@
 #
 # RESEARCH Pitfall 2: a SubagentStop block "prevents the subagent from stopping" and does
 # not feed the reason back to the hub. The durable record is therefore the log; the
-# existing PostToolUse:Task hook (collective-handoff-contract.sh) remains the complementary
+# existing PostToolUse:Task hook (gmj-collective-handoff-contract.sh) remains the complementary
 # outer-contract gate and is intentionally left untouched.
 set -euo pipefail
 
@@ -31,7 +31,7 @@ timestamp() { date '+%Y-%m-%d %H:%M:%S'; }
 INPUT_JSON=$(cat || true)
 
 # Parse a top-level string field from the stdin JSON (jq with python3 fallback,
-# per collective-handoff-contract.sh lines 22-23).
+# per gmj-collective-handoff-contract.sh lines 22-23).
 read_field() {
   local field="$1" val=""
   if command -v jq >/dev/null 2>&1; then
@@ -57,7 +57,7 @@ if [ -z "$TRANSCRIPT" ] || [ ! -f "$TRANSCRIPT" ]; then
 fi
 
 # Extract the fenced agent_result_v1 block from the CURRENT subagent's FINAL assistant
-# message. Reuses the same fenced-block regex as collective-handoff-contract.sh lines
+# message. Reuses the same fenced-block regex as gmj-collective-handoff-contract.sh lines
 # 82-83, but scoped to the last assistant message (not the transcript-global last match)
 # so a stale envelope from an earlier turn/subagent is never re-validated (#t8o).
 ENVELOPE=$(python3 - "$TRANSCRIPT" <<'PY' 2>/dev/null || true

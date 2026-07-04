@@ -309,13 +309,13 @@ must actually target the offer.
 - Location: `.claude/commands/gmj-collective.md`
 - Triggers: User invokes slash command in Claude Code session
 - Responsibilities: Instructs hub orchestrator to load `.claude/agents/gmj-orchestrator.md` and await user goal in same turn; hub must use `Task` only to spawn spokes (never nest orchestrator inside Task)
-- Location: `.claude/settings.json` → SessionStart hooks → `.claude/hooks/session-bootstrap.sh`
+- Location: `.claude/settings.json` → SessionStart hooks → `.claude/hooks/gmj-session-bootstrap.sh`
 - Triggers: On session startup, resume, or clear
 - Responsibilities: Initialize session state, print bootstrap banner, prepare environment for orchestrator
-- Location: `.claude/settings.json` → PreToolUse hooks → `.claude/hooks/block-destructive-commands.sh`
+- Location: `.claude/settings.json` → PreToolUse hooks → `.claude/hooks/gmj-block-destructive-commands.sh`
 - Triggers: Before every Bash command
 - Responsibilities: Block destructive git commands, file deletions, etc.; raise errors on risky patterns
-- Location: `.claude/settings.json` → PostToolUse hooks → `.claude/hooks/collective-handoff-contract.sh`
+- Location: `.claude/settings.json` → PostToolUse hooks → `.claude/hooks/gmj-collective-handoff-contract.sh`
 - Triggers: After every Task call
 - Responsibilities: Log Task payload (pipeline_run_id, spoke name, criteria) to handoff log for audit trail
 

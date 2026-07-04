@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Integration tests for the sources-scope-guard PreToolUse hook (INTAKE-05 / SC2).
+"""Integration tests for the gmj-sources-scope-guard PreToolUse hook (INTAKE-05 / SC2).
 
 Runnable as a plain assertion script (no pytest dependency). Feeds fixture stdin
-payloads to ``.claude/hooks/sources-scope-guard.sh`` as a subprocess and proves the
+payloads to ``.claude/hooks/gmj-sources-scope-guard.sh`` as a subprocess and proves the
 EXECUTED hook — not an agent self-report — enforces ``config/sources.yaml`` scope:
 
 - an in-scope WebFetch (host under ``config/sources.yaml`` sites) is allowed (exit 0),
@@ -26,7 +26,7 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-HOOK = REPO_ROOT / ".claude" / "hooks" / "sources-scope-guard.sh"
+HOOK = REPO_ROOT / ".claude" / "hooks" / "gmj-sources-scope-guard.sh"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SOURCES_YAML = REPO_ROOT / "config" / "sources.yaml"
 CREDENTIALS_YAML = REPO_ROOT / "config" / "credentials.yaml"

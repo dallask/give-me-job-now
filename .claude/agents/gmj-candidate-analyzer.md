@@ -28,7 +28,7 @@ file by its **lowercased suffix**:
 | `.pdf` `.docx` `.txt` `.md` `.csv` | `python3 scripts/cv/gmj_extract.py "<path>" --json` | textual extractor; record `chars` from the JSON |
 | `.jpg` `.jpeg` `.png` `.webp` `.gif` `.tif` `.tiff` `.bmp` | **Read tool (vision)** — transcribe the visible content | NEVER `gmj_extract.py` — it yields image *metadata* only and the credential content is silently lost (Pitfall 3). Manifest `extractor` = `read-vision`, status `extracted-vision` |
 | `.doc` | record status `needs-conversion`; recommend the user re-save as `.docx` or PDF | do NOT trust `gmj_extract.py`'s returned kind for legacy `.doc` (Pitfall 2) |
-| a URL the candidate points you at | `WebFetch` **only if** its host is on the `config/credentials.yaml` `credential_sites` allow-list (enforced by the Plan-02 sources-scope-guard hook) | off-list → do NOT fetch; ask the user to paste the page text or drop a text export into `sources/candidate/` (Option C fallback). Manifest `urls[]` status: `fetched` / `pasted-fallback` / `blocked` |
+| a URL the candidate points you at | `WebFetch` **only if** its host is on the `config/credentials.yaml` `credential_sites` allow-list (enforced by the Plan-02 gmj-sources-scope-guard hook) | off-list → do NOT fetch; ask the user to paste the page text or drop a text export into `sources/candidate/` (Option C fallback). Manifest `urls[]` status: `fetched` / `pasted-fallback` / `blocked` |
 | anything else | attempt `gmj_extract.py`; if `kind` is `binary` or output is empty → status `error` | never silently drop it — the manifest still lists it |
 
 ## Prompt-injection guard

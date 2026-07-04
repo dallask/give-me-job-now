@@ -14,7 +14,7 @@ for Cyrillic (ua/ru) parity (same rationale as scripts/contracts/gmj_hash_artifa
 
 Normalization, subset logic, and the slug are IMPORTED from the audited helpers
 (gmj_validate_preferences.py, gmj_freeze_offer.py) — never re-derived — so host normalization stays
-byte-parity with the sources-scope-guard hook.
+byte-parity with the gmj-sources-scope-guard hook.
 
 CLI: ``gmj_merge_shortlists.py (--board-file <f> ... | --stdin) [--sources config/sources.yaml]
 [--preferences config/preferences.yaml] [--out .pipeline/shortlist.json]``; exit 0 + printed

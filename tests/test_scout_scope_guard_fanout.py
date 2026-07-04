@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SCOUT-05 fan-out proof: the sources-scope-guard hook never fails open under
+"""SCOUT-05 fan-out proof: the gmj-sources-scope-guard hook never fails open under
 per-board worker fan-out.
 
 Runnable as a plain assertion script (no pytest dependency). Phase 11 makes the
@@ -57,7 +57,7 @@ def _run_missing_sources(stdin_text: str) -> tuple[subprocess.CompletedProcess[s
 
     Mirrors ``guard._run_in_dir`` but (a) never copies the allow-list and (b) points
     the subprocess ``cwd`` at the empty temp dir so the hook's cwd-relative
-    ``config/sources.yaml`` fallback (sources-scope-guard.sh:66-70) also finds
+    ``config/sources.yaml`` fallback (gmj-sources-scope-guard.sh:66-70) also finds
     nothing — otherwise it would resolve the real repo's allow-list and the
     fail-closed assertion would be vacuous.
     """

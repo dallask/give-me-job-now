@@ -6,7 +6,7 @@
 #   - hash reproducibility demo (gmj_hash_artifact.py, ARCH-05),
 #   - deterministic route demo (gmj_route.py, ARCH-06),
 #   - the SubagentStop hook's offline extraction+validation path against the
-#     mock transcript fixture (validate-envelope.sh must BLOCK the malformed envelope).
+#     mock transcript fixture (gmj-validate-envelope.sh must BLOCK the malformed envelope).
 #
 # Prints one line per check and a final PASS/FAIL summary; exits 0 only if every
 # check passes. No pytest/unittest dependency — plain exit-code assertions, matching
@@ -19,7 +19,7 @@ cd "$REPO_ROOT"
 VALIDATOR="scripts/contracts/gmj_validate_envelope.py"
 HASHER="scripts/contracts/gmj_hash_artifact.py"
 ROUTER="scripts/pipeline/gmj_route.py"
-HOOK=".claude/hooks/validate-envelope.sh"
+HOOK=".claude/hooks/gmj-validate-envelope.sh"
 SAMPLES="schemas/samples"
 DAG="config/pipeline.dag.yaml"
 MOCK="tests/fixtures/mock_transcript.jsonl"

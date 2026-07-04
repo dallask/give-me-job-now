@@ -33,7 +33,7 @@ log_cred() {
 INPUT_JSON=$(cat)
 
 # Parse a (possibly dotted) field from the stdin JSON — jq with a python3 fallback,
-# copied from validate-envelope.sh read_field (jq may be absent).
+# copied from gmj-validate-envelope.sh read_field (jq may be absent).
 read_field() {
   _f="$1"; _v=""
   if command -v jq >/dev/null 2>&1; then
