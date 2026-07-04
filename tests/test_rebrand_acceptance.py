@@ -138,6 +138,56 @@ def test_grep0_backstop_fires_and_is_precise() -> None:
         assert control.name not in key_hits, "backstop FALSE-fired on a correctly-renamed gmj- JSON key"
 
 
+# --------------------------------------------------------------------------- engine hardening
+
+def _init_git_repo(root: Path) -> None:
+    """Init a throwaway git repo (isolated config) for an apply-staging assertion."""
+    subprocess.run(["git", "init", "-q"], cwd=str(root), check=True)
+    subprocess.run(["git", "config", "user.email", "t@example.invalid"], cwd=str(root), check=True)
+    subprocess.run(["git", "config", "user.name", "t"], cwd=str(root), check=True)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=str(root), check=True)
+
+
+def test_apply_stages_content_rewrite_of_renamed_file() -> None:
+    """CR-01: after git mv + rewrite, the CONTENT rewrite of a renamed file must be STAGED.
+
+    Reproduces the exact quirk the review flagged: ``git mv`` stages a rename from the
+    pre-rewrite index blob, leaving the working-tree content edit unstaged. Proves
+    ``R.stage_all()`` closes the gap — ``git diff --cached`` for the renamed destination shows
+    the rewritten line (NOT a 0-line pure rename)."""
+    with tempfile.TemporaryDirectory() as d:
+        repo = Path(d).resolve()
+        _init_git_repo(repo)
+        scripts = repo / "scripts"
+        scripts.mkdir()
+        mod = scripts / "route.py"
+        # A file that BOTH gets renamed AND has an internal reference rewritten (its own .py name).
+        mod.write_text("# see route.py for details\nvalue = 1\n", encoding="utf-8")
+        subprocess.run(["git", "add", "-A"], cwd=str(repo), check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=str(repo), check=True)
+
+        entry = {"old": "route", "new": "gmj_route",
+                 "old_path": mod, "new_path": scripts / "gmj_route.py"}
+        rules = R._script_rules([entry])
+        orig_root = R.REPO_ROOT
+        R.REPO_ROOT = repo
+        try:
+            changed = R.apply_rewrites(rules, [mod])
+            assert changed == 1, "apply_rewrites did not rewrite the renamed file's content"
+            R.git_mv(entry["old_path"], entry["new_path"])
+            R.stage_all()
+        finally:
+            R.REPO_ROOT = orig_root
+
+        diff = subprocess.run(
+            ["git", "diff", "--cached"], cwd=str(repo), capture_output=True, text=True, check=True
+        ).stdout
+        assert "gmj_route.py" in diff, "renamed destination absent from staged diff"
+        # The content edit — not just the rename — must be in the index.
+        assert "-# see route.py for details" in diff, "old content line not staged as removed"
+        assert "+# see gmj_route.py for details" in diff, "rewritten content line not staged as added"
+
+
 # --------------------------------------------------------------------------- hooks
 
 def _registered_hook_paths() -> list[str]:

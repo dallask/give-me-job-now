@@ -337,6 +337,19 @@ def git_mv(old_path: Path, new_path: Path) -> None:
     subprocess.run(["git", "mv", str(old_path), str(new_path)], cwd=str(REPO_ROOT), check=True)
 
 
+def stage_all() -> None:
+    """Stage every tracked modification so a staged-only commit ships the rewritten tree (CR-01).
+
+    ``git mv`` stages each rename from the blob currently in the INDEX — i.e. the PRE-rewrite
+    content — and leaves the working-tree content rewrite (a renamed module's own internal
+    references / imports, plus every referencing file) UNSTAGED. A wave that commits only the
+    staged set (``git commit`` without ``-a``) would therefore ship renamed modules still
+    carrying their old internal references. ``git add -u`` re-stages every tracked modification
+    (including the moved destination paths) so the index matches the working tree.
+    """
+    subprocess.run(["git", "add", "-u"], cwd=str(REPO_ROOT), check=True)
+
+
 def purge_pycache() -> None:
     """Delete stale __pycache__ so old module .pyc can't shadow a renamed module (Pitfall 7)."""
     for base in (SCRIPTS_DIR, REPO_ROOT / "tests"):
@@ -405,6 +418,9 @@ def main() -> int:
             if e["old_path"].exists():
                 assert_app_target(e["old_path"], allow_set)
                 git_mv(e["old_path"], e["new_path"])
+        # CR-01: git mv staged each rename from the pre-rewrite index blob; stage the content
+        # rewrites too so `git commit` (no -a) can't ship renamed modules with stale content.
+        stage_all()
     except (ValueError, subprocess.CalledProcessError, OSError) as exc:
         print(f"apply failed for --type {args.type}: {exc}", file=sys.stderr)
         return 1
