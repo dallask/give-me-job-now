@@ -206,7 +206,15 @@ def _batch_rollup(manifest: dict, fallback_id: str) -> dict:
             total += 1
             if run.get("status") == "delivered":
                 delivered += 1
-    return {"batch_id": manifest.get("batch_id") or fallback_id, "delivered": delivered, "total": total}
+    # Every batch row carries the SAME keys (incl. "status") so the JSON schema is uniform with
+    # the degrade branch and symmetric with runs list — a consumer reading row["status"] to find
+    # degraded batches never KeyErrors on a healthy row. "unknown" is reserved for the degrade path.
+    return {
+        "batch_id": manifest.get("batch_id") or fallback_id,
+        "delivered": delivered,
+        "total": total,
+        "status": "ok",
+    }
 
 
 def _cmd_batches_list(args: argparse.Namespace) -> int:
