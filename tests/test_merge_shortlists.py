@@ -331,6 +331,31 @@ def test_out_path_traversal_rejected() -> None:  # WR-03 containment guard
             assert not (cwd / "escape.json").exists(), f"{label} must not escape .pipeline/"
 
 
+def test_missing_sources_fails_closed_nonzero() -> None:  # WR-06 scope-integrity
+    # A MISSING sources.yaml (as opposed to a present-but-empty allow-list) must fail closed
+    # with a non-zero exit and a clear stderr notice — never a silent exit-0 empty shortlist.
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        board = _write_board(cwd / "board.json", _mixed_board())
+        pref = _write_yaml(cwd / "preferences.yaml", _PREFS)
+        missing = cwd / "no-such-sources.yaml"
+        assert not missing.exists(), "fixture sources.yaml must be absent"
+        result = _cli(
+            ["--board-file", str(board), "--sources", str(missing),
+             "--preferences", str(pref), "--out", ".pipeline/out.json"],
+            cwd=cwd,
+        )
+        assert result.returncode == 1, (
+            f"missing sources.yaml must fail closed (exit 1), not silent exit 0: {result.stdout}"
+        )
+        assert "FAIL-CLOSED" in result.stderr and "not found" in result.stderr, (
+            f"stderr must clearly report the missing allow-list: {result.stderr}"
+        )
+        assert not (cwd / ".pipeline/out.json").exists(), (
+            "no shortlist must be written when the allow-list is missing"
+        )
+
+
 def test_dual_shape_loader() -> None:  # WR-04 dual-shape board loader
     # The loader accepts a wrapped {...,'shortlist':[...]} doc, a BARE top-level JSON list,
     # and a --stdin bundle; a non-list/non-object top level is the error path.

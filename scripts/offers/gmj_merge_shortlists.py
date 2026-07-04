@@ -357,11 +357,15 @@ def main() -> int:
             print(f"FAIL-CLOSED: unparsable sources.yaml: {exc}", file=sys.stderr)
             return 1
     else:
+        # A MISSING allow-list is a misconfiguration, not "no matches": exit non-zero so an
+        # operator/orchestrator can tell "scope config missing" from a legitimate empty run
+        # (mirrors validate_preferences.py's missing-sources fail-closed) (WR-06).
         print(
             f"FAIL-CLOSED: sources.yaml not found: {sources_path} "
-            "(no scope defined means drop all, never all-allowed)",
+            "(a missing allow-list means no scope is defined, never all-allowed)",
             file=sys.stderr,
         )
+        return 1
 
     ranked = merge(board_entries, prefs, sources)
 
