@@ -114,6 +114,37 @@ _MANAGE_KEYS: tuple[tuple[str, str], ...] = (
 )
 
 
+# Multi-row block-matrix glyph ramp (VIEW-14). The eighths ` ▁▂▃▄▅▆▇█` (index 0..8) let a series be
+# drawn as a TALL matrix of block glyphs — one row per 8 eighths of the peak — so the big throughput
+# graph reaches btop density. Textual's Sparkline renders only ONE row (verified in 23-RESEARCH), so
+# the big graph is hand-rolled here; the small per-status trends reuse the same helper at rows=1.
+_BLOCK_BARS = " ▁▂▃▄▅▆▇█"
+
+
+def _block_graph(series: list, rows: int = 4) -> str:
+    """Render an int ``series`` as a multi-row block matrix (a pure view helper — no data logic, no disk).
+
+    Verified per 23-RESEARCH Pattern 3: scale each value to ``rows * 8`` eighths against the series peak,
+    then emit ``rows`` lines top-first — a full ``█`` where the column overflows the row, a partial eighth
+    glyph at the boundary, a blank below. An empty series degrades to the ``(no throughput)`` placeholder.
+    With ``rows >= 2`` the result contains a newline (a true multi-row graph, NOT a single-row Sparkline);
+    ``rows=1`` yields a compact single-row spark for the small per-status trends.
+    """
+    if not series:
+        return "(no throughput)"
+    peak = max(series) or 1
+    max_eighths = rows * 8
+    cols = [round(v / peak * max_eighths) for v in series]
+    out = []
+    for r in range(rows - 1, -1, -1):          # top row first
+        line = []
+        for e in cols:
+            rem = e - r * 8
+            line.append(" " if rem <= 0 else "█" if rem >= 8 else _BLOCK_BARS[rem])
+        out.append("".join(line))
+    return "\n".join(out)
+
+
 class RunDetailModal(ModalScreen):
     """Read-only run drill-in overlay (VIEW-09) — a FROZEN ``run_detail`` payload, no disk/exec path.
 
@@ -346,6 +377,7 @@ class GmjDashboard(App):
         self._apply_vacancies(snap.get("vacancies") or [], snap.get("batches") or [])
         self._apply_errors(snap.get("errors") or [])  # VIEW-12: red-forward per-failed-run gate detail
         self._apply_activity(snap.get("activity") or [])  # VIEW-13: newest-first event timeline
+        self._apply_charts(snap.get("metrics") or {})  # VIEW-14: block throughput graph + gate bars + trend
         self._apply_debug()  # VIEW-16: refresh the selected run's internals live (retry counts / step)
 
     # ── pipeline-DAG stage strip (VIEW-08) — guard-safe, projection-colored ───────────────────────
@@ -585,6 +617,59 @@ class GmjDashboard(App):
                 label = str(kind)
             out.append(f"{ts} {rid} ")           # timestamp + run_id (panel color)
             out.append(label, style=color)        # readable label ALWAYS paired with the event colour
+        panel.update(out)
+
+    # ── extended charts (VIEW-14) — block throughput graph + Gate A/B bars + per-status trend ──────
+
+    def _apply_charts(self, m: dict) -> None:
+        """Render the btop-density chart band from ``snapshot()["metrics"]`` — targeted, no recompose.
+
+        Three sections, all pure projections of the ``metrics`` dict (no disk, no data logic):
+
+        - the BIG throughput graph — a hand-rolled MULTI-ROW block matrix via ``_block_graph(m["throughput"])``
+          (Textual's ``Sparkline`` is single-row only, so it cannot produce this — 23-RESEARCH Pitfall 1);
+        - a Gate A/B pass-fail bar chart — a green ``█`` run of length ``pass`` + a red ``█`` run of length
+          ``fail`` from ``m["gate_a"]``/``m["gate_b"]`` (the projection's verdict tallies, not gate-node
+          literals) with a numeric ``N pass / M fail`` label; colours from ``get_css_variables()`` gate-pass/
+          gate-fail (value-keyed, never a ``.py`` literal), ALWAYS paired with the numeric label;
+        - a per-status trend row per status VALUE from ``m["throughput_by_status"][status]`` — a compact
+          single-row block spark (``_block_graph(series, rows=1)``); the status keys are read from the dict
+          (variables) and coloured by a runtime ``status-{status}`` lookup, paired with the readable label.
+
+        Empty metrics degrade to the ``(no metrics yet)`` empty state. Single targeted ``Static.update`` —
+        no file read, no recompose (SAFETY-02); no status/gate word is a code literal (SAFETY-03).
+        """
+        panel = self.query_one("#charts", Static)
+        if not m:
+            panel.update("(no metrics yet)")
+            return
+        cssv = self.get_css_variables()
+        pass_style = cssv.get("gate-pass") or ""
+        fail_style = cssv.get("gate-fail") or ""
+        out = Text()
+
+        # (1) BIG multi-row block throughput graph — >1 row (NOT a single-row Sparkline).
+        out.append("throughput\n")
+        out.append(_block_graph(m.get("throughput") or []))
+
+        # (2) Gate A/B pass-fail bar chart — green pass run + red fail run + a numeric label.
+        for label, gate in (("Gate A", m.get("gate_a") or {}), ("Gate B", m.get("gate_b") or {})):
+            n_pass = gate.get("pass", 0)   # "pass"/"fail" are the projection's verdict keys (allowed)
+            n_fail = gate.get("fail", 0)
+            out.append(f"\n{label}  ")
+            out.append("█" * n_pass, style=pass_style)   # colour ALWAYS paired with the numeric label
+            out.append("█" * n_fail, style=fail_style)
+            out.append(f"  {n_pass} pass / {n_fail} fail")
+
+        # (3) per-status trend — a compact single-row block spark per projected status VALUE.
+        tbs = m.get("throughput_by_status") or {}
+        if tbs:
+            out.append("\ntrend")
+            for status, series in sorted(tbs.items()):     # keys are DATA-DERIVED status VALUES
+                color = cssv.get(f"status-{status}") or ""
+                out.append(f"\n{status:<10} ", style=color)
+                out.append(_block_graph(series or [], rows=1), style=color)
+
         panel.update(out)
 
     # ── commands reference (VIEW-15) — static, mode-aware keybinding list ──────────────────────────
