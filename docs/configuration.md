@@ -255,11 +255,11 @@ of truth consumed by the rename engine.
 version: 1
 framework_globs: ["gsd-*", "**/gsd-core/**", …]
 app:
-  agents:   [{ old: vacancy-orchestrator, new: gmj-orchestrator }, …]   # 8
-  scripts:  [{ old: score_fit, new: gmj_score_fit }, …]                 # 23
-  skills:   [{ old: fit-rubric, new: gmj-fit-rubric }, …]               # 10
-  commands: [{ old: pipeline, new: gmj-pipeline }, …]                   # 3 groups
-  hooks:    [{ old: sources-scope-guard, new: gmj-sources-scope-guard }, …]  # 6
+  agents:   [{ old: <legacy-agent-name>,   new: gmj-orchestrator }, …]        # 8
+  scripts:  [{ old: <legacy-script-stem>,  new: gmj_score_fit }, …]           # 23
+  skills:   [{ old: <legacy-skill-name>,   new: gmj-fit-rubric }, …]          # 10
+  commands: [{ old: <legacy-command-group>, new: gmj-pipeline }, …]           # 3 groups
+  hooks:    [{ old: <legacy-hook-name>,    new: gmj-sources-scope-guard }, …] # 6
 ```
 
 - **Schema / owner:** inline header; gated by `tests/test_ownership_manifest.py`.
