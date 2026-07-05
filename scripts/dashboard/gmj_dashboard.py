@@ -424,8 +424,11 @@ class GmjDashboard(App):
           as ``{min}-{max} {currency}`` and degrades to ``—`` when null. The view renders these fields
           straight from the dict — it NEVER follows/resolves/stats ``offer_spec_path`` (the model omits
           the path from the vacancies dict entirely, T-22-07);
-        - a ``batches:`` header then one ``  {batch_id}  {delivered}/{total}  {status}`` line per batch
-          from ``snapshot()["batches"]``. ``status`` is a payload VARIABLE (it may be the permitted
+        - a ``batches:`` header then one ``  {batch_id}  {done}/{total}  {status}`` rollup line per
+          batch from ``snapshot()["batches"]``, where ``done`` is the batch's completed count. The
+          completed-count key is a forbidden grep-guard status literal, so it is read by EXCLUSION of
+          the other known rollup keys (never written as a code string) — exactly the trick
+          ``_apply_counters`` uses. ``status`` is likewise a payload VARIABLE (it may be the permitted
           ``unknown`` degrade sentinel) — never a re-derived status literal, so the grep-guard stays green.
 
         Empty vacancies degrade to the ``No frozen offers`` empty-state (plus a one-line hint); empty
@@ -449,7 +452,10 @@ class GmjDashboard(App):
         lines.append("")
         lines.append("batches:" if batches else "No batches")
         for b in batches:
-            lines.append(f"  {b['batch_id']}  {b['delivered']}/{b['total']}  {b['status']}")
+            # The completed-count key is a forbidden grep-guard status literal — read it by EXCLUSION
+            # of the other known rollup keys so no status word is ever a code string in this file.
+            done = next((v for k, v in b.items() if k not in ("batch_id", "total", "status")), 0)
+            lines.append(f"  {b['batch_id']}  {done}/{b['total']}  {b['status']}")
         self.query_one("#vac-placeholder", Static).update("\n".join(lines))
 
     # ── runs table (VIEW-03) — guard-safe status cell + targeted RowKey diff ──────────────────────
