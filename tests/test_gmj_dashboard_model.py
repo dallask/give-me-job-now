@@ -255,6 +255,61 @@ def test_degrade_class_b_nondict_immediate_unknown() -> None:
         )
 
 
+# --- MODEL-04: domain metric aggregation over the known-count pipeline corpus -
+
+# The pipeline fixture corpus (tests/fixtures/pipeline/runs) has a KNOWN composition:
+#   del      -> delivered (both gates pass)                       gate_a=pass gate_b=pass
+#   run-ws   -> running  (fit fail, cv retry 2 < cap 3)           gate_a=pass gate_b=fail  retries+2
+#   fail     -> failed   (truth fail, cv retry 2 >= cap 2)        gate_a=fail gate_b=—     retries+2
+#   pend     -> pending  (empty gate_results, seeded)             gate_a=—    gate_b=—
+#   bad      -> unknown  (committed torn/unparseable state.json)  gate_a=—    gate_b=—     (no metric input)
+#   legacy   -> delivered (both gates pass)                       gate_a=pass gate_b=pass  retries+1
+#   e2e      -> delivered (both gates pass, NO timestamp)         gate_a=pass gate_b=pass
+#   strayonly-> skipped (no state.json)
+# by_status {delivered:3, running:1, failed:1, pending:1, unknown:1}; gate_a {pass:4,fail:1};
+# gate_b {pass:3,fail:1}; retries_used 5; retry_cap sum 14 -> cap_space 9; throughput 6 buckets of 1
+# (e2e-notime excluded — no \d{8}T\d{6} substring).
+
+
+def test_metrics_by_status_buckets() -> None:
+    model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(FIXTURES), repo_root=REPO_ROOT)
+    metrics = _snapshot(model)["metrics"]
+    assert metrics["by_status"] == {
+        "delivered": 3,
+        "running": 1,
+        "failed": 1,
+        "pending": 1,
+        "unknown": 1,
+    }, f"by_status buckets must be a data-derived Counter over projected statuses: {metrics['by_status']}"
+
+
+def test_metrics_gate_a_b_tallies() -> None:
+    model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(FIXTURES), repo_root=REPO_ROOT)
+    metrics = _snapshot(model)["metrics"]
+    # An absent verdict ("—") counts as NEITHER pass nor fail (never counted as fail).
+    assert metrics["gate_a"] == {"pass": 4, "fail": 1}, metrics["gate_a"]
+    assert metrics["gate_b"] == {"pass": 3, "fail": 1}, metrics["gate_b"]
+
+
+def test_metrics_retries_used_and_cap_space() -> None:
+    model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(FIXTURES), repo_root=REPO_ROOT)
+    metrics = _snapshot(model)["metrics"]
+    # Sum of innermost int retry counters (bool excluded): run-ws 2 + fail 2 + legacy 1 = 5.
+    assert metrics["retries_used"] == 5, metrics["retries_used"]
+    # SUM-vs-SUM headroom (not a per-run >= retry_cap compare): sum(retry_cap)=14 minus retries_used 5.
+    assert metrics["cap_space"] == 9, metrics["cap_space"]
+
+
+def test_metrics_throughput_excludes_no_timestamp_runs() -> None:
+    model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(FIXTURES), repo_root=REPO_ROOT)
+    metrics = _snapshot(model)["metrics"]
+    tp = metrics["throughput"]
+    assert isinstance(tp, list) and all(isinstance(x, int) for x in tp), f"throughput must be a list of ints: {tp!r}"
+    # 7 listed rows minus the single no-timestamp run (e2e-notime) = 6 timestamped runs, one per day.
+    assert sum(tp) == 6, f"throughput must count only timestamped runs: {tp!r} (sum {sum(tp)})"
+    assert len(tp) == 6, f"the six distinct-day buckets must each appear: {tp!r}"
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
