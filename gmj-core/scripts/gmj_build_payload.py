@@ -24,8 +24,12 @@ Config is split two ways (18-PATTERNS.md lines 74-76):
                      email) is NEVER vendored (T-18-05 Information Disclosure).
 
 The script is re-runnable / idempotent: it rebuilds the payload subtrees it owns
-from scratch on every run, then re-hashes. Keys in the manifest are sorted for
-byte-stable output.
+from scratch on every run, then re-hashes. Keys in the manifest are sorted, the
+``bin/`` installer (authored in place, never staged here) is excluded from the
+census, so the emitted file-set + hashes are identical rebuild-to-rebuild. Set
+``SOURCE_DATE_EPOCH`` to pin the ``timestamp`` for a fully byte-identical manifest.
+``GMJ_PAYLOAD_ROOT`` redirects the physical output tree (used by the reproducibility
+test) while manifest keys stay under the fixed ``gmj-core/`` prefix.
 
 No pytest, no third-party deps beyond PyYAML (already required repo-wide). Run:
 ``python3 scripts/gmj_build_payload.py``
@@ -38,6 +42,7 @@ import datetime as _dt
 import fnmatch
 import hashlib
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -47,7 +52,11 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent  # scripts/ -> repo root
 DEFAULT_MANIFEST = REPO_ROOT / "config" / "ownership-manifest.yaml"
 
-PAYLOAD_ROOT = REPO_ROOT / "gmj-core"
+# PAYLOAD_ROOT is env-overridable (GMJ_PAYLOAD_ROOT) so a reproducibility test can build
+# into a throwaway dir without mutating the committed gmj-core/ tree. Manifest keys stay
+# under the fixed "gmj-core/" prefix regardless of the physical output root.
+PAYLOAD_ROOT = Path(os.environ.get("GMJ_PAYLOAD_ROOT") or (REPO_ROOT / "gmj-core")).resolve()
+MANIFEST_KEY_PREFIX = "gmj-core"
 MANIFEST_PATH = PAYLOAD_ROOT / "gmj-file-manifest.json"
 VERSION_PATH = PAYLOAD_ROOT / "VERSION"
 
@@ -309,13 +318,33 @@ def sha256_of(path: Path) -> str:
     return h.hexdigest()
 
 
+def _manifest_timestamp() -> str:
+    """A single-instant UTC timestamp string.
+
+    Deterministic when ``SOURCE_DATE_EPOCH`` is set (byte-stable rebuilds); otherwise a
+    single wall-clock ``now()`` (fixes the two-``now()`` second-boundary skew, IN-01).
+    """
+    epoch = os.environ.get("SOURCE_DATE_EPOCH")
+    if epoch:
+        now = _dt.datetime.fromtimestamp(int(epoch), _dt.timezone.utc)
+    else:
+        now = _dt.datetime.now(_dt.timezone.utc)
+    return now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
+
+
 def emit_manifest() -> int:
     """Walk the built gmj-core/ tree and emit gmj-file-manifest.json.
 
     Shape mirrors .claude/gsd-file-manifest.json verbatim:
     ``{version, timestamp, mode:"full", files:{"gmj-core/<rel>": "<sha256>"}}``.
-    Every payload file under gmj-core/ (except the manifest itself) is a key.
-    Keys sorted for byte-stable output. Returns the number of files hashed.
+    Every payload file under gmj-core/ (except the manifest itself and the ``bin/``
+    installer) is a key. Keys sorted for byte-stable output.
+
+    ``bin/`` (the 18-07 installer) is authored in place and NEVER copied by this build,
+    so hashing it would make a rebuild non-idempotent (add a key that this build did not
+    stage). Excluding it keeps the emitted file-set identical rebuild-to-rebuild; with
+    ``SOURCE_DATE_EPOCH`` pinned the whole manifest is byte-identical (WR-01).
+    Returns the number of files hashed.
     """
     files: dict[str, str] = {}
     for f in sorted(PAYLOAD_ROOT.rglob("*")):
@@ -323,13 +352,15 @@ def emit_manifest() -> int:
             continue
         if f == MANIFEST_PATH:
             continue
-        key = f.relative_to(REPO_ROOT).as_posix()  # "gmj-core/<rel>"
+        rel = f.relative_to(PAYLOAD_ROOT).as_posix()
+        if rel == "bin" or rel.startswith("bin/"):
+            continue  # installer is authored in place, not staged by this build
+        key = f"{MANIFEST_KEY_PREFIX}/{rel}"
         files[key] = sha256_of(f)
 
     manifest = {
         "version": PAYLOAD_VERSION,
-        "timestamp": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.")
-        + f"{_dt.datetime.now(_dt.timezone.utc).microsecond // 1000:03d}Z",
+        "timestamp": _manifest_timestamp(),
         "mode": "full",
         "files": dict(sorted(files.items())),
     }
@@ -351,9 +382,15 @@ def build() -> int:
     VERSION_PATH.write_text(PAYLOAD_VERSION + "\n", encoding="utf-8")
 
     hashed = emit_manifest()
+    # PAYLOAD_ROOT may be a throwaway dir outside REPO_ROOT (GMJ_PAYLOAD_ROOT); show a
+    # repo-relative path when possible, else the absolute manifest path.
+    try:
+        manifest_display = MANIFEST_PATH.relative_to(REPO_ROOT)
+    except ValueError:
+        manifest_display = MANIFEST_PATH
     print(
         f"gmj-core payload built: {len(pairs)} censused files copied, "
-        f"{hashed} files hashed into {MANIFEST_PATH.relative_to(REPO_ROOT)}"
+        f"{hashed} files hashed into {manifest_display}"
     )
     return 0
 

@@ -460,6 +460,48 @@ def test_check6_payload_census_completeness() -> None:
                 )
 
 
+# --- CHECK 7: build reproducibility (WR-01) ----------------------------------
+
+BUILD_SCRIPT = REPO_ROOT / "scripts" / "gmj_build_payload.py"
+
+
+def test_check7_double_build_manifest_is_reproducible() -> None:
+    """Two builds of the same source tree emit an identical manifest file-set + hashes,
+    and with SOURCE_DATE_EPOCH pinned the whole manifest is byte-identical (WR-01).
+
+    Builds into throwaway GMJ_PAYLOAD_ROOT dirs so the committed gmj-core/ is untouched.
+    """
+    import os
+
+    def build(root: Path) -> bytes:
+        env = dict(os.environ)
+        env["GMJ_PAYLOAD_ROOT"] = str(root)
+        env["SOURCE_DATE_EPOCH"] = "1700000000"
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        cp = subprocess.run(
+            [sys.executable, str(BUILD_SCRIPT)],
+            capture_output=True, text=True, cwd=str(REPO_ROOT), env=env, timeout=180,
+        )
+        assert cp.returncode == 0, f"build failed: {cp.stderr}"
+        assert "Traceback" not in cp.stderr, f"build crashed: {cp.stderr}"
+        return (root / "gmj-file-manifest.json").read_bytes()
+
+    a = Path(tempfile.mkdtemp(prefix="gmj-build-a-"))
+    b = Path(tempfile.mkdtemp(prefix="gmj-build-b-"))
+    m1, m2 = build(a), build(b)
+    j1, j2 = json.loads(m1), json.loads(m2)
+
+    assert set(j1["files"]) == set(j2["files"]), (
+        "manifest file-set differs between rebuilds (non-reproducible census)"
+    )
+    assert j1["files"] == j2["files"], "manifest hashes differ between rebuilds"
+    assert m1 == m2, "manifest not byte-identical under a pinned SOURCE_DATE_EPOCH"
+    # The build-time installer must NOT churn the census (it is authored in place).
+    assert "gmj-core/bin/gmj-tools.cjs" not in j1["files"], (
+        "bin/ installer must be excluded from the manifest census (rebuild idempotency)"
+    )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
