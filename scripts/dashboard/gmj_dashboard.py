@@ -36,6 +36,7 @@ titled frames here so the grid geometry is stable and later plans are content sw
 from __future__ import annotations
 
 import argparse
+import asyncio
 import sys
 from pathlib import Path
 
@@ -51,6 +52,12 @@ from textual.widgets import DataTable, Digits, Footer, Header, Input, Sparkline,
 # ZERO disk I/O itself; it only ever calls model.snapshot() / model.run_detail().
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gmj_dashboard_model import DashboardModel  # noqa: E402
+
+# scripts/dashboard/gmj_dashboard.py -> repo root is three parents up. Used only to resolve the
+# default config path + child cwd for the --manage action layer (Plan 24-02); the view itself still
+# does ZERO disk I/O — every mutation is delegated to gmj_dashboard_actions (MANAGE-06).
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+DEFAULT_CONFIG = REPO_ROOT / "config" / "pipeline.config.yaml"
 
 # Hardcoded ASCII brand banner (VIEW-02) — a fixed multi-line block, NO pyfiglet dependency.
 BANNER_ASCII = r"""
@@ -103,14 +110,17 @@ _RUN_COLUMNS: tuple[tuple[str, str], ...] = (
     ("step", "current_step"),
 )
 
-# Mutating keys (key, description) — SHOWN only under --manage so the footer is mode-aware. Their
-# action is an inert no-op this phase; Phase 23 wires the real behaviour behind --manage.
-_MANAGE_KEYS: tuple[tuple[str, str], ...] = (
-    ("r", "Run"),
-    ("R", "Resume"),
-    ("b", "Batch"),
-    ("m", "Mode"),
-    ("c", "Cap"),
+# Mutating keys (key, action, description) — bound ONLY under --manage so the footer is mode-aware.
+# Under --manage each key binds to its REAL action (run/resume/batch/mode/cap) which delegates to the
+# gmj_dashboard_actions module (Plan 24-02); WITHOUT --manage they are never constructed, so the
+# read-only board genuinely lacks them (MANAGE-01). The action_* handlers lazily import the actions
+# module so the read-only import graph never pulls a subprocess-capable module.
+_MANAGE_KEYS: tuple[tuple[str, str, str], ...] = (
+    ("r", "run", "Run"),
+    ("R", "resume", "Resume"),
+    ("b", "batch", "Batch"),
+    ("m", "mode", "Mode"),
+    ("c", "cap", "Cap"),
 )
 
 
@@ -187,16 +197,72 @@ class RunDetailModal(ModalScreen):
         yield Static("\n".join(lines), id="modal-body", classes="modal")
 
 
+class _PromptModal(ModalScreen):
+    """A minimal single-line value collector for the --manage action layer (Plan 24-02).
+
+    A ModalScreen with a prompt line + an ``Input``; submitting resolves the injected ``future`` with
+    the typed value and ``escape`` resolves it with ``None`` (cancel). The action methods that need an
+    offer / retry_cap / batch selection push this modal and ``await`` the future — but every collector
+    helper on the App is OVERRIDABLE so Pilot tests inject a value without ever opening a modal. The
+    modal owns NO write/subprocess API (it only marshals a string back), keeping the view AST-clean
+    (MANAGE-06). Its ids are ``#modal-``-namespaced so a poll's ``query_one`` never collides (Pitfall 3).
+    """
+
+    BINDINGS = [("escape", "cancel", "Cancel")]
+
+    def __init__(self, prompt: str, future: asyncio.Future) -> None:
+        self._prompt = prompt
+        self._future = future
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        yield Static(self._prompt, id="modal-prompt", classes="modal")
+        yield Input(id="modal-prompt-input")
+
+    def on_mount(self) -> None:
+        self.query_one("#modal-prompt-input", Input).focus()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self._resolve(event.value)
+
+    def action_cancel(self) -> None:
+        self._resolve(None)
+
+    def _resolve(self, value: str | None) -> None:
+        if not self._future.done():
+            self._future.set_result(value)
+        self.dismiss()
+
+
 class GmjDashboard(App):
     """The read-only btop-style pipeline board. Takes a PRE-BUILT model; touches no disk itself."""
 
     CSS_PATH = "gmj_dashboard.tcss"
     TITLE = "gmj-dashboard"
 
-    def __init__(self, model: DashboardModel, *, manage: bool = False, refresh: float = 1.5) -> None:
+    def __init__(
+        self,
+        model: DashboardModel,
+        *,
+        manage: bool = False,
+        refresh: float = 1.5,
+        launcher=None,
+        config_path: Path | None = None,
+        pipeline_dir: str = ".pipeline",
+        cwd: Path | None = None,
+    ) -> None:
         self._model = model
         self._manage = manage
         self._refresh = refresh
+        # ── --manage action-layer seams (Plan 24-02). All default so the read-only board is unchanged;
+        # each is overridable by a Pilot test. The view NEVER references a subprocess/write primitive
+        # here — the actions module owns the real launcher default (launcher=None resolves there), and
+        # every config write / process spawn is delegated to gmj_dashboard_actions (MANAGE-06).
+        self._launcher = launcher                                   # injected recording fake in tests
+        self._config_path = config_path if config_path is not None else DEFAULT_CONFIG
+        self._pipeline_dir = pipeline_dir                           # threaded into run_batch (W2)
+        self._cwd = cwd if cwd is not None else REPO_ROOT           # repo root for the launched child
+        self._children: list = []                                   # detached proc refs (silence GC)
         # VIEW-11 row filter: a persistent, lowercased substring predicate applied INSIDE _apply_runs
         # (so a poll never resurrects a filtered-out row — Pitfall 4), plus a cached last snapshot so
         # an Input.Changed re-renders immediately without waiting for the next ~1.5s poll.
@@ -290,13 +356,68 @@ class GmjDashboard(App):
         self.bind("q", "quit", description="Quit")
         self.bind("enter", "noop", description="Drill-in")
         if self._manage:
-            for key, desc in _MANAGE_KEYS:
-                self.bind(key, "noop", description=desc)
+            for key, action, desc in _MANAGE_KEYS:
+                self.bind(key, action, description=desc)  # real handler under --manage (MANAGE-01)
 
     # ── read-only key actions ──────────────────────────────────────────────────────────────────
 
     def action_noop(self) -> None:
-        """Inert placeholder — no mutation this phase (Phase 23 wires --manage behaviour)."""
+        """Inert placeholder — the read-only drill-in binding; carries no mutation."""
+
+    # ── --manage value collectors (all OVERRIDABLE — Pilot tests inject values, no modal opens) ────
+
+    async def _ask(self, prompt: str) -> str | None:
+        """Push a ``_PromptModal`` and await the typed value (``None`` on cancel). Overridable in tests.
+
+        Uses a plain ``asyncio.Future`` resolved by the modal so no worker context is required; this is
+        a pure UI marshal — no disk, no subprocess (MANAGE-06).
+        """
+        future: asyncio.Future = asyncio.get_running_loop().create_future()
+        self.push_screen(_PromptModal(prompt, future))
+        return await future
+
+    async def _prompt_cap(self) -> int | None:
+        """Collect a new retry_cap integer (overridable). Returns ``None`` on cancel / non-integer."""
+        raw = await self._ask("New retry_cap:")
+        if raw is None:
+            return None
+        try:
+            return int(str(raw).strip())
+        except (TypeError, ValueError):
+            self.notify("⚠ retry_cap must be an integer", severity="error")
+            return None
+
+    # ── --manage config handlers (m/c) — delegate to the actions module, then notify ───────────────
+
+    async def action_mode(self) -> None:
+        """Toggle ``execution_mode`` in the config via the actions module and notify the new value.
+
+        LAZILY imports gmj_dashboard_actions (defense-in-depth: the read-only path never imports a
+        subprocess-capable module). A ValueError (missing key / bad value) becomes a visible
+        error-severity notice — never a silent failure.
+        """
+        import gmj_dashboard_actions as actions  # lazy — only under --manage
+
+        try:
+            value = actions.toggle_execution_mode(self._config_path)
+        except ValueError as exc:
+            self.notify(f"⚠ config edit failed: {exc}", severity="error")
+            return
+        self.notify(f"✓ execution_mode → {value}")
+
+    async def action_cap(self) -> None:
+        """Collect + set ``retry_cap`` in the config via the actions module and notify the new value."""
+        import gmj_dashboard_actions as actions  # lazy — only under --manage
+
+        cap = await self._prompt_cap()
+        if cap is None:
+            return
+        try:
+            actions.set_retry_cap(self._config_path, cap)
+        except ValueError as exc:
+            self.notify(f"⚠ config edit failed: {exc}", severity="error")
+            return
+        self.notify(f"✓ retry_cap → {cap}")
 
     # ── VIEW-11 row filter — Input.Changed re-applies the predicate over the cached snapshot ────────
 
@@ -691,7 +812,7 @@ class GmjDashboard(App):
             "ctrl+p  command menu    (read-only)",
         ]
         manage_mode = "--manage" if self._manage else "--manage · Phase 24"
-        for key, desc in _MANAGE_KEYS:  # (r,Run) (R,Resume) (b,Batch) (m,Mode) (c,Cap)
+        for key, _action, desc in _MANAGE_KEYS:  # (r,run,Run) (R,resume,Resume) (b,batch,Batch) …
             lines.append(f"{key:<7} {desc:<15} ({manage_mode})")
         self.query_one("#commands", Static).update("\n".join(lines))
 
@@ -867,16 +988,24 @@ class GmjDashboard(App):
 
 
 def main() -> int:
-    """Parse flags and launch the read-only board. ``--manage`` is parsed but footer-only this phase."""
-    parser = argparse.ArgumentParser(description="Read-only btop-style pipeline dashboard.")
-    parser.add_argument("--pipeline-dir", default=".pipeline", help="Read-only pipeline root to project.")
-    parser.add_argument("--manage", action="store_true", help="Show mutating keys (footer-only this phase).")
+    """Parse flags and launch the board. ``--manage`` binds the live r/R/b/m/c action layer (24-02)."""
+    parser = argparse.ArgumentParser(description="btop-style pipeline dashboard (read-only; --manage adds actions).")
+    parser.add_argument("--pipeline-dir", default=".pipeline", help="Pipeline root to project (and batch into).")
+    parser.add_argument("--manage", action="store_true", help="Bind the mutating action keys (r/R/b/m/c).")
     parser.add_argument("--read-only", action="store_true", help="Explicit read-only (the default).")
     parser.add_argument("--refresh", type=float, default=1.5, help="Poll interval in seconds (default 1.5).")
+    parser.add_argument("--config", default=str(DEFAULT_CONFIG), help="Config file the m/c knobs edit under --manage.")
     args = parser.parse_args()
     manage = args.manage and not args.read_only
     model = DashboardModel(pipeline_dir=args.pipeline_dir)
-    GmjDashboard(model, manage=manage, refresh=args.refresh).run()
+    GmjDashboard(
+        model,
+        manage=manage,
+        refresh=args.refresh,
+        config_path=Path(args.config),
+        pipeline_dir=args.pipeline_dir,
+        cwd=REPO_ROOT,
+    ).run()
     return 0
 
 
