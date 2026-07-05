@@ -460,6 +460,44 @@ def test_check6_payload_census_completeness() -> None:
                 )
 
 
+# --- CHECK 9: user gmj-named hook is preserved (WR-03) -----------------------
+
+def test_check9_user_gmj_named_hook_survives_install() -> None:
+    """A user- or third-party-authored hook named `gmj-*` (not one of the installer's own
+    shipped hooks) must survive a (re)install — managed-hook detection is a basename
+    allow-list, not a `gmj-` prefix, so it must not evict foreign gmj-named hooks (WR-03)."""
+    if _node() is None:
+        print("SKIP check9: node unavailable", file=sys.stderr)
+        return
+    target = Path(tempfile.mkdtemp(prefix="gmj-userhook-"))
+    claude = target / ".claude"
+    claude.mkdir(parents=True, exist_ok=True)
+    user_cmd = "$CLAUDE_PROJECT_DIR/.claude/hooks/gmj-my-custom.sh"
+    seed = {
+        "hooks": {
+            # Registered under a MANAGED matcher (PreToolUse Bash) so the strip-then-reappend
+            # path runs over it — the exact place a prefix heuristic would have evicted it.
+            "PreToolUse": [
+                {"matcher": "Bash", "hooks": [{"type": "command", "command": user_cmd}]}
+            ]
+        }
+    }
+    (claude / "settings.json").write_text(json.dumps(seed, indent=2) + "\n", encoding="utf-8")
+
+    res = _install_into(target)
+    assert res.returncode == 0, f"install must exit 0: {res.stderr}"
+    assert "Traceback" not in res.stderr, res.stderr
+    settings = _installed_settings(target)
+    all_cmds = _hook_command_paths(settings)
+    assert user_cmd in all_cmds, (
+        f"user-authored gmj-named hook was evicted on install (WR-03): {all_cmds}"
+    )
+    # The managed Bash hook must still be registered alongside it.
+    assert any(c.endswith("gmj-block-destructive-commands.sh") for c in all_cmds), (
+        f"managed Bash hook missing after merge: {all_cmds}"
+    )
+
+
 # --- CHECK 8: payload integrity verification (WR-02) -------------------------
 
 def test_check8_tampered_payload_hash_fails_install() -> None:

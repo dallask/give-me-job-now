@@ -228,15 +228,26 @@ const MANAGED = {
   ],
 };
 
+// The exact set of hook basenames the installer owns, derived from MANAGED (not a
+// `gmj-` prefix). A prefix test over-claims the namespace and would evict a user- or
+// third-party-authored `gmj-`named hook (e.g. gmj-my-audit.sh) on install without
+// restoring it — data loss. Only these exact basenames are evicted-and-re-appended.
+const MANAGED_BASENAMES = new Set(
+  Object.values(MANAGED).flatMap((regs) =>
+    regs.flatMap((r) => r.hooks.map((h) => h.command.slice(h.command.lastIndexOf('/') + 1)))
+  )
+);
+
 /**
- * The "managed" test: a hook command whose basename starts with `gmj-` AND lives under
- * `.claude/hooks/`. Only these are evicted-and-re-appended; user- and gsd-owned entries survive.
+ * The "managed" test: a hook command under `.claude/hooks/` whose basename is one of the
+ * installer's OWN shipped hooks (MANAGED_BASENAMES). Only these are evicted-and-re-appended;
+ * user-, gsd-, and any other `gmj-`named user hooks survive untouched.
  */
 function isManagedHookCommand(command) {
   if (typeof command !== 'string') return false;
   const norm = command.replace(/\\/g, '/');
   const base = norm.slice(norm.lastIndexOf('/') + 1);
-  return base.startsWith('gmj-') && norm.includes('.claude/hooks/');
+  return norm.includes('.claude/hooks/') && MANAGED_BASENAMES.has(base);
 }
 
 /**
