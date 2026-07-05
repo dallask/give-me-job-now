@@ -1,0 +1,271 @@
+#!/usr/bin/env python3
+"""Tests for scripts/dashboard/gmj_dashboard.py (VIEW-01/02/04/07 + SAFETY-02, Plan 21-01).
+
+Plain-python3 self-running harness (NO pytest) — run with
+``python3 tests/test_gmj_dashboard.py``. Mirrors the structure of
+``tests/test_gmj_dashboard_model.py``: module-level ``REPO_ROOT`` / fixture constants, the
+``sys.path.insert`` import idiom, a ``main()`` that runs every ``test_*`` and returns 1 on any
+failure, and the never-a-traceback discipline (a stray crash can never masquerade as a pass).
+
+The App is driven headlessly via ``App.run_test(size=(120, 40))`` → ``Pilot`` inside
+``asyncio.run(...)`` (the repo has no pytest). The model is always constructed against a COPY of
+``tests/fixtures/pipeline/`` inside a ``TemporaryDirectory`` (via ``_temp_pipeline``) so a bug in
+the view can never mutate the committed fixtures, and ``repo_root`` is pointed at the deterministic
+``tests/fixtures/dashboard`` corpus for the config/candidate/offers panels.
+
+Requirement coverage (this plan):
+- VIEW-01  ``test_readonly_no_mutating_bindings``       — mutating keys unbound without --manage
+- VIEW-07  ``test_footer_mode_aware_bindings``          — mutating keys bound under --manage
+- VIEW-02  ``test_header_and_counters_render``          — banner + generic counters strip render
+- VIEW-04  ``test_refresh_tick_applies_without_block``  — off-thread poll marshals a result back
+- SAFETY-02 ``test_no_write_invariant``                 — no bytes/mtime change to on-disk state
+- SAFETY-02 ``test_view_has_no_write_or_subprocess_api`` — AST: no write/subprocess API in the view
+"""
+
+from __future__ import annotations
+
+import ast
+import asyncio
+import contextlib
+import io
+import re
+import shutil
+import sys
+import tempfile
+from contextlib import contextmanager
+from pathlib import Path
+
+from textual.widgets import DataTable, Static
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+FIXTURES = REPO_ROOT / "tests" / "fixtures" / "pipeline"
+DASH_FIXTURES = REPO_ROOT / "tests" / "fixtures" / "dashboard"
+DASHBOARD_PY = REPO_ROOT / "scripts" / "dashboard" / "gmj_dashboard.py"
+
+# Import the App + the model via the same sys.path idiom the model test uses.
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "dashboard"))
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "pipeline"))
+import gmj_dashboard  # noqa: E402
+import gmj_dashboard_model  # noqa: E402
+
+# Keys that must NEVER be bound without --manage (VIEW-01) and MUST be bound with it (VIEW-07).
+_MUTATING_KEYS = ("r", "R", "b", "m", "c")
+
+
+@contextmanager
+def _temp_pipeline():
+    """Yield a Path to a throwaway COPY of tests/fixtures/pipeline/ (bug-proofs the committed corpus)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        dst = Path(tmp) / "pipeline"
+        shutil.copytree(FIXTURES, dst)
+        yield dst
+
+
+def _build_app(pipeline_dir: Path, *, manage: bool = False, refresh: float = 1.5) -> "gmj_dashboard.GmjDashboard":
+    """Construct the App around a pre-built model reading the temp pipeline + dashboard fixtures."""
+    model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(pipeline_dir), repo_root=DASH_FIXTURES)
+    return gmj_dashboard.GmjDashboard(model, manage=manage, refresh=refresh)
+
+
+async def _bound_keys(pipeline_dir: Path, *, manage: bool) -> set[str]:
+    """Launch, let the interval + first snapshot run, and return the set of bound keys."""
+    app = _build_app(pipeline_dir, manage=manage)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        # app._bindings.key_to_bindings is private but stable in 6.x (21-RESEARCH A3); the public
+        # fallback is App.check_action. We assert on the binding map directly here.
+        return set(app._bindings.key_to_bindings.keys())
+
+
+def _run_with_stderr(coro) -> str:
+    """Run an async coroutine with stderr captured; return the captured stderr text."""
+    buf = io.StringIO()
+    with contextlib.redirect_stderr(buf):
+        asyncio.run(coro)
+    return buf.getvalue()
+
+
+# --- VIEW-01: read-only launch binds no mutating keys -------------------------
+
+def test_readonly_no_mutating_bindings() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            bound = asyncio.run(_bound_keys(pipe, manage=False))
+        assert "Traceback" not in buf.getvalue(), f"read-only launch leaked a traceback: {buf.getvalue()}"
+    for key in _MUTATING_KEYS:
+        assert key not in bound, f"mutating key {key!r} must NOT be bound in read-only mode: {sorted(bound)}"
+    assert "q" in bound, "the read-only quit key must be bound in read-only mode"
+
+
+# --- VIEW-07: --manage makes the footer mode-aware (mutating keys bound) ------
+
+def test_footer_mode_aware_bindings() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            bound = asyncio.run(_bound_keys(pipe, manage=True))
+        assert "Traceback" not in buf.getvalue(), f"--manage launch leaked a traceback: {buf.getvalue()}"
+    for key in _MUTATING_KEYS:
+        assert key in bound, f"mutating key {key!r} must be bound under --manage (footer mode-aware): {sorted(bound)}"
+    assert "q" in bound, "the quit key must be bound under --manage too"
+
+
+# --- VIEW-02: brand banner + global counters render --------------------------
+
+async def _counters_and_banner(pipeline_dir: Path) -> tuple[str, str]:
+    app = _build_app(pipeline_dir, manage=False)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        counters = app.query_one("#counters", Static).render()
+        banner = app.query_one("#banner", Static).render()
+        return str(counters), str(banner)
+
+
+def test_header_and_counters_render() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            counters_text, banner_text = asyncio.run(_counters_and_banner(pipe))
+        assert "Traceback" not in buf.getvalue(), f"render leaked a traceback: {buf.getvalue()}"
+    # The counters strip is rendered generically from snapshot()["counters"].
+    assert counters_text.strip(), f"counters strip must render non-empty text: {counters_text!r}"
+    for label in ("runs", "offers", "mode", "cap"):
+        assert label in counters_text, f"counters must carry the {label!r} label: {counters_text!r}"
+    # The delivered headline number appears (rendered from by_status.items(), not a .py literal).
+    assert re.search(r"delivered\s+\d+", counters_text), (
+        f"counters must show a numeric delivered count from by_status: {counters_text!r}"
+    )
+    # The hardcoded ASCII banner rendered non-empty.
+    assert banner_text.strip(), f"banner must render non-empty ASCII art: {banner_text!r}"
+
+
+# --- VIEW-04: an off-thread poll tick applies a result without blocking -------
+
+async def _tick_and_read_counters(pipeline_dir: Path) -> tuple[str, int]:
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        # Two+ ticks let the threaded worker run snapshot() off-thread and marshal back via
+        # call_from_thread — a blocking poll would never populate the strip.
+        await pilot.pause()
+        await pilot.pause()
+        await pilot.pause()
+        counters = str(app.query_one("#counters", Static).render())
+        # The app is still queryable/responsive (no hang, no leaked exception).
+        row_count = app.query_one("#runs", DataTable).row_count
+        return counters, row_count
+
+
+def test_refresh_tick_applies_without_block() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            counters_text, row_count = asyncio.run(_tick_and_read_counters(pipe))
+        assert "Traceback" not in buf.getvalue(), f"poll tick leaked a traceback: {buf.getvalue()}"
+    assert counters_text.strip(), (
+        "the counters strip must be populated by the threaded poll (call_from_thread marshalled a "
+        f"snapshot back); a blocking poll would leave it empty: {counters_text!r}"
+    )
+    assert "runs" in counters_text, f"the applied counters must be snapshot-derived: {counters_text!r}"
+    assert isinstance(row_count, int), "the app must stay queryable/responsive after the poll ticks"
+
+
+# --- SAFETY-02: no disk write / no mtime change during launch + refresh -------
+
+async def _launch_and_tick(pipeline_dir: Path) -> None:
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+
+
+def test_no_write_invariant() -> None:
+    with _temp_pipeline() as pipe:
+        # Snapshot bytes + st_mtime_ns of every state.json under the temp .pipeline/ ...
+        before = {
+            p: (p.read_bytes(), p.stat().st_mtime_ns) for p in pipe.rglob("state.json")
+        }
+        assert before, "the pipeline fixture must contain at least one state.json to prove no-write"
+        # ... plus config/candidate.yaml (criterion 5 names it explicitly). It is read via repo_root.
+        cand = DASH_FIXTURES / "config" / "candidate.yaml"
+        assert cand.is_file(), f"the dashboard candidate fixture must exist: {cand}"
+        before[cand] = (cand.read_bytes(), cand.stat().st_mtime_ns)
+
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            asyncio.run(_launch_and_tick(pipe))
+        assert "Traceback" not in buf.getvalue(), f"launch+refresh leaked a traceback: {buf.getvalue()}"
+
+        for path, (raw, mtime) in before.items():
+            assert path.read_bytes() == raw, f"{path} bytes changed — the view must never write disk"
+            assert path.stat().st_mtime_ns == mtime, f"{path} mtime changed — the view must never touch disk"
+
+
+# --- SAFETY-02: AST proof the view has no write / subprocess API --------------
+
+def test_view_has_no_write_or_subprocess_api() -> None:
+    tree = ast.parse(DASHBOARD_PY.read_text(encoding="utf-8"), filename=str(DASHBOARD_PY))
+
+    write_modes = {"w", "a", "x", "w+", "a+", "wb", "ab", "xb", "r+", "rb+"}
+    banned_attrs = {"write_text", "write_bytes", "replace", "rename", "remove", "unlink", "system"}
+    banned_module_names = {"subprocess"}
+    exec_prefixes = ("exec", "spawn")  # os.exec* / os.spawn*
+
+    offenders: list[str] = []
+
+    for node in ast.walk(tree):
+        # (a) open(..., <write-mode>) — a literal write/append/exclusive mode argument.
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "open":
+            for arg in node.args[1:]:
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str) and arg.value in write_modes:
+                    offenders.append(f"open(mode={arg.value!r})")
+            for kw in node.keywords:
+                if (
+                    kw.arg == "mode"
+                    and isinstance(kw.value, ast.Constant)
+                    and isinstance(kw.value.value, str)
+                    and kw.value.value in write_modes
+                ):
+                    offenders.append(f"open(mode={kw.value.value!r})")
+        # (b) a banned write/subprocess attribute call: x.write_text(...), os.replace(...),
+        #     os.remove(...), os.system(...), os.exec*/os.spawn*(...).
+        if isinstance(node, ast.Attribute):
+            if node.attr in banned_attrs:
+                offenders.append(f".{node.attr}")
+            if node.attr.startswith(exec_prefixes) and node.attr not in ("execute",):
+                offenders.append(f".{node.attr}")
+        # (c) a subprocess / os.system reference anywhere (import or attribute base).
+        if isinstance(node, ast.Name) and node.id in banned_module_names:
+            offenders.append(node.id)
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id in banned_module_names:
+            offenders.append(f"{node.value.id}.{node.attr}")
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            mod = getattr(node, "module", None) or ""
+            names = {a.name for a in node.names}
+            if mod in banned_module_names or names & banned_module_names:
+                offenders.append(f"import {mod or ','.join(sorted(names))}")
+
+    assert not offenders, f"the view must expose NO write/subprocess API (SAFETY-02): {offenders}"
+
+
+def main() -> int:
+    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
+    failed = 0
+    for test in tests:
+        try:
+            test()
+            print(f"PASS {test.__name__}")
+        except Exception as exc:  # noqa: BLE001
+            failed += 1
+            print(f"FAIL {test.__name__}: {exc}", file=sys.stderr)
+    if failed:
+        print(f"{failed}/{len(tests)} tests failed", file=sys.stderr)
+        return 1
+    print(f"all {len(tests)} tests passed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
