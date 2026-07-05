@@ -1,0 +1,20 @@
+{
+  "kind": "gate_result",
+  "schema_version": "1.0",
+  "content": {
+    "gate": "A",
+    "verdict": "fail",
+    "offending_claims": [
+      {
+        "claim_index": 2,
+        "rule_violated": "numeric_invention",
+        "offending_span": "professional_experience.1.impact"
+      },
+      {
+        "claim_index": 5,
+        "rule_violated": "scope_inflation",
+        "offending_span": "summary"
+      }
+    ]
+  }
+}

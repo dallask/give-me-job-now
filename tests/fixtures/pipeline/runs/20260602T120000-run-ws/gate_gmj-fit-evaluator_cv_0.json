@@ -1,0 +1,26 @@
+{
+  "kind": "gate_result",
+  "schema_version": "1.0",
+  "content": {
+    "gate": "B",
+    "verdict": "fail",
+    "coverage": {
+      "covered_ids": ["mh-1"],
+      "missing_ids": ["mh-2", "mh-3"],
+      "score": 0.33
+    },
+    "why": {
+      "coverage": "Only 1 of 3 must-haves are evidenced by the candidate's claims.",
+      "missing_must_haves": [
+        {
+          "id": "mh-2",
+          "text": "5+ years production Kubernetes operations"
+        },
+        {
+          "id": "mh-3",
+          "text": "Team leadership of 3 or more engineers"
+        }
+      ]
+    }
+  }
+}
