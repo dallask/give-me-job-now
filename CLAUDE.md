@@ -84,11 +84,26 @@ Both agents **must** read this file before any `WebSearch` call. Searches outsid
 Skill slugs are lowercase, hyphenated: `fpv`, `php-laravel`, `drupal`, `react-frontend`.
 The orchestrator normalises the user's free-form role description to a slug before passing it to spokes.
 
+## Rules index (`rules/`)
+
+Load-bearing project invariants live in repo-root `rules/*.md`, one per file, each with a
+`scope:` frontmatter block. They are **Read on demand** (not auto-loaded) when a task matches a
+rule's scope — see [`rules/README.md`](rules/README.md) for the convention and match table.
+`tests/test_rules_scope.py` is the machine gate that keeps this index complete.
+
+- [`rules/truthfulness.md`](rules/truthfulness.md) — never fabricate; `config/candidate.yaml` is the single source of truth.
+- [`rules/hub-and-spoke.md`](rules/hub-and-spoke.md) — only the hub holds `Task`; spokes never spawn spokes.
+- [`rules/sources-scope.md`](rules/sources-scope.md) — web search stays inside `config/sources.yaml` boards/geos/langs.
+- [`rules/gmj-naming.md`](rules/gmj-naming.md) — `gmj-` / `gmj_` naming for app agents, skills, commands, hooks, scripts.
+- [`rules/python-render-only.md`](rules/python-render-only.md) — all PDF/document rendering via Python (`gmj_render_cv.py`).
+- [`rules/gate-non-bypassability.md`](rules/gate-non-bypassability.md) — hard gates (Gate A/B) are non-bypassable in any mode.
+
 ## Layout
 
 - `config/` — candidate YAML, language overlays, i18n labels.
 - `config/cv/` — skill-specific CV YAML files (derived, not hand-edited).
 - `.claude/` — Claude Code settings, agents, hooks, skills, slash commands.
+- `rules/` — Read-on-demand project invariants (`rules/README.md` indexes them).
 - `example/` — legacy prototype collective (reference only).
 
 Update this file when conventions change.
