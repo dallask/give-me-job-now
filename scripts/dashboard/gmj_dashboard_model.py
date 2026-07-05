@@ -451,6 +451,62 @@ class DashboardModel:
                 )
         return out if limit is None else out[:limit]
 
+    def activity(self, limit: int = 40) -> list[dict]:
+        """Newest-first union of started / gate-verdict / terminal events (VIEW-13).
+
+        Guard-safe read-only builder: for each ``_safe_component``-gated run dir, emit a ``started``
+        event (``seq -1``), one ``gate`` event per gate envelope that carries a ``verdict`` (read
+        ``content.gate``/``content.verdict`` — allowed values; a Gate C advisory has no ``verdict`` and
+        is skipped), and a ``terminal`` event (``seq 10**6``) whose ``status`` is the projected
+        ``_run_row`` VALUE — never a re-derived status literal (SAFETY-03). The ``kind`` words
+        (started/gate/terminal) are allowed literals. Every event is timestamped with the run_id
+        ``_order_key`` timestamp — the ONLY on-disk time source; ``mtime`` is never stat'd
+        (non-deterministic across a checkout). Sort by ``(ts, seq)`` descending and truncate to
+        ``limit`` (capped so the per-poll feed stays bounded, Pitfall 4).
+        """
+        events: list[dict] = []
+        runs_dir = self.pipeline_dir / "runs"
+        if not runs_dir.is_dir():
+            return events
+        for run_dir in sorted(runs_dir.iterdir()):
+            if not run_dir.is_dir():
+                continue
+            rid = run_dir.name
+            if not _safe_component(rid):  # T-23-01: crafted run-dir name never becomes an event
+                continue
+            sp = run_dir / "state.json"
+            if not sp.is_file():
+                continue
+            state = _load_state_tolerant(sp)
+            if not isinstance(state, dict):
+                continue
+            ts = _order_key(rid)[0]  # the ONLY real on-disk timestamp; mtime is never stat'd
+            events.append(
+                {"ts": ts, "run_id": rid, "kind": "started",
+                 "gate": None, "verdict": None, "status": None, "seq": -1}
+            )
+            _artifacts, gate_files = _gate_logs(run_dir)
+            for i, name in enumerate(gate_files):
+                try:  # T-23-02: torn/malformed gate JSON must never crash the poll
+                    env = json.loads((run_dir / name).read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    continue
+                content = env.get("content") if isinstance(env, dict) else None
+                if not isinstance(content, dict) or "verdict" not in content:
+                    continue  # skip Gate C advisory (no verdict) and any non-verdict envelope
+                events.append(
+                    {"ts": ts, "run_id": rid, "kind": "gate",
+                     "gate": content.get("gate"), "verdict": content.get("verdict"),
+                     "status": None, "seq": i}
+                )
+            # terminal/current event — status is the PROJECTED VALUE (variable), never a literal.
+            events.append(
+                {"ts": ts, "run_id": rid, "kind": "terminal",
+                 "gate": None, "verdict": None, "status": _run_row(rid, state)["status"], "seq": 10**6}
+            )
+        events.sort(key=lambda e: (e["ts"], e["seq"]), reverse=True)  # newest-first
+        return events[:limit]
+
     def _metrics(self, runs: list[dict], metric_inputs: list[dict]) -> dict:
         """Aggregate domain metrics (MODEL-04) from the ALREADY-projected rows + raw retry inputs.
 
@@ -521,8 +577,8 @@ class DashboardModel:
 
         Returns the panel dict: ``counters`` / ``metrics`` / ``stages`` (``dag`` + ``active``) /
         ``runs`` / ``batches`` / ``vacancies`` / ``candidate`` / ``config`` / ``run_detail`` plus the
-        Phase-23 rich-panel keys ``errors`` (VIEW-12 ``failures()``). Every run/batch status is the
-        IMPORTED projection, passed through untouched;
+        Phase-23 rich-panel keys ``errors`` (VIEW-12 ``failures()``) and ``activity`` (VIEW-13
+        ``activity()``). Every run/batch status is the IMPORTED projection, passed through untouched;
         every reader is read-only and degrades to ``{}``/``[]`` on a missing file (never raises).
         ``run_detail`` stays ``{}`` here — it is an on-demand accessor (``run_detail(run_id)``) so the
         per-poll cost stays proportional to the displayed runs (Pitfall 5).
@@ -570,6 +626,7 @@ class DashboardModel:
             "config": config,
             "run_detail": {},   # on-demand: populate via run_detail(run_id), never per-poll
             "errors": self.failures(),  # VIEW-12: per failed-run Gate A/Gate B failure detail
+            "activity": self.activity(),  # VIEW-13: newest-first started/gate/terminal event feed
         }
 
 
