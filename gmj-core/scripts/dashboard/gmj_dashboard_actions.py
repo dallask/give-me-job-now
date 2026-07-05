@@ -40,7 +40,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_CONFIG = REPO_ROOT / "config" / "pipeline.config.yaml"
 BATCH_SCRIPT = REPO_ROOT / "scripts" / "pipeline" / "gmj_batch.py"
 
-# The pipeline-run command the launched child executes. Mode is FORCED autonomous (locked decision).
+# The command the launched child executes (see PIPELINE_RUN). Mode is FORCED autonomous (locked decision).
 PIPELINE_RUN = "/gmj-pipeline-run"
 _AUTONOMOUS = "autonomous"
 _HUMAN = "human_in_the_loop"

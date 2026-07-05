@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "timestamp": "2026-07-05T19:40:16.448Z",
+  "timestamp": "2026-07-05T19:58:47.776Z",
   "mode": "full",
   "files": {
     "gmj-core/VERSION": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
@@ -83,7 +83,7 @@
     "gmj-core/scripts/cv/requirements.txt": "937675e4f61c1ab18936474009d841df0f0359f706be362847ad6360a2d131d4",
     "gmj-core/scripts/dashboard/gmj_dashboard.py": "7ecb9dd2a456c39e4beb1224b15b3f231fcfefb223fbf8aaa7705c31f33a34aa",
     "gmj-core/scripts/dashboard/gmj_dashboard.tcss": "a2ad8b09b8e2ddebcb077ef15813df63eb68492fb5c19074255a2f2a88064a19",
-    "gmj-core/scripts/dashboard/gmj_dashboard_actions.py": "9578a3483090d218b970e925937d0e915d06bd9cd97cabd7a4bd40eb5dc55e45",
+    "gmj-core/scripts/dashboard/gmj_dashboard_actions.py": "ef4693216d4d2ba3f3bef4e6fd98284354778b7998205752630b90873efd03df",
     "gmj-core/scripts/dashboard/gmj_dashboard_model.py": "2b1e8740873f27a916017380e91faa7f0ceb1e4d3aa5516e6dc877a0d67ba512",
     "gmj-core/scripts/dashboard/requirements.txt": "4051e2dd5a5633109d9910dfe6d4a67e456f67cb1f04b5545dcebe32f3572989",
     "gmj-core/scripts/gmj_build_payload.py": "cca14e33db5bf0a9e0e5175f23305c5b6097540af1456decd4bd96435d43ff0d",
