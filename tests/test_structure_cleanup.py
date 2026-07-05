@@ -32,12 +32,25 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-PHASE_DIR = (
-    REPO_ROOT
-    / ".planning"
-    / "phases"
-    / "18-standalone-restructure-installer-gsd-removal"
-)
+_PHASE_SLUG = "18-standalone-restructure-installer-gsd-removal"
+
+
+def _resolve_phase_dir() -> Path:
+    """The phase dir lives under .planning/phases/ during the milestone and is moved to
+    .planning/milestones/v{X.Y}-phases/ by /gsd-cleanup at milestone close. Resolve either
+    location so the STRUCT-01 evidence gate survives archival."""
+    live = REPO_ROOT / ".planning" / "phases" / _PHASE_SLUG
+    if live.is_dir():
+        return live
+    for archived in sorted(
+        (REPO_ROOT / ".planning" / "milestones").glob(f"v*-phases/{_PHASE_SLUG}")
+    ):
+        if archived.is_dir():
+            return archived
+    return live  # fall back to the live path so a missing manifest fails loudly
+
+
+PHASE_DIR = _resolve_phase_dir()
 REMOVED_FILES_MANIFEST = PHASE_DIR / "REMOVED-FILES.md"
 
 # Extensions that constitute an "inbound reference" surface (mirrors the rebrand grep set).
