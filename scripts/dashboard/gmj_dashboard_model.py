@@ -37,6 +37,8 @@ import time
 from collections import Counter
 from pathlib import Path
 
+import yaml  # PyYAML — a pre-existing repo dep (scripts/cv/requirements.txt); safe_load only
+
 # Single-source seam — mirror gmj_runs.py:46 EXACTLY: put scripts/pipeline on sys.path, then import
 # the status projection. The leading underscore on the private helpers is a naming convention only;
 # Python does not access-control module-level names, so the import works (test_gmj_runs.py imports
@@ -45,9 +47,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "pipeline"))
 from gmj_runs import (  # noqa: E402
     _batch_rollup,
+    _gate_logs,
     _order_key,
     _run_row,
     _safe_component,
+    _safe_id,
     _TS_RE,
     project_status,
 )
@@ -220,19 +224,153 @@ class DashboardModel:
         rows.sort(key=lambda r: r["batch_id"], reverse=True)
         return rows
 
-    # Plan 20-02 Task 2 thin readers — stubbed here so the metrics-only Task 1 GREEN is
-    # self-contained; the real disk readers land in Task 2 (MODEL-05).
-    def _vacancies(self) -> list[dict]:
-        return []
+    # ── thin readers (MODEL-05) — all read-only, all degrade to {}/[] on a missing/bad file ──
 
-    def _candidate(self) -> dict:
-        return {}
+    def _load_yaml(self, rel: str) -> dict:
+        """Read ``<repo_root>/<rel>`` via ``yaml.safe_load`` (never ``yaml.load``); {} on any failure.
+
+        Tolerant by contract (T-20-04): a missing file (OSError), a parse error (yaml.YAMLError), or a
+        non-dict top level all degrade to ``{}`` — the reader never raises out of ``snapshot()``.
+        """
+        p = self.repo_root / rel
+        try:
+            raw = p.read_text(encoding="utf-8")
+        except OSError:
+            return {}
+        try:
+            data = yaml.safe_load(raw)
+        except yaml.YAMLError:
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def _vacancies(self, *, top_must: int | None = None) -> list[dict]:
+        """List every frozen ``sources/offers/*.offer-spec.json`` (A1) — verbatim display fields.
+
+        Globs the offers dir directly; NEVER follows/resolves/stats ``state.offer_spec_path``
+        (Pitfall 4 / T-20-02). Sibling ``*.draft.json`` / ``*-shortlist.json`` files are excluded by
+        the ``*.offer-spec.json`` glob. A malformed spec is skipped, never fatal.
+        """
+        out: list[dict] = []
+        offers_dir = self.repo_root / "sources" / "offers"
+        if not offers_dir.is_dir():
+            return out
+        for p in sorted(offers_dir.glob("*.offer-spec.json")):
+            try:
+                spec = json.loads(p.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(spec, dict):
+                continue
+            content = spec.get("content")
+            if not isinstance(content, dict):
+                content = {}
+            must = content.get("must_haves")
+            out.append(
+                {
+                    "title": content.get("title"),
+                    "company": content.get("company"),
+                    "location": content.get("location"),
+                    "seniority": content.get("seniority"),
+                    "salary_range": content.get("salary_range"),  # verbatim (may be null)
+                    "n_must_haves": len(must) if isinstance(must, list) else 0,
+                    "offer_spec_hash": spec.get("offer_spec_hash"),  # top level
+                }
+            )
+        return out
+
+    def _candidate(self, *, top_n: int = 8) -> dict:
+        """Expose ONLY name/title/summary/contact/expertise_top from ``config/candidate.yaml``.
+
+        Read-only (truthfulness invariant, T-20-05): the file is opened for reading only and never
+        written. A missing/bad file degrades to ``{}``. ``expertise_top`` truncates the expertise
+        list to the first ``top_n`` (the panel shows a summary, not the whole profile).
+        """
+        data = self._load_yaml("config/candidate.yaml")
+        if not data:
+            return {}
+        expertise = data.get("expertise")
+        contact = data.get("contact")
+        return {
+            "name": data.get("name"),
+            "title": data.get("title"),
+            "summary": data.get("summary"),
+            "contact": contact if isinstance(contact, dict) else {},
+            "expertise_top": expertise[:top_n] if isinstance(expertise, list) else [],
+        }
 
     def _config(self) -> dict:
-        return {}
+        """Read the four config knobs verbatim (sources / pipeline / fit_thresholds / preferences)."""
+        sources = self._load_yaml("config/sources.yaml")
+        pipeline = self._load_yaml("config/pipeline.config.yaml")
+        fit = self._load_yaml("config/fit_thresholds.yaml")
+        prefs = self._load_yaml("config/preferences.yaml")
+        return {
+            "boards": sources.get("sites") or [],       # sites -> boards
+            "cities": sources.get("cities") or [],
+            "languages": sources.get("languages") or [],
+            "limits": sources.get("limits") or {},
+            "execution_mode": pipeline.get("execution_mode"),
+            "retry_cap": pipeline.get("retry_cap"),
+            "fit_thresholds": fit,
+            "preferences": prefs,
+        }
 
     def _dag(self) -> list[str]:
-        return []
+        """Ordered pipeline step names READ from ``config/pipeline.dag.yaml`` ``steps`` (never hardcoded).
+
+        The node names live in the config file, so no gate-node string literal appears in this module
+        (the AST grep-guard stays green). Dict insertion order is preserved by ``yaml.safe_load``.
+        """
+        dag = self._load_yaml("config/pipeline.dag.yaml")
+        steps = dag.get("steps")
+        return list(steps.keys()) if isinstance(steps, dict) else []
+
+    # ── on-demand drill-in accessor (Pitfall 5 — NOT built per-poll) ──────────────────────────
+
+    def run_detail(self, run_id: str) -> dict:
+        """Return the ``run_inspect``-shaped payload for one validated run_id, else ``{}``.
+
+        Mirrors gmj_runs.py ``_cmd_run_inspect`` (:268-316): validates via the imported ``_safe_id``,
+        applies the containment check (:275-280), tolerant-loads the state, builds the base row via the
+        imported ``_run_row`` (status via the projection — never re-derived), and augments the
+        ``_gate_logs`` artifacts/attempts + a PRINTED (never executed) resume command. ``offer_spec_path``
+        is displayed verbatim — never resolved/stat'd (T-20-02). Returns ``{}`` for an unsafe/missing run.
+        """
+        if _safe_id(run_id, "run_id") is None:
+            return {}
+        runs_dir = self.pipeline_dir / "runs"
+        run_dir = runs_dir / run_id
+        # Defence in depth: the resolved run dir must stay contained under the resolved runs dir.
+        resolved = run_dir.resolve()
+        base = runs_dir.resolve()
+        if resolved != base and base not in resolved.parents:
+            return {}
+        sp = run_dir / "state.json"
+        if not sp.is_file():
+            return {}
+        state = _load_state_tolerant(sp)
+        if not isinstance(state, dict):
+            return {}
+        row = _run_row(run_id, state)  # run_id/status/mode/gate_a/gate_b/ts — projection, never derived
+        artifacts, attempts = _gate_logs(run_dir)
+        return {
+            "kind": "run_inspect",
+            "run_id": state.get("run_id") or run_id,
+            "status": row["status"],
+            "mode": row["mode"],
+            "gate_a": row["gate_a"],
+            "gate_b": row["gate_b"],
+            # offer_spec_path is displayed VERBATIM — never resolved/stat'd (it may be relative).
+            "offer_spec_path": state.get("offer_spec_path"),
+            "offer_spec_hash": state.get("offer_spec_hash"),
+            "retry_cap": state.get("retry_cap"),
+            "retry_counts": state.get("retry_counts") or {},
+            "current_step": state.get("current_step"),
+            "artifacts": artifacts,
+            "attempts": attempts,
+            # Resume is a PRINTED string, never executed (mirrors gmj_runs.py:298).
+            "resume_command": f"/gmj-pipeline-run  (resume: pass run_id={run_id})",
+        }
 
     def _metrics(self, runs: list[dict], metric_inputs: list[dict]) -> dict:
         """Aggregate domain metrics (MODEL-04) from the ALREADY-projected rows + raw retry inputs.
@@ -338,21 +476,31 @@ class DashboardModel:
 
 
 def main() -> int:
-    """Emit one snapshot as canonical JSON — a manual read-only inspector for the model."""
+    """Emit one snapshot — a manual read-only inspector for the model (mirrors gmj_runs.py argparse)."""
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Headless dashboard read model — emit one snapshot() as canonical JSON."
+        description="Headless dashboard read model — emit one snapshot() of the pipeline read state."
     )
     parser.add_argument(
         "--pipeline-dir", default=".pipeline", help="Read-only pipeline root to project (default .pipeline)."
     )
     parser.add_argument(
-        "--repo-root", default=str(REPO_ROOT), help="Repo root for the Plan 20-02 thin readers."
+        "--repo-root", default=str(REPO_ROOT), help="Repo root for the thin readers (config/candidate/offers)."
+    )
+    parser.add_argument(
+        "--json", action="store_true", dest="json_out", help="Emit the full snapshot() as canonical JSON."
     )
     args = parser.parse_args()
-    model = DashboardModel(pipeline_dir=args.pipeline_dir, repo_root=args.repo_root)
-    sys.stdout.write(json.dumps(model.snapshot(), sort_keys=True, ensure_ascii=False, indent=2) + "\n")
+    snap = DashboardModel(pipeline_dir=args.pipeline_dir, repo_root=args.repo_root).snapshot()
+    if args.json_out:
+        sys.stdout.write(json.dumps(snap, sort_keys=True, ensure_ascii=False, indent=2) + "\n")
+    else:
+        c = snap["counters"]
+        print(f"runs={c['runs']} offers={c['offers']} mode={c['mode']} retry_cap={c['retry_cap']}")
+        print(f"by_status     {json.dumps(c['by_status'], sort_keys=True, ensure_ascii=False)}")
+        print(f"vacancies={len(snap['vacancies'])} batches={len(snap['batches'])} dag={len(snap['stages']['dag'])} steps")
+        print("(pass --json for the full canonical snapshot)")
     return 0
 
 
