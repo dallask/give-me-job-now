@@ -53,6 +53,14 @@ Static {
     color: #3fb950;
 }
 
+/* The pipeline-DAG strip (VIEW-08): btop-dense, brighter border to anchor the spatial story.
+ * Inactive stage tokens inherit this dim-green panel color (legible), while the active step +
+ * gate verdicts are accent/gate-colored inline from the projection (in the .py, via theme vars). */
+#dag-placeholder {
+    color: #56d364;
+    border: round #3fb950;
+}
+
 #candidate,
 #config {
     color: #39d0d8;

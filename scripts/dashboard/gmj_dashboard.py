@@ -76,6 +76,11 @@ GMJ_THEME = Theme(
         "status-failed": "#f85149",
         "status-pending": "#6e7681",
         "status-unknown": "#bc8cff",
+        # Gate-verdict palette (VIEW-08). Keys are `gate-<verdict>` — NOT forbidden literals — so the
+        # DAG strip colors a Gate A/B node by looking the projected verdict up at runtime via
+        # get_css_variables().get(f"gate-{verdict}"); the "—" absent-sentinel resolves to no var.
+        "gate-pass": "#3fb950",
+        "gate-fail": "#f85149",
     },
 )
 
@@ -195,9 +200,61 @@ class GmjDashboard(App):
         """Apply a fresh snapshot with TARGETED updates only — never recompose()."""
         self._apply_counters(snap.get("counters") or {})
         self._apply_runs(snap.get("runs") or [])
+        self._apply_dag(snap.get("stages") or {})
         self._apply_metrics(snap.get("metrics") or {})
         self._apply_candidate(snap.get("candidate") or {})
         self._apply_config(snap.get("config") or {})
+
+    # ── pipeline-DAG stage strip (VIEW-08) — guard-safe, projection-colored ───────────────────────
+
+    def _apply_dag(self, stages: dict) -> None:
+        """Render the pipeline-DAG strip from ``snapshot()["stages"]`` — targeted ``.update()``, no recompose.
+
+        Two bands, both DATA-DERIVED (so no status word / gate-node name is a code literal — the
+        Phase-20 grep-guard stays green):
+
+        - a static token row: ``stages["dag"]`` (the config-read step names) joined by a ``  >  ``
+          separator into one ``rich.text.Text``. A token whose name is a currently-active
+          ``current_step`` gets the accent (``primary``) style; the rest inherit the panel color, so
+          every token stays legible (color is never the only signal);
+        - one line per active run (``stages["active"]`` filtered to a TRUTHY ``current_step`` —
+          terminal/legacy runs with ``current_step: null`` are dropped, Pitfall 5): a
+          ``{run_id} → {current_step}  (A:{gate_a} B:{gate_b})`` line whose ``current_step`` is styled
+          ``primary`` and whose Gate A/B verdicts are colored by a RUNTIME value-keyed lookup
+          ``get_css_variables().get(f"gate-{verdict}")`` (the ``"—"`` absent-sentinel yields no var →
+          empty style — an absent gate is never mis-colored).
+
+        Coloring is ALWAYS paired with the readable token text (colorblind-safe). An empty
+        ``stages``/``dag`` degrades to a quiet placeholder line — never a crash.
+        """
+        cssv = self.get_css_variables()
+        dag = stages.get("dag") or []
+        active = [a for a in (stages.get("active") or []) if a.get("current_step")]
+        active_steps = {a["current_step"] for a in active}
+
+        if not dag:
+            self.query_one("#dag-placeholder", Static).update("(no pipeline stages)")
+            return
+
+        sep_style = cssv.get("secondary") or ""
+        accent = cssv.get("primary") or ""
+
+        out = Text()
+        for i, step in enumerate(dag):        # step names are DATA from config — never a literal
+            if i:
+                out.append("  >  ", style=sep_style)
+            out.append(step, style=accent if step in active_steps else "")
+
+        for a in active:                      # one "where is this run" line per in-flight run
+            out.append(f"\n{a['run_id']} → ")
+            out.append(str(a["current_step"]), style=accent)
+            out.append("  (A:")
+            out.append(str(a["gate_a"]), style=cssv.get(f"gate-{a['gate_a']}") or "")  # value-keyed
+            out.append(" B:")
+            out.append(str(a["gate_b"]), style=cssv.get(f"gate-{a['gate_b']}") or "")  # value-keyed
+            out.append(")")
+
+        self.query_one("#dag-placeholder", Static).update(out)
 
     # ── domain-metrics panel + throughput sparkline (VIEW-05) ─────────────────────────────────────
 
