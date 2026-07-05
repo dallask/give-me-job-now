@@ -72,8 +72,9 @@ before Gate B/C (fit) runs; truthfulness is never bypassed in any execution mode
 
 ## 3. Roster Table
 
-The consolidated collective is **exactly** the members below: the hub, the five spokes, and
-two retained supporting agents. This table matches `.planning/PROJECT.md`'s locked roster.
+The consolidated collective is **exactly** the nine members below: the hub, the five core
+spokes, two retained supporting agents, and the branded-template spoke. This table matches
+`.planning/PROJECT.md`'s locked roster.
 
 | Member | Kind | Role (one line) | Disposition | Owning phase |
 |--------|------|-----------------|-------------|--------------|
@@ -85,11 +86,12 @@ two retained supporting agents. This table matches `.planning/PROJECT.md`'s lock
 | `gmj-cv-generator` | Spoke | Render artifact PDF(s) via Python (`gmj_render_cv.py`) | Retained & extended | Phase 8 (E2E) |
 | `gmj-candidate-analyzer` | Supporting | Parse candidate source materials; extract structured data | Retained (supporting) | Phase 3.1 (Ingestion) |
 | `gmj-candidate-configurator` | Supporting | Canonical write/merge into `config/candidate.yaml` | Retained (supporting) | Phase 3.1 (INGEST-04) |
+| `gmj-template-creator` | Spoke | Turn a pasted screenshot into a reusable HTML/Jinja2 CV template under `templates/cv/` via the WeasyPrint visual-diff loop; never calls `Task` | Active (optional / branded-template) | Phase 13 (Template Creation) |
 
 > **Reconciling "exactly."** `.claude/agents/` also contains ~35 `gsd-*.md` files and
 > `ai-agents-architect.md`. Those are **unrelated GSD / general tooling, not the job
-> collective**. The consolidated collective is precisely the eight members listed above:
-> hub + 5 spokes + 2 retained supporting agents.
+> collective**. The consolidated collective is precisely the nine members listed above:
+> hub + 5 core spokes + 2 retained supporting agents + the branded-template spoke.
 
 ---
 
@@ -283,7 +285,7 @@ here as enforceable principles (the floor is a floor, not a ceiling):
 
 ---
 
-## 7. Legacy → New Mapping
+## 7. Legacy → New Mapping (superseded — historical)
 
 The redesign consolidates the legacy 13-file collective in place. Superseded legacy spoke
 files are **moved to `example/`** (reference / prior-art), not hard-deleted — reversible and
@@ -302,7 +304,11 @@ history-preserving. See `example/` for the moved prior-art files.
 | `vacancy-router` | — → `example/` | Retired (Phase 2 replaces LLM routing with a deterministic state-machine) |
 | `cv-deliverable-gate` | — → `example/` | Retired (concept folds into Gate A/B/C stages, Phases 6/7) |
 | `candidate-translator` | — → `example/` | Retired (single target language per offer in v1) |
-| `cv-template-creator` | — → `example/` | Retired (template work optional, outside v1 core) |
+| `cv-template-creator` | `gmj-template-creator` (re-added) | Superseded "retired" — template creation returned as an active optional spoke (Phase 13) |
+
+> **Note:** §7's earlier "retired" disposition for template creation was **superseded** when
+> the branded-template flow returned as the active `gmj-template-creator` spoke (Phase 13, with
+> the `/gmj-template` command and template scripts). The row above reflects the current active home.
 
 ---
 
