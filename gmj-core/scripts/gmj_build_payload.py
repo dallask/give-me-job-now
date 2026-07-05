@@ -261,10 +261,18 @@ def census_payload(framework_globs: list[str]) -> list[tuple[Path, str]]:
         "scripts/cv/requirements.txt",
         "scripts/contracts/requirements.txt",
         "scripts/preferences/requirements.txt",
+        "scripts/dashboard/requirements.txt",  # NEW — the `textual` pin for /gmj-dashboard
     ):
         req = REPO_ROOT / req_rel
         if req.is_file():
             add(req, req_rel)
+
+    # Dashboard Textual CSS — gmj_dashboard.py sets CSS_PATH="gmj_dashboard.tcss", resolved by
+    # Textual relative to the module file. The prefixed `gmj_*.py` glob never catches a `.tcss`,
+    # so without shipping it a fresh install passes the census but crashes at launch on missing CSS.
+    tcss = REPO_ROOT / "scripts" / "dashboard" / "gmj_dashboard.tcss"
+    if tcss.is_file():
+        add(tcss, tcss.relative_to(REPO_ROOT).as_posix())
 
     # Optional HTML CV templates (WeasyPrint/Jinja2 render path). Lower impact than
     # fonts (the ReportLab --no-template path still works), but a "standalone" payload

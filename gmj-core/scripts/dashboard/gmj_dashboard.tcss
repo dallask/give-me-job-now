@@ -1,0 +1,185 @@
+/* gmj_dashboard.tcss — btop-style green-on-dark stylesheet for the read-only pipeline board.
+ *
+ * This file is the correct home for the bare status color literals. The Phase-20 AST grep-guard
+ * (tests/test_gmj_dashboard_model.py::test_grep_guard_no_rederived_literals) scans only
+ * scripts/dashboard/*.py — it does NOT scan *.tcss — so the status-word CSS classes below never
+ * trip it. The .py view keeps its status colors as `status-`-prefixed Theme variables instead.
+ */
+
+Screen {
+    layout: grid;
+    grid-size: 2;
+    grid-gutter: 1;
+    /* Phase-23 max-density bands appended after the throughput row (row 7):
+     *   row 8  (10) — full-width charts band (throughput / gates)
+     *   row 9  (12) — two-up errors / activity feed band
+     *   row 10 (8)  — two-up commands / debug band
+     * Below 120 cols the 2-column grid naturally stacks; no media queries needed. */
+    grid-rows: auto auto 8 3 1fr auto 3 10 12 8;
+    background: #0d1117;
+    color: #c9d1d9;
+}
+
+/* Brand banner + global counters span the full width at the top. */
+#banner {
+    column-span: 2;
+    height: auto;
+    color: #3fb950;
+    text-style: bold;
+    content-align: center middle;
+    background: #0d1117;
+}
+
+#counters {
+    column-span: 2;
+    height: auto;
+    color: #39d0d8;
+    padding: 0 1;
+    border: round #1a2b28;
+}
+
+/* Framed panels — rounded dim-green borders, btop feel. */
+Static {
+    border: round #1a2b28;
+    padding: 0 1;
+}
+
+#metrics,
+#dag-placeholder,
+#candidate,
+#config {
+    height: 100%;
+    overflow-y: auto;
+}
+
+/* Metrics bars glow in the primary green; the framed candidate/config panels stay dim-cyan
+ * for a read-only feel. Bare color hexes live here in the .tcss (never in the guard-scanned .py). */
+#metrics {
+    color: #3fb950;
+}
+
+/* The pipeline-DAG strip (VIEW-08): btop-dense, brighter border to anchor the spatial story.
+ * Inactive stage tokens inherit this dim-green panel color (legible), while the active step +
+ * gate verdicts are accent/gate-colored inline from the projection (in the .py, via theme vars). */
+#dag-placeholder {
+    color: #56d364;
+    border: round #3fb950;
+}
+
+#candidate,
+#config {
+    color: #39d0d8;
+}
+
+/* VIEW-11 filter Input (full-width, above the runs table): a rounded btop-chrome bar that narrows the
+ * runs table over already-projected rows. Height 3 matches its dedicated grid row. */
+#filter {
+    column-span: 2;
+    height: 3;
+    border: round #3fb950;
+    background: #0d1117;
+    color: #c9d1d9;
+}
+
+/* The runs table scrolls INSIDE its own frame — the app body never scrolls horizontally. */
+#runs {
+    border: round #3fb950;
+    height: 1fr;
+    overflow-x: auto;
+}
+
+/* Found-vacancies + batch-rollup panel (VIEW-10): btop-dense, scrolls inside its own frame like
+ * the sibling framed panels. Rounded border applies via the shared Static rule; the dim-cyan color
+ * matches the read-only candidate/config feel. Bare color hexes live here in the .tcss, not the .py. */
+#vac-placeholder {
+    height: 100%;
+    overflow-y: auto;
+    color: #39d0d8;
+}
+
+#throughput {
+    column-span: 2;
+    height: 3;
+    color: #3fb950;
+}
+
+/* Run drill-in modal (VIEW-09) — centered ~70%-width overlay over a dimmed base screen. The
+ * ModalScreen dims what's underneath; #modal-body is the framed detail card. Namespaced ids
+ * (#modal-body / .modal) never collide with base-screen ids, so the poll's query_one stays safe. */
+RunDetailModal {
+    align: center middle;
+    background: $background 60%;
+}
+
+#modal-body {
+    width: 70%;
+    max-width: 100;
+    height: auto;
+    max-height: 80%;
+    overflow-y: auto;
+    padding: 1 2;
+    background: #0d1117;
+    color: #c9d1d9;
+    border: round #3fb950;
+}
+
+/* Status color classes (VIEW-03) — status word ALWAYS paired with color, never color-only.
+ * These bare status literals live here (not scanned by the .py grep-guard). */
+.delivered { color: #3fb950; }
+.running   { color: #d29922; }
+.failed    { color: #f85149; }
+.pending   { color: #6e7681; }
+.unknown   { color: #bc8cff; }
+
+/* ── Phase-23 max-density panels (VIEW-12/13/14/15/16) ──────────────────────────────────────────
+ * Five new btop-dense frames packed into the appended grid bands. The bare hex/word literals live
+ * here in the .tcss (never in the guard-scanned .py); the .py colors inline via the event-, status-
+ * and gate- prefixed Theme variables. Errors + activity + commands + debug scroll internally
+ * (overflow-y: auto); charts spans both columns and never scrolls horizontally. */
+
+/* Full-width throughput / gates charts band (VIEW-14). */
+#charts {
+    column-span: 2;
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    color: #3fb950;
+    border: round #3fb950;
+}
+
+/* Errors panel (VIEW-12): red-forward border + text, scrolls newest-first inside its frame. */
+#errors {
+    height: 100%;
+    overflow-y: auto;
+    color: #f85149;
+    border: round #f85149;
+}
+
+/* Activity feed (VIEW-13): event-colored, scrolls inside its frame. */
+#activity {
+    height: 100%;
+    overflow-y: auto;
+    color: #39d0d8;
+}
+
+/* Commands reference (VIEW-15): static mode-aware keybinding list. */
+#commands {
+    height: 100%;
+    overflow-y: auto;
+    color: #39d0d8;
+}
+
+/* Debug / internals (VIEW-16): dense key/value grid for the selected run. */
+#debug {
+    height: 100%;
+    overflow-y: auto;
+    color: #c9d1d9;
+}
+
+/* Event-type color classes (activity feed, VIEW-13) — .tcss is NOT grep-scanned, so the event word
+ * literals are safe here; the .py mirrors them as event-* Theme variables for inline coloring. */
+.event-started   { color: #39d0d8; }
+.event-pass      { color: #3fb950; }
+.event-fail      { color: #f85149; }
+.event-terminal  { color: #bc8cff; }
+.event-delivered { color: #3fb950; text-style: bold; }
