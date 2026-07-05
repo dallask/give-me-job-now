@@ -170,9 +170,13 @@ def _current_sites(text: str, token: str) -> list[int]:
         # multi-line historical BLOCK is opened only by an UN-closed `<!-- historical …`
         # marker and closed by a later `<!-- /historical -->` / `<!-- end … -->` marker.
         if stripped.startswith("<!--") and _has_marker(stripped):
-            if stripped.endswith("-->"):
-                continue  # self-closing marker: applies to this comment line only
-            in_hist_block = "end" not in stripped.lower() and "/" not in stripped
+            low = stripped.lower()
+            if "end" in low or "/" in stripped:
+                in_hist_block = False          # explicit close marker (`<!-- /historical -->`)
+            elif stripped.endswith("-->"):
+                pass                           # self-contained marker: affects only itself
+            else:
+                in_hist_block = True           # un-closed `<!-- historical …` opens a block
             continue
         # A heading resets the section's historical disposition based on its own text.
         if _HEADING.match(line):
@@ -337,6 +341,62 @@ def test_docs_name_hub_and_arch_pointer() -> None:
     text = readme.read_text(encoding="utf-8")
     assert HUB_NAME in text, f"README missing gmj- hub name '{HUB_NAME}'"
     assert ARCH_POINTER in text, "README missing pointer to docs/ARCHITECTURE.md"
+
+
+def test_historical_allowance_is_scoped() -> None:
+    """Lock the WR-01/WR-03 tightening: markers must not silence beyond their scope.
+
+    Directly exercises `_current_sites` so a future regression that re-broadens the
+    historical allowance is caught here rather than only via a live doc edit.
+    """
+    tok = "vacancy-scraper"
+
+    # WR-01: a self-contained single-line comment marks only itself — a stale token on a
+    # LATER line is still caught (previously the comment silenced the rest of the file).
+    text = (
+        "gmj lists cv-composer here\n"
+        "<!-- superseded roster note -->\n"
+        "gmj still lists vacancy-scraper here\n"
+    )
+    assert _current_sites(text, tok) == [3], (
+        "WR-01 regression: single-line comment marker silenced a later line"
+    )
+
+    # WR-03: a prose line merely mentioning the word (not an explicit annotation) that
+    # presents a legacy name AS CURRENT is still caught.
+    prose = "vacancy-scraper replaces the superseded manual flow and is CURRENT.\n"
+    assert _current_sites(prose, tok) == [1], (
+        "WR-03 regression: bare 'superseded' prose mention silenced a current reference"
+    )
+
+    # An EXPLICIT inline annotation still excludes its line (kept intentionally).
+    annotated = "vacancy-scraper (superseded) — do not use\n"
+    assert _current_sites(annotated, tok) == [], (
+        "explicit inline (superseded) annotation should exclude its line"
+    )
+
+    # Section-scoped: a marked heading silences its section, and the NEXT heading resets it
+    # (preserves docs/ARCHITECTURE.md §7 behavior while re-arming detection afterwards).
+    sectioned = (
+        "## 7. Legacy Mapping (superseded — historical)\n"
+        "row mentions vacancy-scraper\n"
+        "## 8. Current\n"
+        "gmj lists vacancy-scraper as current\n"
+    )
+    assert _current_sites(sectioned, tok) == [4], (
+        "section-scoped allowance must reset at the next heading"
+    )
+
+    # A genuine multi-line HTML-comment block still silences until its explicit close.
+    block = (
+        "<!-- historical\n"
+        "vacancy-scraper legacy row\n"
+        "<!-- /historical -->\n"
+        "gmj lists vacancy-scraper as current\n"
+    )
+    assert _current_sites(block, tok) == [4], (
+        "multi-line historical block must close at its explicit end marker"
+    )
 
 
 def main() -> int:
