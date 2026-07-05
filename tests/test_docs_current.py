@@ -256,14 +256,18 @@ def test_every_docs_agent_exists() -> None:
 
 
 def test_every_docs_skill_exists() -> None:
-    """Every mined kebab token that names a skill resolves to a real skill directory on disk."""
+    """Every mined kebab token that names a skill resolves to a real SKILL.md on disk.
+
+    Grounds the docs->disk direction: a skill token named in the docs must back a real
+    ``.claude/skills/<name>/SKILL.md`` file. (The old form only re-checked that a SKILLS
+    set member is a directory, which is true by construction — a tautology; WR-02.)
+    """
     violations: list[str] = []
     for token, rel, ln in _mine(GMJ_KEBAB, DOC_FILES):
         if token not in SKILLS:
             continue  # not a skill reference — resolution owned by test_every_docs_agent_exists
-        # Re-ground the classification against disk: a SKILLS entry must be an actual directory.
-        if not (REPO_ROOT / ".claude/skills" / token).is_dir():
-            violations.append(f"{rel}:{ln}: skill '{token}' missing from .claude/skills/")
+        if not (REPO_ROOT / ".claude/skills" / token / "SKILL.md").is_file():
+            violations.append(f"{rel}:{ln}: skill '{token}' has no SKILL.md")
     assert not violations, "docs skill token(s) unresolved: " + " | ".join(violations[:20])
 
 
