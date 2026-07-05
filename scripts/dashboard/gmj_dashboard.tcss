@@ -47,6 +47,17 @@ Static {
     overflow-y: auto;
 }
 
+/* Metrics bars glow in the primary green; the framed candidate/config panels stay dim-cyan
+ * for a read-only feel. Bare color hexes live here in the .tcss (never in the guard-scanned .py). */
+#metrics {
+    color: #3fb950;
+}
+
+#candidate,
+#config {
+    color: #39d0d8;
+}
+
 /* The runs table scrolls INSIDE its own frame — the app body never scrolls horizontally. */
 #runs {
     border: round #3fb950;

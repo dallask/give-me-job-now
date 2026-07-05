@@ -195,6 +195,97 @@ class GmjDashboard(App):
         """Apply a fresh snapshot with TARGETED updates only — never recompose()."""
         self._apply_counters(snap.get("counters") or {})
         self._apply_runs(snap.get("runs") or [])
+        self._apply_metrics(snap.get("metrics") or {})
+        self._apply_candidate(snap.get("candidate") or {})
+        self._apply_config(snap.get("config") or {})
+
+    # ── domain-metrics panel + throughput sparkline (VIEW-05) ─────────────────────────────────────
+
+    def _apply_metrics(self, m: dict) -> None:
+        """Render the domain-metrics panel from ``snapshot()["metrics"]`` — targeted, no recompose.
+
+        Every line is DATA-DERIVED from the projection, so no status word is a standalone literal in
+        this file (the Phase-20 grep-guard stays green):
+
+        - one bar per status by iterating ``sorted(m["by_status"].items())`` as ``label █…█ count`` —
+          the key is read from the dict, never hardcoded, and the count label is always paired with
+          the glyphs so colour is never the only signal;
+        - a Gate A and Gate B line rendered from the ``pass``/``fail`` verdict tallies
+          (``m["gate_a"]``/``m["gate_b"]`` — these keys are the projection's verdicts, not gate-node
+          literals);
+        - a retry-vs-cap meter that shows ``retries_used`` against ``cap_space`` — a SUM headroom
+          figure the model already computed, NEVER a per-run ``>= retry_cap`` comparison.
+
+        The throughput ``Sparkline``'s ``.data`` reactive is reassigned IN PLACE (never recomposed);
+        an empty series falls back to ``[0]`` so the sparkline always has a stable frame to draw.
+        """
+        by_status = m.get("by_status") or {}
+        lines = [f"{k:<10} {'█' * v} {v}" for k, v in sorted(by_status.items())]
+        ga = m.get("gate_a") or {}
+        gb = m.get("gate_b") or {}
+        lines.append(f"Gate A  pass {ga.get('pass', 0)} / fail {ga.get('fail', 0)}")
+        lines.append(f"Gate B  pass {gb.get('pass', 0)} / fail {gb.get('fail', 0)}")
+        lines.append(f"retries {m.get('retries_used', 0)} / cap-space {m.get('cap_space', 0)}")
+        self.query_one("#metrics", Static).update("\n".join(lines) if lines else "(no runs yet)")
+        self.query_one("#throughput", Sparkline).data = m.get("throughput") or [0]
+
+    # ── read-only candidate + configuration panels (VIEW-06) ──────────────────────────────────────
+
+    def _apply_candidate(self, cand: dict) -> None:
+        """Render the read-only candidate-summary panel from the whitelisted ``candidate`` top-fields.
+
+        Displays name / title / summary / a compact contact line / the first few ``expertise_top``
+        items VERBATIM — the model's thin reader already whitelists these fields, so the view surfaces
+        only what ``snapshot()["candidate"]`` exposes (no non-whitelisted profile field can leak). An
+        empty projection (missing/bad ``candidate.yaml``) degrades to a quiet empty-state line.
+        """
+        if not cand:
+            self.query_one("#candidate", Static).update("(no candidate profile)")
+            return
+        lines = [
+            f"[b]{cand.get('name') or '—'}[/b]",
+            cand.get("title") or "—",
+        ]
+        summary = cand.get("summary")
+        if summary:
+            lines.append("")
+            lines.append(str(summary))
+        contact = cand.get("contact") or {}
+        if contact:
+            lines.append("")
+            lines.append(" · ".join(f"{k}: {v}" for k, v in contact.items()))
+        expertise = cand.get("expertise_top") or []
+        if expertise:
+            lines.append("")
+            lines.append("expertise: " + ", ".join(str(e) for e in expertise[:6]))
+        self.query_one("#candidate", Static).update("\n".join(lines))
+
+    def _apply_config(self, cfg: dict) -> None:
+        """Render the read-only configuration panel from the governing ``config`` knobs.
+
+        Shows the boards / cities / languages scope, the frozen ``execution_mode`` and ``retry_cap``,
+        and a compact ``fit_thresholds`` summary — all displayed VERBATIM from the projection. The
+        retry-cap knob is shown as its stored value (a display of the frozen setting), never used in a
+        per-run threshold comparison. Degrades to a quiet empty-state line on an empty projection.
+        """
+        if not cfg:
+            self.query_one("#config", Static).update("(no configuration)")
+            return
+        boards = cfg.get("boards") or []
+        cities = cfg.get("cities") or []
+        languages = cfg.get("languages") or []
+        lines = [
+            f"boards      {len(boards)}",
+            f"cities      {', '.join(str(c) for c in cities) if cities else '—'}",
+            f"languages   {', '.join(str(l) for l in languages) if languages else '—'}",
+            f"mode        {cfg.get('execution_mode') or '—'}",
+            f"retry_cap   {cfg.get('retry_cap') if cfg.get('retry_cap') is not None else '—'}",
+        ]
+        fit = cfg.get("fit_thresholds") or {}
+        if isinstance(fit, dict) and fit:
+            thr = fit.get("coverage_threshold")
+            lines.append(f"fit         coverage_threshold {thr if thr is not None else '—'}")
+        self.query_one("#config", Static).update("\n".join(lines))
 
     # ── runs table (VIEW-03) — guard-safe status cell + targeted RowKey diff ──────────────────────
 
