@@ -419,6 +419,108 @@ class GmjDashboard(App):
             return
         self.notify(f"✓ retry_cap → {cap}")
 
+    # ── --manage launch collectors (all OVERRIDABLE — Pilot tests inject values) ────────────────────
+
+    async def _prompt_offer(self) -> str | None:
+        """Collect the offer URL/text for a fresh run (overridable). ``None`` on cancel."""
+        return await self._ask("Offer URL / text:")
+
+    def _selected_run_id(self) -> str | None:
+        """Return the ``run_id`` under the #runs cursor (the row key), or ``None`` if no row is selected.
+
+        Reads the already-sanitized projection cursor — the run_id becomes an argv prompt element, never
+        a shell token (T-24-09); the child re-validates it. Pure read of the table state (no disk).
+        """
+        table = self.query_one("#runs", DataTable)
+        if table.row_count == 0:
+            return None
+        try:
+            cell_key = table.coordinate_to_cell_key(table.cursor_coordinate)
+        except Exception:  # noqa: BLE001 — an out-of-range cursor degrades to "no selection"
+            return None
+        return cell_key.row_key.value
+
+    async def _prompt_batch(self) -> tuple[str, str] | None:
+        """Collect a (shortlist path, selection) pair for a batch (overridable). ``None`` on cancel."""
+        shortlist = await self._ask("Shortlist path:")
+        if not shortlist:
+            return None
+        select = await self._ask("Select (e.g. 1,3):")
+        if not select:
+            return None
+        return shortlist, select
+
+    # ── --manage launch handlers (r/R/b) — delegate to the actions module, never-silent feedback ────
+
+    async def action_run(self) -> None:
+        """Launch a fresh, force-autonomous gated run in the background via the launcher seam (MANAGE-02).
+
+        Collects an offer, builds the autonomous prompt, launches through gmj_dashboard_actions (whose
+        subprocess primitive is the injectable ``self._launcher`` seam), holds the returned proc in
+        ``self._children`` WITHOUT awaiting completion (the UI never freezes), and notifies success. A
+        FileNotFoundError/OSError becomes a VISIBLE error-severity notice — never a silent failure
+        (MANAGE-03 locked decision).
+        """
+        import gmj_dashboard_actions as actions  # lazy — only under --manage
+
+        offer = await self._prompt_offer()
+        if not offer:
+            return
+        prompt = actions.build_pipeline_prompt(offer=offer)
+        try:
+            proc = await actions.launch_pipeline(prompt, launcher=self._launcher, cwd=self._cwd)
+        except (FileNotFoundError, OSError) as exc:
+            self.notify(f"⚠ launch failed: {exc}", severity="error")
+            return
+        self._children.append(proc)  # hold a ref so GC never reaps/warns; completion is never awaited
+        self.notify("▸ launched autonomous run (background)")
+
+    async def action_resume(self) -> None:
+        """Resume the selected run in the background via the launcher seam (MANAGE-03).
+
+        Reads the #runs cursor run_id, builds a resume prompt embedding it, and launches detached — same
+        fire-and-forget + never-silent failure contract as ``action_run``. A missing selection is itself
+        surfaced as a visible notice.
+        """
+        import gmj_dashboard_actions as actions  # lazy — only under --manage
+
+        run_id = self._selected_run_id()
+        if not run_id:
+            self.notify("⚠ no run selected", severity="error")
+            return
+        prompt = actions.build_pipeline_prompt(run_id=run_id)
+        try:
+            proc = await actions.launch_pipeline(prompt, launcher=self._launcher, cwd=self._cwd)
+        except (FileNotFoundError, OSError) as exc:
+            self.notify(f"⚠ launch failed: {exc}", severity="error")
+            return
+        self._children.append(proc)
+        self.notify(f"▸ resuming {run_id} (autonomous, background)")
+
+    async def action_batch(self) -> None:
+        """Batch the selected offers into a deterministic manifest via the actions module (MANAGE-04).
+
+        Collects a (shortlist, selection) pair, calls ``run_batch`` (fast + deterministic — it hands all
+        seeding + schema validation + path hardening to gmj_batch.py) threading the board's own
+        ``pipeline_dir`` so the manifest lands under it (W2), and notifies success. A non-zero returncode
+        or a raised OSError becomes a visible error-severity notice — never silent.
+        """
+        import gmj_dashboard_actions as actions  # lazy — only under --manage
+
+        collected = await self._prompt_batch()
+        if not collected:
+            return
+        shortlist, select = collected
+        try:
+            completed = actions.run_batch(shortlist, select, pipeline_dir=self._pipeline_dir)
+        except (FileNotFoundError, OSError) as exc:
+            self.notify(f"⚠ batch failed: {exc}", severity="error")
+            return
+        if completed.returncode != 0:
+            self.notify(f"⚠ batch failed: {completed.stderr or completed.returncode}", severity="error")
+            return
+        self.notify("▸ batch manifest written")
+
     # ── VIEW-11 row filter — Input.Changed re-applies the predicate over the cached snapshot ────────
 
     def on_input_changed(self, event: Input.Changed) -> None:
