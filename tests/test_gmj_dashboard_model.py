@@ -367,6 +367,84 @@ def test_throughput_by_status() -> None:
     assert sum(tbs.get("delivered", [])) == by_status["delivered"] - 1, tbs.get("delivered")
 
 
+# --- VIEW-13: activity() builder — newest-first started/gate/terminal union ---
+
+def test_activity_builder_order() -> None:
+    # The activity feed is a newest-first (ts, seq)-descending union: each run contributes a started
+    # event (seq -1), one gate event per gate envelope carrying a verdict, and a terminal event
+    # (seq 10**6) whose status is the projected row VALUE. Gate C advisory (no verdict) is skipped.
+    model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(FIXTURES), repo_root=REPO_ROOT)
+    snap = _snapshot(model)
+    acts = snap["activity"]
+    assert isinstance(acts, list), f"snapshot()['activity'] must be a list: {type(acts)}"
+    assert acts == model.activity(), "snapshot()['activity'] must equal activity()"
+
+    # Newest-first: (ts, seq) is non-increasing across the list.
+    keys = [(e["ts"], e["seq"]) for e in acts]
+    assert keys == sorted(keys, reverse=True), f"activity() must be (ts, seq)-descending: {keys}"
+
+    # Every gate event carries a real verdict (no-verdict envelopes never produce a gate event).
+    for e in acts:
+        if e["kind"] == "gate":
+            assert e["verdict"] is not None, f"a gate event must carry a verdict: {e}"
+
+    # The enriched fail run contributes started + >=1 gate + terminal, terminal status = projection.
+    fe = [e for e in acts if e["run_id"] == "20260603T120000-fail"]
+    kinds = [e["kind"] for e in fe]
+    assert "started" in kinds, f"fail run must have a started event: {kinds}"
+    assert kinds.count("gate") >= 1, f"fail run must have >=1 gate event: {kinds}"
+    terminals = [e for e in fe if e["kind"] == "terminal"]
+    assert len(terminals) == 1, f"fail run must have exactly one terminal event: {kinds}"
+    state = json.loads((FIXTURES / "runs" / "20260603T120000-fail" / "state.json").read_text())
+    assert terminals[0]["status"] == gmj_runs.project_status(state), (
+        "terminal status must equal the IMPORTED projection, never a re-derived literal"
+    )
+
+    # Truncation to limit.
+    assert len(model.activity(limit=2)) <= 2, "activity(limit) must truncate to the limit"
+
+
+def test_activity_skips_gate_c_advisory() -> None:
+    # A Gate C advisory envelope has NO verdict key → it must contribute no gate event, while a
+    # sibling verdict-bearing envelope does. Seeded in a tempdir (no committed fixture perturbed).
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        runs_dir = tmp_path / "runs"
+        run_id = "20260703T120000-adv"
+        d = runs_dir / run_id
+        d.mkdir(parents=True)
+        (d / "state.json").write_text(
+            json.dumps(
+                {
+                    "run_id": run_id,
+                    "gate_results": {"gmj-truth-verifier": "pass", "gmj-fit-evaluator": "pass"},
+                    "retry_cap": 2,
+                }
+            ),
+            encoding="utf-8",
+        )
+        (d / "gate_gmj-fit-evaluator_cv_0.json").write_text(
+            json.dumps({"kind": "gate_result", "schema_version": "1.0",
+                        "content": {"gate": "B", "verdict": "pass"}}),
+            encoding="utf-8",
+        )
+        (d / "gate_c_gmj-fit-evaluator_cv_0.json").write_text(
+            json.dumps({"kind": "gate_result", "schema_version": "1.0",
+                        "content": {"gate": "C", "advisory": True,
+                                    "polish": {"clarity": 4, "concision": 4, "formatting": 4,
+                                               "quantified_impact": 4, "natural_keywords": 4}}}),
+            encoding="utf-8",
+        )
+        model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(tmp_path), repo_root=REPO_ROOT)
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            acts = model.activity()
+        assert "Traceback" not in buf.getvalue(), "activity() must never leak a traceback"
+        gate_events = [e for e in acts if e["run_id"] == run_id and e["kind"] == "gate"]
+        assert len(gate_events) == 1, f"only the verdict-bearing envelope yields a gate event: {gate_events}"
+        assert all(e["gate"] != "C" for e in gate_events), "a Gate C advisory must produce no gate event"
+
+
 # --- MODEL-05: thin readers over a deterministic fixture repo_root -----------
 
 DASH_FIXTURES = REPO_ROOT / "tests" / "fixtures" / "dashboard"
