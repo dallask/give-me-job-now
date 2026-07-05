@@ -82,6 +82,14 @@ GMJ_THEME = Theme(
         # get_css_variables().get(f"gate-{verdict}"); the "—" absent-sentinel resolves to no var.
         "gate-pass": "#3fb950",
         "gate-fail": "#f85149",
+        # Event-verdict palette (VIEW-12/13). Keys are `event-<kind>` — NOT forbidden literals — so the
+        # errors panel + activity feed color an event by looking the projected kind/verdict up at
+        # runtime via get_css_variables().get(f"event-{kind}"); mirrors the .tcss `.event-*` classes.
+        "event-started": "#39d0d8",
+        "event-pass": "#3fb950",
+        "event-fail": "#f85149",
+        "event-terminal": "#bc8cff",
+        "event-delivered": "#3fb950",
     },
 )
 
@@ -163,6 +171,9 @@ class GmjDashboard(App):
         # an Input.Changed re-renders immediately without waiting for the next ~1.5s poll.
         self._filter = ""
         self._last_snap: dict | None = None
+        # VIEW-16 debug/internals selection state: the run_id whose run_detail() the #debug panel
+        # renders. Unset (None) => the `Select a run for internals` empty state. Set on RowSelected.
+        self._debug_run_id: str | None = None
         super().__init__()
 
     def compose(self) -> ComposeResult:
@@ -198,6 +209,30 @@ class GmjDashboard(App):
         yield cfg
 
         yield Sparkline(id="throughput")                  # VIEW-05 throughput (filled in 21-03)
+
+        # ── Phase-23 max-density band (VIEW-12/13/14/15/16) — five framed panels packed into the
+        # appended grid rows. Reserved here as empty, titled frames so the grid geometry is stable;
+        # Wave 2 fills errors/commands/debug, Wave 3 fills activity/charts (content swaps, no relayout).
+        charts = Static("", id="charts")                  # VIEW-14 (full-width; filled in 23-03)
+        charts.border_title = "throughput / gates"
+        yield charts
+
+        errors = Static("", id="errors")                  # VIEW-12 red-forward failure detail
+        errors.border_title = "errors"
+        yield errors
+
+        activity = Static("", id="activity")              # VIEW-13 event feed (filled in 23-03)
+        activity.border_title = "activity (events)"        # honesty label: event-level, not live stdout
+        yield activity
+
+        commands = Static("", id="commands")              # VIEW-15 static mode-aware keybinding list
+        commands.border_title = "commands"
+        yield commands
+
+        debug = Static("", id="debug")                    # VIEW-16 per-run internals key/value grid
+        debug.border_title = "debug"
+        yield debug
+
         yield Footer()                                    # VIEW-07 mode-aware keybind strip
 
     # ── one-time widget seeding ────────────────────────────────────────────────────────────────
