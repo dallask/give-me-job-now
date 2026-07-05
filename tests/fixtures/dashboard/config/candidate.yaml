@@ -1,0 +1,21 @@
+# Deterministic thin-reader fixture (Phase 20 Plan 02) — a minimal candidate profile.
+# The read model must expose ONLY name/title/summary/contact/expertise_top from this file,
+# opened read-only (never mutated — truthfulness invariant).
+name: Test Candidate
+title: Senior Test Engineer
+summary: A concise fixture summary sentence used to prove the candidate thin reader.
+contact:
+  email: candidate@example.test
+  phone: "+10000000000"
+expertise:
+  - Python
+  - Testing
+  - YAML
+  - Pipelines
+  - Dashboards
+  - Extra Skill Six
+  - Extra Skill Seven
+  - Extra Skill Eight
+  - Extra Skill Nine
+key_achievements:
+  - Should never be exposed by the thin reader.

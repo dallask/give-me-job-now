@@ -1,0 +1,10 @@
+# Deterministic thin-reader fixture (Phase 20 Plan 02) — NOT the live config.
+sites:
+  - https://board-one.test/
+  - https://board-two.test/
+cities:
+  - Testville
+languages:
+  - en
+limits:
+  max_vacancies: 3

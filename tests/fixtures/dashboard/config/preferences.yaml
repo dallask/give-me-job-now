@@ -1,0 +1,8 @@
+# Deterministic thin-reader fixture (Phase 20 Plan 02).
+salary:
+  min: 3000
+  currency: USD
+work_conditions:
+  mode: [remote]
+search_keywords:
+  - python

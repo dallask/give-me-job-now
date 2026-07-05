@@ -310,6 +310,132 @@ def test_metrics_throughput_excludes_no_timestamp_runs() -> None:
     assert len(tp) == 6, f"the six distinct-day buckets must each appear: {tp!r}"
 
 
+# --- MODEL-05: thin readers over a deterministic fixture repo_root -----------
+
+DASH_FIXTURES = REPO_ROOT / "tests" / "fixtures" / "dashboard"
+
+
+def _thin_model() -> "gmj_dashboard_model.DashboardModel":
+    # pipeline_dir left at the (absent) default so runs/batches are empty — this model exercises the
+    # thin readers, which read from repo_root (the deterministic dashboard fixture corpus).
+    return gmj_dashboard_model.DashboardModel(pipeline_dir=str(DASH_FIXTURES / "nopipeline"), repo_root=DASH_FIXTURES)
+
+
+def test_vacancies_thin_reader() -> None:
+    snap = _snapshot(_thin_model())
+    vac = snap["vacancies"]
+    # Two *.offer-spec.json files (glob-ordered); the *.draft.json decoy is NOT included.
+    assert len(vac) == 2, f"vacancies must glob only *.offer-spec.json (2 specs, decoy excluded): {vac}"
+    by_hash = {v["offer_spec_hash"]: v for v in vac}
+    alpha = by_hash["aaaa1111"]
+    assert alpha["title"] == "Backend Engineer"
+    assert alpha["company"] == "TestCorp"
+    assert alpha["location"] == "Testville"
+    assert alpha["seniority"] == "senior"
+    assert alpha["salary_range"] == {"min": 4000, "max": 6000, "currency": "USD"}
+    assert alpha["n_must_haves"] == 3, "n_must_haves is len(content.must_haves)"
+    beta = by_hash["bbbb2222"]
+    assert beta["salary_range"] is None, "a null salary_range is displayed verbatim"
+    assert beta["n_must_haves"] == 2
+    # counters.offers mirrors the vacancies count.
+    assert snap["counters"]["offers"] == 2
+
+
+def test_candidate_thin_reader_top_fields_only() -> None:
+    cand = _snapshot(_thin_model())["candidate"]
+    assert cand["name"] == "Test Candidate"
+    assert cand["title"] == "Senior Test Engineer"
+    assert cand["summary"].startswith("A concise fixture summary")
+    assert cand["contact"] == {"email": "candidate@example.test", "phone": "+10000000000"}
+    # expertise_top is the first N of the expertise list (a truncation, not the whole list).
+    assert isinstance(cand["expertise_top"], list)
+    assert cand["expertise_top"][0] == "Python"
+    assert "Extra Skill Nine" not in cand["expertise_top"], "expertise_top must truncate the list"
+    # The thin reader must NEVER surface non-whitelisted fields (e.g. key_achievements).
+    assert "key_achievements" not in cand
+
+
+def test_config_thin_reader_and_dag_from_disk() -> None:
+    snap = _snapshot(_thin_model())
+    cfg = snap["config"]
+    assert cfg["boards"] == ["https://board-one.test/", "https://board-two.test/"], cfg["boards"]
+    assert cfg["cities"] == ["Testville"]
+    assert cfg["languages"] == ["en"]
+    assert cfg["execution_mode"] == "autonomous"
+    assert cfg["retry_cap"] == 5
+    assert cfg["fit_thresholds"]["coverage_threshold"] == 0.7
+    assert cfg["preferences"]["salary"]["min"] == 3000
+    # stages.dag is the ordered `steps` keys READ from config/pipeline.dag.yaml (never hardcoded).
+    assert snap["stages"]["dag"] == ["node-alpha", "node-beta", "node-gamma"], snap["stages"]["dag"]
+    # counters mirror the config knobs.
+    assert snap["counters"]["mode"] == "autonomous"
+    assert snap["counters"]["retry_cap"] == 5
+
+
+def test_missing_files_degrade_without_raising() -> None:
+    # A repo_root with NO config/ and NO sources/offers/ must degrade to {}/[] — never raise.
+    with tempfile.TemporaryDirectory() as tmp:
+        model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(Path(tmp) / "nopipeline"), repo_root=Path(tmp))
+        snap = _snapshot(model)
+        assert snap["vacancies"] == [], "a missing offers dir degrades to []"
+        assert snap["candidate"] == {}, "a missing candidate.yaml degrades to {}"
+        assert snap["config"]["boards"] == [], "a missing sources.yaml degrades boards to []"
+        assert snap["stages"]["dag"] == [], "a missing pipeline.dag.yaml degrades dag to []"
+        json.dumps(snap)  # still JSON-serializable
+
+
+# --- MODEL-01 finalize: nine-key shape + JSON-serializable ---------------------
+
+def test_snapshot_nine_key_shape_and_json_serializable() -> None:
+    model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(FIXTURES), repo_root=DASH_FIXTURES)
+    snap = _snapshot(model)
+    assert set(snap) >= {
+        "counters", "metrics", "stages", "runs", "batches",
+        "vacancies", "candidate", "config", "run_detail",
+    }, f"snapshot() must carry all nine panel keys: {sorted(snap)}"
+    assert set(snap["stages"]) >= {"dag", "active"}, "stages must carry dag + active"
+    json.dumps(snap)  # the whole nine-key dict is plain dicts/lists/str/int only
+
+
+# --- MODEL-01: run_detail on-demand accessor (valid + unsafe) ------------------
+
+def test_run_detail_valid_id() -> None:
+    model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(FIXTURES), repo_root=REPO_ROOT)
+    detail = model.run_detail("20260601T120000-del")
+    assert detail.get("kind") == "run_inspect", f"run_detail must return the run_inspect payload: {detail}"
+    assert detail["run_id"] == "20260601T120000-del"
+    # status is the IMPORTED projection, never re-derived.
+    state = json.loads((FIXTURES / "runs" / "20260601T120000-del" / "state.json").read_text())
+    assert detail["status"] == gmj_runs.project_status(state)
+    for key in ("offer_spec_path", "offer_spec_hash", "retry_cap", "retry_counts",
+                "current_step", "artifacts", "attempts", "resume_command"):
+        assert key in detail, f"run_detail must carry the {key!r} field"
+    # snapshot()'s run_detail stays {} — the accessor is on-demand (not per-poll).
+    assert _snapshot(model)["run_detail"] == {}
+
+
+def test_run_detail_unsafe_or_absent_returns_empty() -> None:
+    model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(FIXTURES), repo_root=REPO_ROOT)
+    buf = io.StringIO()
+    with contextlib.redirect_stderr(buf):
+        assert model.run_detail("../../etc/passwd") == {}, "an unsafe run_id must return {}"
+        assert model.run_detail("does-not-exist") == {}, "an absent run_id must return {}"
+    assert "Traceback" not in buf.getvalue(), "run_detail must never leak a traceback"
+
+
+# --- MODEL-01: read-only invariant (bytes + st_mtime_ns unchanged) ------------
+
+def test_read_only_invariant_state_unchanged() -> None:
+    sp = FIXTURES / "runs" / "20260601T120000-del" / "state.json"
+    before_bytes = sp.read_bytes()
+    before_mtime = sp.stat().st_mtime_ns
+    model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(FIXTURES), repo_root=REPO_ROOT)
+    _snapshot(model)
+    model.run_detail("20260601T120000-del")  # the drill-in path is read-only too
+    assert sp.read_bytes() == before_bytes, "snapshot()/run_detail must not alter state.json bytes"
+    assert sp.stat().st_mtime_ns == before_mtime, "snapshot()/run_detail must not touch state.json mtime"
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

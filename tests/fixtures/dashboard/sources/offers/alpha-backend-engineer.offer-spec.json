@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "kind": "offer_spec",
+  "content": {
+    "title": "Backend Engineer",
+    "company": "TestCorp",
+    "location": "Testville",
+    "seniority": "senior",
+    "employment_type": "full_time",
+    "language": "en",
+    "must_haves": [
+      "Python",
+      "PostgreSQL",
+      "REST APIs"
+    ],
+    "salary_range": {
+      "min": 4000,
+      "max": 6000,
+      "currency": "USD"
+    }
+  },
+  "captured_at": "2020-01-01T00:00:00Z",
+  "offer_spec_hash": "aaaa1111"
+}

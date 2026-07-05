@@ -1,0 +1,9 @@
+# Deterministic thin-reader fixture (Phase 20 Plan 02). Neutral step names prove the
+# DAG order is READ from this file in insertion order, never hardcoded in the model.
+steps:
+  node-alpha:
+    next: node-beta
+  node-beta:
+    next: node-gamma
+  node-gamma:
+    next: null

@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "kind": "offer_spec",
+  "content": {
+    "title": "Frontend Developer",
+    "company": "WidgetWorks",
+    "location": "Testville",
+    "seniority": "middle",
+    "employment_type": "full_time",
+    "language": "en",
+    "must_haves": [
+      "React",
+      "TypeScript"
+    ],
+    "salary_range": null
+  },
+  "captured_at": "2020-01-02T00:00:00Z",
+  "offer_spec_hash": "bbbb2222"
+}

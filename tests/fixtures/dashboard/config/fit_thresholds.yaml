@@ -1,0 +1,5 @@
+# Deterministic thin-reader fixture (Phase 20 Plan 02).
+coverage_threshold: 0.7
+weights:
+  coverage: 0.7
+  keyword_alignment: 0.3

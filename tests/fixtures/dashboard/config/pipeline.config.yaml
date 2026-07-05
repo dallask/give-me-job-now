@@ -1,0 +1,3 @@
+# Deterministic thin-reader fixture (Phase 20 Plan 02).
+execution_mode: autonomous
+retry_cap: 5
