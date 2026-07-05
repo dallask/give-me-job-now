@@ -931,6 +931,91 @@ def test_errors_panel_renders() -> None:
     assert "No failures" in empty_text, f"the empty errors panel must show 'No failures': {empty_text!r}"
 
 
+# --- VIEW-13: activity feed renders a newest-first, colour-coded event timeline -------------------
+
+# The fixtures span three days: 20260603T120000-fail (newest), 20260602T120000-run-ws, and
+# 20260601T120000-del (oldest). activity() is newest-first, so the -fail run's events precede the
+# -del run's terminal line. This test file lives under tests/, which the Phase-20 grep-guard does NOT
+# scan, so it may freely name the status/verdict words the feed renders from the projection VALUES.
+_ACT_NEWER_RUN = "20260603T120000-fail"
+_ACT_OLDER_RUN = "20260601T120000-del"
+
+
+async def _probe_activity_panel(pipeline_dir: Path) -> dict:
+    """Launch read-only, let the poll fill #activity, then probe text + applied event-colour spans."""
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        panel = app.query_one("#activity", Static)
+        rendered = str(panel.render())
+        # Static.update(out) stores the ORIGINAL Rich Text in the name-mangled __content attribute
+        # (textual 6.1 has no public `.renderable`); read it for the plain text + applied event spans —
+        # the same private-internals convention the DAG-strip / errors tests use.
+        renderable = getattr(panel, "_Static__content", None)
+        content_plain = renderable.plain if isinstance(renderable, Text) else rendered
+        spans = getattr(renderable, "spans", [])
+        nonempty_styles = [str(sp.style) for sp in spans if sp.style]
+        return {
+            "rendered": rendered,
+            "content_plain": content_plain,
+            "is_text": isinstance(renderable, Text),
+            "nonempty_style_count": len(nonempty_styles),
+        }
+
+
+async def _probe_empty_activity_panel() -> str:
+    """Launch over an empty pipeline → expect the `No activity yet` empty-state copy."""
+    with tempfile.TemporaryDirectory() as tmp:
+        empty_pipe = Path(tmp) / "pipeline"
+        empty_root = Path(tmp) / "root"
+        empty_pipe.mkdir()
+        empty_root.mkdir()
+        model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(empty_pipe), repo_root=empty_root)
+        app = gmj_dashboard.GmjDashboard(model, manage=False, refresh=0.1)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.pause()
+            return str(app.query_one("#activity", Static).render())
+
+
+def test_activity_panel_renders() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            probe = asyncio.run(_probe_activity_panel(pipe))
+            empty_text = asyncio.run(_probe_empty_activity_panel())
+        assert "Traceback" not in buf.getvalue(), f"activity panel leaked a traceback: {buf.getvalue()}"
+
+    content = probe["content_plain"]
+    assert content.strip(), f"the activity feed must render non-empty text: {content!r}"
+
+    # VIEW-13: at least one event line includes a known run_id ...
+    assert _ACT_NEWER_RUN in content, f"the activity feed must show a known run_id: {content!r}"
+    # ... and a verdict/status word (a delivered terminal status or a gate pass/fail verdict), rendered
+    # from the projection VALUE (never a .py literal).
+    assert re.search(r"\b(delivered|pass|fail)\b", content), (
+        f"the activity feed must show an event verdict/status word: {content!r}"
+    )
+
+    # VIEW-13: newest-first — the newer run's events precede the older run's in the feed.
+    assert _ACT_OLDER_RUN in content, f"the activity feed must also show an older run: {content!r}"
+    assert content.index(_ACT_NEWER_RUN) < content.index(_ACT_OLDER_RUN), (
+        f"the activity feed must be newest-first (newer run before older): {content!r}"
+    )
+
+    # VIEW-13: colour is applied inline via theme vars — a Rich Text with >=1 non-empty event span
+    # (event-started / event-pass / event-fail / status-*), colour always paired with the readable label.
+    assert probe["is_text"], "the #activity renderable must be a Rich Text (event-coloured spans, not plain text)"
+    assert probe["nonempty_style_count"] >= 1, (
+        f"the activity feed must carry at least one non-empty event-colour span: "
+        f"found {probe['nonempty_style_count']}"
+    )
+
+    # VIEW-13: an empty pipeline degrades to the `No activity yet` empty state, never a blank or a crash.
+    assert "No activity yet" in empty_text, f"the empty activity panel must show 'No activity yet': {empty_text!r}"
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
