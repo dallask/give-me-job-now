@@ -86,8 +86,12 @@ EXCLUDE_DIRS = {".git", ".planning", "gsd-core", "__pycache__", ".pipeline", "no
 
 # The rebrand tooling itself carries old names by design (the manifest map, this engine, and the
 # rebrand-acceptance tests) — never rewrite or scan them, or the engine would corrupt its own map.
+# The gmj-core/ install payload (built by gmj_build_payload.py) vendors a verbatim copy of the
+# ownership manifest so the shipped removal script can read framework_globs on the target; that
+# copy carries the same by-design rename ledger, so it is self-excluded alongside the source.
 SELF_EXCLUDE = {
     (REPO_ROOT / "config" / "ownership-manifest.yaml").resolve(),
+    (REPO_ROOT / "gmj-core" / "config" / "ownership-manifest.yaml").resolve(),
     (REPO_ROOT / "scripts" / "gmj_rebrand.py").resolve(),
     (REPO_ROOT / "tests" / "test_ownership_manifest.py").resolve(),
     (REPO_ROOT / "tests" / "test_rebrand_acceptance.py").resolve(),
