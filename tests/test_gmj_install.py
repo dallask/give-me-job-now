@@ -460,6 +460,31 @@ def test_check6_payload_census_completeness() -> None:
                 )
 
 
+# --- CHECK 10: non-object hooks is surfaced, not clobbered (WR-04) -----------
+
+def test_check10_non_object_hooks_value_is_surfaced() -> None:
+    """A target settings.json with a truthy non-object `hooks` (e.g. an array) must make the
+    merge THROW with context, mirroring the malformed-JSON path — never silently drop it (WR-04)."""
+    if _node() is None:
+        print("SKIP check10: node unavailable", file=sys.stderr)
+        return
+    target = Path(tempfile.mkdtemp(prefix="gmj-badhooks-"))
+    claude = target / ".claude"
+    claude.mkdir(parents=True, exist_ok=True)
+    # Legacy/malformed shape: hooks is an array, not the nested-object table.
+    (claude / "settings.json").write_text(
+        json.dumps({"hooks": [{"matcher": "Bash"}]}, indent=2) + "\n", encoding="utf-8"
+    )
+    res = _install_into(target)
+    assert res.returncode != 0, "install must FAIL on a non-object hooks value, not clobber it"
+    assert 'non-object "hooks"' in res.stderr, (
+        f"expected a non-object-hooks error, got: {res.stderr.strip()[:400]}"
+    )
+    # The original malformed value must be left intact on disk (nothing overwritten).
+    on_disk = json.loads((claude / "settings.json").read_text(encoding="utf-8"))
+    assert on_disk == {"hooks": [{"matcher": "Bash"}]}, "installer must not mutate the file on throw"
+
+
 # --- CHECK 9: user gmj-named hook is preserved (WR-03) -----------------------
 
 def test_check9_user_gmj_named_hook_survives_install() -> None:

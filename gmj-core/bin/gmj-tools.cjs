@@ -306,8 +306,21 @@ function mergeSettings(settingsPath) {
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) parsed = {};
 
-  const hasNestedHooks = parsed.hooks && typeof parsed.hooks === 'object' && !Array.isArray(parsed.hooks);
-  if (!hasNestedHooks) parsed.hooks = {};
+  // A truthy non-object `hooks` (array, string, number, ...) is a malformed/legacy shape.
+  // Silently replacing it with {} would discard the user's existing value — the same
+  // silent-overwrite failure the JSON-parse path throws on. Surface it instead (T-18-04).
+  const existingHooks = parsed.hooks;
+  if (
+    existingHooks !== undefined &&
+    existingHooks !== null &&
+    !(typeof existingHooks === 'object' && !Array.isArray(existingHooks))
+  ) {
+    throw new Error(
+      `settings.json has a non-object "hooks" value (${settingsPath}): ${JSON.stringify(existingHooks).slice(0, 120)} — ` +
+        `refusing to overwrite it; fix or remove it manually`
+    );
+  }
+  if (!parsed.hooks) parsed.hooks = {};
   const hookTable = parsed.hooks;
 
   for (const event of MANAGED_EVENTS) {
