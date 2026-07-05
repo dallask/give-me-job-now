@@ -639,6 +639,134 @@ def test_vacancies_and_batch_rollup_render() -> None:
     assert "No batches" in empty_text, f"the empty vacancies panel must show 'No batches': {empty_text!r}"
 
 
+# --- VIEW-11: built-in command palette opens + filter Input narrows the runs table ---------------
+
+# A distinguishing filter substring: "del" matches the -del run by run_id AND the three delivered runs
+# by status ("delivered"), a strict subset (3) of the 7 fixture runs — so it proves the view-only
+# predicate narrows over already-projected run_id/status VALUES. This test file lives under tests/,
+# which the Phase-20 grep-guard does NOT scan, so it may name the status word freely.
+_FILTER_SUBSTR = "del"
+_FILTER_CURSOR_RUN = "20260601T120000-del"  # a surviving run to park the cursor on (proves stability)
+
+
+async def _probe_command_palette() -> tuple[bool, str]:
+    """Launch read-only and open the built-in command palette with ctrl+p; report the top-screen type."""
+    with _temp_pipeline() as pipe:
+        app = _build_app(pipe, manage=False, refresh=0.1)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.pause()
+            await pilot.press("ctrl+p")
+            await pilot.pause()
+            from textual.command import CommandPalette
+
+            return isinstance(app.screen, CommandPalette), type(app.screen).__name__
+
+
+def test_command_palette_opens() -> None:
+    buf = io.StringIO()
+    with contextlib.redirect_stderr(buf):
+        is_palette, top_name = asyncio.run(_probe_command_palette())
+    assert "Traceback" not in buf.getvalue(), f"command palette open leaked a traceback: {buf.getvalue()}"
+    # VIEW-11: the built-in palette (ENABLE_COMMAND_PALETTE stays default True) opens on ctrl+p.
+    assert is_palette, f"ctrl+p must open the built-in CommandPalette; top screen was {top_name!r}"
+
+
+async def _probe_filter_narrows() -> dict:
+    """Launch read-only, seed the table, drive the #filter Input, and probe narrowing + stability."""
+    from textual.widgets import Input
+
+    with _temp_pipeline() as pipe:
+        app = _build_app(pipe, manage=False, refresh=0.1)
+        async with app.run_test(size=(120, 40)) as pilot:
+            # Two+ ticks let the threaded poll seed every run row via _apply_runs.
+            await pilot.pause()
+            await pilot.pause()
+            table = app.query_one("#runs", DataTable)
+            full_count = table.row_count
+            status_by_id = {r["run_id"]: r["status"] for r in (app._last_snap or {}).get("runs", [])}
+
+            # Park the cursor on a surviving run so a clear()+refill would visibly snap it back to row 0.
+            table.move_cursor(row=table.get_row_index(_FILTER_CURSOR_RUN))
+            cursor_before = table.cursor_row
+
+            # Drive the real filter Input (focus + type) — the persistent predicate narrows the table.
+            inp = app.query_one("#filter", Input)
+            inp.focus()
+            await pilot.pause()
+            for ch in _FILTER_SUBSTR:
+                await pilot.press(ch)
+            await pilot.pause()
+            filtered_count = table.row_count
+            filtered_ids = [str(k.value) for k in table.rows]
+            cursor_after = table.cursor_row
+
+            # A poll tick must NOT resurrect the filtered-out rows (Pitfall 4 — persistent predicate).
+            await pilot.pause()
+            await pilot.pause()
+            after_poll_count = table.row_count
+            after_poll_ids = [str(k.value) for k in table.rows]
+
+            # Clearing the filter restores the full projected row set.
+            inp.value = ""
+            await pilot.pause()
+            restored_count = table.row_count
+
+            return {
+                "full_count": full_count,
+                "filtered_count": filtered_count,
+                "filtered_ids": filtered_ids,
+                "status_by_id": status_by_id,
+                "cursor_before": cursor_before,
+                "cursor_after": cursor_after,
+                "after_poll_count": after_poll_count,
+                "after_poll_ids": after_poll_ids,
+                "restored_count": restored_count,
+            }
+
+
+def test_filter_narrows_runs_table() -> None:
+    buf = io.StringIO()
+    with contextlib.redirect_stderr(buf):
+        probe = asyncio.run(_probe_filter_narrows())
+    assert "Traceback" not in buf.getvalue(), f"filter probe leaked a traceback: {buf.getvalue()}"
+
+    # VIEW-11: the filter narrows the runs table to a STRICT subset of the projected rows.
+    assert probe["full_count"] >= 2, f"the fixture corpus must yield multiple run rows: {probe['full_count']}"
+    assert 0 < probe["filtered_count"] < probe["full_count"], (
+        f"the filter must narrow the runs table to a strict subset: "
+        f"{probe['filtered_count']} of {probe['full_count']}"
+    )
+
+    # VIEW-11: EVERY surviving row matches the substring over its projected run_id OR status (the exact
+    # view-only predicate — no new data source), proving the narrowing is by projection value.
+    for rid in probe["filtered_ids"]:
+        status = str(probe["status_by_id"].get(rid, ""))
+        assert _FILTER_SUBSTR in rid.lower() or _FILTER_SUBSTR in status.lower(), (
+            f"surviving row {rid!r} (status {status!r}) must match the filter {_FILTER_SUBSTR!r}"
+        )
+
+    # VIEW-11 / Pitfall 4: a poll tick does NOT resurrect filtered-out rows (persistent predicate).
+    assert probe["after_poll_count"] == probe["filtered_count"], (
+        f"a poll tick must not resurrect filtered-out rows: {probe['filtered_count']} -> {probe['after_poll_count']}"
+    )
+    assert set(probe["after_poll_ids"]) == set(probe["filtered_ids"]), (
+        "the surviving row set must be identical after a poll tick (no resurrection)"
+    )
+
+    # VIEW-11: the cursor stays on its surviving run (targeted remove/add diff, not clear()+refill) —
+    # it must NOT snap back to row 0 the way a rebuild would.
+    assert probe["cursor_after"] != 0, (
+        "the cursor must stay on its surviving run, not snap to row 0 (proving a targeted diff, not clear+refill)"
+    )
+
+    # VIEW-11: clearing the filter restores the full projected row set.
+    assert probe["restored_count"] == probe["full_count"], (
+        f"clearing the filter must restore every projected row: "
+        f"{probe['restored_count']} vs {probe['full_count']}"
+    )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
