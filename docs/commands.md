@@ -5,7 +5,7 @@
 > `/gmj-…` token drifts from disk. Command **behaviour** is defined by each command file's own body;
 > this page is the reader-facing catalog of *what each command is for* and *how the commands relate*.
 
-The collective exposes **12 slash commands**: **6 top-level** entry points
+The collective exposes **13 slash commands**: **7 top-level** entry points
 (`.claude/commands/gmj-*.md`) and **6 pipeline steps** grouped under `.claude/commands/gmj-pipeline/`
 (bare leaf filenames such as `scout.md` — the leaves carry no per-file prefix). Top-level commands
 are the surfaces a user invokes directly; the pipeline leaves are thin per-step wrappers that name
@@ -22,9 +22,9 @@ scripts they shell out to.
 
 ---
 
-## Top-level commands (6)
+## Top-level commands (7)
 
-These six are invoked directly by a user in a Claude Code session.
+These seven are invoked directly by a user in a Claude Code session.
 
 ### gmj-collective
 
@@ -77,6 +77,18 @@ These six are invoked directly by a user in a Claude Code session.
 - **Drives:** `gmj_runs.py` (the read-only inspector — mirror image of the `gmj_batch.py` writer).
 - **When to use:** Inspecting run/batch state and finding the exact resume command. See the
   [runs inspection flow](flows.md#runs-inspection).
+
+### gmj-dashboard
+
+- **Purpose:** Launch the live **btop-style pipeline cockpit** — a read-only Textual timeline of
+  pipeline run/batch state by default, with an explicit `--manage` flag that opts into the mutating
+  action layer (`r`/`R`/`b`/`m`/`c` keys). As a read-only inspector persona it holds no `Task` and
+  never spawns a spoke.
+- **File:** `.claude/commands/gmj-dashboard.md`
+- **Drives:** `python3 scripts/dashboard/gmj_dashboard.py` (read-only default; `--manage` opt-in).
+- **When to use:** Live, at-a-glance inspection of pipeline run/batch state; add `--manage` when you
+  want the opt-in action layer to drive runs/batches/config from the board. See the
+  [dashboard flow](flows.md#dashboard).
 
 ### gmj-template
 
@@ -158,6 +170,7 @@ duplicated. Run them individually to drive or resume a single step.
 | `/gmj-interview` | [Interview / preferences capture](flows.md#interview--preferences-capture) | interactive |
 | `/gmj-template` | [Template creation](flows.md#template-creation) | bounded compare-loop |
 | `/gmj-runs` | [Runs inspection](flows.md#runs-inspection) | read-only |
+| `/gmj-dashboard` | [Dashboard](flows.md#dashboard) | read-only (opt-in `--manage`) |
 | `/gmj-collective` | [Simple full-CV render](flows.md#simple-full-cv-render) | interactive |
 
 ## Related sections
