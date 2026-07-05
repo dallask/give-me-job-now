@@ -460,6 +460,39 @@ def test_check6_payload_census_completeness() -> None:
                 )
 
 
+# --- CHECK 8: payload integrity verification (WR-02) -------------------------
+
+def test_check8_tampered_payload_hash_fails_install() -> None:
+    """The installer ships sha256 in the manifest and MUST verify it: a payload file whose
+    bytes no longer match the manifest hash must fail the install, not stage silently (WR-02)."""
+    if _node() is None:
+        print("SKIP check8: node unavailable", file=sys.stderr)
+        return
+    # Copy the whole gmj-core/ into a throwaway src root so we can tamper the manifest
+    # without touching the committed payload (the installer resolves SRC_ROOT from __dirname).
+    src_core = REPO_ROOT / "gmj-core"
+    tmp_src = Path(tempfile.mkdtemp(prefix="gmj-tamper-"))
+    shutil.copytree(src_core, tmp_src / "gmj-core")
+    manifest_path = tmp_src / "gmj-core" / "gmj-file-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    # Flip one shipped hash to a wrong (but well-formed) value.
+    victim = sorted(manifest["files"])[0]
+    manifest["files"][victim] = "0" * 64
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+    target = Path(tempfile.mkdtemp(prefix="gmj-tamper-target-"))
+    node = _node()
+    assert node is not None
+    res = run(
+        [node, str(tmp_src / "gmj-core" / "bin" / "gmj-tools.cjs"), "install", str(target)],
+        cwd=REPO_ROOT,
+    )
+    assert res.returncode != 0, "install must FAIL when a payload file fails its sha256 check"
+    assert "integrity check failed" in res.stderr, (
+        f"expected an integrity-check-failed error, got: {res.stderr.strip()[:400]}"
+    )
+
+
 # --- CHECK 7: build reproducibility (WR-01) ----------------------------------
 
 BUILD_SCRIPT = REPO_ROOT / "scripts" / "gmj_build_payload.py"

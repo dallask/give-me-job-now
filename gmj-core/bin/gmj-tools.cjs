@@ -26,6 +26,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 
 // --- Layout anchors ----------------------------------------------------------
 // This file lives at <src-root>/gmj-core/bin/gmj-tools.cjs; the payload manifest keys are
@@ -127,6 +128,28 @@ function copyFileEnsuringDir(src, dest) {
   fs.copyFileSync(src, dest);
 }
 
+/** sha256 hex of a file (streamed, so large fonts don't buffer whole into memory). */
+function sha256File(src) {
+  return crypto.createHash('sha256').update(fs.readFileSync(src)).digest('hex');
+}
+
+/**
+ * Verify a payload file's on-disk bytes against the sha256 the manifest ships. The manifest
+ * advertises itself as "tamper-detectable", so a drifted/modified payload file must be caught
+ * at install time rather than staged silently (threat: payload tampering).
+ */
+function assertPayloadIntegrity(key, src, expectedHash) {
+  if (typeof expectedHash !== 'string' || !expectedHash) {
+    throw new Error(`payload manifest has no sha256 for ${key} — cannot verify integrity`);
+  }
+  const actual = sha256File(src);
+  if (actual !== expectedHash) {
+    throw new Error(
+      `payload integrity check failed for ${key}: manifest sha256 ${expectedHash} != actual ${actual}`
+    );
+  }
+}
+
 /**
  * Copy every manifest-enumerated payload file into the target. App-code overwrites; user-data
  * config is scaffolded only if the target path is absent. Returns per-bucket counts.
@@ -149,6 +172,8 @@ function copyPayload(manifest, realRoot) {
     if (!fs.existsSync(src)) {
       throw new Error(`payload file missing from gmj-core (manifest lists it): ${key}`);
     }
+    // Tamper/drift detection: the on-disk payload bytes must match the manifest sha256.
+    assertPayloadIntegrity(key, src, files[key]);
     const dest = assertContained(realRoot, path.join(realRoot, plan.destRel));
 
     if (plan.userData) {
