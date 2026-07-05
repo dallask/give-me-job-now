@@ -1016,6 +1016,74 @@ def test_activity_panel_renders() -> None:
     assert "No activity yet" in empty_text, f"the empty activity panel must show 'No activity yet': {empty_text!r}"
 
 
+# --- VIEW-14: extended charts — multi-row block throughput graph + Gate A/B bars + per-status trend -
+
+async def _probe_charts_panel(pipeline_dir: Path) -> dict:
+    """Launch read-only, let the poll fill #charts, then probe plain text + applied colour spans."""
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        panel = app.query_one("#charts", Static)
+        rendered = str(panel.render())
+        # Static.update(out) stores the ORIGINAL Rich Text in the name-mangled __content attribute
+        # (textual 6.1 has no public `.renderable`); read it for the plain text + applied colour spans.
+        renderable = getattr(panel, "_Static__content", None)
+        content_plain = renderable.plain if isinstance(renderable, Text) else rendered
+        spans = getattr(renderable, "spans", [])
+        nonempty_styles = [str(sp.style) for sp in spans if sp.style]
+        # The metrics projection the charts render from (throughput series + per-status trend keys).
+        metrics = app._model.snapshot()["metrics"]
+        return {
+            "content_plain": content_plain,
+            "is_text": isinstance(renderable, Text),
+            "nonempty_style_count": len(nonempty_styles),
+            "throughput": metrics.get("throughput") or [],
+            "throughput_by_status": metrics.get("throughput_by_status") or {},
+        }
+
+
+def test_charts_panel_renders() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            probe = asyncio.run(_probe_charts_panel(pipe))
+        assert "Traceback" not in buf.getvalue(), f"charts panel leaked a traceback: {buf.getvalue()}"
+
+    content = probe["content_plain"]
+    assert content.strip(), f"the charts panel must render non-empty text: {content!r}"
+
+    # VIEW-14: the BIG throughput graph is a hand-rolled MULTI-ROW block matrix, NOT a single-row
+    # Sparkline. _block_graph over the same series must yield >1 row (contain a newline), and that
+    # multi-row block must appear verbatim in the rendered panel.
+    block = gmj_dashboard._block_graph(probe["throughput"])
+    assert "\n" in block, (
+        f"the throughput block graph must be multi-row (contain a newline), not a single-row Sparkline: {block!r}"
+    )
+    assert block in content, (
+        f"the multi-row block throughput graph must appear in the charts panel: block={block!r} content={content!r}"
+    )
+
+    # VIEW-14: the Gate A/B pass-fail bar chart carries the numeric pass/fail counts + a gate label.
+    assert "Gate A" in content and "Gate B" in content, f"the charts panel must label the Gate A/B bars: {content!r}"
+    assert re.search(r"\d+\s*pass\s*/\s*\d+\s*fail", content), (
+        f"the Gate A/B bar chart must show the numeric pass/fail counts: {content!r}"
+    )
+
+    # VIEW-14: a per-status trend appears for at least one projected status VALUE (fed from
+    # throughput_by_status). Every trend status key must be present in the rendered panel.
+    assert probe["throughput_by_status"], "the fixture corpus must yield at least one per-status trend series"
+    for status in probe["throughput_by_status"]:
+        assert status in content, f"the charts panel must render a per-status trend for {status!r}: {content!r}"
+
+    # VIEW-14: colour is applied inline via theme vars — a Rich Text carrying >=1 non-empty colour span
+    # (the green pass / red fail bar runs and the per-status trend colours).
+    assert probe["is_text"], "the #charts renderable must be a Rich Text (coloured bar/trend spans, not plain text)"
+    assert probe["nonempty_style_count"] >= 1, (
+        f"the charts panel must carry at least one non-empty colour span: found {probe['nonempty_style_count']}"
+    )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
