@@ -73,8 +73,13 @@ Static {
     overflow-x: auto;
 }
 
+/* Found-vacancies + batch-rollup panel (VIEW-10): btop-dense, scrolls inside its own frame like
+ * the sibling framed panels. Rounded border applies via the shared Static rule; the dim-cyan color
+ * matches the read-only candidate/config feel. Bare color hexes live here in the .tcss, not the .py. */
 #vac-placeholder {
     height: 100%;
+    overflow-y: auto;
+    color: #39d0d8;
 }
 
 #throughput {

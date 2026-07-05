@@ -269,6 +269,7 @@ class GmjDashboard(App):
         self._apply_metrics(snap.get("metrics") or {})
         self._apply_candidate(snap.get("candidate") or {})
         self._apply_config(snap.get("config") or {})
+        self._apply_vacancies(snap.get("vacancies") or [], snap.get("batches") or [])
 
     # ── pipeline-DAG stage strip (VIEW-08) — guard-safe, projection-colored ───────────────────────
 
@@ -408,6 +409,48 @@ class GmjDashboard(App):
             thr = fit.get("coverage_threshold")
             lines.append(f"fit         coverage_threshold {thr if thr is not None else '—'}")
         self.query_one("#config", Static).update("\n".join(lines))
+
+    # ── found-vacancies + batch-rollup panel (VIEW-10) — verbatim projection rows ──────────────────
+
+    def _apply_vacancies(self, vac: list, batches: list) -> None:
+        """Render the found-vacancies + batch-rollup panel from the projection — targeted, no recompose.
+
+        Two verbatim bands, both DATA-DERIVED from ``snapshot()`` (so no offer/batch field is a code
+        literal and the view never touches disk):
+
+        - one line per frozen offer in ``snapshot()["vacancies"]`` as
+          ``{title} · {company} · {seniority} · {salary} · mh {n_must_haves}`` with a ``—`` fallback for
+          any ``None`` field; ``salary_range`` (a ``{min, max, currency}`` dict or ``None``) is formatted
+          as ``{min}-{max} {currency}`` and degrades to ``—`` when null. The view renders these fields
+          straight from the dict — it NEVER follows/resolves/stats ``offer_spec_path`` (the model omits
+          the path from the vacancies dict entirely, T-22-07);
+        - a ``batches:`` header then one ``  {batch_id}  {delivered}/{total}  {status}`` line per batch
+          from ``snapshot()["batches"]``. ``status`` is a payload VARIABLE (it may be the permitted
+          ``unknown`` degrade sentinel) — never a re-derived status literal, so the grep-guard stays green.
+
+        Empty vacancies degrade to the ``No frozen offers`` empty-state (plus a one-line hint); empty
+        batches degrade to ``No batches``. Written with a single targeted ``Static.update`` (SAFETY-02:
+        no file read / write / subprocess anywhere in this path).
+        """
+        if not vac:
+            lines = ["No frozen offers", "Freeze an offer with the scout/freeze step."]
+        else:
+            lines = []
+            for v in vac:
+                sal = v.get("salary_range")
+                if isinstance(sal, dict):
+                    sal_s = f"{sal.get('min', '?')}-{sal.get('max', '?')} {sal.get('currency', '')}".strip()
+                else:
+                    sal_s = "—"
+                lines.append(
+                    f"{v.get('title') or '—'} · {v.get('company') or '—'} · "
+                    f"{v.get('seniority') or '—'} · {sal_s} · mh {v.get('n_must_haves', 0)}"
+                )
+        lines.append("")
+        lines.append("batches:" if batches else "No batches")
+        for b in batches:
+            lines.append(f"  {b['batch_id']}  {b['delivered']}/{b['total']}  {b['status']}")
+        self.query_one("#vac-placeholder", Static).update("\n".join(lines))
 
     # ── runs table (VIEW-03) — guard-safe status cell + targeted RowKey diff ──────────────────────
 
