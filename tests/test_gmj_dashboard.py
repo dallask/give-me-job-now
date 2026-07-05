@@ -476,6 +476,98 @@ def test_dag_strip_renders_and_highlights() -> None:
     )
 
 
+# --- VIEW-09: run drill-in modal — enter opens it, resume printed-not-run, escape pops it --------
+
+# The known-good fixture run has a full, well-formed run_detail payload (status delivered, both gates
+# pass, an offer hash, a resume command string). These substrings were dumped from the live model;
+# this test file lives under tests/, which the grep-guard does NOT scan, so it may name them freely.
+_DRILL_RUN_ID = "20260601T120000-del"
+_DRILL_OFFER_HASH_SUBSTR = "aaaa0000"                       # prefix of offer_spec_hash
+_DRILL_ARTIFACT = "gate_gmj-fit-evaluator_cv_1.json"        # a run-dir artifact/attempt filename
+_DRILL_RESUME_SUBSTR = "run_id=20260601T120000-del"          # inside the resume command string only
+
+
+async def _probe_drill_in_modal(pipeline_dir: Path) -> dict:
+    """Launch read-only, cursor to a known run, enter→modal, read the frozen body, escape→pop."""
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        # Two+ ticks let the threaded poll seed the runs table (add_row keyed by run_id).
+        await pilot.pause()
+        await pilot.pause()
+        table = app.query_one("#runs", DataTable)
+        table.focus()
+        # Position the row cursor on the known-good run — with the table focused, enter is consumed by
+        # the DataTable and surfaces as RowSelected (an App-level enter binding would be swallowed).
+        idx = table.get_row_index(_DRILL_RUN_ID)
+        table.move_cursor(row=idx)
+        await pilot.pause()
+
+        stack_before = len(app.screen_stack)
+        await pilot.press("enter")
+        await pilot.pause()
+        stack_open = len(app.screen_stack)
+        top_name = type(app.screen).__name__
+        # The frozen modal body (namespaced #modal-body id, distinct from every base-screen id).
+        body = str(app.screen.query_one("#modal-body", Static).render())
+
+        # A poll tick WHILE the modal is on top must keep the base panels queryable with zero errors
+        # (Pitfall 3 — distinct ids mean the poll's query_one never raises TooManyMatches).
+        await pilot.pause()
+        await pilot.pause()
+        base_counters = str(app.query_one("#counters", Static).render())
+
+        # escape pops the modal back to the base screen (built-in Screen.action_dismiss).
+        await pilot.press("escape")
+        await pilot.pause()
+        stack_closed = len(app.screen_stack)
+        return {
+            "stack_before": stack_before,
+            "stack_open": stack_open,
+            "top_name": top_name,
+            "body": body,
+            "base_counters": base_counters,
+            "stack_closed": stack_closed,
+        }
+
+
+def test_drill_in_modal_open_and_resume_printed_not_run() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            probe = asyncio.run(_probe_drill_in_modal(pipe))
+        # Poll-underneath non-interference: no traceback while the modal was open across poll ticks.
+        assert "Traceback" not in buf.getvalue(), f"drill-in modal leaked a traceback: {buf.getvalue()}"
+
+    # VIEW-09: enter on the focused, cursor-positioned runs row PUSHES the modal (screen_stack 1→2).
+    assert probe["stack_before"] == 1, f"the base screen must be the only screen before enter: {probe['stack_before']}"
+    assert probe["stack_open"] == 2, (
+        f"enter on the focused runs row must push RunDetailModal (screen_stack 1→2): {probe['stack_open']}"
+    )
+    assert probe["top_name"] == "RunDetailModal", f"the top screen must be RunDetailModal: {probe['top_name']!r}"
+
+    # VIEW-09: the frozen run_detail payload is rendered — run_id, offer hash, an artifact/attempt
+    # filename, and (proving the resume string is DISPLAYED) the resume command's run_id= substring.
+    body = probe["body"]
+    assert _DRILL_RUN_ID in body, f"the modal body must show the run_id: {body!r}"
+    assert _DRILL_OFFER_HASH_SUBSTR in body, f"the modal body must show the offer hash: {body!r}"
+    assert _DRILL_ARTIFACT in body, f"the modal body must show an artifact/attempt filename: {body!r}"
+    assert _DRILL_RESUME_SUBSTR in body, (
+        f"the modal body must DISPLAY the resume command verbatim (present, not executed): {body!r}"
+    )
+    # The proof that the resume command is NEVER EXECUTED is the standing AST invariant
+    # test_view_has_no_write_or_subprocess_api (no subprocess/write API exists anywhere in the view
+    # module) combined with this assertion that the command string is merely PRESENT in the modal body.
+
+    # Pitfall 3: the poll kept updating the base panels underneath the modal with zero errors.
+    assert probe["base_counters"].strip(), (
+        f"the base counters must stay populated by the poll while the modal is open: {probe['base_counters']!r}"
+    )
+    assert "runs" in probe["base_counters"], f"the base panel must stay snapshot-queryable under the modal: {probe['base_counters']!r}"
+
+    # VIEW-09: escape pops the modal back to the base screen (screen_stack 2→1).
+    assert probe["stack_closed"] == 1, f"escape must pop the modal back to the base screen (2→1): {probe['stack_closed']}"
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
