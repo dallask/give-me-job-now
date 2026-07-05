@@ -83,6 +83,26 @@ Static {
     color: #3fb950;
 }
 
+/* Run drill-in modal (VIEW-09) — centered ~70%-width overlay over a dimmed base screen. The
+ * ModalScreen dims what's underneath; #modal-body is the framed detail card. Namespaced ids
+ * (#modal-body / .modal) never collide with base-screen ids, so the poll's query_one stays safe. */
+RunDetailModal {
+    align: center middle;
+    background: $background 60%;
+}
+
+#modal-body {
+    width: 70%;
+    max-width: 100;
+    height: auto;
+    max-height: 80%;
+    overflow-y: auto;
+    padding: 1 2;
+    background: #0d1117;
+    color: #c9d1d9;
+    border: round #3fb950;
+}
+
 /* Status color classes (VIEW-03) — status word ALWAYS paired with color, never color-only.
  * These bare status literals live here (not scanned by the .py grep-guard). */
 .delivered { color: #3fb950; }

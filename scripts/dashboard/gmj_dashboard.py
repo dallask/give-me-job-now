@@ -43,6 +43,7 @@ from rich.text import Text
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding  # noqa: F401  (documented seam; bindings are installed via App.bind)
+from textual.screen import ModalScreen
 from textual.theme import Theme
 from textual.widgets import DataTable, Digits, Footer, Header, Sparkline, Static  # noqa: F401
 
@@ -103,6 +104,48 @@ _MANAGE_KEYS: tuple[tuple[str, str], ...] = (
     ("m", "Mode"),
     ("c", "Cap"),
 )
+
+
+class RunDetailModal(ModalScreen):
+    """Read-only run drill-in overlay (VIEW-09) — a FROZEN ``run_detail`` payload, no disk/exec path.
+
+    Constructed from ``model.run_detail(run_id)`` (an on-demand accessor — no per-poll cost) and given
+    the payload ONCE at ``__init__`` so the ~1.5s base-screen poll underneath never refreshes/flickers
+    it (Pitfall 3). Every field the body renders is a payload VARIABLE (never a status/gate string
+    literal), so the Phase-20 grep-guard stays green. The ``resume_command`` is DISPLAYED under a
+    ``Resume:`` label and is NEVER executed — there is no ``subprocess``/write API here (SAFETY-02).
+
+    CRITICAL id hygiene: the body id ``#modal-body`` is namespaced distinct from every base-screen id.
+    ``App.query_one`` searches the whole App DOM across stacked screens, so a duplicate id would make
+    the next poll's ``query_one`` raise ``TooManyMatches``; the ``#modal-`` namespace prevents it.
+    ``escape`` dismisses via the built-in ``Screen.action_dismiss``.
+    """
+
+    BINDINGS = [("escape", "dismiss", "Close")]  # action_dismiss is built into Screen (textual 6.1)
+
+    def __init__(self, detail: dict) -> None:
+        self._detail = detail  # frozen at open — the poll never mutates this
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        d = self._detail
+        if not d:  # unsafe/missing run_id → run_detail returned {} → graceful empty state, never a crash
+            yield Static("Run detail unavailable", id="modal-body", classes="modal")
+            return
+        lines = [
+            f"[b]Run {d['run_id']}[/b]",
+            f"status {d['status']}   mode {d['mode']}   A:{d['gate_a']} B:{d['gate_b']}",
+            f"offer_spec_hash {d.get('offer_spec_hash') or '—'}",
+            # offer_spec_path is displayed VERBATIM from the payload — never resolved/stat'd (T-20-02).
+            f"offer_spec_path {d.get('offer_spec_path') or '—'}",
+            "",
+            "attempts: " + (", ".join(d.get("attempts") or []) or "—"),
+            "artifacts: " + (", ".join(d.get("artifacts") or []) or "—"),
+            "",
+            # The resume command is a DISPLAY string only — printed here, never executed (Pitfall 2).
+            f"Resume: {d.get('resume_command') or '—'}",
+        ]
+        yield Static("\n".join(lines), id="modal-body", classes="modal")
 
 
 class GmjDashboard(App):
@@ -177,6 +220,28 @@ class GmjDashboard(App):
 
     def action_noop(self) -> None:
         """Inert placeholder — no mutation this phase (Phase 23 wires --manage behaviour)."""
+
+    # ── run drill-in (VIEW-09) — RowSelected → on-demand run_detail → frozen modal ────────────────
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        """Open the run drill-in modal for the selected runs row.
+
+        With the ``#runs`` ``DataTable`` focused, ``enter`` is consumed by the table and surfaces here
+        as ``RowSelected`` (verified in 22-RESEARCH — an App-level ``enter`` binding would be swallowed,
+        which is why the existing ``enter``→``action_noop`` binding is kept for footer documentation
+        only). ``event.row_key.value`` is the ``run_id`` (the table is keyed by ``run_id`` in Phase 21);
+        the frozen ``run_detail(run_id)`` payload is captured once by the pushed modal.
+        """
+        self.open_run_detail(event.row_key.value)
+
+    def open_run_detail(self, run_id: str) -> None:
+        """Push a ``RunDetailModal`` built from the on-demand ``run_detail(run_id)`` payload.
+
+        A reusable entry point (the 22-04 command-palette provider calls it too). The model accessor is
+        read-only and returns ``{}`` for an unsafe/missing id, which the modal renders as a graceful
+        "Run detail unavailable" empty state — never a crash.
+        """
+        self.push_screen(RunDetailModal(self._model.run_detail(run_id)))
 
     # ── non-blocking poll spine (VIEW-04) ──────────────────────────────────────────────────────
 
