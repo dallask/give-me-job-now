@@ -310,6 +310,63 @@ def test_metrics_throughput_excludes_no_timestamp_runs() -> None:
     assert len(tp) == 6, f"the six distinct-day buckets must each appear: {tp!r}"
 
 
+# --- VIEW-12: failures() builder surfaces Gate A/Gate B failure detail -------
+
+def test_failures_builder_gate_a_and_b() -> None:
+    # Projection-equality style over the enriched fail fixtures: the fail run surfaces a Gate A
+    # reason with a populated offending_claims list; run-ws surfaces a Gate B reason with the
+    # missing_ids/missing_must_haves detail; a delivered run yields no entry.
+    model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(FIXTURES), repo_root=REPO_ROOT)
+    snap = _snapshot(model)  # never-a-traceback discipline
+    errors = snap["errors"]
+    assert isinstance(errors, list), f"snapshot()['errors'] must be a list: {type(errors)}"
+    # snapshot()['errors'] mirrors the direct builder call.
+    assert errors == model.failures(), "snapshot()['errors'] must equal failures()"
+    by_run = {e["run_id"]: e for e in errors}
+
+    # Gate A: the enriched fail run carries a non-empty offending_claims list with the right rules.
+    fail = by_run.get("20260603T120000-fail")
+    assert fail is not None, "the Gate A fail run must appear in failures()"
+    assert fail["gate_a"] == "fail", f"row gate_a must be the projected fail VALUE: {fail}"
+    a_reasons = [r for r in fail["reasons"] if r["gate"] == "A"]
+    assert a_reasons, f"the fail run must carry a Gate A reason: {fail['reasons']}"
+    claims = a_reasons[0]["offending_claims"]
+    assert isinstance(claims, list) and claims, f"offending_claims must be non-empty: {claims}"
+    assert {c["rule_violated"] for c in claims} == {"numeric_invention", "scope_inflation"}, claims
+
+    # Gate B: run-ws carries the missing_ids + missing_must_haves detail.
+    ws = by_run.get("20260602T120000-run-ws")
+    assert ws is not None, "the Gate B fail run (run-ws) must appear in failures()"
+    b_reasons = [r for r in ws["reasons"] if r["gate"] == "B"]
+    assert b_reasons, f"run-ws must carry a Gate B reason: {ws['reasons']}"
+    assert b_reasons[0]["missing_ids"] == ["mh-2", "mh-3"], b_reasons[0]["missing_ids"]
+    assert {m["id"] for m in b_reasons[0]["missing_must_haves"]} == {"mh-2", "mh-3"}, b_reasons[0]
+
+    # A delivered/pass run contributes NO failures entry.
+    assert "20260601T120000-del" not in by_run, "a delivered (both-pass) run must not appear in failures()"
+
+
+def test_throughput_by_status() -> None:
+    # metrics["throughput_by_status"] is a dict keyed by projected status VALUE, each a day-count
+    # list of ints. Keys are a subset of by_status; the grand total equals the global throughput sum
+    # (both exclude the single no-timestamp run).
+    model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(FIXTURES), repo_root=REPO_ROOT)
+    metrics = _snapshot(model)["metrics"]
+    tbs = metrics["throughput_by_status"]
+    assert isinstance(tbs, dict), f"throughput_by_status must be a dict: {type(tbs)}"
+    by_status = metrics["by_status"]
+    assert set(tbs) <= set(by_status), f"keys must be data-derived from by_status: {set(tbs)} vs {set(by_status)}"
+    for status, series in tbs.items():
+        assert isinstance(series, list) and all(isinstance(x, int) for x in series), (
+            f"throughput_by_status[{status!r}] must be a list of ints: {series!r}"
+        )
+    # Grand total consistent with the global throughput (both drop e2e-notime — the one no-ts run).
+    total = sum(sum(series) for series in tbs.values())
+    assert total == sum(metrics["throughput"]) == 6, f"per-status day totals must reconcile: {tbs!r}"
+    # delivered has one no-timestamp member (e2e) → its timestamped sum is by_status - 1.
+    assert sum(tbs.get("delivered", [])) == by_status["delivered"] - 1, tbs.get("delivered")
+
+
 # --- MODEL-05: thin readers over a deterministic fixture repo_root -----------
 
 DASH_FIXTURES = REPO_ROOT / "tests" / "fixtures" / "dashboard"
