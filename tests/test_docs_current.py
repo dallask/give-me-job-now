@@ -326,11 +326,13 @@ def test_readme_indexes_every_section() -> None:
     assert readme.is_file(), "README.md missing (authored in plan 19-09)"
     text = readme.read_text(encoding="utf-8")
     missing: list[str] = []
-    for name in CANONICAL_SECTIONS:
-        if f"docs/{name}" not in text:
-            missing.append(name)
-    if "docs/ARCHITECTURE.md" not in text:
-        missing.append("ARCHITECTURE.md")
+    for name in (*CANONICAL_SECTIONS, "ARCHITECTURE.md"):
+        # Require a real Markdown link opener `](docs/<name>` — not a bare prose mention —
+        # and assert the target file actually exists on disk (IN-02).
+        if f"](docs/{name}" not in text:
+            missing.append(f"{name} (not linked)")
+        elif not (REPO_ROOT / "docs" / name).is_file():
+            missing.append(f"{name} (file missing)")
     assert not missing, "README index omits section(s): " + ", ".join(missing)
 
 
