@@ -94,6 +94,22 @@ def _load_state_tolerant(state_path: Path):
     return _TRANSIENT  # retries spent — caller serves last-good, else the degrade row
 
 
+def _sum_retries(retry_counts) -> int:
+    """Sum every innermost int retry counter, excluding bool (bool is an int subclass).
+
+    Reuses the audited nested-guard walk from ``project_status`` (gmj_runs.py:117-124) verbatim —
+    iterate ``retry_counts.values()`` where the per-type value is a dict, then its ``.values()``
+    where the counter is an int-and-not-bool. Never raises on a wrong shape (``or {}`` fallback).
+    """
+    return sum(
+        c
+        for per_type in (retry_counts or {}).values()
+        if isinstance(per_type, dict)
+        for c in per_type.values()
+        if isinstance(c, int) and not isinstance(c, bool)
+    )
+
+
 def _degrade_row(run_id: str) -> dict:
     """Reproduce the gmj_runs.py degrade-row SHAPE (gmj_runs.py:170-178).
 
@@ -138,9 +154,16 @@ class DashboardModel:
         self.repo_root = Path(repo_root)
         self._last_good: dict[str, dict] = {}
 
-    def _runs(self) -> list[dict]:
-        """Walk ``<pipeline_dir>/runs/*`` (mirrors gmj_runs.py _cmd_runs_list), torn-read tolerant."""
+    def _runs(self) -> tuple[list[dict], list[dict]]:
+        """Walk ``<pipeline_dir>/runs/*`` (mirrors gmj_runs.py _cmd_runs_list), torn-read tolerant.
+
+        Returns ``(rows, metric_inputs)``. ``rows`` are the panel rows (VERBATIM ``_run_row`` output
+        plus ``current_step``). ``metric_inputs`` carries the raw ``retry_counts``/``retry_cap`` from
+        each WELL-FORMED run (a torn/degrade row contributes none — its retry data is unreadable) so
+        the metrics builder needs no second disk pass and the panel rows stay contract-shaped.
+        """
         rows: list[dict] = []
+        metric_inputs: list[dict] = []
         runs_dir = self.pipeline_dir / "runs"
         if runs_dir.is_dir():
             for run_dir in sorted(runs_dir.iterdir()):
@@ -160,6 +183,9 @@ class DashboardModel:
                     row["current_step"] = result.get("current_step")  # _run_row omits it (stages panel)
                     self._last_good[run_id] = row
                     rows.append(row)
+                    metric_inputs.append(
+                        {"retry_counts": result.get("retry_counts"), "retry_cap": result.get("retry_cap")}
+                    )
                 elif result is _MISSING:
                     continue
                 elif result is _TRANSIENT:
@@ -168,7 +194,7 @@ class DashboardModel:
                 else:  # _MALFORMED — non-dict state degrades immediately
                     rows.append(_degrade_row(run_id))
         rows.sort(key=lambda r: _order_key(r["run_id"]), reverse=True)  # newest-first
-        return rows
+        return rows, metric_inputs
 
     def _batches(self) -> list[dict]:
         """Walk ``<pipeline_dir>/batches/*/manifest.json`` and roll up via imported _batch_rollup."""
@@ -194,16 +220,85 @@ class DashboardModel:
         rows.sort(key=lambda r: r["batch_id"], reverse=True)
         return rows
 
+    # Plan 20-02 Task 2 thin readers — stubbed here so the metrics-only Task 1 GREEN is
+    # self-contained; the real disk readers land in Task 2 (MODEL-05).
+    def _vacancies(self) -> list[dict]:
+        return []
+
+    def _candidate(self) -> dict:
+        return {}
+
+    def _config(self) -> dict:
+        return {}
+
+    def _dag(self) -> list[str]:
+        return []
+
+    def _metrics(self, runs: list[dict], metric_inputs: list[dict]) -> dict:
+        """Aggregate domain metrics (MODEL-04) from the ALREADY-projected rows + raw retry inputs.
+
+        Every tally is a data-derived ``Counter`` over row/field VALUES — no projection-status or
+        gate-node-name literal is written here (the AST grep-guard stays green). ``retries_used`` /
+        ``cap_space`` are SUM-vs-SUM figures (never a per-run ``>= retry_cap`` compare, which is
+        ``project_status``'s job). ``throughput`` reuses the imported ``_order_key`` timestamp — no
+        new timestamp source — and drops no-timestamp runs.
+        """
+        # by_status: Counter over the projected row statuses (keys are DATA-DERIVED, incl. a
+        # degrade "unknown" bucket that comes from the row, never a hardcoded status literal).
+        by_status = dict(Counter(r["status"] for r in runs))
+
+        # Gate A / Gate B pass-vs-fail: tally the rows' gate fields, treating the "—" absent-fallback
+        # as NEITHER pass nor fail (an absent gate is never counted as a fail). Keys ("pass"/"fail")
+        # are data-derived from the recorded verdicts, so no gate-node literal appears in this file.
+        gate_a = dict(Counter(r["gate_a"] for r in runs if r["gate_a"] != "—"))
+        gate_b = dict(Counter(r["gate_b"] for r in runs if r["gate_b"] != "—"))
+
+        # retries_used: sum of every innermost int retry counter across the well-formed runs.
+        retries_used = sum(_sum_retries(mi.get("retry_counts")) for mi in metric_inputs)
+        # cap_space: SUM of the per-run frozen retry_cap (int, excluding bool) minus retries_used —
+        # a headroom figure, NOT a per-run threshold compare.
+        cap_total = sum(
+            mi["retry_cap"]
+            for mi in metric_inputs
+            if isinstance(mi.get("retry_cap"), int) and not isinstance(mi.get("retry_cap"), bool)
+        )
+        cap_space = cap_total - retries_used
+
+        # throughput: bucket each timestamped run_id by day (YYYYMMDD prefix of the _order_key
+        # timestamp); no-timestamp runs yield "" and are excluded. Emit a list of ints, day-ordered.
+        day_counts: Counter = Counter()
+        for r in runs:
+            ts = _order_key(r["run_id"])[0]
+            if ts:
+                day_counts[ts[:8]] += 1
+        throughput = [day_counts[day] for day in sorted(day_counts)]
+
+        return {
+            "by_status": by_status,
+            "gate_a": gate_a,
+            "gate_b": gate_b,
+            "retries_used": retries_used,
+            "cap_space": cap_space,
+            "throughput": throughput,
+        }
+
     def snapshot(self) -> dict:
         """Gather every panel's data in one read-only pass; return ONE JSON-serializable plain dict.
 
-        Plan 20-01 populates ``runs`` / ``batches`` / ``counters`` / ``stages.active`` from the
-        imported projection. ``metrics`` / ``vacancies`` / ``candidate`` / ``config`` /
-        ``stages.dag`` / ``run_detail`` are Plan 20-02 work — present here as empty/placeholder keys
-        so the snapshot shape is stable across the two plans.
+        Returns the full nine-key panel dict: ``counters`` / ``metrics`` / ``stages`` (``dag`` +
+        ``active``) / ``runs`` / ``batches`` / ``vacancies`` / ``candidate`` / ``config`` /
+        ``run_detail``. Every run/batch status is the IMPORTED projection, passed through untouched;
+        every reader is read-only and degrades to ``{}``/``[]`` on a missing file (never raises).
+        ``run_detail`` stays ``{}`` here — it is an on-demand accessor (``run_detail(run_id)``) so the
+        per-poll cost stays proportional to the displayed runs (Pitfall 5).
         """
-        runs = self._runs()
+        runs, metric_inputs = self._runs()
         batches = self._batches()
+        metrics = self._metrics(runs, metric_inputs)
+
+        vacancies = self._vacancies()
+        candidate = self._candidate()
+        config = self._config()
 
         # Status buckets via Counter over the PROJECTED statuses on the rows — no hardcoded
         # status-name key ever appears in this file (single-source seam preserved).
@@ -211,13 +306,13 @@ class DashboardModel:
         counters = {
             "runs": len(runs),
             "by_status": by_status,
-            "offers": 0,        # placeholder — Plan 20-02 counts frozen offer-specs
-            "mode": "—",        # placeholder — Plan 20-02 reads config/pipeline.config.yaml
-            "retry_cap": None,  # placeholder — Plan 20-02 reads config/pipeline.config.yaml
+            "offers": len(vacancies),                 # count of frozen offer-specs
+            "mode": config.get("execution_mode") or "—",  # config/pipeline.config.yaml
+            "retry_cap": config.get("retry_cap"),     # config/pipeline.config.yaml
         }
 
         stages = {
-            "dag": [],  # Plan 20-02: config/pipeline.dag.yaml step order
+            "dag": self._dag(),  # config/pipeline.dag.yaml step order (read from disk, never hardcoded)
             "active": [
                 {
                     "run_id": r["run_id"],
@@ -231,14 +326,14 @@ class DashboardModel:
 
         return {
             "counters": counters,
-            "metrics": {},      # Plan 20-02 (MODEL-04)
+            "metrics": metrics,
             "stages": stages,
             "runs": runs,
             "batches": batches,
-            "vacancies": [],    # Plan 20-02 (MODEL-05)
-            "candidate": {},    # Plan 20-02 (MODEL-05)
-            "config": {},       # Plan 20-02 (MODEL-05)
-            "run_detail": {},   # Plan 20-02 drill-in accessor
+            "vacancies": vacancies,
+            "candidate": candidate,
+            "config": config,
+            "run_detail": {},   # on-demand: populate via run_detail(run_id), never per-poll
         }
 
 
