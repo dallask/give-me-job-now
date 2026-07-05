@@ -116,7 +116,7 @@ GMJ_SCRIPT = re.compile(r"(?<![\w])gmj_[a-z0-9_]+\.py")        # scripts
 # Leading (?<![\w]) so a `/gmj-…` that is a substring of a file PATH (e.g.
 # `.claude/agents/gmj-cv-generator.md`, `.claude/commands/gmj-pipeline/{…}`) is NOT mis-mined as a
 # command invocation — only standalone `/gmj-…` command tokens are collected.
-GMJ_CMD = re.compile(r"(?<![\w])/gmj-[a-z0-9/-]+")            # /command tokens
+GMJ_CMD = re.compile(r"(?<![\w])/gmj-[a-z0-9/-]+(?![\w])")    # /command tokens
 
 # README markdown-link target (a `.md` path, optional #anchor + optional "title" tolerated).
 LINK = re.compile(r"\]\(([^)#\s]+\.md)(?:#[^)\s]*)?(?:\s+\"[^\"]*\")?\)")
