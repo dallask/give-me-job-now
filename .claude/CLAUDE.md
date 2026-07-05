@@ -185,171 +185,100 @@ must actually target the offer.
 ## Architecture
 
 > **Authoritative source of truth: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).**
-> That document defines the redesigned hub + 5-spoke roster (`gmj-offer-scout`,
-> `gmj-artifact-composer`, `gmj-fit-evaluator`, `gmj-truth-verifier`, `gmj-cv-generator` + retained
-> `gmj-candidate-analyzer` / `gmj-candidate-configurator`), per-spoke boundaries, the offer→render
-> data flow, and the anti-drift principles. The inline architecture prose below describes
-> the **superseded legacy 13-agent pipeline** — retained for reference only while the
-> collective is consolidated in Phase 1. Do not treat the roster below as current.
+> That document defines the hub + 5-spoke roster, per-spoke isolation boundaries, the
+> offer→artifacts data flow, the two-layer runtime control loop, and the anti-drift principles.
+> The summary below reflects the current collective; when it disagrees with
+> `docs/ARCHITECTURE.md`, that document wins.
 
 ## System Overview
 
-```text
-
-```
+Hub-and-spoke. A single top-level hub (`gmj-orchestrator`) holds `Task` and delegates to five
+bounded spokes; spokes never spawn spokes (a nested hub loses `Task`). Two retained supporting
+agents feed the canonical profile. Every hop is a **typed file-artifact path**, never a transcript
+(artifact-only handoff). Gate A (truth) must pass before Gate B/C (fit); truthfulness is never
+bypassed in any mode.
 
 ## Component Responsibilities
 
 | Component | Responsibility | File |
 |-----------|----------------|------|
-| **gmj-orchestrator** | Hub: routing, task delegation, quality gates, cycle tracking | `.claude/agents/gmj-orchestrator.md` |
-| **vacancy-router** | Route user goal to appropriate spoke; emit ROUTING_DECISION | `.claude/agents/vacancy-router.md` |
-| **job-market-researcher** | Web search for job trends, keywords, salary bands scoped to `sources.yaml` | `.claude/agents/job-market-researcher.md` |
-| **vacancy-scraper** | Fetch job postings from URLs in `sources.yaml` sites; normalize to markdown | `.claude/agents/vacancy-scraper.md` |
-| **gmj-candidate-analyzer** | Parse resumes, spreadsheets, docs in `sources/candidate/`; extract structured data | `.claude/agents/gmj-candidate-analyzer.md` |
-| **gmj-candidate-configurator** | Merge candidate findings into `config/candidate.yaml` | `.claude/agents/gmj-candidate-configurator.md` |
-| **candidate-translator** | Translate prose fields to ua/ru; write `config/candidate.{lang}.yaml` overlays | `.claude/agents/candidate-translator.md` |
-| **cv-composer** | Two-pass skill CV extraction: Pass 1 gap report, Pass 2 write `config/cv/cv.{skill}.{lang}.yaml` | `.claude/agents/cv-composer.md` |
-| **gmj-cv-generator** | Render PDF from YAML using `scripts/cv/gmj_render_cv.py` (ReportLab or HTML template) | `.claude/agents/gmj-cv-generator.md` |
-| **cv-template-creator** | Create HTML template from user prototype/screenshot using Playwright MCP | `.claude/agents/cv-template-creator.md` |
-| **cv-reviewer** | Gap analysis: score CV vs vacancy and market brief; output `sources/analysis/cv-review-*.md` | `.claude/agents/cv-reviewer.md` |
-| **cv-enhancer** | Apply review edits to `config/cv/cv.{skill}.{lang}.yaml` or `config/candidate.yaml` | `.claude/agents/cv-enhancer.md` |
-| **cv-deliverable-gate** | Verify YAML parses, PDFs exist/readable, acceptance criteria met | `.claude/agents/cv-deliverable-gate.md` |
+| **gmj-orchestrator** | Hub: routing, task delegation, quality gates, cycle tracking; only `Task` holder | `.claude/agents/gmj-orchestrator.md` |
+| **gmj-offer-scout** | Discover, normalize, and rank offers within `config/sources.yaml` scope; emit a frozen, hashed `offer_spec` | `.claude/agents/gmj-offer-scout.md` |
+| **gmj-artifact-composer** | From `config/candidate.yaml` + `offer_spec`, compose CV / cover letter / interview-prep; owns the gap-report pass and enhance loop | `.claude/agents/gmj-artifact-composer.md` |
+| **gmj-truth-verifier** | Gate A (truthfulness, hard block): re-ground every claim against `config/candidate.yaml`; reframe allowed, invention blocked | `.claude/agents/gmj-truth-verifier.md` |
+| **gmj-fit-evaluator** | Gate B (target-fit coverage, hard block) + Gate C (polish, advisory) | `.claude/agents/gmj-fit-evaluator.md` |
+| **gmj-cv-generator** | Render approved artifacts to PDF via `scripts/cv/gmj_render_cv.py` (render-only) | `.claude/agents/gmj-cv-generator.md` |
+| **gmj-candidate-analyzer** | Parse candidate source materials; extract structured data | `.claude/agents/gmj-candidate-analyzer.md` |
+| **gmj-candidate-configurator** | Canonical write/merge into `config/candidate.yaml` | `.claude/agents/gmj-candidate-configurator.md` |
+| **gmj-template-creator** | Create branded-CV HTML template from a screenshot/prototype (Playwright MCP) | `.claude/agents/gmj-template-creator.md` |
 
-## Pattern Overview
+> **Historical (superseded).** The earlier 13-agent pipeline — a standalone LLM router, a split
+> scraper/researcher, a split composer/reviewer/enhancer, a standalone deliverable gate, a prose
+> translator, and a template creator wired into the old skill-CV loop — was consolidated into the
+> roster above. `docs/ARCHITECTURE.md` §7 holds the legacy→new mapping.
 
-- **Single delegation hub** (`gmj-orchestrator`) runs at top level; spokes never spawn other spokes via `Task`
-- **Mandatory routing** all goals flow through `vacancy-router` to extract `ROUTING_DECISION` JSON with acceptance criteria
-- **Criteria tracking** across the pipeline: each spoke receives `criteria_items[]` array (id + text), must return pass/fail mapping
-- **Quality gates** after critical operations (configurator, generator, enhancer); gate verifies criteria met before next phase
-- **Iteration cap** (`MAX_ENHANCE_CYCLES = 2`): enhance/generate loops limited; after 2 failures, halt and ask user
-- **Pipeline run ID** every task prompt includes `pipeline_run_id` for log filtering and audit trail
+## Data Flow (offer → artifacts)
 
-## Layers
+1. **Intake.** `gmj-offer-scout` reads `config/sources.yaml` (mandatory), stays within its allow-list, normalizes + ranks offers, and freezes the chosen one as a hash-stamped `offer_spec`.
+2. **Compose.** `gmj-artifact-composer` reads `config/candidate.yaml` (read-only) + `offer_spec` and emits `artifact_draft` files (CV, cover letter, interview-prep); owns the gap-report pass and enhance loop.
+3. **Gate A — truth.** `gmj-truth-verifier` re-grounds every claim against `config/candidate.yaml` and emits a `gate_result`; a fabrication is a hard block that loops back to the composer with offending lines named. Gate A passes first.
+4. **Gate B/C — fit + polish.** `gmj-fit-evaluator` scores must-have coverage (Gate B hard block) and polish (Gate C advisory) against `offer_spec`; a Gate-B failure loops back to the composer (bounded retry).
+5. **Render.** A draft that passes both gates reaches `gmj-cv-generator`, which renders it to `output/cv/*.pdf` via `gmj_render_cv.py`.
 
-- Purpose: Route user requests, delegate tasks, track quality gates, cap iterations
-- Location: `.claude/agents/gmj-orchestrator.md` (hub), `.claude/agents/vacancy-router.md` (routing logic)
-- Contains: Task invocations, routing decision parsing, cycle tracking, quality gate handling
-- Depends on: All spokes return `agent_result_v1` envelopes; orchestrator parses them
-- Used by: Entry point `/gmj-collective` command
-- Purpose: Gather market trends, job postings, candidate materials
-- Location: `.claude/agents/job-market-researcher.md`, `.claude/agents/vacancy-scraper.md`, `.claude/agents/gmj-candidate-analyzer.md`
-- Contains: Web searches, document parsing, structured extraction
-- Depends on: `config/sources.yaml` for site/city/language scope; `sources/` for input materials
-- Used by: Orchestrator delegates based on user goal
-- Purpose: Normalize candidate data to master YAML; translate prose to target languages
-- Location: `.claude/agents/gmj-candidate-configurator.md`, `.claude/agents/candidate-translator.md`
-- Contains: YAML schema validation, structured merging, language overlays
-- Depends on: `config/candidate.yaml` schema; gmj-candidate-analyzer output
-- Used by: CV generation pipeline
-- Purpose: Extract skill-relevant content, render PDFs with optional HTML templating
-- Location: `.claude/agents/cv-composer.md`, `.claude/agents/gmj-cv-generator.md`, `.claude/agents/cv-template-creator.md`
-- Contains: Confidence scoring, skill filtering, gap detection, Python rendering via `scripts/cv/gmj_render_cv.py`
-- Depends on: `config/candidate.yaml`, market briefs, optional HTML templates in `templates/cv/`
-- Used by: Skill-specific CV pipeline; simple full-CV pipeline
-- Purpose: Score CV vs vacancy/market; apply improvements in iteration loop
-- Location: `.claude/agents/cv-reviewer.md`, `.claude/agents/cv-enhancer.md`
-- Contains: Scoring rubrics, gap analysis, YAML/PDF edits
-- Depends on: CV YAMLs (`config/cv/` or `config/candidate.yaml`), job posting markdown, market briefs
-- Used by: Enhancement loop; may cycle up to 2 times before quality gate
-- Purpose: Verify YAML validity, PDF existence/readability, acceptance criteria met
-- Location: `.claude/agents/cv-deliverable-gate.md`
-- Contains: File validation, YAML parsing, criteria mapping
-- Depends on: Acceptance criteria from router; output files from prior agents
-- Used by: After generator, enhancer, template-creator to gate next phase
+Every arrow is a named file-artifact path, not a transcript.
 
-## Data Flow
+## Runtime Control Loop & Features
 
-### Primary Request Path (Full CV, English)
+A **two-layer control plane**: a deterministic layer of small single-purpose Python scripts
+(exit 0/1, no LLM, no network) makes every safety decision; the LLM layer (`gmj-orchestrator`, the
+only `Task` holder) dispatches spokes and calls those scripts via `Bash`. The model never decides
+whether a gate passed, whether the retry cap is hit, or whether an artifact is deliverable.
 
-### Skill-Specific CV Pipeline
+- **Dual-mode + retry cap.** `execution_mode` (frozen at `init_run`) gates only the post-PASS human pause; `autonomous` removes the *human* pause, never the *machine* gate. Loops are retry-capped; cap exhaustion is a hard stop, never ship-last-attempt.
+- **Parallel fan-out, sequential gates.** Independent work — ranking N offers and composing the 3 artifact types — is dispatched as parallel `Task` calls in one hub turn (orchestrated fan-out on Claude Code's single-threaded loop). Gated steps run sequentially per artifact.
+- **Run-scoped state.** Resumable state + gate-log audit artifacts live under `.pipeline/runs/<run_id>/` (git-ignored); `run_id` is sanitized before it becomes a directory name.
 
-### Localization (Multi-Language) Flow
+CLI entry points: `/gmj-collective` (interactive hub), `/gmj-pipeline-run` (whole flow),
+`/gmj-pipeline/{scout,freeze,compose,verify,evaluate,generate}` (per-step), `/gmj-batch`
+(multi-offer batch), `/gmj-interview` (gap-filling interviewer + preferences), `/gmj-template`
+(screenshot → branded template), `/gmj-runs` (read-only run inspector).
 
-### Data Sources
+## Contracts, Schemas & Structure
 
-| Flow | Input Path | Output Path | Handler |
-|------|-----------|-------------|---------|
-| Research | (WebSearch/WebFetch) | `sources/research/{topic}-market-brief.md` | job-market-researcher |
-| Vacancies | (WebFetch URLs from sources.yaml) | `sources/vacancies/{posting}.md` | vacancy-scraper |
-| Candidate docs | `sources/candidate/*` | (analyzed in memory) | gmj-candidate-analyzer |
-| Configuration | gmj-candidate-analyzer output | `config/candidate.yaml` | gmj-candidate-configurator |
-| Translation | `config/candidate.yaml` | `config/candidate.{lang}.yaml` | candidate-translator |
-| CV composition | `config/candidate.yaml` + market briefs | `config/cv/cv.{skill}.{lang}.yaml` | cv-composer |
-| CV generation | `config/candidate.yaml` or `config/cv/` | `output/cv/*.pdf` | gmj-cv-generator (via gmj_render_cv.py) |
-| CV review | `output/cv/*.pdf` + `sources/vacancies/*.md` + market brief | `sources/analysis/cv-review-*.md` | cv-reviewer |
-| CV enhancement | review output | `config/cv/` or `config/candidate.yaml` updated | cv-enhancer |
+Typed JSON envelopes are versioned under `schemas/*.schema.json`: `agent_result_v1`, `offer_spec`,
+`artifact_draft`, `gate_result`, `gate_feedback`, `preferences`, `shortlist`, `batch_manifest`.
+Every spoke emits `agent_result_v1`. The migrated candidate/CV YAML schema + edit rules live in the
+`gmj-candidate-yaml-schema` skill.
 
-- **Master candidate YAML** (`config/candidate.yaml`) is never modified by pipelines; only orchestrator or human hands edit it
-- **Skill CVs** (`config/cv/cv.{skill}.{lang}.yaml`) are generated by cv-composer and updated by cv-enhancer; isolated per skill+lang
-- **Language overlays** (`config/candidate.{lang}.yaml`) contain only prose; rendered overlaid at PDF time via `gmj_render_cv.py` merge logic
-- **Analysis artifacts** (`sources/analysis/`) are ephemeral reports; not fed back into config
-- **Acceptance criteria** tracked via `criteria_items[]` (id+text) and `criteria_hash` across task boundaries; gate verifies completeness
-
-## Key Abstractions
-
-- Purpose: Represent candidate profile with sections for professional experience, skills, education, certifications, projects, achievements
-- Examples: `config/candidate.yaml`, `config/candidate.ua.yaml`, `config/cv/cv.fpv.ua.yaml`
-- Pattern: Flat top-level keys (name, title, summary, contact, technical_expertise, skills, professional_experience, education, certifications, key_achievements, independent_projects, languages, photo); technical_expertise is list of blocks (resume_title + skills list); professional_experience is list of jobs with company, position, duration, location, description, achievements
-- Purpose: Encapsulate agent selection logic and acceptance criteria in JSON; allows orchestrator to parse objectively
-- Examples: `{"next_agent": "cv-composer", "criteria_items": [{"id": "crit-yaml-parses", "text": "cv YAML is valid"}, ...], "criteria_hash": "abc123..."}`
-- Pattern: Deterministic routing based on artifact manifest + user goal; criteria always include checksum for integrity
-- Purpose: Standardized output format for all spokes; enables orchestrator to parse status, artifacts, notes uniformly
-- Examples: `{"status": "success", "artifacts": [{"type": "pdf", "path": "/abs/path/file.pdf"}], "notes": "...", "cycle_number": 0}`
-- Pattern: Always JSON block at end of agent output; status one of (success, fail, handoff, gap_report_ready); artifacts list of {type, path} objects
-- Purpose: Minimize YAML duplication by merging prose fields only at render time
-- Examples: `config/candidate.ua.yaml` contains only translated prose; `gmj_render_cv.py` deep-merges over base
-- Pattern: Overlay same list structure as base; only translatable fields (name, title, summary, prose descriptions); skills/urls/dates inherited
-- Purpose: Score every content item (job, skill, cert) 0–100 against skill domain; include only ≥ threshold
-- Examples: cv-composer uses threshold 70 by default; can be overridden per run
-- Pattern: Internal scoring logic per item type; default to false-negative prevention (include borderline items)
-
-## Entry Points
-
-- Location: `.claude/commands/gmj-collective.md`
-- Triggers: User invokes slash command in Claude Code session
-- Responsibilities: Instructs hub orchestrator to load `.claude/agents/gmj-orchestrator.md` and await user goal in same turn; hub must use `Task` only to spawn spokes (never nest orchestrator inside Task)
-- Location: `.claude/settings.json` → SessionStart hooks → `.claude/hooks/gmj-session-bootstrap.sh`
-- Triggers: On session startup, resume, or clear
-- Responsibilities: Initialize session state, print bootstrap banner, prepare environment for orchestrator
-- Location: `.claude/settings.json` → PreToolUse hooks → `.claude/hooks/gmj-block-destructive-commands.sh`
-- Triggers: Before every Bash command
-- Responsibilities: Block destructive git commands, file deletions, etc.; raise errors on risky patterns
-- Location: `.claude/settings.json` → PostToolUse hooks → `.claude/hooks/gmj-collective-handoff-contract.sh`
-- Triggers: After every Task call
-- Responsibilities: Log Task payload (pipeline_run_id, spoke name, criteria) to handoff log for audit trail
-
-## Architectural Constraints
-
-- **Threading:** Single-threaded event loop (Claude Code runtime). Spokes run sequentially; orchestrator awaits each `Task` completion before delegating next
-- **Global state:** Candidate YAML is singleton master (`config/candidate.yaml`); never modified during runs. Skill CVs are isolated per (skill, lang) pair; safe for concurrent creation (though runs are sequential)
-- **Circular imports:** None observed; agent module structure is flat (agents don't import each other; orchestrator imports all agents as strings for Task delegation)
-- **File I/O:** All spokes use `Read`/`Write`/`Edit` tools; no direct file system access. Rendering via `Bash` call to `gmj_render_cv.py` script
-- **Task nesting:** Forbidden. Orchestrator runs at top level; `Task` contexts do not receive `Task` tool (nest-safe). Spokes never call `Task`
-- **Python environment:** `scripts/cv/gmj_render_cv.py` requires `pyyaml` and `reportlab` (or `weasyprint` for HTML templates); dependencies listed in `scripts/cv/requirements.txt`
-- **Criteria tracking:** Every routing decision generates `criteria_hash` (SHA-1 of sorted `acceptance_criteria`); gate verifies hash matches to catch modified/corrupted criteria
+Final structure: `config/` (canonical YAML, overlays, i18n, pipeline/fit config, `sources.yaml`),
+`config/cv/` (derived skill CV YAML), `schemas/` (envelope contracts), `scripts/`
+(`cv/`, `offers/`, `artifacts/`, `contracts/`, `pipeline/`, `preferences/`), `.claude/` (settings,
+agents, hooks, skills, commands), `rules/` (Read-on-demand invariants), and `gmj-core/` (packaged
+standalone payload + installer `gmj-core/bin/gmj-tools.cjs`).
 
 ## Anti-Patterns
 
-### Nested Orchestrator (HUB_CONTEXT_REQUIRED)
-
-### Skipping Router
-
-### Modifying Master YAML During Runs
-
-### Forking/Chaining Spokes in Subagents
-
-### Skipping Quality Gate
+- **Nested orchestrator** — never `Task`-spawn the hub; nested hubs lose `Task` and spokes cannot run.
+- **Spokes chaining spokes** — spokes never call `Task`; only the hub delegates.
+- **Mutating the master YAML during a run** — `config/candidate.yaml` is canonical truth, written only by `gmj-candidate-configurator` or a human.
+- **Skipping a gate** — Gate A (truth) and Gate B (target-fit) are non-bypassable in any mode.
+- **Transcript handoff** — spokes exchange typed file-artifact paths, never conversation.
 
 ## Error Handling
 
-- **File not found:** Spoke logs file path, returns `status: fail`; orchestrator checks manifest + re-runs search if needed
-- **Invalid YAML:** Spoke calls `python3 -c "yaml.safe_load(...)"` to validate; returns error message; orchestrator asks user to fix or re-run configurator
-- **PDF generation error:** `gmj-cv-generator` captures stderr from `gmj_render_cv.py`; returns `status: fail` with error details
-- **Criteria mismatch:** Gate computes `criteria_hash` and compares to router's hash; if mismatch, returns `status: fail` with mismatched ID list
-- **Max cycles reached:** After 2 enhancer+generator pairs, gate returns `status: fail` + `cycle_number >= 2`; orchestrator stops and asks user for guidance
+- **File not found / invalid YAML:** the spoke returns `status: fail`; the hub re-runs the prior step or asks the user.
+- **PDF generation error:** `gmj-cv-generator` captures stderr from `gmj_render_cv.py` and returns `status: fail`.
+- **Gate failure:** the deterministic gate script records the `gate_result` and loops to the composer until the retry cap; at the cap the hub emits a hard-stop report naming the failing artifact + reason.
+- **Delivery guard:** `gmj_check_delivery.py` refuses to deliver any artifact lacking a recorded Gate A ∧ Gate B pass.
 
 ## Cross-Cutting Concerns
+
+**Rules index (`rules/`).** Load-bearing invariants live in repo-root `rules/*.md`, one per file,
+each with a `scope:` frontmatter block. They are **Read on demand** (not auto-loaded) when a task
+matches a rule's scope — see [`rules/README.md`](../rules/README.md) for the convention and match
+table; `tests/test_rules_scope.py` keeps the index complete. Core invariants: `truthfulness.md`,
+`hub-and-spoke.md`, `sources-scope.md`, `gmj-naming.md`, `python-render-only.md`,
+`gate-non-bypassability.md`.
 
 <!-- GSD:architecture-end -->
 
@@ -364,7 +293,7 @@ must actually target the offer.
 | gmj-cv-pdf-python | Python commands to extract text and render CV PDFs for give-me-job. | `.claude/skills/gmj-cv-pdf-python/SKILL.md` |
 | gmj-cv-review-rubric | Scoring dimensions for CV vs vacancy and market alignment. | `.claude/skills/gmj-cv-review-rubric/SKILL.md` |
 | gmj-orchestrator-pipelines | Skill-CV pipeline steps and pre-flight checks for gmj-orchestrator. Loaded dynamically via Read tool when goal matches — NOT statically included. | `.claude/skills/gmj-orchestrator-pipelines/SKILL.md` |
-| gmj-sources-config-enforcement | Mandatory sources.yaml read-and-enforce protocol for web search agents (job-market-researcher, vacancy-scraper). | `.claude/skills/gmj-sources-config-enforcement/SKILL.md` |
+| gmj-sources-config-enforcement | Mandatory sources.yaml read-and-enforce protocol for the web-search spoke (gmj-offer-scout). | `.claude/skills/gmj-sources-config-enforcement/SKILL.md` |
 | gmj-sources-ingestion | Conventions for placing candidate and vacancy materials under sources/. | `.claude/skills/gmj-sources-ingestion/SKILL.md` |
 | gmj-vacancy-research-rubric | Rubric for web vacancy search and market-aligned research outputs. | `.claude/skills/gmj-vacancy-research-rubric/SKILL.md` |
 <!-- GSD:skills-end -->
