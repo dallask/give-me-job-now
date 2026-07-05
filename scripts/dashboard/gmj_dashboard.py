@@ -246,6 +246,8 @@ class GmjDashboard(App):
             table.add_column(label, key=key)
         # An empty Sparkline has nothing to draw; seed a single zero so it renders a stable frame.
         self.query_one("#throughput", Sparkline).data = [0]
+        # The commands reference (VIEW-15) is STATIC + mode-aware — seed it once here, not per-poll.
+        self._apply_commands()
 
     def _install_bindings(self) -> None:
         """Install read-only bindings always; the mutating keys ONLY under --manage (VIEW-01/07).
@@ -290,7 +292,14 @@ class GmjDashboard(App):
         which is why the existing ``enter``→``action_noop`` binding is kept for footer documentation
         only). ``event.row_key.value`` is the ``run_id`` (the table is keyed by ``run_id`` in Phase 21);
         the frozen ``run_detail(run_id)`` payload is captured once by the pushed modal.
+
+        VIEW-16: the selected run also drives the base-screen ``#debug`` internals panel. Record the
+        run_id and repaint ``#debug`` BEFORE pushing the drill-in modal, so the internals grid reflects
+        the selection immediately (and every subsequent poll keeps it live) while the Phase-22 modal
+        behaviour is preserved unchanged.
         """
+        self._debug_run_id = event.row_key.value
+        self._apply_debug()
         self.open_run_detail(event.row_key.value)
 
     def open_run_detail(self, run_id: str) -> None:
@@ -322,6 +331,11 @@ class GmjDashboard(App):
 
     def _apply(self, snap: dict) -> None:
         """Apply a fresh snapshot with TARGETED updates only — never recompose()."""
+        # Teardown guard (never-a-traceback): a threaded poll can marshal _apply back via
+        # call_from_thread just as the app is stopping (screen widgets already removed). Applying a
+        # snapshot to a torn-down DOM would raise NoMatches on the first query_one — bail quietly.
+        if not self.is_running:
+            return
         self._last_snap = snap  # cache so an Input.Changed can re-render the filter immediately (VIEW-11)
         self._apply_counters(snap.get("counters") or {})
         self._apply_runs(snap.get("runs") or [])
@@ -330,6 +344,7 @@ class GmjDashboard(App):
         self._apply_candidate(snap.get("candidate") or {})
         self._apply_config(snap.get("config") or {})
         self._apply_vacancies(snap.get("vacancies") or [], snap.get("batches") or [])
+        self._apply_debug()  # VIEW-16: refresh the selected run's internals live (retry counts / step)
 
     # ── pipeline-DAG stage strip (VIEW-08) — guard-safe, projection-colored ───────────────────────
 
@@ -469,6 +484,69 @@ class GmjDashboard(App):
             thr = fit.get("coverage_threshold")
             lines.append(f"fit         coverage_threshold {thr if thr is not None else '—'}")
         self.query_one("#config", Static).update("\n".join(lines))
+
+    # ── commands reference (VIEW-15) — static, mode-aware keybinding list ──────────────────────────
+
+    def _apply_commands(self) -> None:
+        """Render the static, mode-aware keybinding reference into ``#commands`` (VIEW-15).
+
+        A view-only panel (no model data): the always-present read-only keys (quit, drill-in, command
+        menu) plus one row per ``_MANAGE_KEYS`` entry, whose mode column reflects ``self._manage`` — the
+        mutating keys show the active ``(--manage)`` mode under ``--manage`` and a ``(--manage · Phase 24)``
+        deferred note in read-only mode (they stay inert this phase; Phase 24 wires the behaviour). Seeded
+        ONCE from ``_seed_widgets`` (it is static — not per-poll). No forbidden literal is a standalone
+        string constant here, so the grep-guard stays green.
+        """
+        lines = [
+            "key     action          (mode)",
+            "q       quit            (read-only)",
+            "enter   drill-in        (read-only)",
+            "ctrl+p  command menu    (read-only)",
+        ]
+        manage_mode = "--manage" if self._manage else "--manage · Phase 24"
+        for key, desc in _MANAGE_KEYS:  # (r,Run) (R,Resume) (b,Batch) (m,Mode) (c,Cap)
+            lines.append(f"{key:<7} {desc:<15} ({manage_mode})")
+        self.query_one("#commands", Static).update("\n".join(lines))
+
+    # ── debug / internals panel (VIEW-16) — selected run's run_detail key/value grid ───────────────
+
+    def _apply_debug(self) -> None:
+        """Render the selected run's ``run_detail`` internals into ``#debug`` — targeted, no recompose.
+
+        Guard on ``self._debug_run_id``: unset (no row selected yet) OR an ``run_detail`` that returns
+        ``{}`` (unsafe/missing id) degrades to the ``Select a run for internals`` empty state. Otherwise a
+        dense key/value grid is rendered from ``self._model.run_detail(self._debug_run_id)`` — run_id,
+        status, mode, gate A/B, offer_spec_hash, retry_cap, retry_counts, current_step, artifacts and
+        attempts. EVERY value is a payload VARIABLE (never a status/gate word literal), so the grep-guard
+        stays green; the ``run_detail`` accessor is read-only. Called on ``RowSelected`` (live selection)
+        AND every poll so retry counts / current step refresh in place.
+        """
+        debug = self.query_one("#debug", Static)
+        if not self._debug_run_id:
+            debug.update("Select a run for internals")
+            return
+        d = self._model.run_detail(self._debug_run_id)
+        if not d:
+            debug.update("Select a run for internals")
+            return
+        rc = d.get("retry_counts") or {}
+        # retry_counts is {offer: {type: n}} — flatten to a compact display string (values are data).
+        retry_bits = [f"{offer}/{typ} {n}" for offer, per in rc.items()
+                      if isinstance(per, dict) for typ, n in per.items()]
+        retry_summary = ", ".join(retry_bits) or "—"
+        lines = [
+            f"run_id       {d.get('run_id') or '—'}",
+            f"status       {d.get('status') or '—'}",
+            f"mode         {d.get('mode') or '—'}",
+            f"gate A/B     {d.get('gate_a')} / {d.get('gate_b')}",
+            f"offer_hash   {d.get('offer_spec_hash') or '—'}",
+            f"retry_cap    {d.get('retry_cap') if d.get('retry_cap') is not None else '—'}",
+            f"retries      {retry_summary}",
+            f"current_step {d.get('current_step') or '—'}",
+            f"artifacts    {', '.join(d.get('artifacts') or []) or '—'}",
+            f"attempts     {', '.join(d.get('attempts') or []) or '—'}",
+        ]
+        debug.update("\n".join(lines))
 
     # ── found-vacancies + batch-rollup panel (VIEW-10) — verbatim projection rows ──────────────────
 
