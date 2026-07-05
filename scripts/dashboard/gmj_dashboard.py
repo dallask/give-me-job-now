@@ -45,7 +45,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding  # noqa: F401  (documented seam; bindings are installed via App.bind)
 from textual.screen import ModalScreen
 from textual.theme import Theme
-from textual.widgets import DataTable, Digits, Footer, Header, Sparkline, Static  # noqa: F401
+from textual.widgets import DataTable, Digits, Footer, Header, Input, Sparkline, Static  # noqa: F401
 
 # Single-source seam — put scripts/dashboard on sys.path and import the read model. The view does
 # ZERO disk I/O itself; it only ever calls model.snapshot() / model.run_detail().
@@ -158,6 +158,11 @@ class GmjDashboard(App):
         self._model = model
         self._manage = manage
         self._refresh = refresh
+        # VIEW-11 row filter: a persistent, lowercased substring predicate applied INSIDE _apply_runs
+        # (so a poll never resurrects a filtered-out row — Pitfall 4), plus a cached last snapshot so
+        # an Input.Changed re-renders immediately without waiting for the next ~1.5s poll.
+        self._filter = ""
+        self._last_snap: dict | None = None
         super().__init__()
 
     def compose(self) -> ComposeResult:
@@ -173,6 +178,10 @@ class GmjDashboard(App):
         dag = Static("(pipeline stages — Phase 22)", id="dag-placeholder")  # Phase-22 frame reserved
         dag.border_title = "pipeline stages"
         yield dag
+
+        # VIEW-11 filter: a full-width Input directly above the runs table; typing narrows the runs
+        # DataTable over already-projected rows only (a pure view predicate — no new data source).
+        yield Input(placeholder="filter runs (run_id / status substring)…", id="filter")
 
         yield DataTable(id="runs", cursor_type="row")     # VIEW-03 (rows diffed in via _apply_runs)
 
@@ -221,6 +230,21 @@ class GmjDashboard(App):
     def action_noop(self) -> None:
         """Inert placeholder — no mutation this phase (Phase 23 wires --manage behaviour)."""
 
+    # ── VIEW-11 row filter — Input.Changed re-applies the predicate over the cached snapshot ────────
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        """Persist the ``#filter`` substring and re-narrow the runs table immediately (VIEW-11).
+
+        Only the ``filter`` Input drives this: its value is lowercased into ``self._filter`` (the
+        persistent predicate applied inside ``_apply_runs`` every poll), then ``_apply_runs`` is re-run
+        over the CACHED ``self._last_snap`` rows so the table narrows at once — no wait for the next
+        ~1.5s poll, no new data source (a pure view re-render over already-projected rows).
+        """
+        if event.input.id == "filter":
+            self._filter = event.value.strip().lower()
+            if self._last_snap is not None:
+                self._apply_runs(self._last_snap.get("runs") or [])
+
     # ── run drill-in (VIEW-09) — RowSelected → on-demand run_detail → frozen modal ────────────────
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
@@ -263,6 +287,7 @@ class GmjDashboard(App):
 
     def _apply(self, snap: dict) -> None:
         """Apply a fresh snapshot with TARGETED updates only — never recompose()."""
+        self._last_snap = snap  # cache so an Input.Changed can re-render the filter immediately (VIEW-11)
         self._apply_counters(snap.get("counters") or {})
         self._apply_runs(snap.get("runs") or [])
         self._apply_dag(snap.get("stages") or {})
@@ -472,6 +497,17 @@ class GmjDashboard(App):
         color = self.get_css_variables().get(f"status-{status}") or ""
         return Text(status, style=color)
 
+    def _match(self, r: dict) -> bool:
+        """VIEW-11 view-only predicate: keep a projected row iff it matches the filter substring.
+
+        With no active filter every row is kept. Otherwise the row survives when the lowercased filter
+        is a substring of the row's ``run_id`` OR its ``status``. Both are PROJECTION VALUES read from
+        the row dict (variables, never a status-word literal), so the Phase-20 grep-guard stays green.
+        This is a pure in-memory test — no path, command, or new data source (T-22-10).
+        """
+        f = self._filter
+        return not f or f in r["run_id"].lower() or f in str(r["status"]).lower()
+
     def _apply_runs(self, rows: list) -> None:
         """Diff the runs ``DataTable`` against the fresh projection rows — targeted updates only.
 
@@ -480,11 +516,17 @@ class GmjDashboard(App):
         ``gate_a``, ``gate_b``, ``current_step`` with a ``-`` fallback), a newly-appeared run is
         ``add_row``ed with its ``run_id`` key, and a run dir that vanished this tick is ``remove_row``ed.
         The row cursor and row count therefore stay stable across polls (VIEW-04 strengthened).
+
+        VIEW-11: a row failing ``_match`` (the persistent ``self._filter`` predicate) is skipped on add
+        and ``remove_row``ed if currently present — the predicate is applied HERE every tick so a poll
+        never resurrects a filtered-out row (Pitfall 4), while surviving rows keep their cursor + order.
         """
         t = self.query_one("#runs", DataTable)
         known = set(t.rows)            # existing RowKeys (StringKey compares/hashes by value)
         seen: set = set()
         for r in rows:
+            if not self._match(r):     # filtered-out — leave it out of `seen` so it is removed below
+                continue
             rk = r["run_id"]
             seen.add(rk)
             step = r.get("current_step") or "-"
