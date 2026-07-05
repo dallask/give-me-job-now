@@ -345,6 +345,7 @@ class GmjDashboard(App):
         self._apply_config(snap.get("config") or {})
         self._apply_vacancies(snap.get("vacancies") or [], snap.get("batches") or [])
         self._apply_errors(snap.get("errors") or [])  # VIEW-12: red-forward per-failed-run gate detail
+        self._apply_activity(snap.get("activity") or [])  # VIEW-13: newest-first event timeline
         self._apply_debug()  # VIEW-16: refresh the selected run's internals live (retry counts / step)
 
     # ── pipeline-DAG stage strip (VIEW-08) — guard-safe, projection-colored ───────────────────────
@@ -536,6 +537,54 @@ class GmjDashboard(App):
                         out.append("\n  ")
                         out.append(f"{gate}", style=fail_style)
                         out.append(f" missing {mid}")
+        panel.update(out)
+
+    # ── activity feed (VIEW-13) — newest-first, event-colored event timeline ──────────────────────
+
+    def _apply_activity(self, activity: list) -> None:
+        """Render the newest-first event timeline from ``snapshot()["activity"]`` — targeted, no recompose.
+
+        One line per event (the list arrives pre-sorted newest-first from the model): the run timestamp,
+        the run_id, then a readable label — a ``started`` marker, a gate line showing the gate
+        discriminator + verdict VALUE, or a terminal line showing the projected status VALUE. Every token
+        is a payload VARIABLE (``kind``/``gate``/``verdict``/``status`` read from the event dict — never a
+        status/gate word literal), so the Phase-20 grep-guard stays green. Colour is applied inline via
+        RUNTIME value-keyed theme-var lookups — a gate event by its verdict (``event-{verdict}``), a
+        terminal event by its projected status (``status-{status}``, falling back to ``event-{status}``),
+        and the started marker by ``event-{kind}`` — and is ALWAYS paired with the readable label
+        (colorblind-safe). The panel header (``activity (events)``) signals event-level, not live stdout
+        (the honesty contract). Empty activity degrades to the ``No activity yet`` empty state; the
+        ``#activity`` frame scrolls internally. Single targeted ``Static.update`` — no file read, no
+        recompose (SAFETY-02).
+        """
+        panel = self.query_one("#activity", Static)
+        if not activity:
+            panel.update("No activity yet")
+            return
+        cssv = self.get_css_variables()
+        out = Text()
+        for i, e in enumerate(activity):
+            if i:
+                out.append("\n")
+            kind = e.get("kind")
+            verdict = e.get("verdict")   # gate events only (a VALUE: "pass"/"fail")
+            status = e.get("status")     # terminal events only (a projected status VALUE)
+            gate = e.get("gate")         # gate events only (a VALUE: "A"/"B")
+            ts = e.get("ts") or "—"
+            rid = str(e.get("run_id"))
+            # Resolve the event colour by VALUE (never a status/gate word literal): a gate event by its
+            # verdict, a terminal event by its projected status, else the started marker by its kind.
+            if verdict is not None:
+                color = cssv.get(f"event-{verdict}") or ""
+                label = f"{kind} {gate} {verdict}"
+            elif status is not None:
+                color = cssv.get(f"status-{status}") or cssv.get(f"event-{status}") or ""
+                label = f"→ {status}"
+            else:
+                color = cssv.get(f"event-{kind}") or ""
+                label = str(kind)
+            out.append(f"{ts} {rid} ")           # timestamp + run_id (panel color)
+            out.append(label, style=color)        # readable label ALWAYS paired with the event colour
         panel.update(out)
 
     # ── commands reference (VIEW-15) — static, mode-aware keybinding list ──────────────────────────
