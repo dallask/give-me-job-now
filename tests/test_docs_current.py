@@ -143,12 +143,16 @@ def _current_sites(text: str, token: str) -> list[int]:
     in_hist_block = False
     for i, line in enumerate(text.splitlines(), start=1):
         stripped = line.strip()
-        # HTML-comment marker lines toggle an explicit historical block (and are not counted).
+        # HTML-comment marker lines. A self-contained single-line comment
+        # (`<!-- … -->` closed on the SAME line) marks only itself and never opens a
+        # block — this closes the WR-01 hole where one innocent `<!-- superseded -->`
+        # comment silenced stale-token detection for the entire rest of the file. A
+        # multi-line historical BLOCK is opened only by an UN-closed `<!-- historical …`
+        # marker and closed by a later `<!-- /historical -->` / `<!-- end … -->` marker.
         if stripped.startswith("<!--") and _has_marker(stripped):
-            if "end" in stripped.lower() or "/" in stripped:
-                in_hist_block = False
-            else:
-                in_hist_block = True
+            if stripped.endswith("-->"):
+                continue  # self-closing marker: applies to this comment line only
+            in_hist_block = "end" not in stripped.lower() and "/" not in stripped
             continue
         # A heading resets the section's historical disposition based on its own text.
         if _HEADING.match(line):
