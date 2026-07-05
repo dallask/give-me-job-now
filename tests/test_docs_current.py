@@ -118,8 +118,8 @@ GMJ_SCRIPT = re.compile(r"(?<![\w])gmj_[a-z0-9_]+\.py")        # scripts
 # command invocation — only standalone `/gmj-…` command tokens are collected.
 GMJ_CMD = re.compile(r"(?<![\w])/gmj-[a-z0-9/-]+")            # /command tokens
 
-# README markdown-link target (a `.md` path, optional #anchor stripped).
-LINK = re.compile(r"\]\(([^)#]+\.md)(?:#[^)]*)?\)")
+# README markdown-link target (a `.md` path, optional #anchor + optional "title" tolerated).
+LINK = re.compile(r"\]\(([^)#\s]+\.md)(?:#[^)\s]*)?(?:\s+\"[^\"]*\")?\)")
 
 _HEADING = re.compile(r"^#{1,6}\s")
 
