@@ -1,0 +1,32 @@
+# SAMPLE candidate profile (template) — replace every value with your real data.
+# Synthetic placeholder content, NO real PII. Scaffolded on install ONLY if
+# config/candidate.yaml is absent (never clobbers your populated profile).
+# Schema: .claude/skills/gmj-candidate-yaml-schema/SKILL.md
+name: "Your Name"
+title: "Your Professional Title"
+summary: "One-paragraph professional summary describing your experience and focus."
+contact:
+  phone: "+00000000000"
+  email:
+    - "you@example.com"
+  address: "City, Country"
+technical_expertise:
+  - resume_title: "Core Skills"
+    skills:
+      - "Skill A"
+      - "Skill B"
+professional_experience:
+  - company: "Example Corp"
+    position: "Your Role"
+    duration: "2020 - Present"
+    location: "City, Country"
+    description: "What you did in this role."
+    achievements:
+      - "A quantified achievement with a real metric."
+education:
+  - institution: "Your University"
+    degree: "Your Degree"
+    duration: "2010 - 2014"
+languages:
+  - language: "English"
+    level: "Fluent"

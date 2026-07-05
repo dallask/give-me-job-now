@@ -1,0 +1,18 @@
+sites:
+  - https://www.work.ua/
+  - https://robota.ua/
+  - https://hh.ua/
+  - https://jobs.dou.ua/
+  - https://www.linkedin.com/jobs/
+  - https://olx.ua/
+  - https://jobs.ua/
+cities:
+  - Kyiv
+languages:
+  - ua
+  - ru
+  - en
+limits:
+  max_vacancies: 10       # vacancy-scraper: stop after collecting this many postings
+  max_search_queries: 6   # both agents: max WebSearch calls per run
+  max_fetches: 8          # both agents: max WebFetch calls per run

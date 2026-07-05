@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:give-me-job:schema:preferences",
+  "title": "preferences config",
+  "description": "Shape of config/preferences.yaml: structured narrowing/ranking signals for offer search. Every field only NARROWS or RANKS within config/sources.yaml — it can never widen the boards/geos/languages allow-list. The subset-of-sources.yaml invariant is NOT expressed here (JSON Schema cannot reference another file); it is enforced by scripts/preferences/gmj_validate_preferences.py. additionalProperties:false is set at the root AND on every leaf object (salary/work_conditions/scope) so a misspelled top-level key (e.g. 'scopes:') is REJECTED rather than silently dropping the subset gate.",
+  "type": "object",
+  "$defs": {
+    "salary": {
+      "type": "object",
+      "description": "Minimum compensation signal. Self-contained: additionalProperties:false is scoped to this object ONLY.",
+      "properties": {
+        "min": { "type": "number" },
+        "currency": { "type": "string" },
+        "period": {
+          "type": "string",
+          "enum": ["hour", "day", "month", "year"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "work_conditions": {
+      "type": "object",
+      "description": "Work-arrangement signals. Self-contained: additionalProperties:false is scoped to this object ONLY.",
+      "properties": {
+        "mode": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["remote", "hybrid", "onsite"]
+          }
+        },
+        "relocation": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "description": "Scope-axis narrowing block. Each array MUST be a subset of the matching config/sources.yaml array — enforced at runtime by gmj_validate_preferences.py (the subset rule is not expressible in JSON Schema). Self-contained: additionalProperties:false is scoped to this object ONLY.",
+      "properties": {
+        "sites": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "cities": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "languages": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "salary": { "$ref": "#/$defs/salary" },
+    "work_conditions": { "$ref": "#/$defs/work_conditions" },
+    "preferences": {
+      "type": "array",
+      "description": "Ranked free-form soft preferences (first = highest priority).",
+      "items": { "type": "string" }
+    },
+    "search_keywords": {
+      "type": "array",
+      "description": "Keywords for offer search.",
+      "items": { "type": "string" }
+    },
+    "ranking": {
+      "type": "object",
+      "description": "Optional free-form numeric weights for ranking signals.",
+      "additionalProperties": { "type": "number" }
+    },
+    "cover_letter_tone": {
+      "type": "string",
+      "description": "Optional soft phrasing hint for cover-letter tone (e.g. 'warm', 'formal', 'concise, direct'). Influences ONLY phrasing/emphasis in the composed cover letter — it never licenses claims outside Gate A (truth) / Gate B (target-fit) and never widens the boards/geos/languages allow-list. Read by the hub and passed to the composer as a param; the composer never reads preferences.yaml directly."
+    },
+    "scope": { "$ref": "#/$defs/scope" }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,19 @@
+# Fixed pipeline DAG for the deterministic router (ARCH-06).
+# scripts/pipeline/gmj_route.py reads this file plus a state file and emits the
+# next step as JSON — no Task call, no LLM. Gate nodes branch on a recorded
+# verdict in state.gate_results, never on model reasoning.
+steps:
+  gmj-offer-scout:
+    next: gmj-artifact-composer        # scout the offer, then compose artifacts
+  gmj-artifact-composer:
+    next: gmj-truth-verifier           # compose CV artifacts, then verify truth
+  gmj-truth-verifier:
+    gate: true                     # gate node — branches on recorded verdict, not model reasoning
+    on_pass: gmj-fit-evaluator         # truthful artifacts advance to fit scoring
+    on_fail: gmj-artifact-composer     # untruthful artifacts loop back to recompose
+  gmj-fit-evaluator:
+    gate: true                     # gate node — branches on recorded verdict, not model reasoning
+    on_pass: gmj-cv-generator          # on-target artifacts advance to rendering
+    on_fail: gmj-artifact-composer     # off-target artifacts loop back to recompose
+  gmj-cv-generator:
+    next: null                     # terminal node — pipeline complete

@@ -1,0 +1,5 @@
+# SAMPLE Ukrainian (ua) prose overlay template — translated prose scalars ONLY.
+# Synthetic placeholder, NO real PII. Deep-merged over candidate.yaml at --lang ua.
+name: "Ваше Ім'я"
+title: "Ваша Посада"
+summary: "Стислий професійний опис вашого досвіду та напряму роботи."

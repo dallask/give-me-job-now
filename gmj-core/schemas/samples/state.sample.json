@@ -1,0 +1,7 @@
+{
+  "current_step": "gmj-truth-verifier",
+  "completed_steps": ["gmj-offer-scout", "gmj-artifact-composer"],
+  "gate_results": {
+    "gmj-truth-verifier": "pass"
+  }
+}

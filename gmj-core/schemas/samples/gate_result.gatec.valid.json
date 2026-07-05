@@ -1,0 +1,25 @@
+{
+  "kind": "gate_result",
+  "schema": "agent_result_v1",
+  "schema_version": "1.0",
+  "agent": "gmj-fit-evaluator",
+  "pipeline_run_id": "run-2026-07-03-008",
+  "status": "success",
+  "artifacts": [],
+  "acceptance_criteria_met": ["crit-fit-polish"],
+  "acceptance_criteria_failed": [],
+  "next_action": "none",
+  "handoff_target": null,
+  "notes": "Gate C advisory polish scores; never blocks the pipeline",
+  "content": {
+    "gate": "C",
+    "advisory": true,
+    "polish": {
+      "clarity": 4,
+      "concision": 3,
+      "formatting": 5,
+      "quantified_impact": 3,
+      "natural_keywords": 4
+    }
+  }
+}

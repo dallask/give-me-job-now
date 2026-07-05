@@ -1,0 +1,16 @@
+{
+  "kind": "artifact_draft",
+  "schema": "agent_result_v1",
+  "schema_version": "1.0.0",
+  "agent": "gmj-artifact-composer",
+  "pipeline_run_id": "run-2026-07-03-004",
+  "status": "success",
+  "artifacts": [
+    { "type": "yaml_cv" }
+  ],
+  "acceptance_criteria_met": ["crit-draft-composed"],
+  "acceptance_criteria_failed": [],
+  "next_action": "handoff",
+  "handoff_target": "gmj-truth-verifier",
+  "notes": "Invalid: artifacts[0] is missing the required 'path' (violation path: artifacts/0)"
+}

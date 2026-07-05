@@ -1,0 +1,5 @@
+# SAMPLE Russian (ru) prose overlay template — translated prose scalars ONLY.
+# Synthetic placeholder, NO real PII. Deep-merged over candidate.yaml at --lang ru.
+name: "Ваше Имя"
+title: "Ваша Должность"
+summary: "Краткое профессиональное описание вашего опыта и направления работы."

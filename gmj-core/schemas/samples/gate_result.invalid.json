@@ -1,0 +1,13 @@
+{
+  "kind": "gate_result",
+  "schema": "agent_result_v1",
+  "agent": "gmj-truth-verifier",
+  "pipeline_run_id": "run-2026-07-03-006",
+  "status": "success",
+  "artifacts": [],
+  "acceptance_criteria_met": ["crit-truth-pass"],
+  "acceptance_criteria_failed": [],
+  "next_action": "none",
+  "handoff_target": null,
+  "notes": "Invalid: required field 'schema_version' is missing"
+}

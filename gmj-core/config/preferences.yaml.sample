@@ -1,0 +1,33 @@
+# config/preferences.yaml — structured narrowing / ranking signals for offer search.
+#
+# Every field only NARROWS or RANKS within config/sources.yaml. The `scope` block
+# below may only restrict the boards/geos/languages already declared in sources.yaml —
+# it can NEVER widen them. scripts/preferences/gmj_validate_preferences.py enforces the
+# subset-of-sources.yaml invariant (fail-closed) and never writes sources.yaml.
+salary:
+  min: 3000
+  currency: USD
+  period: month
+work_conditions:
+  mode: [remote, hybrid]
+  relocation: false
+preferences:
+  - "fully remote"
+  - "async team"
+search_keywords:
+  - php
+  - laravel
+  - drupal
+ranking:
+  salary_weight: 0.4
+  remote_weight: 0.6
+# cover_letter_tone: "warm, direct"   # OPTIONAL phrasing-only hint for cover-letter tone;
+                                       # read by the hub (never the composer); never widens scope
+                                       # and never licenses claims outside Gate A/B.
+scope:
+  sites:
+    - https://robota.ua/          # subset of sources.yaml.sites
+  cities:
+    - Kyiv                        # subset of sources.yaml.cities
+  languages:
+    - ua                          # subset of sources.yaml.languages

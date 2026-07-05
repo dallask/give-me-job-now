@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:give-me-job:schema:agent_result_v1",
+  "title": "agent_result_v1 shared base",
+  "description": "Canonical agent_result_v1 envelope field set shared by every give-me-job spoke and referenced by the per-kind schemas via $ref. Mirrors .claude/skills/gmj-agent-output-contract/SKILL.md so existing emitters stay valid (back-compat locked).",
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "description": "One file or section a spoke wrote or confirmed.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Artifact kind, e.g. file|yaml_section|yaml_overlay|yaml_cv|gap_report."
+        },
+        "path": {
+          "type": "string",
+          "description": "Absolute path to the artifact."
+        }
+      },
+      "required": ["type", "path"]
+    },
+    "envelope": {
+      "type": "object",
+      "description": "The common agent_result_v1 envelope fields. Payload objects stay additionalProperties-permissive so per-kind schemas and later phases can extend without breaking this contract.",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "description": "Always the string \"agent_result_v1\"."
+        },
+        "schema_version": {
+          "type": "string",
+          "description": "Locked contract version string (e.g. \"1.0.0\") for forward-compatible evolution."
+        },
+        "agent": {
+          "type": "string",
+          "description": "Exact agent name (matches the .md filename without extension)."
+        },
+        "pipeline_run_id": {
+          "type": "string",
+          "description": "Run id copied verbatim from the orchestrator prompt, or empty string if absent."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["success", "fail", "gap_report_ready", "handoff"]
+        },
+        "artifacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/artifact" }
+        },
+        "acceptance_criteria_met": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "acceptance_criteria_failed": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "next_action": {
+          "type": "string",
+          "enum": ["none", "retry", "await_user_approval", "handoff"]
+        },
+        "handoff_target": {
+          "type": ["string", "null"],
+          "description": "Null unless status is handoff; then the name of the next agent."
+        },
+        "notes": {
+          "type": "string",
+          "description": "One-line key outcome, counts, or handoff reason."
+        }
+      },
+      "required": ["schema", "status"]
+    }
+  },
+  "type": "object",
+  "allOf": [
+    { "$ref": "#/$defs/envelope" }
+  ]
+}

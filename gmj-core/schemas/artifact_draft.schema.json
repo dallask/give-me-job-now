@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:give-me-job:schema:artifact_draft",
+  "title": "artifact_draft envelope",
+  "description": "Envelope for a draft application artifact (CV/cover-letter/interview-prep) emitted by gmj-artifact-composer. Pins kind via const and reuses the shared agent_result_v1 base. Draft content carries a provenance-tagged claims array discriminated by artifact_type.",
+  "type": "object",
+  "$defs": {
+    "claim": {
+      "type": "object",
+      "description": "A single provenance-tagged content claim. source_span is a dotted/indexed candidate.yaml path (COMPOSE-03). Self-contained: additionalProperties:false is scoped to this object ONLY.",
+      "properties": {
+        "text": { "type": "string" },
+        "source_span": { "type": "string" },
+        "section": { "type": "string" },
+        "reframing_note": { "type": "string" }
+      },
+      "required": ["text", "source_span", "section"],
+      "additionalProperties": false
+    },
+    "artifact_content": {
+      "type": "object",
+      "description": "Fielded (non-prose) draft body. artifact_type discriminates the draft variant; language carries the offer's single target language (COMPOSE-05). Self-contained: additionalProperties:false is scoped to this object ONLY, never the allOf envelope.",
+      "properties": {
+        "artifact_type": {
+          "type": "string",
+          "enum": ["cv", "cover_letter", "interview_prep"]
+        },
+        "language": {
+          "type": "string",
+          "enum": ["ua", "ru", "en"]
+        },
+        "claims": {
+          "type": "array",
+          "items": { "$ref": "urn:give-me-job:schema:artifact_draft#/$defs/claim" }
+        }
+      },
+      "required": ["artifact_type", "language", "claims"],
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    { "$ref": "urn:give-me-job:schema:agent_result_v1#/$defs/envelope" }
+  ],
+  "properties": {
+    "kind": {
+      "const": "artifact_draft"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "content": {
+      "$ref": "#/$defs/artifact_content"
+    }
+  },
+  "required": ["kind", "schema_version"]
+}

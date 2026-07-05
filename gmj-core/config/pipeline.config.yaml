@@ -1,0 +1,21 @@
+# config/pipeline.config.yaml — dual-mode + retry-cap knob (EXEC-01, GUARD-03).
+#
+# These two operator-authored knobs govern how a pipeline run executes:
+#   - execution_mode: whether the run pauses for human approval or runs autonomously.
+#   - retry_cap: the maximum number of enhance/generate retry cycles a run may spend.
+#
+# FREEZE CONTRACT: at run start, gmj_state_write.py copies these values into
+# .pipeline/runs/<run_id>/state.json (the run-scoped state). Every downstream control
+# decision reads that FROZEN copy — never this file mid-run. A mid-run edit to this file
+# therefore cannot change an in-flight run (EXEC-03: "thresholds frozen before a run
+# starts"). This file is loaded via `yaml.safe_load` (never `yaml.load`) with an
+# `isinstance` guard; retry_cap is validated as an int excluding bool. Keys are
+# snake_case per the config/sources.yaml + config/fit_thresholds.yaml precedent.
+
+# One of: human_in_the_loop | autonomous. Default human_in_the_loop keeps the human
+# pause on by default; autonomous removes the pause (never the machine gate).
+execution_mode: human_in_the_loop
+
+# Maximum enhance/generate retry cycles per run. Default 2 matches the legacy
+# MAX_ENHANCE_CYCLES=2 precedent (EXEC-03, RESEARCH Assumption A1).
+retry_cap: 2
