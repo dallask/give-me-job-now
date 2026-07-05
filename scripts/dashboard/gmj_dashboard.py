@@ -344,6 +344,7 @@ class GmjDashboard(App):
         self._apply_candidate(snap.get("candidate") or {})
         self._apply_config(snap.get("config") or {})
         self._apply_vacancies(snap.get("vacancies") or [], snap.get("batches") or [])
+        self._apply_errors(snap.get("errors") or [])  # VIEW-12: red-forward per-failed-run gate detail
         self._apply_debug()  # VIEW-16: refresh the selected run's internals live (retry counts / step)
 
     # ── pipeline-DAG stage strip (VIEW-08) — guard-safe, projection-colored ───────────────────────
@@ -484,6 +485,58 @@ class GmjDashboard(App):
             thr = fit.get("coverage_threshold")
             lines.append(f"fit         coverage_threshold {thr if thr is not None else '—'}")
         self.query_one("#config", Static).update("\n".join(lines))
+
+    # ── errors panel (VIEW-12) — red-forward per-failed-run Gate A/Gate B detail ───────────────────
+
+    def _apply_errors(self, errors: list) -> None:
+        """Render the failed-run failure detail from ``snapshot()["errors"]`` — targeted, no recompose.
+
+        One block per failed run (``failures()`` output): a red run_id header line carrying its projected
+        status + Gate A/B VALUES, then a labelled line per reason — Gate A reasons list each offending
+        claim (``rule_violated`` @ ``offending_span``), Gate B reasons list the missing must-have ids +
+        their text. Colour is applied inline via RUNTIME value-keyed theme-var lookups
+        (``get_css_variables().get("event-fail")`` for the red markers, ``get(f"gate-{verdict}")`` for the
+        gate verdicts) — no status/gate word is a code literal (grep-guard stays green), and every red
+        marker is ALWAYS paired with its readable label (colorblind-safe). Every rendered token is a
+        payload VARIABLE. Empty ``errors`` degrades to the ``No failures`` empty state. Single targeted
+        ``Static.update`` — no file read, no recompose (SAFETY-02).
+        """
+        panel = self.query_one("#errors", Static)
+        if not errors:
+            panel.update("No failures")
+            return
+        cssv = self.get_css_variables()
+        fail_style = cssv.get("event-fail") or ""
+        out = Text()
+        for i, e in enumerate(errors):
+            if i:
+                out.append("\n")
+            out.append(str(e.get("run_id")), style=fail_style)   # red run_id header (label + colour)
+            out.append("  A:")
+            out.append(str(e.get("gate_a")), style=cssv.get(f"gate-{e.get('gate_a')}") or "")  # value-keyed
+            out.append(" B:")
+            out.append(str(e.get("gate_b")), style=cssv.get(f"gate-{e.get('gate_b')}") or "")  # value-keyed
+            for r in e.get("reasons") or []:
+                gate = r.get("gate")  # payload VALUE ("A"/"B" — allowed, not a forbidden literal)
+                if gate == "A":
+                    for claim in r.get("offending_claims") or []:
+                        out.append("\n  ")
+                        out.append(f"{gate}", style=fail_style)  # red gate marker + readable detail
+                        out.append(f" {claim.get('rule_violated')} @ {claim.get('offending_span')}")
+                elif gate == "B":
+                    for mh in r.get("missing_must_haves") or []:
+                        out.append("\n  ")
+                        out.append(f"{gate}", style=fail_style)
+                        out.append(f" missing {mh.get('id')}: {mh.get('text')}")
+                    # ids with no must-have text still surface (the projection may carry ids only).
+                    text_ids = {mh.get("id") for mh in (r.get("missing_must_haves") or [])}
+                    for mid in r.get("missing_ids") or []:
+                        if mid in text_ids:
+                            continue
+                        out.append("\n  ")
+                        out.append(f"{gate}", style=fail_style)
+                        out.append(f" missing {mid}")
+        panel.update(out)
 
     # ── commands reference (VIEW-15) — static, mode-aware keybinding list ──────────────────────────
 
