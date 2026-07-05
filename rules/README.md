@@ -28,3 +28,4 @@ before acting.
 | `gmj-naming.md` | globs `.claude/agents/**`, `scripts/cv/**`; keywords naming, gmj-, prefix | You create or rename an agent, skill, command, hook, or script — use `gmj-` / `gmj_`; keep config/data filenames stable. |
 | `python-render-only.md` | globs `scripts/cv/**`, `output/cv/**`; keywords render, PDF; agent gmj-cv-generator | You produce any PDF/document — render only via `scripts/cv/gmj_render_cv.py`; never author binaries in chat. |
 | `gate-non-bypassability.md` | keywords gate, Gate A, Gate B, autonomous, retry-cap; agents gmj-orchestrator, gmj-fit-evaluator | You handle a quality gate or autonomous loop — Gate A/B are non-bypassable in any mode; auto-loops are retry-capped. |
+| `docs-currency.md` | keywords milestone, finalize, docs, README, documentation | You finalize a milestone or touch docs/ or README — refresh the docs set and re-run `python3 tests/test_docs_current.py`. |

@@ -128,6 +128,7 @@ rule's scope — see [`rules/README.md`](rules/README.md) for the convention and
 - [`rules/gmj-naming.md`](rules/gmj-naming.md) — `gmj-` / `gmj_` naming for app agents, skills, commands, hooks, scripts.
 - [`rules/python-render-only.md`](rules/python-render-only.md) — all PDF/document rendering via Python (`gmj_render_cv.py`).
 - [`rules/gate-non-bypassability.md`](rules/gate-non-bypassability.md) — hard gates (Gate A/B) are non-bypassable in any mode.
+- [`rules/docs-currency.md`](rules/docs-currency.md) — docs refreshed + re-verified (`python3 tests/test_docs_current.py`) at each milestone finalization.
 
 ## Layout
 
