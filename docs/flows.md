@@ -169,6 +169,26 @@ markdown).
 
 ---
 
+## Dashboard
+
+**Entry:** `/gmj-dashboard` — a live, btop-style cockpit over pipeline run/batch state.
+
+`python3 scripts/dashboard/gmj_dashboard.py` opens a Textual board that projects the run/batch
+state the pipeline already wrote under the pipeline root (`.pipeline` by default) — it derives
+nothing new. Two facts define the flow:
+
+- **Read-only is the default.** Launched bare, the board binds **no** mutating keys: it only
+  *displays* the timeline (the same facts `/gmj-runs` prints), so no run/batch/config write can
+  happen from it.
+- **`--manage` is an explicit opt-in.** Passing `python3 scripts/dashboard/gmj_dashboard.py --manage`
+  binds the live action layer (`r`/`R`/`b`/`m`/`c`) that can drive runs/batches and edit config from
+  the board. Without it those keys are not even bound.
+
+The board is a pure inspector — it holds no `Task` and never spawns a spoke; every action it can take
+under `--manage` shells to the same deterministic scripts the pipeline already uses.
+
+---
+
 ## Milestone-complete refresh
 
 **Entry:** convention (milestone finalization) — the documentation-currency invariant.
