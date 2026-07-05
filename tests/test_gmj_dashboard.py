@@ -568,6 +568,77 @@ def test_drill_in_modal_open_and_resume_printed_not_run() -> None:
     assert probe["stack_closed"] == 1, f"escape must pop the modal back to the base screen (2→1): {probe['stack_closed']}"
 
 
+# --- VIEW-10: found-vacancies rows + batch delivered/total rollup render from the projection ------
+
+# Known fixture facts (dumped from the live model over tests/fixtures/dashboard + tests/fixtures/
+# pipeline): two frozen offers — Backend Engineer / TestCorp / senior / 4000-6000 USD / 3 must-haves,
+# and Frontend Developer / WidgetWorks / middle / null salary / 2 must-haves — plus one batch
+# batch-20260601T120000 with delivered=3 / total=6. This test file lives under tests/, which the
+# Phase-20 grep-guard does NOT scan, so it may name the batch status/rollup values freely.
+_VAC_TITLE = "Backend Engineer"
+_VAC_COMPANY = "TestCorp"
+_VAC_SENIORITY = "senior"
+_VAC_MUST_HAVES = 3
+_BATCH_ID = "batch-20260601T120000"
+_BATCH_ROLLUP = "3/6"
+
+
+async def _probe_vacancies_panel(pipeline_dir: Path) -> str:
+    """Launch read-only, let the poll fill the #vac-placeholder panel, then read its rendered text."""
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        # Two+ ticks let the threaded poll marshal snapshot()["vacancies"]/["batches"] into the panel.
+        await pilot.pause()
+        await pilot.pause()
+        return str(app.query_one("#vac-placeholder", Static).render())
+
+
+async def _probe_empty_vacancies_panel() -> str:
+    """Launch over an empty pipeline + a repo_root with no offers → expect the empty-state copy."""
+    with tempfile.TemporaryDirectory() as tmp:
+        empty_pipe = Path(tmp) / "pipeline"
+        empty_root = Path(tmp) / "root"
+        empty_pipe.mkdir()
+        empty_root.mkdir()
+        model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(empty_pipe), repo_root=empty_root)
+        app = gmj_dashboard.GmjDashboard(model, manage=False, refresh=0.1)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.pause()
+            return str(app.query_one("#vac-placeholder", Static).render())
+
+
+def test_vacancies_and_batch_rollup_render() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            vac_text = asyncio.run(_probe_vacancies_panel(pipe))
+            empty_text = asyncio.run(_probe_empty_vacancies_panel())
+        assert "Traceback" not in buf.getvalue(), f"vacancies probe leaked a traceback: {buf.getvalue()}"
+
+    # VIEW-10: a known frozen offer's fields render verbatim (title · company · seniority · #must-haves).
+    assert vac_text.strip(), f"the vacancies panel must render non-empty text: {vac_text!r}"
+    for field in (_VAC_TITLE, _VAC_COMPANY, _VAC_SENIORITY):
+        assert field in vac_text, f"the vacancies panel must show the offer field {field!r}: {vac_text!r}"
+    assert re.search(rf"mh\s+{_VAC_MUST_HAVES}\b", vac_text), (
+        f"the vacancies panel must show the must-have count 'mh {_VAC_MUST_HAVES}': {vac_text!r}"
+    )
+
+    # VIEW-10: the priced offer's salary appears (min/max + currency), rendered from salary_range.
+    for token in ("4000", "6000", "USD"):
+        assert token in vac_text, f"the vacancies panel must show the salary token {token!r}: {vac_text!r}"
+
+    # VIEW-10: the batch rollup line shows the batch_id and its delivered/total from snapshot()["batches"].
+    assert _BATCH_ID in vac_text, f"the vacancies panel must show the batch id {_BATCH_ID!r}: {vac_text!r}"
+    assert _BATCH_ROLLUP in vac_text, (
+        f"the vacancies panel must show the batch delivered/total rollup {_BATCH_ROLLUP!r}: {vac_text!r}"
+    )
+
+    # VIEW-10 empty states: no offers / no batches degrade to the UI-SPEC copy, never a blank or a crash.
+    assert "No frozen offers" in empty_text, f"the empty vacancies panel must show 'No frozen offers': {empty_text!r}"
+    assert "No batches" in empty_text, f"the empty vacancies panel must show 'No batches': {empty_text!r}"
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
