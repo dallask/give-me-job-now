@@ -1,0 +1,20 @@
+# Ukrainian (ua) prose overlay for candidate.truth.sample.yaml — Cyrillic render fixture.
+#
+# Consumed by scripts/cv/gmj_render_cv.py's overlay merge: when the master
+# candidate.truth.sample.yaml is rendered with `--lang ua`, gmj_render_cv.py deep-merges
+# THIS file (resolved as `<config_dir>/candidate.ua.yaml`) over the base. It carries ONLY
+# translated prose scalars — Cyrillic glyphs that force the DejaVu font path — so the
+# clean-install test's ua render leg exercises real Cyrillic output (structural PDF validity,
+# never byte-hash). Every value is synthetic (no real PII), mirroring the base fixture.
+name: 'Дана Тесткейс'
+title: 'Зразковий Бекенд-Інженер'
+summary: 'Синтетичний фрагмент профілю для фікстур gmj-truth-verifier; кожне твердження простежується до джерела.'
+professional_experience:
+  - company: 'Acme'
+    position: 'Бекенд-Інженер'
+    duration: '2019 - 2022'
+    location: 'Ніде-Сіті'
+  - company: 'Globex'
+    position: 'Платформенний Інженер'
+    duration: '2016 - 2019'
+    location: 'Деінде-Таун'
