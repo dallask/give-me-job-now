@@ -497,10 +497,10 @@
       {% endif %}
 
       <!-- TECHNICAL EXPERTISE -->
-      {% if candidate.technical_expertise %}
+      {% if candidate.expertise %}
       <h2 class="sec-main">{{ labels.technical_skills | default('Technical Skills') }}</h2>
       <div class="tech-grid">
-        {% for block in candidate.technical_expertise %}
+        {% for block in candidate.expertise %}
         <div class="tech-block">
           <p class="tech-group-label">{{ block.resume_title }}</p>
           <p class="tech-skills">{{ block.skills | join(' · ') }}</p>

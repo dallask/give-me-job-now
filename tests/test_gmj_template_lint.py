@@ -11,6 +11,7 @@ as scannable head-comment text in this source.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 import tempfile
@@ -142,6 +143,52 @@ def test_legacy_binding_flagged() -> None:
     leaks = lint_template(html, [])
     assert any("technical_expertise" in leak for leak in leaks), (
         f"legacy candidate.technical_expertise binding must be flagged; got {leaks}"
+    )
+
+
+# Experience-loop capture: `{% for <var> in candidate.professional_experience %}`.
+# Used to detect a bare `<var>.description` company-blurb binding where the renderer now
+# reads `<var>.company_description` (gmj_render_cv.py:369).
+_EXPERIENCE_LOOP = re.compile(
+    r"{%-?\s*for\s+(\w+)\s+in\s+candidate\.professional_experience\s*-?%}"
+)
+
+
+def test_real_templates_have_no_legacy_schema_bindings() -> None:
+    # Standing regression guard (v2.0 milestone-audit SCHEMA seam): the prior tests only
+    # lint synthetic in-test fixtures, so the 3 legacy shipped templates
+    # (default/enhancv/baxter) drifted un-caught. Iterate every REAL templates/cv/*.html and
+    # assert none binds the pre-migration schema: `candidate.technical_expertise` (renderer
+    # reads `candidate.expertise` at :322 → Skills section silently dropped) or a bare
+    # experience `.description` company blurb (renderer reads `.company_description` at :369).
+    templates = sorted(TEMPLATES_DIR.glob("*.html"))
+    assert templates, f"no CV templates found under {TEMPLATES_DIR}"
+    offenders: list[str] = []
+    for template in templates:
+        # Skip the transient fixtures the CLI tests write/remove.
+        if template.name.startswith("_lint_test_"):
+            continue
+        html = template.read_text(encoding="utf-8")
+
+        # (1) Legacy top-level skills binding — flagged by the schema-registry lint.
+        leaks = lint_template(html, [])
+        if any("technical_expertise" in leak for leak in leaks):
+            offenders.append(
+                f"{template.name}: legacy `candidate.technical_expertise` binding "
+                f"(renderer reads `candidate.expertise`)"
+            )
+
+        # (2) Bare experience `.description` where the renderer reads `.company_description`.
+        for loop_var in _EXPERIENCE_LOOP.findall(html):
+            if re.search(r"\b" + re.escape(loop_var) + r"\.description\b", html):
+                offenders.append(
+                    f"{template.name}: experience `{loop_var}.description` blurb "
+                    f"(renderer reads `{loop_var}.company_description`)"
+                )
+
+    assert not offenders, (
+        "shipped CV templates still bind the pre-migration schema:\n  "
+        + "\n  ".join(offenders)
     )
 
 

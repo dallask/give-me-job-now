@@ -42,9 +42,9 @@
   </p>
   {% endif %}
 
-  {% if candidate.technical_expertise %}
+  {% if candidate.expertise %}
   <h2>{{ labels.technical_expertise | default('Technical expertise') }}</h2>
-  {% for block in candidate.technical_expertise %}
+  {% for block in candidate.expertise %}
     <p><strong>{{ block.resume_title }}</strong></p>
     <p class="skills">{{ block.skills | join(', ') }}</p>
   {% endfor %}

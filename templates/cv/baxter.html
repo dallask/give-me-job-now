@@ -643,12 +643,12 @@
         {% endif %}
 
         <!-- TECHNICAL EXPERTISE -->
-        {% if candidate.technical_expertise %}
+        {% if candidate.expertise %}
         <div class="main-heading">
           <span class="dot-icon"></span>
           <span class="label">Technical Expertise</span>
         </div>
-        {% for block in candidate.technical_expertise %}
+        {% for block in candidate.expertise %}
         <div class="tech-group">
           <div class="tech-title">{{ block.resume_title | e }}</div>
           <div class="tech-skills">{{ block.skills | join(', ') }}</div>

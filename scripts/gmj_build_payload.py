@@ -113,7 +113,7 @@ contact:
   email:
     - "you@example.com"
   address: "City, Country"
-technical_expertise:
+expertise:
   - resume_title: "Core Skills"
     skills:
       - "Skill A"
@@ -123,7 +123,7 @@ professional_experience:
     position: "Your Role"
     duration: "2020 - Present"
     location: "City, Country"
-    description: "What you did in this role."
+    company_description: "What you did in this role."
     achievements:
       - "A quantified achievement with a real metric."
 education:
