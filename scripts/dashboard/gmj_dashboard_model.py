@@ -372,6 +372,85 @@ class DashboardModel:
             "resume_command": f"/gmj-pipeline-run  (resume: pass run_id={run_id})",
         }
 
+    def failures(self, *, limit: int | None = None) -> list[dict]:
+        """Per failed run, surface Gate A ``offending_claims`` + Gate B ``missing_ids``/must-haves.
+
+        Guard-safe read-only builder (VIEW-12): iterate the run dirs (like ``_runs``, each gated by
+        the imported ``_safe_component``), tolerant-load state, get the projected row via the imported
+        ``_run_row`` (``status``/``gate_a``/``gate_b`` are projection VALUES — never re-derived), then
+        open every gate envelope discovered by the imported ``_gate_logs`` and collect a reason for
+        each whose ``content.verdict`` is the fail sentinel. Gate identity/verdict come from
+        ``content.gate``/``content.verdict`` (the ``"A"``/``"B"``/``"fail"`` literals are NOT in the
+        grep-guard forbidden set) — never from the filename node (real and fixture names differ) and
+        never from a re-derived status/gate-node literal (SAFETY-03). A run is emitted when it has any
+        reason OR when its projected ``gate_a``/``gate_b`` VALUE is the fail sentinel. Newest-first.
+        """
+        out: list[dict] = []
+        runs_dir = self.pipeline_dir / "runs"
+        if not runs_dir.is_dir():
+            return out
+        for run_dir in sorted(runs_dir.iterdir(), reverse=True):  # newest-first (run_id lexical)
+            if not run_dir.is_dir():
+                continue
+            run_id = run_dir.name
+            if not _safe_component(run_id):  # T-23-01: a crafted run-dir name never becomes a row
+                continue
+            sp = run_dir / "state.json"
+            if not sp.is_file():
+                continue
+            state = _load_state_tolerant(sp)
+            if not isinstance(state, dict):
+                continue  # torn/malformed: no readable failure detail — skip (never raise)
+            row = _run_row(run_id, state)  # projected status/gate_a/gate_b VALUES (guard-safe)
+            _artifacts, gate_files = _gate_logs(run_dir)  # imported filename discovery
+            reasons: list[dict] = []
+            for name in gate_files:
+                try:  # T-23-02: torn/malformed gate JSON must never crash the poll
+                    env = json.loads((run_dir / name).read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    continue
+                content = env.get("content") if isinstance(env, dict) else None
+                if not isinstance(content, dict) or content.get("verdict") != "fail":
+                    continue  # "fail" is an ALLOWED literal; Gate C advisory (no verdict) is skipped
+                gate = content.get("gate")
+                if gate == "A":  # "A" allowed
+                    claims = content.get("offending_claims")
+                    reasons.append(
+                        {
+                            "gate": "A",
+                            "file": name,
+                            "offending_claims": claims if isinstance(claims, list) else [],
+                        }
+                    )
+                elif gate == "B":  # "B" allowed
+                    cov = content.get("coverage")
+                    cov = cov if isinstance(cov, dict) else {}
+                    why = content.get("why")
+                    why = why if isinstance(why, dict) else {}
+                    mh = why.get("missing_must_haves")
+                    missing_ids = cov.get("missing_ids")
+                    reasons.append(
+                        {
+                            "gate": "B",
+                            "file": name,
+                            "missing_ids": missing_ids if isinstance(missing_ids, list) else [],
+                            "score": cov.get("score"),
+                            "missing_must_haves": mh if isinstance(mh, list) else [],
+                        }
+                    )
+            # row["gate_a"]/["gate_b"] are projection VALUES ("pass"/"fail"/"—") — guard-safe compares.
+            if reasons or row["gate_a"] == "fail" or row["gate_b"] == "fail":
+                out.append(
+                    {
+                        "run_id": run_id,
+                        "status": row["status"],
+                        "gate_a": row["gate_a"],
+                        "gate_b": row["gate_b"],
+                        "reasons": reasons,
+                    }
+                )
+        return out if limit is None else out[:limit]
+
     def _metrics(self, runs: list[dict], metric_inputs: list[dict]) -> dict:
         """Aggregate domain metrics (MODEL-04) from the ALREADY-projected rows + raw retry inputs.
 
@@ -411,6 +490,22 @@ class DashboardModel:
                 day_counts[ts[:8]] += 1
         throughput = [day_counts[day] for day in sorted(day_counts)]
 
+        # throughput_by_status: a per-status day series for the VIEW-14 trend sparklines. Bucket each
+        # timestamped run's _order_key day into a Counter keyed by the row's status VALUE (a variable,
+        # never a hardcoded status literal — the AST grep-guard stays green). Emit each per-status
+        # series in the SAME sorted-day order as `throughput` so the two are day-aligned. No-timestamp
+        # runs are dropped (mirrors `throughput`).
+        per_status_day: dict[str, Counter] = {}
+        for r in runs:
+            ts = _order_key(r["run_id"])[0]
+            if not ts:
+                continue
+            per_status_day.setdefault(r["status"], Counter())[ts[:8]] += 1
+        all_days = sorted(day_counts)  # the union of timestamped days, ascending
+        throughput_by_status = {
+            status: [counter[day] for day in all_days] for status, counter in per_status_day.items()
+        }
+
         return {
             "by_status": by_status,
             "gate_a": gate_a,
@@ -418,14 +513,16 @@ class DashboardModel:
             "retries_used": retries_used,
             "cap_space": cap_space,
             "throughput": throughput,
+            "throughput_by_status": throughput_by_status,
         }
 
     def snapshot(self) -> dict:
         """Gather every panel's data in one read-only pass; return ONE JSON-serializable plain dict.
 
-        Returns the full nine-key panel dict: ``counters`` / ``metrics`` / ``stages`` (``dag`` +
-        ``active``) / ``runs`` / ``batches`` / ``vacancies`` / ``candidate`` / ``config`` /
-        ``run_detail``. Every run/batch status is the IMPORTED projection, passed through untouched;
+        Returns the panel dict: ``counters`` / ``metrics`` / ``stages`` (``dag`` + ``active``) /
+        ``runs`` / ``batches`` / ``vacancies`` / ``candidate`` / ``config`` / ``run_detail`` plus the
+        Phase-23 rich-panel keys ``errors`` (VIEW-12 ``failures()``). Every run/batch status is the
+        IMPORTED projection, passed through untouched;
         every reader is read-only and degrades to ``{}``/``[]`` on a missing file (never raises).
         ``run_detail`` stays ``{}`` here — it is an on-demand accessor (``run_detail(run_id)``) so the
         per-poll cost stays proportional to the displayed runs (Pitfall 5).
@@ -472,6 +569,7 @@ class DashboardModel:
             "candidate": candidate,
             "config": config,
             "run_detail": {},   # on-demand: populate via run_detail(run_id), never per-poll
+            "errors": self.failures(),  # VIEW-12: per failed-run Gate A/Gate B failure detail
         }
 
 
