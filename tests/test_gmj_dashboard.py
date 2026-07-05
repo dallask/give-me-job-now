@@ -18,6 +18,7 @@ Requirement coverage (this plan):
 - VIEW-07  ``test_footer_mode_aware_bindings``          — mutating keys bound under --manage
 - VIEW-02  ``test_header_and_counters_render``          — banner + generic counters strip render
 - VIEW-04  ``test_refresh_tick_applies_without_block``  — off-thread poll marshals a result back
+- VIEW-03  ``test_runs_table_rows_and_status_labels``   — one row per run, status WORD text, stable cursor
 - SAFETY-02 ``test_no_write_invariant``                 — no bytes/mtime change to on-disk state
 - SAFETY-02 ``test_view_has_no_write_or_subprocess_api`` — AST: no write/subprocess API in the view
 """
@@ -248,6 +249,91 @@ def test_view_has_no_write_or_subprocess_api() -> None:
                 offenders.append(f"import {mod or ','.join(sorted(names))}")
 
     assert not offenders, f"the view must expose NO write/subprocess API (SAFETY-02): {offenders}"
+
+
+# --- VIEW-03 (+ strengthened VIEW-04): live runs table rows, status labels, stability -----------
+
+# A well-formed fixture run with a clear projected status (composition documented in
+# tests/test_gmj_dashboard_model.py). This test file lives under tests/, which the Phase-20 grep-guard
+# does NOT scan, so it may freely name the status WORD it expects the status cell to render.
+_KNOWN_RUN_ID = "20260601T120000-del"
+
+
+async def _probe_runs_table(pipeline_dir: Path) -> dict:
+    """Launch read-only, let the poll seed the table, then probe rows / status cell / cursor stability."""
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        # Two+ ticks let the threaded poll seed every run row via _apply_runs (add_row keyed by run_id).
+        await pilot.pause()
+        await pilot.pause()
+        table = app.query_one("#runs", DataTable)
+        # The projection the view is rendering — one row per run (strayonly already excluded by model).
+        expected_runs = app._model.snapshot()["runs"]
+
+        # Move the cursor OFF the top row so a clear+refill / recompose would visibly reset it.
+        table.move_cursor(row=1)
+        cursor_before = table.cursor_row
+        count_before = table.row_count
+
+        # Another poll tick: a targeted update_cell diff keeps the cursor + row count; a recompose loses them.
+        await pilot.pause()
+        await pilot.pause()
+        cursor_after = table.cursor_row
+        count_after = table.row_count
+
+        # Fetch the status column cell for a known run — it must be the status WORD as visible text.
+        status_cell = table.get_cell(_KNOWN_RUN_ID, "status")
+        status_plain = getattr(status_cell, "plain", None)
+        if status_plain is None:
+            status_plain = str(status_cell)
+        by_id = {r["run_id"]: r for r in expected_runs}
+        return {
+            "row_count": table.row_count,
+            "expected_count": len(expected_runs),
+            "count_before": count_before,
+            "count_after": count_after,
+            "cursor_before": cursor_before,
+            "cursor_after": cursor_after,
+            "status_plain": status_plain,
+            "known_status": by_id.get(_KNOWN_RUN_ID, {}).get("status"),
+        }
+
+
+def test_runs_table_rows_and_status_labels() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            probe = asyncio.run(_probe_runs_table(pipe))
+        assert "Traceback" not in buf.getvalue(), f"runs table probe leaked a traceback: {buf.getvalue()}"
+
+    # VIEW-03: exactly one row per projected run (the no-state strayonly dir is already excluded).
+    assert probe["row_count"] == probe["expected_count"], (
+        f"the runs table must render one row per projected run: "
+        f"row_count={probe['row_count']} vs snapshot runs={probe['expected_count']}"
+    )
+    assert probe["row_count"] >= 1, f"the fixture corpus must yield at least one run row: {probe['row_count']}"
+
+    # VIEW-03: the status CELL carries the status WORD as visible text (color paired with a label,
+    # never color-only) and equals that run's projected status verbatim.
+    assert probe["known_status"], f"the known fixture run {_KNOWN_RUN_ID!r} must project a status"
+    assert probe["status_plain"] == probe["known_status"], (
+        f"the status cell text must equal the projected status word: "
+        f"cell={probe['status_plain']!r} projected={probe['known_status']!r}"
+    )
+    assert probe["status_plain"].strip(), f"the status cell must render a non-empty status word: {probe['status_plain']!r}"
+
+    # Strengthened VIEW-04: targeted per-cell updates keep the row count AND the cursor stable across a
+    # refresh tick — a clear()+refill or recompose() would rebuild the rows and snap the cursor to row 0.
+    assert probe["count_after"] == probe["count_before"], (
+        f"the row count must stay stable across a refresh tick (no clear+refill): "
+        f"{probe['count_before']} -> {probe['count_after']}"
+    )
+    assert probe["cursor_after"] == probe["cursor_before"], (
+        f"the row cursor must not jump on refresh (no recompose): {probe['cursor_before']} -> {probe['cursor_after']}"
+    )
+    assert probe["cursor_after"] != 0, (
+        "the cursor must remain where the user put it (row 1), not snap back to the top row on a poll tick"
+    )
 
 
 def main() -> int:
