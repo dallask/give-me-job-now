@@ -39,6 +39,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from rich.text import Text
+
 from textual.app import App, ComposeResult
 from textual.binding import Binding  # noqa: F401  (documented seam; bindings are installed via App.bind)
 from textual.theme import Theme
@@ -77,7 +79,7 @@ GMJ_THEME = Theme(
     },
 )
 
-# Runs-table columns (label, stable key). Seeded once so 21-02 can target cells via update_cell.
+# Runs-table columns (label, stable key). Seeded once so _apply_runs can target cells via update_cell.
 _RUN_COLUMNS: tuple[tuple[str, str], ...] = (
     ("run_id", "run_id"),
     ("status", "status"),
@@ -124,7 +126,7 @@ class GmjDashboard(App):
         dag.border_title = "pipeline stages"
         yield dag
 
-        yield DataTable(id="runs", cursor_type="row")     # VIEW-03 (rows added in 21-02)
+        yield DataTable(id="runs", cursor_type="row")     # VIEW-03 (rows diffed in via _apply_runs)
 
         vac = Static("(vacancies — Phase 22)", id="vac-placeholder")        # Phase-22 frame reserved
         vac.border_title = "vacancies"
@@ -192,6 +194,56 @@ class GmjDashboard(App):
     def _apply(self, snap: dict) -> None:
         """Apply a fresh snapshot with TARGETED updates only — never recompose()."""
         self._apply_counters(snap.get("counters") or {})
+        self._apply_runs(snap.get("runs") or [])
+
+    # ── runs table (VIEW-03) — guard-safe status cell + targeted RowKey diff ──────────────────────
+
+    def _status_cell(self, status: str) -> Text:
+        """Build the status cell as a Rich ``Text`` whose color is looked up at RUNTIME by value.
+
+        ``status`` is the PROJECTION value (a variable, never a status string literal), and the color
+        comes from the ``status-``-prefixed theme variable ``get_css_variables().get(f"status-{status}")``
+        — so no bare status literal enters this file and the Phase-20 grep-guard stays green. The cell
+        TEXT is the status WORD itself, so the color is always paired with a readable label
+        (colorblind-safe — color is never the only signal).
+        """
+        color = self.get_css_variables().get(f"status-{status}") or ""
+        return Text(status, style=color)
+
+    def _apply_runs(self, rows: list) -> None:
+        """Diff the runs ``DataTable`` against the fresh projection rows — targeted updates only.
+
+        Never ``clear()``+refill and never ``recompose()``: rows are keyed by ``run_id`` so an existing
+        run is patched cell-by-cell via ``update_cell`` (status through ``_status_cell``; ``mode``,
+        ``gate_a``, ``gate_b``, ``current_step`` with a ``-`` fallback), a newly-appeared run is
+        ``add_row``ed with its ``run_id`` key, and a run dir that vanished this tick is ``remove_row``ed.
+        The row cursor and row count therefore stay stable across polls (VIEW-04 strengthened).
+        """
+        t = self.query_one("#runs", DataTable)
+        known = set(t.rows)            # existing RowKeys (StringKey compares/hashes by value)
+        seen: set = set()
+        for r in rows:
+            rk = r["run_id"]
+            seen.add(rk)
+            step = r.get("current_step") or "-"
+            if rk in known:            # targeted per-cell patch — no clear+refill, no recompose
+                t.update_cell(rk, "status", self._status_cell(r["status"]))
+                t.update_cell(rk, "mode", r["mode"])
+                t.update_cell(rk, "gate_a", r["gate_a"])
+                t.update_cell(rk, "gate_b", r["gate_b"])
+                t.update_cell(rk, "current_step", step)
+            else:                      # a newly-appeared run — append keyed by run_id
+                t.add_row(
+                    r["run_id"],
+                    self._status_cell(r["status"]),
+                    r["mode"],
+                    r["gate_a"],
+                    r["gate_b"],
+                    step,
+                    key=rk,
+                )
+        for gone in known - seen:      # a run dir that vanished mid-session — drop its row
+            t.remove_row(gone)
 
     def _apply_counters(self, c: dict) -> None:
         """Render the global counters strip GENERICALLY so no status word is a standalone literal.
