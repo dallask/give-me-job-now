@@ -36,6 +36,8 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
+from rich.text import Text
+
 from textual.widgets import DataTable, Sparkline, Static
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -404,6 +406,74 @@ def test_candidate_and_config_panels() -> None:
     assert cfg.strip(), f"the config panel must render non-empty text: {cfg!r}"
     assert "autonomous" in cfg, f"the config panel must show the fixture execution_mode: {cfg!r}"
     assert re.search(r"retry_cap\s+5", cfg), f"the config panel must show the fixture retry_cap: {cfg!r}"
+
+
+# --- VIEW-08: DAG stage strip renders tokens, highlights an active run, colors gates ------------
+
+# A well-formed fixture run with a truthy current_step and both gates recorded (composition dumped
+# from the real model). This test file lives under tests/, which the grep-guard does NOT scan, so it
+# may name the gate verdict WORD it expects the strip to render.
+_DAG_RUN_ID = "20260601T120000-del"
+_DAG_RUN_STEP = "gmj-cv-generator"
+
+
+async def _probe_dag_strip(pipeline_dir: Path) -> dict:
+    """Launch read-only, let the poll fill the #dag-placeholder panel, then probe text + style spans."""
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        # Two+ ticks let the threaded poll marshal snapshot()["stages"] back into the strip.
+        await pilot.pause()
+        await pilot.pause()
+        panel = app.query_one("#dag-placeholder", Static)
+        rendered = str(panel.render())
+        # Static.update(out) stores the ORIGINAL Rich Text in the name-mangled __content attribute
+        # (textual 6.1 has no public `.renderable`); read it to inspect the applied style spans. The
+        # suite already reads private internals (e.g. app._bindings.key_to_bindings) by convention.
+        renderable = getattr(panel, "_Static__content", None)
+        dag = app._model.snapshot()["stages"]["dag"]
+        # Collect the non-empty style spans off the Rich Text (proves color was applied inline).
+        spans = getattr(renderable, "spans", [])
+        nonempty_styles = [str(sp.style) for sp in spans if sp.style]
+        return {
+            "rendered": rendered,
+            "is_text": isinstance(renderable, Text),
+            "dag": dag,
+            "nonempty_style_count": len(nonempty_styles),
+        }
+
+
+def test_dag_strip_renders_and_highlights() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            probe = asyncio.run(_probe_dag_strip(pipe))
+        assert "Traceback" not in buf.getvalue(), f"DAG strip probe leaked a traceback: {buf.getvalue()}"
+
+    rendered = probe["rendered"]
+    assert rendered.strip(), f"the DAG strip must render non-empty text: {rendered!r}"
+
+    # VIEW-08: every config-read dag token appears in the static strip row.
+    assert probe["dag"], "the fixture dag must carry at least one stage token"
+    for token in probe["dag"]:
+        assert token in rendered, f"the DAG strip must render the dag token {token!r}: {rendered!r}"
+
+    # VIEW-08: a known active run's line carries its run_id + highlighted current_step.
+    assert _DAG_RUN_ID in rendered, f"the DAG strip must show the active run_id {_DAG_RUN_ID!r}: {rendered!r}"
+    assert _DAG_RUN_STEP in rendered, (
+        f"the DAG strip must show the active run's current_step {_DAG_RUN_STEP!r}: {rendered!r}"
+    )
+
+    # VIEW-08: the Gate A/B labels and a pass verdict appear on that run's line.
+    assert "A:" in rendered and "B:" in rendered, f"the DAG strip must label the Gate A/B verdicts: {rendered!r}"
+    assert "pass" in rendered, f"the DAG strip must render the projected gate verdict word: {rendered!r}"
+
+    # VIEW-08: coloring is applied inline via theme vars — the renderable is a Rich Text carrying at
+    # least one non-empty style span (the accent current_step / the gate-pass verdict / the separators).
+    assert probe["is_text"], "the #dag-placeholder renderable must be a Rich Text (colored spans, not plain text)"
+    assert probe["nonempty_style_count"] >= 1, (
+        f"the DAG strip must carry at least one non-empty style span (projection-colored): "
+        f"found {probe['nonempty_style_count']}"
+    )
 
 
 def main() -> int:
