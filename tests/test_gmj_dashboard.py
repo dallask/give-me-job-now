@@ -36,7 +36,7 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
-from textual.widgets import DataTable, Static
+from textual.widgets import DataTable, Sparkline, Static
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "pipeline"
@@ -334,6 +334,76 @@ def test_runs_table_rows_and_status_labels() -> None:
     assert probe["cursor_after"] != 0, (
         "the cursor must remain where the user put it (row 1), not snap back to the top row on a poll tick"
     )
+
+
+# --- VIEW-05: domain-metrics panel + throughput sparkline --------------------
+
+async def _probe_metrics_panel(pipeline_dir: Path) -> dict:
+    """Launch read-only, let the poll fill the metrics panel, then read its text + sparkline data."""
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        # Two+ ticks let the threaded poll marshal snapshot()["metrics"] back into the panel.
+        await pilot.pause()
+        await pilot.pause()
+        await pilot.pause()
+        metrics_text = str(app.query_one("#metrics", Static).render())
+        spark_data = app.query_one("#throughput", Sparkline).data
+        return {"metrics_text": metrics_text, "spark_data": spark_data}
+
+
+def test_metrics_panel_and_sparkline() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            probe = asyncio.run(_probe_metrics_panel(pipe))
+        assert "Traceback" not in buf.getvalue(), f"metrics probe leaked a traceback: {buf.getvalue()}"
+
+    text = probe["metrics_text"]
+    assert text.strip(), f"the metrics panel must render non-empty text: {text!r}"
+    # The panel carries the Gate A/B lines and the retry-vs-cap meter label...
+    for label in ("Gate A", "Gate B", "retries"):
+        assert label in text, f"the metrics panel must carry the {label!r} line: {text!r}"
+    # ...and at least one status bar rendered from by_status (block glyphs paired with a count).
+    assert "█" in text, f"the metrics panel must render at least one status bar glyph: {text!r}"
+
+    # The throughput sparkline's .data is a non-empty list of ints reassigned in place each poll.
+    data = probe["spark_data"]
+    assert isinstance(data, list) and data, f"the sparkline .data must be a non-empty list: {data!r}"
+    assert all(isinstance(x, int) for x in data), f"the sparkline .data must be all ints: {data!r}"
+
+
+# --- VIEW-06: read-only candidate + configuration panels ---------------------
+
+async def _probe_candidate_config(pipeline_dir: Path) -> dict:
+    """Launch read-only, let the poll fill the candidate + config panels, then read their text."""
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        await pilot.pause()
+        cand_text = str(app.query_one("#candidate", Static).render())
+        cfg_text = str(app.query_one("#config", Static).render())
+        return {"cand_text": cand_text, "cfg_text": cfg_text}
+
+
+def test_candidate_and_config_panels() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            probe = asyncio.run(_probe_candidate_config(pipe))
+        assert "Traceback" not in buf.getvalue(), f"candidate/config probe leaked a traceback: {buf.getvalue()}"
+
+    # VIEW-06: the candidate panel shows the fixture candidate's whitelisted top-fields verbatim.
+    cand = probe["cand_text"]
+    assert cand.strip(), f"the candidate panel must render non-empty text: {cand!r}"
+    assert "Test Candidate" in cand, f"the candidate panel must show the fixture name: {cand!r}"
+    assert "Senior Test Engineer" in cand, f"the candidate panel must show the fixture title: {cand!r}"
+
+    # VIEW-06: the config panel shows the governing knobs (execution_mode + retry_cap) verbatim.
+    cfg = probe["cfg_text"]
+    assert cfg.strip(), f"the config panel must render non-empty text: {cfg!r}"
+    assert "autonomous" in cfg, f"the config panel must show the fixture execution_mode: {cfg!r}"
+    assert re.search(r"retry_cap\s+5", cfg), f"the config panel must show the fixture retry_cap: {cfg!r}"
 
 
 def main() -> int:
