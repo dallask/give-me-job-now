@@ -852,6 +852,85 @@ def test_debug_panel_on_selection() -> None:
     assert "retries" in sel or "retry" in sel, f"the debug panel must show a retry field: {sel!r}"
 
 
+# --- VIEW-12: errors panel renders failed runs' Gate A/Gate B failure detail, red-forward -----------
+
+# The enriched fail fixtures: 20260603T120000-fail carries a Gate A fail with offending_claims
+# (numeric_invention / scope_inflation), 20260602T120000-run-ws a Gate B fail with missing_ids
+# ["mh-2","mh-3"]. This test file lives under tests/, which the grep-guard does NOT scan, so it may
+# name the failed run id + the rule/missing-id values the panel renders from the projection.
+_ERR_RUN_ID = "20260603T120000-fail"
+_ERR_GATE_A_RULE = "numeric_invention"     # a Gate A offending_claims rule_violated value
+_ERR_GATE_B_MISSING = "mh-2"                # a Gate B missing must-have id
+
+
+async def _probe_errors_panel(pipeline_dir: Path) -> dict:
+    """Launch read-only, let the poll fill #errors, then probe text + applied style spans."""
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        panel = app.query_one("#errors", Static)
+        rendered = str(panel.render())
+        # Static.update(out) stores the ORIGINAL Rich Text in the name-mangled __content attribute
+        # (textual 6.1 has no public `.renderable`); read it to inspect the applied red style spans —
+        # the same private-internals convention the DAG-strip test uses.
+        renderable = getattr(panel, "_Static__content", None)
+        spans = getattr(renderable, "spans", [])
+        nonempty_styles = [str(sp.style) for sp in spans if sp.style]
+        return {
+            "rendered": rendered,
+            "is_text": isinstance(renderable, Text),
+            "nonempty_style_count": len(nonempty_styles),
+        }
+
+
+async def _probe_empty_errors_panel() -> str:
+    """Launch over an empty pipeline → expect the `No failures` empty-state copy."""
+    with tempfile.TemporaryDirectory() as tmp:
+        empty_pipe = Path(tmp) / "pipeline"
+        empty_root = Path(tmp) / "root"
+        empty_pipe.mkdir()
+        empty_root.mkdir()
+        model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(empty_pipe), repo_root=empty_root)
+        app = gmj_dashboard.GmjDashboard(model, manage=False, refresh=0.1)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.pause()
+            return str(app.query_one("#errors", Static).render())
+
+
+def test_errors_panel_renders() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            probe = asyncio.run(_probe_errors_panel(pipe))
+            empty_text = asyncio.run(_probe_empty_errors_panel())
+        assert "Traceback" not in buf.getvalue(), f"errors panel leaked a traceback: {buf.getvalue()}"
+
+    rendered = probe["rendered"]
+    assert rendered.strip(), f"the errors panel must render non-empty text: {rendered!r}"
+
+    # VIEW-12: the failed run_id, a Gate A offending-claim detail, and a Gate B missing must-have id.
+    assert _ERR_RUN_ID in rendered, f"the errors panel must show the failed run_id: {rendered!r}"
+    assert _ERR_GATE_A_RULE in rendered, (
+        f"the errors panel must show a Gate A offending-claim detail: {rendered!r}"
+    )
+    assert _ERR_GATE_B_MISSING in rendered, (
+        f"the errors panel must show a Gate B missing must-have id: {rendered!r}"
+    )
+
+    # VIEW-12: coloring is applied inline via theme vars — the renderable is a Rich Text carrying at
+    # least one non-empty style span (the red-forward failure markers / gate-verdict colours).
+    assert probe["is_text"], "the #errors renderable must be a Rich Text (red spans, not plain text)"
+    assert probe["nonempty_style_count"] >= 1, (
+        f"the errors panel must carry at least one non-empty style span (red-forward): "
+        f"found {probe['nonempty_style_count']}"
+    )
+
+    # VIEW-12: the empty pipeline degrades to the UI-SPEC `No failures` copy, never a blank or a crash.
+    assert "No failures" in empty_text, f"the empty errors panel must show 'No failures': {empty_text!r}"
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
