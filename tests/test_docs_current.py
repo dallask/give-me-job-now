@@ -129,13 +129,33 @@ def _has_marker(text: str) -> bool:
     return "historical" in low or "superseded" in low
 
 
+# Explicit inline historical annotations (WR-03): a trailing `(historical)` /
+# `(superseded)` tag, or a ~~strikethrough~~ span mentioning the word. Used ONLY for
+# the per-line allowance so a normal prose line that merely happens to say
+# "superseded"/"historical" (e.g. "X replaces the superseded flow and is CURRENT")
+# no longer escapes the stale scan. Heading- and block-scoped allowances still use
+# the broader `_has_marker`.
+_INLINE_HIST = re.compile(r"\((?:historical|superseded)\)", re.IGNORECASE)
+_STRIKE_HIST = re.compile(r"~~[^~]*(?:historical|superseded)[^~]*~~", re.IGNORECASE)
+
+
+def _line_marked_historical(text: str) -> bool:
+    """True iff the line carries an EXPLICIT inline historical annotation.
+
+    Not merely any occurrence of the word — that coarse match (WR-03) let a line
+    presenting a legacy name AS CURRENT evade detection just by containing the word.
+    """
+    return bool(_INLINE_HIST.search(text) or _STRIKE_HIST.search(text))
+
+
 def _current_sites(text: str, token: str) -> list[int]:
     """Line numbers where ``token`` appears as a CURRENT reference (exclusions applied).
 
     Excluded (NOT counted): blockquote (``>``) / HTML-comment (``<!--``) lines, any line
     inside a heading-section whose heading is marked historical/superseded, any line inside
-    an HTML-comment-delimited ``historical``/``superseded`` block, and any line self-marked
-    with a historical/superseded word.
+    an HTML-comment-delimited ``historical``/``superseded`` block, and any line carrying an
+    EXPLICIT inline historical annotation (a trailing ``(historical)``/``(superseded)`` tag
+    or a ``~~strikethrough~~`` span) — NOT a line that merely mentions the word.
     """
     pattern = re.compile(r"(?<![\w-])" + re.escape(token) + r"(?![\w-])")
     sites: list[int] = []
@@ -160,7 +180,7 @@ def _current_sites(text: str, token: str) -> list[int]:
         # Exclusions: comment/quote line, marked block/section, or a self-marked line.
         if stripped.startswith(">") or stripped.startswith("<!--"):
             continue
-        if in_hist_block or section_historical or _has_marker(line):
+        if in_hist_block or section_historical or _line_marked_historical(line):
             continue
         if pattern.search(line):
             sites.append(i)
