@@ -44,6 +44,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "pipeline"
 DASH_FIXTURES = REPO_ROOT / "tests" / "fixtures" / "dashboard"
 DASHBOARD_PY = REPO_ROOT / "scripts" / "dashboard" / "gmj_dashboard.py"
+# MANAGE-06: the extended SAFETY-02 no-write AST test scans the VIEW + MODEL as a pair; the actions
+# module (gmj_dashboard_actions.py) is DELIBERATELY excluded — it is the one place a config write +
+# detached subprocess launch are legitimate (its own safety is proven by SAFETY-01 in Plan 24-01).
+MODEL_PY = REPO_ROOT / "scripts" / "dashboard" / "gmj_dashboard_model.py"
+CONFIG_SRC = REPO_ROOT / "config" / "pipeline.config.yaml"
 
 # Import the App + the model via the same sys.path idiom the model test uses.
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "dashboard"))
@@ -53,6 +58,47 @@ import gmj_dashboard_model  # noqa: E402
 
 # Keys that must NEVER be bound without --manage (VIEW-01) and MUST be bound with it (VIEW-07).
 _MUTATING_KEYS = ("r", "R", "b", "m", "c")
+# The REAL action name each mutating key must bind to under --manage (MANAGE-01) — NOT the inert noop.
+_MANAGE_ACTIONS = {"r": "run", "R": "resume", "b": "batch", "m": "mode", "c": "cap"}
+
+
+# ── fakes (mirror tests/test_gmj_dashboard_actions.py — no test spawns a REAL claude) ──────────────
+
+class _FakeProc:
+    """A stand-in async subprocess whose ``.wait`` / ``.communicate`` are spies (fire-and-forget proof)."""
+
+    def __init__(self) -> None:
+        self.wait_calls = 0
+        self.communicate_calls = 0
+
+    async def wait(self) -> int:
+        self.wait_calls += 1
+        return 0
+
+    async def communicate(self):
+        self.communicate_calls += 1
+        return (b"", b"")
+
+
+class _RecordingLauncher:
+    """A fake launcher recording ``(argv, kwargs)`` and returning a fresh ``_FakeProc`` (never awaited)."""
+
+    def __init__(self) -> None:
+        self.argv: tuple = ()
+        self.kwargs: dict = {}
+        self.calls = 0
+        self.proc = _FakeProc()
+
+    async def __call__(self, *argv, **kwargs):
+        self.calls += 1
+        self.argv = argv
+        self.kwargs = kwargs
+        return self.proc
+
+
+async def _aval(value):
+    """A trivial coroutine so an overridden collector (``app._prompt_offer = lambda: _aval(x)``) awaits."""
+    return value
 
 
 @contextmanager
@@ -64,10 +110,29 @@ def _temp_pipeline():
         yield dst
 
 
-def _build_app(pipeline_dir: Path, *, manage: bool = False, refresh: float = 1.5) -> "gmj_dashboard.GmjDashboard":
-    """Construct the App around a pre-built model reading the temp pipeline + dashboard fixtures."""
+def _build_app(
+    pipeline_dir: Path,
+    *,
+    manage: bool = False,
+    refresh: float = 1.5,
+    config_path: Path | None = None,
+    launcher=None,
+) -> "gmj_dashboard.GmjDashboard":
+    """Construct the App around a pre-built model reading the temp pipeline + dashboard fixtures.
+
+    ``config_path`` (a temp copy) and ``launcher`` (a recording fake) are the Plan 24-02 --manage seams;
+    they default to the read-only behaviour so every pre-existing test is unaffected.
+    """
     model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(pipeline_dir), repo_root=DASH_FIXTURES)
-    return gmj_dashboard.GmjDashboard(model, manage=manage, refresh=refresh)
+    return gmj_dashboard.GmjDashboard(
+        model,
+        manage=manage,
+        refresh=refresh,
+        config_path=config_path,
+        launcher=launcher,
+        pipeline_dir=str(pipeline_dir),
+        cwd=REPO_ROOT,
+    )
 
 
 async def _bound_keys(pipeline_dir: Path, *, manage: bool) -> set[str]:
@@ -91,15 +156,41 @@ def _run_with_stderr(coro) -> str:
 
 # --- VIEW-01: read-only launch binds no mutating keys -------------------------
 
+async def _readonly_launcher_never_invoked(pipeline_dir: Path) -> int:
+    """Read-only launch: inject a spy launcher, focus the table, press every mutating key → zero calls.
+
+    Proves T-24-06: without --manage the mutating keys are genuinely unbound AND the launcher seam is
+    never invoked (a keypress reaches no launch handler). Focusing the runs table takes focus off the
+    filter Input so a bound letter key WOULD reach the App binding — yet in read-only none is bound.
+    """
+    app = _build_app(pipeline_dir, manage=False)
+    spy = _RecordingLauncher()
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        app._launcher = spy
+        app.query_one("#runs", DataTable).focus()
+        await pilot.pause()
+        for key in _MUTATING_KEYS:
+            await pilot.press(key)
+            await pilot.pause()
+    return spy.calls
+
+
 def test_readonly_no_mutating_bindings() -> None:
     with _temp_pipeline() as pipe:
         buf = io.StringIO()
         with contextlib.redirect_stderr(buf):
             bound = asyncio.run(_bound_keys(pipe, manage=False))
+            launcher_calls = asyncio.run(_readonly_launcher_never_invoked(pipe))
         assert "Traceback" not in buf.getvalue(), f"read-only launch leaked a traceback: {buf.getvalue()}"
     for key in _MUTATING_KEYS:
         assert key not in bound, f"mutating key {key!r} must NOT be bound in read-only mode: {sorted(bound)}"
     assert "q" in bound, "the read-only quit key must be bound in read-only mode"
+    # T-24-06: the launcher seam is NEVER invoked without --manage (pressing r/R/b reaches no handler).
+    assert launcher_calls == 0, (
+        f"the launcher must NEVER be invoked in read-only mode; recorded {launcher_calls} call(s)"
+    )
 
 
 # --- VIEW-07: --manage makes the footer mode-aware (mutating keys bound) ------
@@ -206,10 +297,17 @@ def test_no_write_invariant() -> None:
             assert path.stat().st_mtime_ns == mtime, f"{path} mtime changed — the view must never touch disk"
 
 
-# --- SAFETY-02: AST proof the view has no write / subprocess API --------------
+# --- SAFETY-02 / MANAGE-06: AST proof the VIEW *and* MODEL have no write / subprocess API ----------
 
-def test_view_has_no_write_or_subprocess_api() -> None:
-    tree = ast.parse(DASHBOARD_PY.read_text(encoding="utf-8"), filename=str(DASHBOARD_PY))
+def _no_write_or_subprocess_offenders(path: Path) -> list[str]:
+    """AST-scan one module for any write / subprocess API. Returns the list of offenders (empty = clean).
+
+    Identical detector to the original SAFETY-02 view scan, factored so Plan 24-02 can run it over BOTH
+    the view and the model (MANAGE-06): open(write-mode), a banned write/exec attribute, or a
+    subprocess reference/import. The actions module is never passed here — its config write + detached
+    launch are legitimate and proven safe by SAFETY-01 in Plan 24-01.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
     write_modes = {"w", "a", "x", "w+", "a+", "wb", "ab", "xb", "r+", "rb+"}
     banned_attrs = {"write_text", "write_bytes", "replace", "rename", "remove", "unlink", "system"}
@@ -223,7 +321,7 @@ def test_view_has_no_write_or_subprocess_api() -> None:
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "open":
             for arg in node.args[1:]:
                 if isinstance(arg, ast.Constant) and isinstance(arg.value, str) and arg.value in write_modes:
-                    offenders.append(f"open(mode={arg.value!r})")
+                    offenders.append(f"{path.name}: open(mode={arg.value!r})")
             for kw in node.keywords:
                 if (
                     kw.arg == "mode"
@@ -231,26 +329,36 @@ def test_view_has_no_write_or_subprocess_api() -> None:
                     and isinstance(kw.value.value, str)
                     and kw.value.value in write_modes
                 ):
-                    offenders.append(f"open(mode={kw.value.value!r})")
+                    offenders.append(f"{path.name}: open(mode={kw.value.value!r})")
         # (b) a banned write/subprocess attribute call: x.write_text(...), os.replace(...),
         #     os.remove(...), os.system(...), os.exec*/os.spawn*(...).
         if isinstance(node, ast.Attribute):
             if node.attr in banned_attrs:
-                offenders.append(f".{node.attr}")
+                offenders.append(f"{path.name}: .{node.attr}")
             if node.attr.startswith(exec_prefixes) and node.attr not in ("execute",):
-                offenders.append(f".{node.attr}")
+                offenders.append(f"{path.name}: .{node.attr}")
         # (c) a subprocess / os.system reference anywhere (import or attribute base).
         if isinstance(node, ast.Name) and node.id in banned_module_names:
-            offenders.append(node.id)
+            offenders.append(f"{path.name}: {node.id}")
         if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id in banned_module_names:
-            offenders.append(f"{node.value.id}.{node.attr}")
+            offenders.append(f"{path.name}: {node.value.id}.{node.attr}")
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             mod = getattr(node, "module", None) or ""
             names = {a.name for a in node.names}
             if mod in banned_module_names or names & banned_module_names:
-                offenders.append(f"import {mod or ','.join(sorted(names))}")
+                offenders.append(f"{path.name}: import {mod or ','.join(sorted(names))}")
 
-    assert not offenders, f"the view must expose NO write/subprocess API (SAFETY-02): {offenders}"
+    return offenders
+
+
+def test_view_has_no_write_or_subprocess_api() -> None:
+    # MANAGE-06: the VIEW and the MODEL must BOTH stay write/subprocess-free — the view only ever CALLS
+    # the actions module (lazily, under --manage); it never launches/writes itself. The actions module
+    # is EXCLUDED (its config write + detached launch are legitimate, proven by SAFETY-01 in 24-01).
+    offenders = _no_write_or_subprocess_offenders(DASHBOARD_PY) + _no_write_or_subprocess_offenders(MODEL_PY)
+    assert not offenders, (
+        f"the view + model must expose NO write/subprocess API (SAFETY-02/MANAGE-06): {offenders}"
+    )
 
 
 # --- VIEW-03 (+ strengthened VIEW-04): live runs table rows, status labels, stability -----------
@@ -1081,6 +1189,221 @@ def test_charts_panel_renders() -> None:
     assert probe["is_text"], "the #charts renderable must be a Rich Text (coloured bar/trend spans, not plain text)"
     assert probe["nonempty_style_count"] >= 1, (
         f"the charts panel must carry at least one non-empty colour span: found {probe['nonempty_style_count']}"
+    )
+
+
+# --- MANAGE-01/02/03: --manage binds real actions; r/R launch via the seam, fire-and-forget --------
+
+# A known fixture run to park the #runs cursor on for the resume launch (present in the corpus).
+_MANAGE_RUN_ID = "20260601T120000-del"
+
+
+async def _probe_manage_binds_and_launch(pipeline_dir: Path) -> dict:
+    """Under --manage: read the binding action names, then drive r/R with a fake launcher + collectors."""
+    app = _build_app(pipeline_dir, manage=True)
+    rec = _RecordingLauncher()
+    out: dict = {}
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        # (a) each mutating key binds to its REAL action name (run/resume/batch/mode/cap), not noop.
+        k2b = app._bindings.key_to_bindings
+        out["actions"] = {
+            k: (k2b[k][0].action if k in k2b and k2b[k] else None) for k in _MUTATING_KEYS
+        }
+        # (b) inject the fake launcher + deterministic collectors; focus the table so the letter keys
+        #     reach the App binding (the filter Input would otherwise consume them).
+        app._launcher = rec
+        app._prompt_offer = lambda: _aval("https://work.ua/jobs/1/")
+        app._selected_run_id = lambda: _MANAGE_RUN_ID
+        app.query_one("#runs", DataTable).focus()
+        await pilot.pause()
+
+        await pilot.press("r")
+        await pilot.pause()
+        out["argv_run"] = rec.argv
+        out["kwargs_run"] = dict(rec.kwargs)
+
+        await pilot.press("R")
+        await pilot.pause()
+        out["argv_resume"] = rec.argv
+
+        out["calls"] = rec.calls
+        out["wait_calls"] = rec.proc.wait_calls
+        out["communicate_calls"] = rec.proc.communicate_calls
+        out["children"] = len(app._children)
+    return out
+
+
+def test_manage_binds_real_actions() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            probe = asyncio.run(_probe_manage_binds_and_launch(pipe))
+        assert "Traceback" not in buf.getvalue(), f"--manage launch leaked a traceback: {buf.getvalue()}"
+
+    # MANAGE-01: every mutating key binds to its REAL action name, NOT the inert noop.
+    for key, expected in _MANAGE_ACTIONS.items():
+        got = probe["actions"].get(key)
+        assert got == expected, f"key {key!r} must bind to action {expected!r} under --manage, got {got!r}"
+        assert got != "noop", f"key {key!r} must NOT bind to the inert noop under --manage"
+
+    # MANAGE-02: `r` awaited the injected launcher with the exact autonomous argv + start_new_session.
+    argv_run = probe["argv_run"]
+    assert argv_run[:3] == ("claude", "--dangerously-skip-permissions", "-p"), (
+        f"the launched argv must be claude … -p …: {argv_run!r}"
+    )
+    assert "mode=autonomous" in argv_run[-1], f"a fresh run must force autonomous: {argv_run[-1]!r}"
+    assert "run_id=" not in argv_run[-1], f"a fresh run must not carry a run_id: {argv_run[-1]!r}"
+    assert probe["kwargs_run"].get("start_new_session") is True, "the child must be detached (start_new_session=True)"
+
+    # MANAGE-03: `R` embedded the selected run_id in the resume prompt.
+    argv_resume = probe["argv_resume"]
+    assert f"run_id={_MANAGE_RUN_ID}" in argv_resume[-1], f"resume must embed run_id=<id>: {argv_resume[-1]!r}"
+    assert "mode=autonomous" in argv_resume[-1], f"resume must also force autonomous: {argv_resume[-1]!r}"
+
+    # Fire-and-forget: both keys launched (2 calls), children held, and completion NEVER awaited.
+    assert probe["calls"] == 2, f"r and R must each launch exactly once: {probe['calls']}"
+    assert probe["children"] == 2, f"each launched proc must be held in self._children: {probe['children']}"
+    assert probe["wait_calls"] == 0, "the launched proc's .wait() must never be called (would block the UI)"
+    assert probe["communicate_calls"] == 0, "the launched proc's .communicate() must never be called"
+
+
+# --- MANAGE-05: m toggles execution_mode + c sets retry_cap, over a temp config (comments survive) --
+
+async def _drive_config_edits(pipeline_dir: Path, config_path: Path) -> dict:
+    """Under --manage: drive `m` (mode toggle) then `c` (retry_cap set) over a temp config copy."""
+    app = _build_app(pipeline_dir, manage=True, config_path=config_path)
+    notes: list = []
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        app.notify = lambda message, **kw: notes.append((str(message), kw.get("severity")))
+        app._prompt_cap = lambda: _aval(7)
+        app.query_one("#runs", DataTable).focus()
+        await pilot.pause()
+        await pilot.press("m")
+        await pilot.pause()
+        await pilot.press("c")
+        await pilot.pause()
+    return {"notes": notes, "text": config_path.read_text(encoding="utf-8")}
+
+
+def test_manage_config_edit() -> None:
+    with _temp_pipeline() as pipe, tempfile.TemporaryDirectory() as tmp:
+        cfg = Path(tmp) / "pipeline.config.yaml"
+        shutil.copy(CONFIG_SRC, cfg)
+        seed = cfg.read_text(encoding="utf-8")
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            probe = asyncio.run(_drive_config_edits(pipe, cfg))
+        assert "Traceback" not in buf.getvalue(), f"config edit leaked a traceback: {buf.getvalue()}"
+
+    text = probe["text"]
+    # MANAGE-05: the seed mode (human_in_the_loop) flipped to autonomous on `m`.
+    assert "execution_mode: human_in_the_loop" in seed, "the seed config must start human_in_the_loop"
+    assert "execution_mode: autonomous" in text, f"`m` must flip execution_mode in the file: {text!r}"
+    # `c` set retry_cap to the injected value; the FREEZE CONTRACT comment block survives both edits.
+    assert re.search(r"retry_cap:\s*7\b", text), f"`c` must set retry_cap to the injected value: {text!r}"
+    assert "# FREEZE CONTRACT" in text, "the freeze-contract comment block must survive the config edits"
+
+    # The confirmation notices carry the exact UI-SPEC copy (never silent).
+    msgs = [m for m, _sev in probe["notes"]]
+    assert any(m == "✓ execution_mode → autonomous" for m in msgs), f"missing mode notice: {msgs}"
+    assert any(m == "✓ retry_cap → 7" for m in msgs), f"missing cap notice: {msgs}"
+
+
+# --- MANAGE-04 (plan-checker W3): b drives run_batch with the board's pipeline_dir + success notice --
+
+def test_manage_batch_action() -> None:
+    import gmj_dashboard_actions as actions
+
+    recorded: dict = {}
+
+    class _Completed:
+        returncode = 0
+        stderr = ""
+
+    def _fake_run_batch(shortlist, select, *, pipeline_dir, **kw):
+        recorded["shortlist"] = shortlist
+        recorded["select"] = select
+        recorded["pipeline_dir"] = pipeline_dir
+        return _Completed()
+
+    async def _drive_batch(pipeline_dir: Path) -> list:
+        app = _build_app(pipeline_dir, manage=True)
+        notes: list = []
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.pause()
+            app.notify = lambda message, **kw: notes.append((str(message), kw.get("severity")))
+            app._prompt_batch = lambda: _aval(("shortlist.json", "1,3"))
+            app.query_one("#runs", DataTable).focus()
+            await pilot.pause()
+            await pilot.press("b")
+            await pilot.pause()
+        return notes
+
+    orig = actions.run_batch
+    actions.run_batch = _fake_run_batch  # patch the module attr the lazy import resolves (no real subprocess)
+    try:
+        with _temp_pipeline() as pipe:
+            buf = io.StringIO()
+            with contextlib.redirect_stderr(buf):
+                notes = asyncio.run(_drive_batch(pipe))
+            assert "Traceback" not in buf.getvalue(), f"batch action leaked a traceback: {buf.getvalue()}"
+            expected_pipeline_dir = str(pipe)
+    finally:
+        actions.run_batch = orig
+
+    # MANAGE-04: `b` called run_batch with the collected (shortlist, select) and the board's pipeline_dir (W2).
+    assert recorded.get("shortlist") == "shortlist.json", f"run_batch shortlist not threaded: {recorded}"
+    assert recorded.get("select") == "1,3", f"run_batch select not threaded: {recorded}"
+    assert recorded.get("pipeline_dir") == expected_pipeline_dir, (
+        f"run_batch must receive the board's own pipeline_dir (W2): {recorded.get('pipeline_dir')!r} "
+        f"vs {expected_pipeline_dir!r}"
+    )
+    msgs = [m for m, _sev in notes]
+    assert any(m == "▸ batch manifest written" for m in msgs), f"missing batch success notice: {msgs}"
+
+
+# --- MANAGE-02/03: a failed launch posts a VISIBLE error-severity notice (never silent) -------------
+
+async def _drive_launch_failure(pipeline_dir: Path) -> list:
+    """Inject a launcher raising FileNotFoundError; drive `r` and capture the posted notifications."""
+    app = _build_app(pipeline_dir, manage=True)
+    notes: list = []
+
+    async def _boom(*argv, **kwargs):
+        raise FileNotFoundError("claude not on PATH")
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        app._launcher = _boom
+        app._prompt_offer = lambda: _aval("https://work.ua/jobs/1/")
+        app.notify = lambda message, **kw: notes.append((str(message), kw.get("severity")))
+        app.query_one("#runs", DataTable).focus()
+        await pilot.pause()
+        await pilot.press("r")
+        await pilot.pause()
+    return notes
+
+
+def test_launch_failure_notice() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            notes = asyncio.run(_drive_launch_failure(pipe))
+        # A failed launch must NOT leak a traceback — it is converted to a UI notice.
+        assert "Traceback" not in buf.getvalue(), f"a failed launch must not leak a traceback: {buf.getvalue()}"
+
+    # MANAGE-02/03: exactly one error-severity notice, carrying the UI-SPEC launch-error copy.
+    assert notes, "a failed launch must post a visible notice (never silent)"
+    error_notes = [(m, sev) for m, sev in notes if sev == "error"]
+    assert error_notes, f"a failed launch must post an ERROR-severity notice: {notes}"
+    assert any(m.startswith("⚠ launch failed:") for m, _sev in error_notes), (
+        f"the launch-error notice must use the UI-SPEC copy '⚠ launch failed: …': {error_notes}"
     )
 
 
