@@ -7,7 +7,7 @@ description: Run the gmj-orchestrator collective (routing schema + CV toolchain)
 
 ## What to do
 
-1. **Hub runs here (top level):** Follow `.claude/agents/gmj-orchestrator.md` **in this chat session**—you are the hub. Use **`Task`** only to spawn **spokes** (`vacancy-router`, `cv-template-creator`, `gmj-cv-generator`, `cv-deliverable-gate`, etc.). **Never** call `Task` with `subagent_type: gmj-orchestrator`. Nesting the hub inside `Task` removes `Task` from that context (“Task is not available inside subagents”), which breaks the whole pipeline.
+1. **Hub runs here (top level):** Follow `.claude/agents/gmj-orchestrator.md` **in this chat session**—you are the hub. Use **`Task`** only to spawn **spokes** (`gmj-offer-scout`, `gmj-artifact-composer`, `gmj-truth-verifier`, `gmj-fit-evaluator`, `gmj-cv-generator`, `gmj-template-creator`, etc.). **Never** call `Task` with `subagent_type: gmj-orchestrator`. Nesting the hub inside `Task` removes `Task` from that context (“Task is not available inside subagents”), which breaks the whole pipeline.
 2. Follow the schema: **User Request → Routing Analysis → Agent Selection → Task Delegation → Quality Gate → Result**. The hub must **actually invoke** `Task` for each spoke—never stop at “I will delegate” without a `Task` call in the same turn.
 3. Paths:
    - Inputs: `sources/` (see `.claude/skills/gmj-sources-ingestion/SKILL.md`)
@@ -22,4 +22,4 @@ Paste your goal after invoking this command, for example:
 - “Research PHP/Drupal remote market trends for EU, then tune keywords in YAML.”
 - “I attached a CV layout screenshot—create `templates/cv/…` to match it (browser MCP for pixel tweaks), then render PDF.”
 
-The orchestrator should call **`vacancy-router`** first, then delegate spokes one step at a time and run **`cv-deliverable-gate`** before declaring completion.
+The orchestrator should call **`gmj-offer-scout`** first, then delegate spokes one step at a time and run the gate spokes **`gmj-truth-verifier`** (Gate A) and **`gmj-fit-evaluator`** (Gate B/C) before declaring completion.

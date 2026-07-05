@@ -11,8 +11,6 @@ scope:
     - job-board
   agent-names:
     - gmj-offer-scout
-    - job-market-researcher
-    - vacancy-scraper
 ---
 
 # Invariant: Search scope is bounded by sources.yaml
