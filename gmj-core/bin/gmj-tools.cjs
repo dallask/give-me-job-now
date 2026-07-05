@@ -166,6 +166,133 @@ function copyPayload(manifest, realRoot) {
   return counts;
 }
 
+// --- settings.json merge (threats T-18-04, T-18-11) -------------------------
+// The target .claude/settings.json uses Claude Code's nested shape:
+//   hooks.{SessionStart,PreToolUse,PostToolUse,SubagentStop} = [ {matcher, hooks:[{type,command}]} ]
+// We mirror gsd-core's reconcileCursorHooksJson (managed-marker -> filter -> re-append -> byte-
+// compare -> no-op-if-unchanged), adapted to dedup at the inner hooks[] command level PER matcher.
+
+const HOOK_CMD = (name) => `$CLAUDE_PROJECT_DIR/.claude/hooks/${name}`;
+
+// The exact 8-registration managed set the installer owns (mirrors .claude/settings.json).
+const MANAGED_EVENTS = ['SessionStart', 'PreToolUse', 'PostToolUse', 'SubagentStop'];
+const MANAGED = {
+  SessionStart: [
+    { matcher: 'startup', hooks: [{ type: 'command', command: HOOK_CMD('gmj-session-bootstrap.sh') }] },
+    { matcher: 'resume', hooks: [{ type: 'command', command: HOOK_CMD('gmj-session-bootstrap.sh') }] },
+    { matcher: 'clear', hooks: [{ type: 'command', command: HOOK_CMD('gmj-session-bootstrap.sh') }] },
+  ],
+  PreToolUse: [
+    { matcher: 'Bash', hooks: [{ type: 'command', command: HOOK_CMD('gmj-block-destructive-commands.sh') }] },
+    {
+      matcher: 'WebSearch|WebFetch',
+      hooks: [{ type: 'command', command: HOOK_CMD('gmj-sources-scope-guard.sh') }],
+    },
+  ],
+  PostToolUse: [
+    { matcher: 'Task', hooks: [{ type: 'command', command: HOOK_CMD('gmj-collective-handoff-contract.sh') }] },
+  ],
+  SubagentStop: [
+    {
+      matcher: '.*',
+      hooks: [
+        { type: 'command', command: HOOK_CMD('gmj-subagent-stop-quality-reminder.sh') },
+        { type: 'command', command: HOOK_CMD('gmj-validate-envelope.sh') },
+      ],
+    },
+  ],
+};
+
+/**
+ * The "managed" test: a hook command whose basename starts with `gmj-` AND lives under
+ * `.claude/hooks/`. Only these are evicted-and-re-appended; user- and gsd-owned entries survive.
+ */
+function isManagedHookCommand(command) {
+  if (typeof command !== 'string') return false;
+  const norm = command.replace(/\\/g, '/');
+  const base = norm.slice(norm.lastIndexOf('/') + 1);
+  return base.startsWith('gmj-') && norm.includes('.claude/hooks/');
+}
+
+/**
+ * Merge one event's registrations. For each existing registration (per matcher) strip prior
+ * managed commands out of its inner hooks[] (keeping user/gsd commands), then re-append the
+ * current managed commands into the matching matcher (or create a new registration). Idempotent:
+ * a second pass strips the same managed commands and re-appends them in the same order/position.
+ */
+function mergeEventRegistrations(existingRegs, managedRegs) {
+  const existing = Array.isArray(existingRegs) ? existingRegs : [];
+
+  // Step 1: strip managed commands from every existing registration, preserving order + user hooks.
+  const result = existing.map((reg) => {
+    if (!reg || typeof reg !== 'object') return reg;
+    const hooksArr = Array.isArray(reg.hooks) ? reg.hooks : [];
+    const userHooks = hooksArr.filter((h) => !(h && isManagedHookCommand(h.command)));
+    return { ...reg, hooks: userHooks };
+  });
+
+  // Step 2: re-append managed commands into the same-matcher registration, else create one.
+  for (const mreg of managedRegs) {
+    const idx = result.findIndex((r) => r && typeof r === 'object' && r.matcher === mreg.matcher);
+    const managedHooks = mreg.hooks.map((h) => ({ ...h }));
+    if (idx >= 0) {
+      const cur = Array.isArray(result[idx].hooks) ? result[idx].hooks : [];
+      result[idx] = { ...result[idx], hooks: [...cur, ...managedHooks] };
+    } else {
+      result.push({ matcher: mreg.matcher, hooks: managedHooks });
+    }
+  }
+
+  // Step 3: drop registrations left with an empty hooks[] (a user reg that held only managed
+  // commands and received no managed re-append) so re-installs stay stable.
+  return result.filter((r) => !(r && typeof r === 'object' && Array.isArray(r.hooks) && r.hooks.length === 0));
+}
+
+/**
+ * Idempotently merge the managed hook set into the target settings.json. Parses-then-throws on
+ * malformed JSON (never silent-overwrite), byte-compares, and writes only when changed.
+ */
+function mergeSettings(settingsPath) {
+  let parsed = {};
+  let currentContent = null;
+  if (fs.existsSync(settingsPath)) {
+    const raw = fs.readFileSync(settingsPath, 'utf8');
+    currentContent = raw;
+    if (raw.trim()) {
+      try {
+        parsed = JSON.parse(raw);
+      } catch (err) {
+        throw new Error(
+          `settings.json parse failed (${settingsPath}): ${err && err.message ? err.message : String(err)}`
+        );
+      }
+    }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) parsed = {};
+
+  const hasNestedHooks = parsed.hooks && typeof parsed.hooks === 'object' && !Array.isArray(parsed.hooks);
+  if (!hasNestedHooks) parsed.hooks = {};
+  const hookTable = parsed.hooks;
+
+  for (const event of MANAGED_EVENTS) {
+    const merged = mergeEventRegistrations(hookTable[event], MANAGED[event] || []);
+    if (merged.length > 0) {
+      hookTable[event] = merged;
+    } else {
+      delete hookTable[event];
+    }
+  }
+
+  const nextContent = `${JSON.stringify(parsed, null, 2)}\n`;
+  const changed = currentContent !== nextContent;
+  const shouldWrite = changed && (currentContent !== null || Object.keys(parsed).length > 0);
+  if (shouldWrite) {
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    fs.writeFileSync(settingsPath, nextContent, 'utf8');
+  }
+  return { changed, wrote: shouldWrite };
+}
+
 // --- Install command ---------------------------------------------------------
 function loadManifest() {
   if (!fs.existsSync(MANIFEST_PATH)) {
@@ -191,12 +318,14 @@ function cmdInstall(targetArg) {
   const manifest = loadManifest();
   const counts = copyPayload(manifest, realRoot);
 
-  // Task 2 wires the settings.json merge here.
+  const settingsPath = assertContained(realRoot, path.join(realRoot, '.claude', 'settings.json'));
+  const settingsResult = mergeSettings(settingsPath);
 
   process.stdout.write(
     `gmj installed into ${realRoot}\n` +
       `  app-code overwritten: ${counts.overwritten}, user-data scaffolded: ${counts.scaffolded}, ` +
       `user-data preserved: ${counts.preserved}\n` +
+      `  settings.json: ${settingsResult.wrote ? 'merged' : 'unchanged (idempotent)'}\n` +
       `\nNext: install the Python dependencies:\n` +
       `  pip install -r ${REQUIREMENTS_HINT}\n`
   );
@@ -226,4 +355,12 @@ if (require.main === module) {
   }
 }
 
-module.exports = { assertContained, assertSafeManifestKey, planFor, copyPayload };
+module.exports = {
+  assertContained,
+  assertSafeManifestKey,
+  planFor,
+  copyPayload,
+  isManagedHookCommand,
+  mergeEventRegistrations,
+  mergeSettings,
+};
