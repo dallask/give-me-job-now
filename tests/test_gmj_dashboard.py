@@ -767,6 +767,91 @@ def test_filter_narrows_runs_table() -> None:
     )
 
 
+# --- VIEW-15: commands panel lists mode-aware key/action rows --------------------------------------
+
+async def _probe_commands_panel(pipeline_dir: Path, *, manage: bool) -> str:
+    """Launch (read-only or --manage), let on_mount seed the static commands panel, read its text."""
+    app = _build_app(pipeline_dir, manage=manage, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        return str(app.query_one("#commands", Static).render())
+
+
+def test_commands_panel_mode_aware() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            ro = asyncio.run(_probe_commands_panel(pipe, manage=False))
+            mg = asyncio.run(_probe_commands_panel(pipe, manage=True))
+        assert "Traceback" not in buf.getvalue(), f"commands panel leaked a traceback: {buf.getvalue()}"
+
+    # VIEW-15: both modes list key/action rows — the always-present read-only keys plus the _MANAGE_KEYS.
+    for text in (ro, mg):
+        assert text.strip(), f"the commands panel must render non-empty rows: {text!r}"
+        assert "q" in text and "quit" in text, f"the commands panel must list the read-only quit key: {text!r}"
+        assert "enter" in text and "drill-in" in text, f"the commands panel must list the drill-in key: {text!r}"
+        assert "Run" in text, f"the commands panel must list a mutating _MANAGE_KEYS action row: {text!r}"
+
+    # VIEW-15: a mutating key row's mode column DIFFERS between read-only and --manage. Read-only marks
+    # the manage keys as Phase-24-deferred; under --manage they carry the active (--manage) mode.
+    assert "Phase 24" in ro, f"read-only mode must annotate the manage keys as Phase-24-deferred: {ro!r}"
+    assert "Phase 24" not in mg, f"--manage mode must NOT annotate the manage keys as deferred: {mg!r}"
+
+
+# --- VIEW-16: debug/internals panel renders the selected run's run_detail on selection --------------
+
+# The enriched Gate A fail fixture carries a full run_detail payload (offer hash cccc0000…, retry
+# counts, current_step). This test file lives under tests/, which the grep-guard does NOT scan, so it
+# may name the current_step value the panel renders from the payload.
+_DEBUG_RUN_ID = "20260603T120000-fail"
+_DEBUG_OFFER_HASH_SUBSTR = "cccc0000"      # prefix of offer_spec_hash
+_DEBUG_STEP_VALUE = "gmj-truth-verifier"    # current_step payload value (rendered as data, not a literal)
+
+
+async def _probe_debug_panel(pipeline_dir: Path) -> dict:
+    """Launch read-only, read the empty state, cursor to a known run, enter, read #debug internals."""
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        # Two+ ticks let the poll paint the empty-state #debug before any selection.
+        await pilot.pause()
+        await pilot.pause()
+        empty = str(app.query_one("#debug", Static).render())
+
+        table = app.query_one("#runs", DataTable)
+        table.focus()
+        idx = table.get_row_index(_DEBUG_RUN_ID)
+        table.move_cursor(row=idx)
+        await pilot.pause()
+        await pilot.press("enter")   # RowSelected → _apply_debug sets the panel BEFORE the drill-in modal
+        await pilot.pause()
+
+        # #debug is a unique base-screen id — reachable via App.query_one even under the drill-in modal.
+        selected = str(app.query_one("#debug", Static).render())
+        return {"empty": empty, "selected": selected}
+
+
+def test_debug_panel_on_selection() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            probe = asyncio.run(_probe_debug_panel(pipe))
+        assert "Traceback" not in buf.getvalue(), f"debug panel leaked a traceback: {buf.getvalue()}"
+
+    # VIEW-16: the empty state renders before any row is selected.
+    assert "Select a run for internals" in probe["empty"], (
+        f"the debug panel must show the empty-state copy before selection: {probe['empty']!r}"
+    )
+
+    # VIEW-16: after enter on the known run, the panel renders that run's run_detail internals — the
+    # run_id, the offer-hash substring, and a retry/current-step field (proving live internals).
+    sel = probe["selected"]
+    assert _DEBUG_RUN_ID in sel, f"the debug panel must show the selected run_id: {sel!r}"
+    assert _DEBUG_OFFER_HASH_SUBSTR in sel, f"the debug panel must show the offer hash: {sel!r}"
+    assert _DEBUG_STEP_VALUE in sel, f"the debug panel must show the current_step internal: {sel!r}"
+    assert "retries" in sel or "retry" in sel, f"the debug panel must show a retry field: {sel!r}"
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
