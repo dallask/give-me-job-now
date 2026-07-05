@@ -83,7 +83,7 @@ function assertSafeManifestKey(key) {
 // --- Payload mapping ---------------------------------------------------------
 // A manifest key is "gmj-core/<category>/<rest>". Map it to a destination under the target dir:
 //   agents|skills|commands|hooks -> <target>/.claude/<category>/<rest>
-//   scripts|schemas              -> <target>/<category>/<rest>
+//   scripts|schemas|templates    -> <target>/<category>/<rest>
 //   config                       -> <target>/config/<rest>  (user-data .sample handling below)
 //   VERSION                      -> <target>/gmj-core/VERSION  (installed-version marker)
 const CLAUDE_CATEGORIES = new Set(['agents', 'skills', 'commands', 'hooks']);
@@ -108,7 +108,7 @@ function planFor(key) {
   if (CLAUDE_CATEGORIES.has(category)) {
     return { destRel: path.join('.claude', category, rest), userData: false };
   }
-  if (category === 'scripts' || category === 'schemas') {
+  if (category === 'scripts' || category === 'schemas' || category === 'templates') {
     return { destRel: path.join(category, rest), userData: false };
   }
   if (category === 'config') {

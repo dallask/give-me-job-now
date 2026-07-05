@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<!--
+  Baxter-style two-column CV template.
+  LEFT sidebar (~33%) dark charcoal #2b2b2b, yellow #f5c518 accents.
+  RIGHT column (~67%) white background.
+  Jinja2 variables: candidate (config/candidate.yaml)
+  Render: python3 scripts/cv/gmj_render_cv.py --config config/candidate.yaml --template templates/cv/baxter.html
+-->
+<html lang="{{ lang | default('en') }}">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ candidate.name or 'CV' }}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    :root {
+      --charcoal:   #2b2b2b;
+      --yellow:     #f5c518;
+      --white:      #ffffff;
+      --light-gray: #f0f0f0;
+      --text-gray:  #666666;
+      --text-dark:  #222222;
+      --muted-side: #aaaaaa;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      font-family: "DejaVu Sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 9pt;
+      line-height: 1.4;
+      color: var(--text-dark);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* ============================================================
+       OUTER WRAPPER — table layout for WeasyPrint compatibility
+    ============================================================ */
+    .layout {
+      display: table;
+      width: 210mm;
+      min-height: 297mm;
+      border-collapse: collapse;
+    }
+
+    /* ============================================================
+       LEFT SIDEBAR  (~33% = ~70mm)
+    ============================================================ */
+    .sidebar {
+      display: table-cell;
+      width: 70mm;
+      background-color: var(--charcoal);
+      color: var(--white);
+      vertical-align: top;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Yellow diagonal triangle in top-left corner */
+    .sidebar-triangle {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 110px 110px 0 0;
+      border-color: var(--yellow) transparent transparent transparent;
+    }
+
+    /* Photo area — sits above sidebar-content, centres the photo over the triangle */
+    .sidebar-photo-wrap {
+      position: relative;
+      height: 120px;
+      margin-bottom: 10pt;
+    }
+
+    .photo-circle {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 3px solid var(--charcoal);
+      background: #555;
+      z-index: 2;
+    }
+
+    .photo-circle img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      display: block;
+      filter: grayscale(100%);
+    }
+
+    .photo-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #555;
+    }
+
+    /* Sidebar inner content padding */
+    .sidebar-content {
+      padding: 0 15pt 20pt 15pt;
+    }
+
+    /* Section heading row: yellow circle + uppercase white bold text */
+    .side-heading {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 8pt;
+    }
+
+    .side-heading .dot-icon {
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background-color: var(--yellow);
+    }
+
+    .side-heading .label {
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--white);
+    }
+
+    /* Contact items list */
+    .contact-list {
+      list-style: none;
+      margin: 0 0 0 0;
+      padding: 0;
+    }
+
+    .contact-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      margin-bottom: 5pt;
+      font-size: 7.5pt;
+      color: #cccccc;
+      line-height: 1.35;
+    }
+
+    .contact-list li .bullet {
+      flex-shrink: 0;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--yellow);
+      margin-top: 3px;
+    }
+
+    /* Dashed horizontal divider */
+    .side-divider {
+      border: none;
+      border-top: 1.5px dashed #4a4a4a;
+      margin: 12pt 0;
+    }
+
+    /* Reference/Education entry */
+    .entry-item {
+      margin-bottom: 11pt;
+    }
+
+    .entry-name-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      margin-bottom: 3pt;
+    }
+
+    .entry-bullet {
+      flex-shrink: 0;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--yellow);
+      margin-top: 4px;
+    }
+
+    .entry-title {
+      font-size: 8pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--white);
+      letter-spacing: 0.04em;
+      line-height: 1.3;
+    }
+
+    .entry-sub {
+      font-size: 7.5pt;
+      color: var(--muted-side);
+      padding-left: 12px;
+      line-height: 1.4;
+      margin-bottom: 1pt;
+    }
+
+    .entry-sub-italic {
+      font-size: 7.5pt;
+      font-style: italic;
+      color: #bbbbbb;
+      padding-left: 12px;
+      line-height: 1.4;
+    }
+
+    /* Language items */
+    .lang-item {
+      font-size: 8pt;
+      color: #cccccc;
+      margin-bottom: 4pt;
+      padding-left: 0;
+    }
+
+    .lang-name {
+      font-weight: 600;
+      color: var(--white);
+    }
+
+    /* ============================================================
+       RIGHT MAIN COLUMN  (~67% = ~140mm)
+    ============================================================ */
+    .main {
+      display: table-cell;
+      width: 140mm;
+      background-color: var(--white);
+      vertical-align: top;
+      border-left: 4px solid var(--yellow);
+    }
+
+    /* Header: light gray background strip */
+    .main-header {
+      background-color: var(--light-gray);
+      padding: 20pt 20pt 14pt 20pt;
+    }
+
+    .name-display {
+      font-size: 21pt;
+      line-height: 1.1;
+      margin-bottom: 4pt;
+      letter-spacing: 0.01em;
+    }
+
+    .name-first {
+      font-weight: 400;
+      color: var(--text-dark);
+    }
+
+    .name-last {
+      font-weight: 700;
+      color: var(--yellow);
+    }
+
+    .title-display {
+      font-size: 8pt;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-gray);
+    }
+
+    /* Main body padding */
+    .main-body {
+      padding: 16pt 20pt 20pt 20pt;
+    }
+
+    /* Section heading row: yellow circle + bold uppercase dark text */
+    .main-heading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16pt;
+      margin-bottom: 9pt;
+    }
+
+    .main-heading:first-child {
+      margin-top: 0;
+    }
+
+    .main-heading .dot-icon {
+      flex-shrink: 0;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background-color: var(--yellow);
+    }
+
+    .main-heading .label {
+      font-size: 9pt;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dark);
+    }
+
+    /* About me */
+    .about-text {
+      font-size: 8.5pt;
+      color: var(--text-gray);
+      line-height: 1.5;
+      text-align: justify;
+      hyphens: auto;
+    }
+
+    /* Job entry */
+    .job-entry {
+      margin-bottom: 13pt;
+    }
+
+    .job-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 6pt;
+    }
+
+    .job-role {
+      font-size: 8.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-dark);
+      letter-spacing: 0.03em;
+      flex: 1;
+    }
+
+    .job-dates {
+      font-size: 7.5pt;
+      color: var(--text-gray);
+      white-space: nowrap;
+      font-style: italic;
+    }
+
+    .job-company {
+      font-size: 8pt;
+      font-style: italic;
+      color: #999999;
+      margin-bottom: 4pt;
+      margin-top: 1pt;
+    }
+
+    .job-bullets {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .job-bullets li {
+      font-size: 8pt;
+      color: var(--text-gray);
+      padding-left: 11pt;
+      position: relative;
+      margin-bottom: 3pt;
+      line-height: 1.4;
+    }
+
+    .job-bullets li::before {
+      content: "\2022";
+      position: absolute;
+      left: 1pt;
+      color: var(--yellow);
+      font-size: 10pt;
+      line-height: 1.1;
+    }
+
+    /* Skills 2-column grid */
+    .skills-grid {
+      display: table;
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 5pt;
+    }
+
+    .skills-row {
+      display: table-row;
+    }
+
+    .skill-cell {
+      display: table-cell;
+      width: 50%;
+      padding-right: 12pt;
+      vertical-align: middle;
+    }
+
+    .skill-cell:last-child {
+      padding-right: 0;
+    }
+
+    .skill-name {
+      font-size: 8pt;
+      color: var(--text-dark);
+      margin-bottom: 3pt;
+    }
+
+    .bar-bg {
+      width: 100%;
+      height: 5px;
+      background-color: #e5e5e5;
+      border-radius: 3px;
+    }
+
+    .bar-fill {
+      height: 5px;
+      background-color: var(--yellow);
+      border-radius: 3px;
+    }
+
+    /* Technical expertise */
+    .tech-group {
+      margin-bottom: 8pt;
+    }
+
+    .tech-title {
+      font-size: 7.5pt;
+      font-weight: 700;
+      color: var(--text-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 2pt;
+    }
+
+    .tech-skills {
+      font-size: 7.5pt;
+      color: var(--text-gray);
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  {%- set c = candidate.contact or {} -%}
+  {%- set name_parts = (candidate.name or 'YOUR NAME').split(' ') -%}
+  {%- set first_name = name_parts[0] if name_parts|length > 0 else '' -%}
+  {%- set last_name = name_parts[1:] | join(' ') if name_parts|length > 1 else '' -%}
+
+  <div class="layout">
+
+    <!-- =====================================================
+         LEFT SIDEBAR
+    ====================================================== -->
+    <div class="sidebar">
+      <div class="sidebar-triangle"></div>
+
+      <!-- Circular photo (grayscale) overlapping the triangle -->
+      <div class="sidebar-photo-wrap">
+        <div class="photo-circle">
+          {% if candidate.photo %}
+          <img src="{{ candidate.photo }}" alt="{{ candidate.name | e }}" />
+          {% else %}
+          <div class="photo-placeholder">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="#aaaaaa">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="sidebar-content">
+
+        <!-- CONTACT ME -->
+        <div class="side-heading">
+          <span class="dot-icon"></span>
+          <span class="label">{{ labels.contact_me | default('Contact Me') }}</span>
+        </div>
+        <ul class="contact-list">
+          {% if c.phone %}
+          <li><span class="bullet"></span><span>{{ c.phone | e }}</span></li>
+          {% endif %}
+          {% if c.website %}
+          <li><span class="bullet"></span><span>{{ c.website | e }}</span></li>
+          {% endif %}
+          {% if c.email %}
+          <li><span class="bullet"></span><span>{{ c.email | e }}</span></li>
+          {% endif %}
+          {% if c.address %}
+          <li><span class="bullet"></span><span>{{ c.address | e }}</span></li>
+          {% endif %}
+          {% if c.github %}
+          <li><span class="bullet"></span><span>{{ c.github | e }}</span></li>
+          {% endif %}
+          {% if c.linkedin %}
+          <li><span class="bullet"></span><span>{{ c.linkedin | e }}</span></li>
+          {% endif %}
+        </ul>
+
+        <hr class="side-divider" />
+
+        <!-- EDUCATION -->
+        {% if candidate.education %}
+        <div class="side-heading">
+          <span class="dot-icon"></span>
+          <span class="label">{{ labels.education | default('Education') }}</span>
+        </div>
+        {% for edu in candidate.education %}
+        <div class="entry-item">
+          <div class="entry-name-row">
+            <span class="entry-bullet"></span>
+            <span class="entry-title">{{ edu.institution | e }}</span>
+          </div>
+          {% if edu.program %}
+          <div class="entry-sub-italic">{{ edu.program | e }}</div>
+          {% endif %}
+          {% if edu.duration %}
+          <div class="entry-sub">{{ edu.duration | e }}</div>
+          {% endif %}
+          {% if edu.location %}
+          <div class="entry-sub">{{ edu.location | e }}</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <hr class="side-divider" />
+
+        <!-- LANGUAGES -->
+        {% if candidate.languages %}
+        <div class="side-heading">
+          <span class="dot-icon"></span>
+          <span class="label">{{ labels.languages | default('Languages') }}</span>
+        </div>
+        {% for lang in candidate.languages %}
+        <div class="lang-item">
+          <span class="lang-name">{{ lang.language | e }}</span>
+          {% if lang.proficiency %}&nbsp;—&nbsp;{{ lang.proficiency | e }}{% endif %}
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        {% if candidate.certifications %}
+        <hr class="side-divider" />
+
+        <!-- CERTIFICATIONS -->
+        <div class="side-heading">
+          <span class="dot-icon"></span>
+          <span class="label">Certifications</span>
+        </div>
+        {% for cert in candidate.certifications %}
+        <div class="entry-item">
+          <div class="entry-name-row">
+            <span class="entry-bullet"></span>
+            <span class="entry-title">{{ cert.issuer | e }}{% if cert.year %} · {{ cert.year }}{% endif %}</span>
+          </div>
+          {% if cert.credentials %}
+          {% for cred in cert.credentials %}
+          <div class="entry-sub">{{ cred | e }}</div>
+          {% endfor %}
+          {% endif %}
+        </div>
+        {% endfor %}
+        {% endif %}
+
+      </div><!-- /sidebar-content -->
+    </div><!-- /sidebar -->
+
+    <!-- =====================================================
+         RIGHT MAIN COLUMN
+    ====================================================== -->
+    <div class="main">
+
+      <!-- Header: gray background, name + title -->
+      <div class="main-header">
+        <div class="name-display">
+          <span class="name-first">{{ first_name | e }}</span>
+          {%- if last_name %} <span class="name-last">{{ last_name | e }}</span>{% endif %}
+        </div>
+        {% if candidate.title %}
+        <div class="title-display">{{ candidate.title | e }}</div>
+        {% endif %}
+      </div>
+
+      <div class="main-body">
+
+        <!-- ABOUT ME -->
+        {% if candidate.summary %}
+        <div class="main-heading">
+          <span class="dot-icon"></span>
+          <span class="label">About Me</span>
+        </div>
+        <p class="about-text">{{ candidate.summary | e }}</p>
+        {% endif %}
+
+        <!-- JOB EXPERIENCE -->
+        {% if candidate.professional_experience %}
+        <div class="main-heading">
+          <span class="dot-icon"></span>
+          <span class="label">{{ labels.job_experience | default('Job Experience') }}</span>
+        </div>
+        {% for job in candidate.professional_experience %}
+        <div class="job-entry">
+          <div class="job-top">
+            <span class="job-role">{{ job.position | e }}</span>
+            {% if job.duration %}<span class="job-dates">{{ job.duration | e }}</span>{% endif %}
+          </div>
+          <div class="job-company">
+            {{ job.company | e }}{% if job.location %},&nbsp;{{ job.location | e }}{% endif %}
+          </div>
+          {% if job.achievements %}
+          <ul class="job-bullets">
+            {% for ach in job.achievements %}<li>{{ ach | e }}</li>{% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <!-- SKILLS -->
+        {% if candidate.skills %}
+        <div class="main-heading">
+          <span class="dot-icon"></span>
+          <span class="label">{{ labels.skills | default('Skills') }}</span>
+        </div>
+        <div class="skills-grid">
+          {%- set ns = namespace(col=0) -%}
+          {%- for skill in candidate.skills -%}
+            {%- if ns.col == 0 -%}<div class="skills-row">{%- endif -%}
+            <div class="skill-cell">
+              <div class="skill-name">{{ skill | e }}</div>
+              <div class="bar-bg"><div class="bar-fill" style="width: 70%;"></div></div>
+            </div>
+            {%- set ns.col = ns.col + 1 -%}
+            {%- if ns.col == 2 -%}</div>{%- set ns.col = 0 -%}{%- endif -%}
+          {%- endfor -%}
+          {%- if ns.col == 1 -%}<div class="skill-cell"></div></div>{%- endif -%}
+        </div>
+        {% endif %}
+
+        <!-- TECHNICAL EXPERTISE -->
+        {% if candidate.technical_expertise %}
+        <div class="main-heading">
+          <span class="dot-icon"></span>
+          <span class="label">Technical Expertise</span>
+        </div>
+        {% for block in candidate.technical_expertise %}
+        <div class="tech-group">
+          <div class="tech-title">{{ block.resume_title | e }}</div>
+          <div class="tech-skills">{{ block.skills | join(', ') }}</div>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <!-- KEY ACHIEVEMENTS -->
+        {% if candidate.key_achievements %}
+        <div class="main-heading">
+          <span class="dot-icon"></span>
+          <span class="label">Key Achievements</span>
+        </div>
+        {% for item in candidate.key_achievements %}
+        <div class="job-entry">
+          <div class="job-role" style="text-transform: none;">{{ item.title | e }}</div>
+          <div class="job-company">{{ item.description | e }}</div>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+      </div><!-- /main-body -->
+    </div><!-- /main -->
+
+  </div><!-- /layout -->
+</body>
+</html>

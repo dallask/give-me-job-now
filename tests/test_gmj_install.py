@@ -97,18 +97,6 @@ def _node() -> str | None:
     return shutil.which("node")
 
 
-def _dejavu_available() -> bool:
-    """True when the DejaVu Cyrillic font is resolvable (bundled or system)."""
-    for d in (
-        REPO_ROOT / "scripts" / "cv" / "fonts",
-        Path("/usr/share/fonts/truetype/dejavu"),
-        Path("/usr/local/share/fonts"),
-    ):
-        if (d / "DejaVuSans.ttf").is_file():
-            return True
-    return False
-
-
 # Cache the shared install so the 6 checks don't reinstall 6x once GREEN.
 _INSTALL_CACHE: dict[str, object] = {}
 
@@ -217,10 +205,16 @@ def test_check2_en_and_ua_cv_render() -> None:
     assert "Traceback" not in en.stderr, f"en render crashed: {en.stderr}"
     _assert_valid_pdf(en_pdf)
 
-    # ua leg — guarded on DejaVu Cyrillic font availability (else skip, never false-fail).
-    if not _dejavu_available():
-        print("SKIP check2 ua-leg: DejaVu Cyrillic font unavailable", file=sys.stderr)
-        return
+    # ua leg — the PAYLOAD itself must ship the DejaVu Cyrillic font into the target
+    # tree. A fontless payload falls back to Helvetica (no Cyrillic glyphs) and produces
+    # a structurally-valid-but-glyphless PDF, so guarding on the *source* font dir (which
+    # always has it) was a false pass (WR-05). Assert the font landed in the INSTALLED
+    # tree so a payload that omits fonts fails here instead of shipping green (CR-01).
+    target_font = target / "scripts" / "cv" / "fonts" / "DejaVuSans.ttf"
+    assert target_font.is_file(), (
+        f"payload did not ship the DejaVu Cyrillic font into the target: {target_font} — "
+        f"ua/ru render would silently fall back to Helvetica (no Cyrillic glyphs)"
+    )
     assert UA_OVERLAY.is_file(), f"committed ua overlay fixture missing: {UA_OVERLAY}"
     ua_pdf = target / "out-ua.pdf"
     ua = run(
@@ -440,6 +434,30 @@ def test_check6_payload_census_completeness() -> None:
     manifest_keys = set(files.keys())
     missing = sorted(census - manifest_keys)
     assert not missing, f"payload manifest is missing {len(missing)} app files: {missing}"
+
+    # Independent completeness oracle for the load-bearing runtime siblings the prefixed
+    # census is structurally blind to (fonts, requirements.txt, templates). Without these
+    # positive assertions a fontless / dependency-less payload can ship green (WR-06 / CR-01).
+    required_runtime_assets = {
+        "gmj-core/scripts/cv/fonts/DejaVuSans.ttf",
+        "gmj-core/scripts/cv/fonts/DejaVuSans-Bold.ttf",
+        "gmj-core/scripts/cv/requirements.txt",
+        "gmj-core/scripts/contracts/requirements.txt",
+        "gmj-core/scripts/preferences/requirements.txt",
+    }
+    missing_assets = sorted(required_runtime_assets - manifest_keys)
+    assert not missing_assets, (
+        f"payload manifest omits load-bearing runtime assets (CR-01): {missing_assets}"
+    )
+    # HTML CV templates: assert each source template appears in the manifest (if any ship).
+    templates_dir = REPO_ROOT / "templates"
+    if templates_dir.is_dir():
+        for tpl in sorted(templates_dir.rglob("*")):
+            if tpl.is_file():
+                key = "gmj-core/" + tpl.relative_to(REPO_ROOT).as_posix()
+                assert key in manifest_keys, (
+                    f"HTML template present in source but missing from payload manifest: {key}"
+                )
 
 
 def main() -> int:

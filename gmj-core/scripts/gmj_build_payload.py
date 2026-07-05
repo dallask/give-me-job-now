@@ -58,7 +58,7 @@ PAYLOAD_VERSION = "1.0.0"
 # Payload subtrees this build script OWNS and rebuilds from scratch each run.
 # (gmj-core/bin/ — the 18-07 installer — is intentionally NOT in this set, so a
 # future re-run never clobbers it.)
-OWNED_SUBDIRS = ("agents", "skills", "commands", "hooks", "scripts", "schemas", "config")
+OWNED_SUBDIRS = ("agents", "skills", "commands", "hooks", "scripts", "schemas", "config", "templates")
 
 # Build-time tooling excluded from the shipped runtime payload — MUST match
 # tests/test_gmj_install.py BUILD_TIME_TOOLS exactly (repo-relative posix paths).
@@ -235,6 +235,36 @@ def census_payload(framework_globs: list[str]) -> list[tuple[Path, str]]:
         if src.is_file():
             # Preserve the config/ layout (incl. i18n/ subdir) under gmj-core/.
             add(src, src_rel)
+
+    # --- runtime sibling assets (load-bearing on a clean-machine install) --------
+    # Bundled DejaVu fonts — REQUIRED for Cyrillic (ua/ru) render. Helvetica (the
+    # fallback) has NO Cyrillic glyphs, so a fontless payload silently ships glyphless
+    # PDFs. These are `.ttf`, not `gmj_*.py`, so the prefixed globs never catch them.
+    fonts_dir = REPO_ROOT / "scripts" / "cv" / "fonts"
+    if fonts_dir.is_dir():
+        for f in sorted(fonts_dir.glob("*.ttf")):
+            add(f, f.relative_to(REPO_ROOT).as_posix())
+
+    # Dependency manifests referenced verbatim by the installer's post-install pip hint
+    # (gmj-tools.cjs REQUIREMENTS_HINT). Shipped scripts hard-require third-party deps
+    # (reportlab, jsonschema, numpy/PIL) that are not in stdlib.
+    for req_rel in (
+        "scripts/cv/requirements.txt",
+        "scripts/contracts/requirements.txt",
+        "scripts/preferences/requirements.txt",
+    ):
+        req = REPO_ROOT / req_rel
+        if req.is_file():
+            add(req, req_rel)
+
+    # Optional HTML CV templates (WeasyPrint/Jinja2 render path). Lower impact than
+    # fonts (the ReportLab --no-template path still works), but a "standalone" payload
+    # should carry them so the templated render path is not broken on a clean install.
+    templates_dir = REPO_ROOT / "templates"
+    if templates_dir.is_dir():
+        for f in sorted(templates_dir.rglob("*")):
+            if f.is_file():
+                add(f, f.relative_to(REPO_ROOT).as_posix())
 
     return pairs
 

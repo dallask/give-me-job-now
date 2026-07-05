@@ -1,0 +1,5 @@
+# Dependencies for scripts/preferences/gmj_validate_preferences.py (install-test parity).
+# No new packages this phase — these are already vendored repo-wide; pinned here so a
+# fresh env can run the validator + its tests.
+PyYAML>=6.0
+jsonschema>=4.18
