@@ -29,6 +29,7 @@ and the verbatim (never-executed) resume-command display live in the view (Plan 
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 import subprocess
 import sys
@@ -54,15 +55,24 @@ _CAP_RE = re.compile(r"^(retry_cap:[ \t]*)(\S+)(.*)$", re.M)
 
 # ── launch seam (MANAGE-02 / MANAGE-03) ──────────────────────────────────────────────────────────
 
-def build_pipeline_prompt(*, offer: str | None = None, run_id: str | None = None) -> str:
+def build_pipeline_prompt(
+    *, offer: str | None = None, run_id: str | None = None, pipeline_dir: str | None = None
+) -> str:
     """Compose the ``-p`` prompt for the child run. Always forces the autonomous mode token.
 
     A fresh run embeds the pasted ``offer``; a resume mirrors ``gmj_runs.py``'s printed resume format
     (``(resume: pass run_id=<id>)``) so the dashboard-built resume string matches what an operator
     sees in the read-only inspector. Uses the REAL /gmj-pipeline-run param spelling (``mode=`` /
     ``offer=`` / ``run_id=``), never a bespoke flag.
+
+    ``pipeline_dir`` (HON-01) appends a readable ``pipeline-dir=<dir>`` token — the redundant, human-
+    readable second carrier (the authoritative carrier is the child ``GMJ_PIPELINE_DIR`` env set in
+    ``launch_pipeline``). ``mode={_AUTONOMOUS}`` stays FIRST and unconditional (locked v3.0 force-
+    autonomous decision); the dir token is appended after it, before the offer/run_id tokens.
     """
     parts = [PIPELINE_RUN, f"mode={_AUTONOMOUS}"]
+    if pipeline_dir:
+        parts.append(f"pipeline-dir={pipeline_dir}")
     if offer:
         parts.append(f"offer={offer}")
     if run_id:
@@ -75,7 +85,7 @@ def build_launch_argv(prompt: str) -> list[str]:
     return ["claude", "--dangerously-skip-permissions", "-p", prompt]
 
 
-async def launch_pipeline(prompt: str, *, launcher=None, cwd=None):
+async def launch_pipeline(prompt: str, *, launcher=None, cwd=None, pipeline_dir=None):
     """Fire the detached, force-autonomous run and RETURN the process. Awaits CREATION only.
 
     ``launcher`` is an injectable seam: when ``None`` it resolves to
@@ -86,9 +96,17 @@ async def launch_pipeline(prompt: str, *, launcher=None, cwd=None):
     completion (``.wait()`` / ``.communicate()``) so the UI never blocks on the whole run. A missing
     executable raises out of here (``FileNotFoundError`` / ``OSError``); the caller surfaces a visible
     notice — this function never swallows it.
+
+    ``pipeline_dir`` (HON-01, the AUTHORITATIVE carrier) stamps ``GMJ_PIPELINE_DIR`` onto the child so
+    the detached run reads the operator's board dir. The env is built from a COPY of ``os.environ``
+    (``{**os.environ, "GMJ_PIPELINE_DIR": ...}``) — NEVER a bare ``{"GMJ_PIPELINE_DIR": ...}`` dict,
+    which would replace the whole environment and strip ``PATH`` so the child could not find ``claude``
+    (silent ``FileNotFoundError``). When ``pipeline_dir`` is falsy, ``env=None`` (the child inherits the
+    parent environment) — the unchanged fire-and-forget contract.
     """
     if launcher is None:
         launcher = asyncio.create_subprocess_exec
+    env = {**os.environ, "GMJ_PIPELINE_DIR": str(pipeline_dir)} if pipeline_dir else None
     argv = build_launch_argv(prompt)
     proc = await launcher(
         *argv,
@@ -97,6 +115,7 @@ async def launch_pipeline(prompt: str, *, launcher=None, cwd=None):
         stdout=DEVNULL,
         stderr=DEVNULL,
         cwd=cwd,
+        env=env,
     )
     return proc  # caller holds a ref (silences GC); completion is never awaited
 
