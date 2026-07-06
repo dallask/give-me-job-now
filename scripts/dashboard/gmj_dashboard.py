@@ -828,16 +828,18 @@ class GmjDashboard(App):
         """Gate a mutating write behind the confirm seam — once per session (SAFE-02).
 
         Returns ``True`` immediately when the config is not the repo-default OR the operator has already
-        acknowledged this session. Otherwise awaits the confirm seam; a ``True`` acknowledgement latches
-        ``self._manage_confirmed`` so later m/c writes proceed without re-prompting. A cancel returns
-        ``False`` so the caller skips its ``actions.*`` write (cancel = no write).
+        acknowledged a SUCCESSFUL write this session. Otherwise awaits the confirm seam and returns the
+        operator's acknowledgement. A cancel returns ``False`` so the caller skips its ``actions.*`` write
+        (cancel = no write).
+
+        WR-02: this guard NO LONGER latches ``self._manage_confirmed`` on acknowledgement. The latch is
+        set by the caller ONLY AFTER the subsequent ``actions.*`` write succeeds — so a cancelled OR
+        failed first write does not silently consume the session's single prompt (a failed write must
+        still re-prompt on the next attempt).
         """
         if not self._editing_repo_default() or self._manage_confirmed:
             return True
-        ok = await self._confirm_manage_write()
-        if ok:
-            self._manage_confirmed = True
-        return ok
+        return await self._confirm_manage_write()
 
     # ── --manage config handlers (m/c) — delegate to the actions module, then notify ───────────────
 
@@ -852,6 +854,9 @@ class GmjDashboard(App):
         except ValueError as exc:
             self.notify(f"⚠ config edit failed: {exc}", severity="error")
             return
+        # WR-02: latch confirm-once ONLY after the write actually succeeded — a failed write above
+        # returns early and leaves the prompt armed for the next attempt.
+        self._manage_confirmed = True
         self.notify(f"✓ default_mode → {value} (existing runs unchanged)")
         self._poll()
 
@@ -882,6 +887,8 @@ class GmjDashboard(App):
         except ValueError as exc:
             self.notify(f"⚠ config edit failed: {exc}", severity="error")
             return
+        # WR-02: latch confirm-once ONLY after the write actually succeeded (see _apply_mode_toggle).
+        self._manage_confirmed = True
         self.notify(f"✓ retry_cap → {cap}")
         self._poll()
 

@@ -1757,6 +1757,74 @@ def test_manage_confirm_gate_no_double_write_under_concurrent_keypress() -> None
     assert "# FREEZE CONTRACT" in probe["text"], "the freeze-contract comment block must survive"
 
 
+# --- SAFE-02 (WR-02): the confirm-once latch must be set only AFTER a SUCCESSFUL write. The buggy
+# --- guard latched ``_manage_confirmed`` on acknowledgement BEFORE the write, so a failed first write
+# --- permanently disabled the prompt — every later write proceeded unacknowledged even though none had
+# --- ever succeeded. Here the first ``actions.toggle_execution_mode`` raises ValueError; the SECOND
+# --- keypress must therefore RE-PROMPT (confirm seam invoked twice), and only the second write lands.
+
+
+async def _drive_failed_then_reprompt(config_path: Path) -> dict:
+    """Force the gate ON; make the first write RAISE, then prove the next keypress re-prompts + writes."""
+    with _temp_pipeline() as pipe:
+        app = _build_app(pipe, manage=True, config_path=config_path)
+        calls = {"confirm": 0}
+        import gmj_dashboard_actions as actions
+
+        real_toggle = actions.toggle_execution_mode
+        state = {"fail_first": True}
+
+        def _flaky_toggle(path):
+            if state["fail_first"]:
+                state["fail_first"] = False
+                raise ValueError("simulated first-write failure")
+            return real_toggle(path)
+
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.pause()
+            app._editing_repo_default = lambda: True          # force gate ON over the temp copy
+            app.notify = lambda message, **kw: None
+
+            async def _c() -> bool:
+                calls["confirm"] += 1
+                return True
+
+            app._confirm_manage_write = _c
+            actions.toggle_execution_mode = _flaky_toggle     # first call raises, second succeeds
+            try:
+                app.query_one("#runs", DataTable).focus()
+                await pilot.pause()
+                await pilot.press("m")                         # confirm #1 → write RAISES → no latch
+                await pilot.pause()
+                await pilot.press("m")                         # must RE-PROMPT (confirm #2) → write OK
+                await pilot.pause()
+            finally:
+                actions.toggle_execution_mode = real_toggle
+        return {"confirm": calls["confirm"], "text": config_path.read_text(encoding="utf-8")}
+
+
+def test_manage_confirm_latch_survives_failed_write() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cfg = Path(tmp) / "flaky.yaml"
+        cfg.write_text(_SAFE02_SEED, encoding="utf-8")
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            probe = asyncio.run(_drive_failed_then_reprompt(cfg))
+        assert "Traceback" not in buf.getvalue(), f"failed-write reprompt leaked a traceback: {buf.getvalue()}"
+    # WR-02: a failed first write must NOT consume the session's single prompt — the second keypress
+    # re-prompts. The buggy latch-on-ack would leave confirm==1 (prompt permanently disabled).
+    assert probe["confirm"] == 2, (
+        f"a FAILED first write must leave the confirm prompt armed (re-prompt on the next attempt); "
+        f"confirm={probe['confirm']} (1 ⇒ the latch was set before the write and the prompt was lost)"
+    )
+    # The second (successful) write toggled execution_mode exactly once → autonomous.
+    assert "execution_mode: autonomous" in probe["text"], (
+        f"the successful second write must flip execution_mode to autonomous: {probe['text']!r}"
+    )
+    assert "# FREEZE CONTRACT" in probe["text"], "the freeze-contract comment block must survive"
+
+
 # --- SAFE-02 (a): a persistent repo-default warning banner shows at launch under --manage -----------
 # Seeded ONCE in _seed_widgets() (never per-poll → no flicker, Pitfall 3), guarded by
 # ``self._manage and self._editing_repo_default()``. It names the resolved real config path so the
