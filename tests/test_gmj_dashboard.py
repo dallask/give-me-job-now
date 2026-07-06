@@ -60,6 +60,7 @@ retry_cap: 4
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "dashboard"))
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "pipeline"))
 import gmj_dashboard  # noqa: E402
+import gmj_dashboard_actions as actions  # noqa: E402
 import gmj_dashboard_model  # noqa: E402
 
 # Keys that must NEVER be bound without --manage (VIEW-01) and MUST be bound with it (VIEW-07).
@@ -105,6 +106,47 @@ class _RecordingLauncher:
 async def _aval(value):
     """A trivial coroutine so an overridden collector (``app._prompt_offer = lambda: _aval(x)``) awaits."""
     return value
+
+
+# ── WR-01/HON-01: a relative --pipeline-dir must not diverge board vs launched child ────────────────
+
+def test_relative_pipeline_dir_agrees_board_and_child() -> None:
+    """A RELATIVE ``--pipeline-dir`` is absolutized ONCE so the read model and the launched child's
+    ``GMJ_PIPELINE_DIR`` carrier point at the SAME dir regardless of launch cwd.
+
+    The bug this guards (WR-01): the launch paths force the child ``cwd=REPO_ROOT`` while the model
+    resolves ``--pipeline-dir`` against the dashboard's own process cwd — so a relative dir makes the
+    child write ``<REPO_ROOT>/dir`` while the board reads ``<cwd>/dir`` (a stale board, HON-01 defeat).
+    Deterministic — asserts on the resolved value only; no Textual Pilot render (avoids D-27-A flake).
+    """
+    resolved = gmj_dashboard.resolve_operator_pipeline_dir("relboard")
+    assert Path(resolved).is_absolute(), f"a relative operator dir must be absolutized: {resolved!r}"
+
+    # The read model projects exactly this absolute dir (expanduser on an absolute path is a no-op),
+    # so the board is anchored to a cwd-independent root — not the dashboard's own process cwd.
+    model = gmj_dashboard_model.DashboardModel(pipeline_dir=resolved)
+    assert str(model.pipeline_dir) == resolved, (
+        f"the board must project the absolutized dir verbatim: {model.pipeline_dir!r} != {resolved!r}"
+    )
+
+    # The child env (the AUTHORITATIVE HON-01 carrier, built inside launch_pipeline) stamps the SAME
+    # absolute dir — so a run launched with cwd=REPO_ROOT writes exactly where the board reads.
+    launcher = _RecordingLauncher()
+
+    async def _go():
+        return await actions.launch_pipeline(
+            "PROMPT-X", launcher=launcher, cwd=str(gmj_dashboard.REPO_ROOT), pipeline_dir=resolved
+        )
+
+    asyncio.run(_go())
+    env = launcher.kwargs.get("env")
+    assert env is not None and env.get("GMJ_PIPELINE_DIR") == resolved, (
+        f"child env carrier must carry the absolutized dir: {env and env.get('GMJ_PIPELINE_DIR')!r}"
+    )
+    # The single load-bearing assertion: board and child agree on ONE absolute dir.
+    assert env["GMJ_PIPELINE_DIR"] == str(model.pipeline_dir), (
+        "board and launched child must resolve --pipeline-dir to the SAME absolute dir (HON-01)"
+    )
 
 
 @contextmanager

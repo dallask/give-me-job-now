@@ -1914,6 +1914,20 @@ class GmjDashboard(App):
         self.query_one("#counters", Static).update(out)
 
 
+def resolve_operator_pipeline_dir(raw: str) -> str:
+    """Normalize an operator ``--pipeline-dir`` to an ABSOLUTE, cwd-independent path (HON-01/WR-01).
+
+    The launch paths force the detached child's ``cwd`` to ``REPO_ROOT`` while the read model resolves
+    ``--pipeline-dir`` against the dashboard's OWN process cwd. A RELATIVE dir would therefore make the
+    child write to ``<REPO_ROOT>/dir`` while the board reads ``<cwd>/dir`` — a stale, silently-diverged
+    board that defeats the HON-01 end-to-end honesty this phase exists to deliver. Absolutizing ONCE
+    here, at the single source, before the value is threaded to BOTH the model AND the child env/prompt
+    carrier, makes board and child agree regardless of where the dashboard was launched (and makes the
+    ``launch_pipeline`` ``cwd=REPO_ROOT`` vs ``run_batch`` no-cwd asymmetry stop mattering).
+    """
+    return str(Path(raw).expanduser().resolve())
+
+
 def main() -> int:
     """Parse flags and launch the board. ``--manage`` binds the live r/R/b/m/c action layer (24-02)."""
     parser = argparse.ArgumentParser(description="btop-style pipeline dashboard (read-only; --manage adds actions).")
@@ -1924,13 +1938,16 @@ def main() -> int:
     parser.add_argument("--config", default=str(DEFAULT_CONFIG), help="Config file the m/c knobs edit under --manage.")
     args = parser.parse_args()
     manage = args.manage and not args.read_only
-    model = DashboardModel(pipeline_dir=args.pipeline_dir)
+    # HON-01/WR-01: absolutize the operator dir ONCE so the read model and the launched child agree
+    # regardless of the dashboard's launch cwd (the child is forced to cwd=REPO_ROOT).
+    pipeline_dir = resolve_operator_pipeline_dir(args.pipeline_dir)
+    model = DashboardModel(pipeline_dir=pipeline_dir)
     GmjDashboard(
         model,
         manage=manage,
         refresh=args.refresh,
         config_path=Path(args.config),
-        pipeline_dir=args.pipeline_dir,
+        pipeline_dir=pipeline_dir,
         cwd=REPO_ROOT,
     ).run()
     return 0
