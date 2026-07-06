@@ -11,7 +11,6 @@ module is the single place the env→``.pipeline`` fallback is expressed.
 from __future__ import annotations
 
 import os
-from pathlib import Path  # noqa: F401  (documented seam; consumers derive Path from the returned root)
 
 ENV_VAR = "GMJ_PIPELINE_DIR"
 DEFAULT_PIPELINE_DIR = ".pipeline"
