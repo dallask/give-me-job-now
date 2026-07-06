@@ -1693,6 +1693,70 @@ def test_manage_confirm_gate_blocks_first_write() -> None:
         assert "# FREEZE CONTRACT" in confirmed["text"], "the freeze-contract comment block must survive"
 
 
+# --- SAFE-02 (WR-01): a second manage keypress WHILE the confirm modal is open must NOT stack a second
+# --- worker + second write. The bare ``@work`` was non-exclusive, so a second ``m`` fell through and
+# --- spawned a competing worker that re-entered the guard (still un-confirmed) and double-wrote. The
+# --- fix makes ``action_mode``/``action_cap`` ``@work(exclusive=True, group="manage")`` so the second
+# --- press CANCELS the pending worker. The existing gate test cannot see this: its injected confirm
+# --- seam resolves synchronously, so worker A fully latches before worker B is ever spawned. Here the
+# --- seam BLOCKS on an Event, holding the "modal" open across the second keypress — the real path.
+
+
+async def _drive_concurrent_confirm(config_path: Path) -> dict:
+    """Force the SAFE-02 gate ON; press `m` twice WHILE the confirm seam is blocked open on an Event."""
+    with _temp_pipeline() as pipe:
+        app = _build_app(pipe, manage=True, config_path=config_path)
+        gate = asyncio.Event()
+        calls = {"entered": 0, "resolved": 0}
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.pause()
+            app._editing_repo_default = lambda: True          # force gate ON over the temp copy
+            app.notify = lambda message, **kw: None
+
+            async def _c() -> bool:
+                calls["entered"] += 1
+                await gate.wait()                              # hold the "modal" open across press #2
+                calls["resolved"] += 1                         # only a NON-cancelled worker reaches here
+                return True
+
+            app._confirm_manage_write = _c
+            app.query_one("#runs", DataTable).focus()
+            await pilot.pause()
+            await pilot.press("m")                             # worker A: enters _c, blocks on the gate
+            await pilot.pause()
+            await pilot.press("m")                             # worker B: exclusive → cancels worker A
+            await pilot.pause()
+            gate.set()                                         # release: only the surviving worker writes
+            await pilot.pause()
+            await pilot.pause()
+        return {**calls, "text": config_path.read_text(encoding="utf-8")}
+
+
+def test_manage_confirm_gate_no_double_write_under_concurrent_keypress() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cfg = Path(tmp) / "concurrent.yaml"
+        cfg.write_text(_SAFE02_SEED, encoding="utf-8")
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            probe = asyncio.run(_drive_concurrent_confirm(cfg))
+        assert "Traceback" not in buf.getvalue(), (
+            f"the concurrent-confirm path leaked a traceback (worker cancellation must be clean): {buf.getvalue()}"
+        )
+    # Exactly ONE worker survived the second keypress, so exactly ONE write completed. A non-exclusive
+    # ``@work`` would let BOTH workers resolve and write, toggling execution_mode twice back to
+    # human_in_the_loop (a silent double-write). One toggle lands on autonomous.
+    assert probe["resolved"] == 1, (
+        f"only one confirm worker may complete a write under concurrent keypresses (exclusive group); "
+        f"resolved={probe['resolved']} (2 ⇒ the second press stacked a competing worker + double-wrote)"
+    )
+    assert "execution_mode: autonomous" in probe["text"], (
+        f"a single confirmed toggle must land on autonomous — a double-write would flip it back to "
+        f"human_in_the_loop: {probe['text']!r}"
+    )
+    assert "# FREEZE CONTRACT" in probe["text"], "the freeze-contract comment block must survive"
+
+
 # --- SAFE-02 (a): a persistent repo-default warning banner shows at launch under --manage -----------
 # Seeded ONCE in _seed_widgets() (never per-poll → no flicker, Pitfall 3), guarded by
 # ``self._manage and self._editing_repo_default()``. It names the resolved real config path so the

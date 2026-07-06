@@ -855,11 +855,17 @@ class GmjDashboard(App):
         self.notify(f"✓ default_mode → {value} (existing runs unchanged)")
         self._poll()
 
-    @work
+    @work(exclusive=True, group="manage")
     async def action_mode(self) -> None:
         """Toggle ``execution_mode`` via the actions module — runs as a worker so awaiting the SAFE-02
         confirm modal happens off the message pump (an inline await of a pushed screen deadlocks — see
-        ``action_cap``)."""
+        ``action_cap``).
+
+        SAFE-02 (WR-01): ``exclusive=True, group="manage"`` means a second ``m``/``c`` keypress while a
+        confirm modal is still open CANCELS the pending worker instead of stacking a second worker +
+        second modal. This preserves the "one prompt per session, one write per action" promise under
+        real, human-paced concurrent keypresses (a bare ``@work`` let a second press stack a redundant
+        confirm and double-write)."""
         await self._apply_mode_toggle()
 
     async def _apply_retry_cap(self) -> None:
@@ -879,9 +885,13 @@ class GmjDashboard(App):
         self.notify(f"✓ retry_cap → {cap}")
         self._poll()
 
-    @work
+    @work(exclusive=True, group="manage")
     async def action_cap(self) -> None:
-        """Set ``retry_cap`` via modal prompt — runs as a worker so the modal stays interactive."""
+        """Set ``retry_cap`` via modal prompt — runs as a worker so the modal stays interactive.
+
+        SAFE-02 (WR-01): shares the exclusive ``"manage"`` worker group with ``action_mode`` so a second
+        manage keypress cancels a pending confirm worker rather than stacking a redundant second modal +
+        write."""
         await self._apply_retry_cap()
 
     def _kick_live_refresh(self, seconds: float = 90.0, *, expand_activity: bool = True) -> None:
