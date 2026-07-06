@@ -1688,6 +1688,11 @@ class GmjDashboard(App):
         deferred note in read-only mode (they stay inert this phase; Phase 24 wires the behaviour). Seeded
         ONCE from ``_seed_widgets`` (it is static — not per-poll). No forbidden literal is a standalone
         string constant here, so the grep-guard stays green.
+
+        Also carries the HON-03 frozen-vs-live legend: two plain-words lines naming that a *marked* run is
+        a live in-flight child spawned this session (see ``_inflight_status_token`` / ``_table_status``)
+        while an *unmarked* run is the frozen on-disk status from the last poll. The legend is text only —
+        it never re-derives ``project_status()`` and stays inside the grep-guard-safe vocabulary.
         """
         lines = [
             "key     action          (mode)",
@@ -1695,6 +1700,8 @@ class GmjDashboard(App):
             "enter   drill-in        (read-only · runs / vacancies / features / config)",
             "ctrl+p  command menu    (read-only)",
             "        diagnostics: ←/→ switch pane when tab bar focused",
+            "        legend: a marked run = a live in-flight child this session",
+            "        legend: an unmarked run = frozen on-disk status from the last poll",
         ]
         manage_mode = "--manage" if self._manage else "--manage · Phase 24"
         for key, _action, desc in _MANAGE_KEYS:  # (r,run,Run) (R,resume,Resume) (b,batch,Batch) …

@@ -1092,6 +1092,20 @@ def test_commands_panel_mode_aware() -> None:
     assert "Phase 24" in ro, f"read-only mode must annotate the manage keys as Phase-24-deferred: {ro!r}"
     assert "Phase 24" not in mg, f"--manage mode must NOT annotate the manage keys as deferred: {mg!r}"
 
+    # HON-03: the commands panel carries the frozen-vs-live legend in plain, grep-guard-safe words —
+    # a marked run = a live in-flight child this session; an unmarked run = frozen on-disk status from
+    # the last poll. The legend is mode-independent (informational in both modes).
+    for text in (ro, mg):
+        assert "in-flight" in text, (
+            f"the commands panel must name the live in-flight marker in the legend: {text!r}"
+        )
+        assert "frozen" in text, (
+            f"the commands panel must name the frozen on-disk status in the legend: {text!r}"
+        )
+        assert "last poll" in text, (
+            f"the legend must attribute the frozen status to the last poll: {text!r}"
+        )
+
 
 # --- VIEW-16: debug/internals panel renders the selected run's run_detail on selection --------------
 
