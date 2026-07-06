@@ -654,6 +654,7 @@ class GmjDashboard(App):
         feat_panel.border_title = "features"
 
         cfg_panel = Vertical(
+            Static("", id="config-warning"),          # SAFE-02 (a) repo-default banner — seeded once
             DataTable(id="config-table", cursor_type="row"),
             id="config-panel",
         )
@@ -747,6 +748,14 @@ class GmjDashboard(App):
             tab_bar.get_content_tab(pane_id).add_class(class_name)
         # The commands reference (VIEW-15) is STATIC + mode-aware — seed it once here, not per-poll.
         self._apply_commands()
+        # SAFE-02 (a): a persistent repo-default warning banner, seeded ONCE here (NEVER in a per-poll
+        # _apply_* path — that would flicker/lose it, Pitfall 3). Shown only under --manage when the
+        # resolved --config is the real repo-default; empty otherwise. Copy avoids the SAFETY-03
+        # forbidden status/gate-node literals (phrased around "editing the real repo-default config").
+        if self._manage and self._editing_repo_default():
+            self.query_one("#config-warning", Static).update(
+                f"⚠ editing the real repo-default config: {Path(self._config_path).resolve()}"
+            )
 
     def _install_bindings(self) -> None:
         """Install read-only bindings always; the mutating keys ONLY under --manage (VIEW-01/07).

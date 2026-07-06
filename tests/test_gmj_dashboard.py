@@ -1693,6 +1693,50 @@ def test_manage_confirm_gate_blocks_first_write() -> None:
         assert "# FREEZE CONTRACT" in confirmed["text"], "the freeze-contract comment block must survive"
 
 
+# --- SAFE-02 (a): a persistent repo-default warning banner shows at launch under --manage -----------
+# Seeded ONCE in _seed_widgets() (never per-poll → no flicker, Pitfall 3), guarded by
+# ``self._manage and self._editing_repo_default()``. It names the resolved real config path so the
+# operator is warned before any mutating key can act; the read-only board (no --manage) shows nothing.
+
+
+async def _drive_banner(config_path: Path, *, manage: bool, force_repo_default: bool) -> str:
+    """Launch (manage / read-only), optionally force the repo-default detection, read the banner text."""
+    with _temp_pipeline() as pipe:
+        app = _build_app(pipe, manage=manage, config_path=config_path)
+        if force_repo_default:
+            app._editing_repo_default = lambda: True
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.pause()
+            return str(app.query_one("#config-warning", Static).render())
+
+
+def test_manage_repo_default_banner() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cfg = Path(tmp) / "pipeline.config.yaml"
+        cfg.write_text(_SAFE02_SEED, encoding="utf-8")
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            manage_banner = asyncio.run(_drive_banner(cfg, manage=True, force_repo_default=True))
+            readonly_banner = asyncio.run(_drive_banner(cfg, manage=False, force_repo_default=True))
+            other_config_banner = asyncio.run(_drive_banner(cfg, manage=True, force_repo_default=False))
+        assert "Traceback" not in buf.getvalue(), f"banner probe leaked a traceback: {buf.getvalue()}"
+
+    # Under --manage + repo-default: the banner is non-empty AND names the resolved config path.
+    assert manage_banner.strip(), f"the repo-default banner must render non-empty under --manage: {manage_banner!r}"
+    assert str(cfg.resolve()) in manage_banner, (
+        f"the banner must name the resolved config path: {manage_banner!r}"
+    )
+    # Read-only board (no --manage): no banner at all.
+    assert not readonly_banner.strip(), (
+        f"the read-only board must show no repo-default banner: {readonly_banner!r}"
+    )
+    # Under --manage but NOT the repo-default (a temp/other config): no banner.
+    assert not other_config_banner.strip(), (
+        f"a non-repo-default config must show no banner even under --manage: {other_config_banner!r}"
+    )
+
+
 # --- MANAGE-04 (plan-checker W3): b drives run_batch with the board's pipeline_dir + success notice --
 
 def test_manage_batch_action() -> None:
