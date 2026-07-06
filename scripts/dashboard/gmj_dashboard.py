@@ -1157,9 +1157,11 @@ class GmjDashboard(App):
         offer = await self._prompt_offer()
         if not offer:
             return
-        prompt = actions.build_pipeline_prompt(offer=offer)
+        prompt = actions.build_pipeline_prompt(offer=offer, pipeline_dir=self._pipeline_dir)
         try:
-            proc = await actions.launch_pipeline(prompt, launcher=self._launcher, cwd=self._cwd)
+            proc = await actions.launch_pipeline(
+                prompt, launcher=self._launcher, cwd=self._cwd, pipeline_dir=self._pipeline_dir
+            )
         except (FileNotFoundError, OSError) as exc:
             self.notify(f"⚠ launch failed: {exc}", severity="error")
             return
@@ -1180,9 +1182,11 @@ class GmjDashboard(App):
         if not run_id:
             self.notify("⚠ no run selected", severity="error")
             return
-        prompt = actions.build_pipeline_prompt(run_id=run_id)
+        prompt = actions.build_pipeline_prompt(run_id=run_id, pipeline_dir=self._pipeline_dir)
         try:
-            proc = await actions.launch_pipeline(prompt, launcher=self._launcher, cwd=self._cwd)
+            proc = await actions.launch_pipeline(
+                prompt, launcher=self._launcher, cwd=self._cwd, pipeline_dir=self._pipeline_dir
+            )
         except (FileNotFoundError, OSError) as exc:
             self.notify(f"⚠ launch failed: {exc}", severity="error")
             return
@@ -1300,7 +1304,11 @@ class GmjDashboard(App):
 
         prompt = build_feature_prompt(feature, values)
         try:
-            proc = await actions.launch_pipeline(prompt, launcher=self._launcher, cwd=self._cwd)
+            # HON-01: _launch_feature is the easy-to-miss third launch path. It uses build_feature_prompt
+            # (not build_pipeline_prompt), so only the env carrier applies — env-only is sufficient here.
+            proc = await actions.launch_pipeline(
+                prompt, launcher=self._launcher, cwd=self._cwd, pipeline_dir=self._pipeline_dir
+            )
         except (FileNotFoundError, OSError) as exc:
             self.notify(f"⚠ feature launch failed: {exc}", severity="error")
             return
