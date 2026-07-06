@@ -53,6 +53,7 @@ from gmj_check_delivery import blocked_reason  # noqa: E402
 # gmj_route.py could observe a state without current_step (WR-02). It freezes the exact same fields
 # (execution_mode, retry_cap, run_id) and prints its own structured stderr on any error.
 from gmj_state_write import _freeze_run_config  # noqa: E402
+from gmj_pipeline_paths import resolve_pipeline_dir  # noqa: E402  (single-sourced pipeline root)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # scripts/pipeline/ -> repo root
 SCHEMA_PATH = REPO_ROOT / "schemas" / "batch_manifest.schema.json"
@@ -519,7 +520,7 @@ def main() -> int:
     p_init.add_argument("--retry-cap", type=int, default=None, help="Optional CLI override for retry_cap.")
     p_init.add_argument(
         "--pipeline-dir",
-        default=".pipeline",
+        default=resolve_pipeline_dir(),
         help="Writable pipeline root (default .pipeline); resolved and used as the containment anchor.",
     )
     p_init.set_defaults(func=_cmd_init)
@@ -537,7 +538,7 @@ def main() -> int:
     )
     p_mark.add_argument(
         "--pipeline-dir",
-        default=".pipeline",
+        default=resolve_pipeline_dir(),
         help="Writable pipeline root (default .pipeline); resolved as the containment anchor.",
     )
     p_mark.set_defaults(func=_cmd_mark)
@@ -549,7 +550,7 @@ def main() -> int:
     p_resume.add_argument("--batch", required=True, help="batch_id whose manifest to recompute.")
     p_resume.add_argument(
         "--pipeline-dir",
-        default=".pipeline",
+        default=resolve_pipeline_dir(),
         help="Writable pipeline root (default .pipeline); resolved as the containment anchor.",
     )
     p_resume.set_defaults(func=_cmd_resume)
@@ -570,7 +571,7 @@ def main() -> int:
     )
     p_spec.add_argument(
         "--pipeline-dir",
-        default=".pipeline",
+        default=resolve_pipeline_dir(),
         help="Writable pipeline root (default .pipeline); resolved as the containment anchor.",
     )
     p_spec.set_defaults(func=_cmd_record_spec)

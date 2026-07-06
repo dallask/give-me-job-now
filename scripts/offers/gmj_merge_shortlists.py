@@ -33,8 +33,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # scripts/offers/ -> 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "preferences"))
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "contracts"))
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "offers"))
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "pipeline"))
 from gmj_validate_preferences import _norm_site, subset_offenders, load_yaml  # noqa: E402,F401
 from gmj_freeze_offer import slugify  # noqa: E402  ([a-z0-9-] slug; returns "offer" when empty)
+from gmj_pipeline_paths import resolve_pipeline_dir  # noqa: E402  (single-sourced pipeline root)
 from jsonschema import Draft202012Validator  # noqa: E402
 
 SHORTLIST_SCHEMA = REPO_ROOT / "schemas" / "shortlist.schema.json"
@@ -53,8 +55,9 @@ def _reject_nan(token: str):
 DEFAULT_SOURCES = REPO_ROOT / "config" / "sources.yaml"
 DEFAULT_PREFERENCES = REPO_ROOT / "config" / "preferences.yaml"
 # cwd-relative so writes stay predictable from repo root and isolatable in tests.
-DEFAULT_OUT = Path(".pipeline") / "shortlist.json"
-PIPELINE_SUBDIR = Path(".pipeline")
+# Root single-sourced via resolve_pipeline_dir() (explicit > GMJ_PIPELINE_DIR env > .pipeline).
+PIPELINE_SUBDIR = Path(resolve_pipeline_dir())
+DEFAULT_OUT = PIPELINE_SUBDIR / "shortlist.json"
 
 
 def _entry_source_url(entry: dict) -> str:

@@ -45,6 +45,7 @@ from pathlib import Path
 # sys.path both when this file is run as a script and when imported via a sys.path insert (tests).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gmj_check_delivery import blocked_reason  # noqa: E402
+from gmj_pipeline_paths import resolve_pipeline_dir  # noqa: E402  (single-sourced pipeline root)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # scripts/pipeline/ -> repo root
 
@@ -450,7 +451,7 @@ def _cmd_batch_inspect(args: argparse.Namespace) -> int:
 def _add_common(parser: argparse.ArgumentParser, func) -> None:
     parser.add_argument(
         "--pipeline-dir",
-        default=".pipeline",
+        default=resolve_pipeline_dir(),
         help="Read-only pipeline root to inspect (default .pipeline).",
     )
     parser.add_argument(
