@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "cover_letter",
+    "language": "en",
+    "claims": [
+      {
+        "text": "As a Lead Software Engineer with 19+ years building and shipping production web systems at enterprise scale, I'm excited to bring my full-stack PHP/Laravel background to SoftPeak's Lead Backend PHP Engineer (Laravel) role.",
+        "section": "opening",
+        "source_span": "summary",
+        "reframing_note": "Reframes the summary's general 19+ years / full-stack emphasis toward the PHP/Laravel lead-engineer angle the offer specifically asks for; no fact added beyond the source summary."
+      },
+      {
+        "text": "In my current lead role at EPAM Systems I direct a 20-person engineering team within a 47-member delivery organization, owning architecture decisions, release quality, and cross-team coordination — the same lead-level ownership this position calls for.",
+        "section": "body",
+        "source_span": "professional_experience[0].achievements[3]"
+      },
+      {
+        "text": "I've built and maintained Laravel-based REST API services for enterprise clients — applying OOP/MVC principles, PSR coding standards, and Eloquent ORM, and integrating 10+ third-party APIs (payment gateways, CRMs, data feeds) — directly matching the Laravel backend and RESTful API focus of this role.",
+        "section": "body",
+        "source_span": "professional_experience[0].achievements[7]",
+        "reframing_note": "Emphasizes the Laravel/PSR/Eloquent/API-integration facts already present in the source achievement as directly relevant to the offer's PHP/Laravel and RESTful-API must-haves; no numbers or facts added beyond the source."
+      },
+      {
+        "text": "I've also implemented and maintained REST and SOAP integrations connecting CMS platforms to third-party services — payment gateways, CRMs, and data feeds — across up to 5 concurrent client projects, which lines up with your need for experience integrating external APIs and services.",
+        "section": "body",
+        "source_span": "professional_experience[0].achievements[9]",
+        "reframing_note": "Draws an explicit connection from the source's REST/SOAP/payment-gateway/CRM integration experience to the offer's 'external APIs and services (payments...)' must-have; no new facts introduced."
+      },
+      {
+        "text": "On the DevOps side, I established CI/CD pipelines with Travis CI and GitHub Actions and standardized containerized local development with Docker Compose, reducing environment drift across the delivery team — practical experience with the CI/CD toolchain you're looking for.",
+        "section": "body",
+        "source_span": "professional_experience[0].achievements[5]",
+        "reframing_note": "Frames existing CI/CD/Docker Compose experience as a match to the offer's 'AWS, Azure, Docker, and CI/CD pipelines' must-have; no fabricated tooling added."
+      },
+      {
+        "text": "I bring hands-on experience with AWS as part of my cloud platform toolkit.",
+        "section": "body",
+        "source_span": "expertise[5].skills[3]"
+      },
+      {
+        "text": "I bring hands-on experience with Microsoft Azure as well, covering both major clouds referenced in your requirements.",
+        "section": "body",
+        "source_span": "expertise[5].skills[4]"
+      },
+      {
+        "text": "Docker is a core part of my day-to-day toolchain, reinforcing the containerization experience your team needs.",
+        "section": "body",
+        "source_span": "expertise[11].skills[1]"
+      },
+      {
+        "text": "On the data layer, I work regularly with MySQL as part of my production database toolkit.",
+        "section": "body",
+        "source_span": "expertise[10].skills[0]"
+      },
+      {
+        "text": "I also work regularly with PostgreSQL, directly relevant to your relational-database requirement.",
+        "section": "body",
+        "source_span": "expertise[10].skills[2]"
+      },
+      {
+        "text": "Earlier in my career as Technical Director, I led proactive security incident response across 10+ compromised client sites — vulnerability identification, remediation, and full production restoration with zero recurrence — reflecting the security-conscious engineering mindset this role's authentication and access-control work requires.",
+        "section": "body",
+        "source_span": "professional_experience[1].achievements[1]",
+        "reframing_note": "Reframes hands-on security-incident-response experience as evidence of a security-conscious mindset relevant to the offer's secure-authentication/RBAC requirement. The source claim describes incident response and remediation, not OAuth2/JWT implementation specifically — the connection is emphasis/reframe, not a literal OAuth2/JWT skill claim, so it should not be treated as a fabricated auth-protocol claim."
+      },
+      {
+        "text": "My English proficiency is Upper-Intermediate (B2), matching the language level you specify.",
+        "section": "body",
+        "source_span": "languages[0].proficiency"
+      },
+      {
+        "text": "Beyond the core backend work, I currently lead AI-assisted engineering adoption across my delivery team — standardizing tools like Claude Code, GitHub Copilot, and Cursor for code generation, review, and test scaffolding while holding the line on code-quality gates — a modern engineering practice I'd bring to SoftPeak's backend team as well.",
+        "section": "closing",
+        "source_span": "professional_experience[0].achievements[0]",
+        "reframing_note": "Presented as an added-value differentiator for the lead role; the underlying fact (leading AI-tool adoption across the delivery team) is unchanged from the source."
+      }
+    ]
+  }
+}

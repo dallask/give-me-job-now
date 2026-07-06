@@ -14,8 +14,8 @@
 
 # One of: human_in_the_loop | autonomous. Default human_in_the_loop keeps the human
 # pause on by default; autonomous removes the pause (never the machine gate).
-execution_mode: human_in_the_loop
+execution_mode: autonomous
 
 # Maximum enhance/generate retry cycles per run. Default 2 matches the legacy
 # MAX_ENHANCE_CYCLES=2 precedent (EXEC-03, RESEARCH Assumption A1).
-retry_cap: 2
+retry_cap: 4

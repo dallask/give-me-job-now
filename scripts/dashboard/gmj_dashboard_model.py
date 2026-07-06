@@ -53,8 +53,15 @@ from gmj_runs import (  # noqa: E402
     _safe_component,
     _safe_id,
     _TS_RE,
+    is_batch_in_flight,
+    is_pipeline_in_flight_status,
     project_status,
 )
+
+_DASH_DIR = Path(__file__).resolve().parent
+if str(_DASH_DIR) not in sys.path:
+    sys.path.insert(0, str(_DASH_DIR))
+from gmj_dashboard_features import discover_features, feature_by_id  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # scripts/dashboard/ -> repo root
 
@@ -157,6 +164,7 @@ class DashboardModel:
         self.pipeline_dir = Path(pipeline_dir).expanduser()
         self.repo_root = Path(repo_root)
         self._last_good: dict[str, dict] = {}
+        self._features_cache = discover_features(self.repo_root)
 
     def _runs(self) -> tuple[list[dict], list[dict]]:
         """Walk ``<pipeline_dir>/runs/*`` (mirrors gmj_runs.py _cmd_runs_list), torn-read tolerant.
@@ -278,6 +286,53 @@ class DashboardModel:
             )
         return out
 
+    def offer_detail(self, offer_spec_hash: str) -> dict:
+        """Return a drill-in payload for one frozen offer-spec hash, else ``{}``.
+
+        Lookup uses the same ``sources/offers/*.offer-spec.json`` glob as ``_vacancies()`` — never
+        ``state.offer_spec_path`` from run state (T-20-02). Full fields are loaded on demand only here;
+        ``snapshot()["vacancies"]`` stays thin.
+        """
+        if not offer_spec_hash:
+            return {}
+        offers_dir = self.repo_root / "sources" / "offers"
+        if not offers_dir.is_dir():
+            return {}
+        for p in sorted(offers_dir.glob("*.offer-spec.json")):
+            try:
+                spec = json.loads(p.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(spec, dict):
+                continue
+            if spec.get("offer_spec_hash") != offer_spec_hash:
+                continue
+            content = spec.get("content")
+            if not isinstance(content, dict):
+                content = {}
+            must = content.get("must_haves")
+            nice = content.get("nice_to_haves")
+            resp = content.get("responsibilities")
+            return {
+                "kind": "offer_inspect",
+                "title": content.get("title"),
+                "company": content.get("company"),
+                "location": content.get("location"),
+                "seniority": content.get("seniority"),
+                "employment_type": content.get("employment_type"),
+                "language": content.get("language"),
+                "salary_range": content.get("salary_range"),
+                "must_haves": must if isinstance(must, list) else [],
+                "nice_to_haves": nice if isinstance(nice, list) else [],
+                "responsibilities": resp if isinstance(resp, list) else [],
+                "source_url": content.get("source_url"),
+                "raw_text_excerpt": content.get("raw_text_excerpt"),
+                "offer_spec_hash": spec.get("offer_spec_hash"),
+                "captured_at": spec.get("captured_at"),
+                "spec_basename": p.name,
+            }
+        return {}
+
     def _candidate(self, *, top_n: int = 8) -> dict:
         """Expose ONLY name/title/summary/contact/expertise_top from ``config/candidate.yaml``.
 
@@ -314,6 +369,35 @@ class DashboardModel:
             "fit_thresholds": fit,
             "preferences": prefs,
         }
+
+    def _config_yaml_files(self) -> list[str]:
+        """List every ``config/**/*.yaml`` path under ``repo_root`` (posix-relative, sorted)."""
+        config_dir = self.repo_root / "config"
+        if not config_dir.is_dir():
+            return []
+        return sorted(
+            path.relative_to(self.repo_root).as_posix()
+            for path in config_dir.rglob("*.yaml")
+            if path.is_file()
+        )
+
+    def config_file_text(self, rel_path: str) -> dict:
+        """Read one config YAML for the configuration drill-in modal — read-only, path-validated."""
+        rel = Path(rel_path).as_posix()
+        if not rel.startswith("config/") or not rel.endswith(".yaml"):
+            return {"path": rel_path, "error": "Invalid config path"}
+        if any(part in ("", ".", "..") for part in rel.split("/")):
+            return {"path": rel_path, "error": "Invalid config path"}
+        target = (self.repo_root / rel).resolve()
+        config_root = (self.repo_root / "config").resolve()
+        if target != config_root and config_root not in target.parents:
+            return {"path": rel_path, "error": "Invalid config path"}
+        if not target.is_file():
+            return {"path": rel, "error": "File not found"}
+        try:
+            return {"path": rel, "text": target.read_text(encoding="utf-8")}
+        except OSError as exc:
+            return {"path": rel, "error": str(exc)}
 
     def _dag(self) -> list[str]:
         """Ordered pipeline step names READ from ``config/pipeline.dag.yaml`` ``steps`` (never hardcoded).
@@ -572,13 +656,48 @@ class DashboardModel:
             "throughput_by_status": throughput_by_status,
         }
 
+    def _features(self) -> list[dict]:
+        """Catalog rows for the features panel (skills / agents / commands / flows)."""
+        return [
+            {
+                "id": f["id"],
+                "kind": f["kind"],
+                "name": f["name"],
+                "summary": f.get("summary") or "",
+            }
+            for f in self._features_cache
+        ]
+
+    def feature_detail(self, feature_id: str) -> dict:
+        """On-demand full feature record for the run/drill-in modal."""
+        return feature_by_id(self.repo_root, feature_id, self._features_cache)
+
+    def pipeline_activity(self) -> dict:
+        """Detect in-flight pipeline work from disk (survives dashboard reload).
+
+        Uses IMPORTED ``is_pipeline_in_flight_status`` / ``is_batch_in_flight`` — never re-derives
+        status in this module.
+        """
+        runs, _ = self._runs()
+        batches = self._batches()
+        active_run_ids = [
+            r["run_id"] for r in runs if is_pipeline_in_flight_status(str(r.get("status") or ""))
+        ]
+        active_batch_ids = [b["batch_id"] for b in batches if is_batch_in_flight(b)]
+        active = bool(active_run_ids or active_batch_ids)
+        return {
+            "active": active,
+            "active_run_ids": active_run_ids,
+            "active_batch_ids": active_batch_ids,
+        }
+
     def snapshot(self) -> dict:
         """Gather every panel's data in one read-only pass; return ONE JSON-serializable plain dict.
 
         Returns the panel dict: ``counters`` / ``metrics`` / ``stages`` (``dag`` + ``active``) /
-        ``runs`` / ``batches`` / ``vacancies`` / ``candidate`` / ``config`` / ``run_detail`` plus the
+        ``runs`` / ``batches`` / ``vacancies`` / ``features`` / ``config`` / ``run_detail`` plus the
         Phase-23 rich-panel keys ``errors`` (VIEW-12 ``failures()``) and ``activity`` (VIEW-13
-        ``activity()``). Every run/batch status is the IMPORTED projection, passed through untouched;
+        ``activity()``) and ``pipeline_activity`` (VIEW-28 disk-backed in-flight detection). Every run/batch status is the IMPORTED projection, passed through untouched;
         every reader is read-only and degrades to ``{}``/``[]`` on a missing file (never raises).
         ``run_detail`` stays ``{}`` here — it is an on-demand accessor (``run_detail(run_id)``) so the
         per-poll cost stays proportional to the displayed runs (Pitfall 5).
@@ -588,8 +707,8 @@ class DashboardModel:
         metrics = self._metrics(runs, metric_inputs)
 
         vacancies = self._vacancies()
-        candidate = self._candidate()
         config = self._config()
+        features = self._features()
 
         # Status buckets via Counter over the PROJECTED statuses on the rows — no hardcoded
         # status-name key ever appears in this file (single-source seam preserved).
@@ -622,11 +741,13 @@ class DashboardModel:
             "runs": runs,
             "batches": batches,
             "vacancies": vacancies,
-            "candidate": candidate,
+            "features": features,
             "config": config,
+            "config_files": self._config_yaml_files(),
             "run_detail": {},   # on-demand: populate via run_detail(run_id), never per-poll
             "errors": self.failures(),  # VIEW-12: per failed-run Gate A/Gate B failure detail
             "activity": self.activity(),  # VIEW-13: newest-first started/gate/terminal event feed
+            "pipeline_activity": self.pipeline_activity(),  # VIEW-28: disk-backed in-flight runs/batches
         }
 
 

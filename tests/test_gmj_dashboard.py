@@ -38,7 +38,7 @@ from pathlib import Path
 
 from rich.text import Text
 
-from textual.widgets import DataTable, Sparkline, Static
+from textual.widgets import DataTable, Input, Sparkline, Static, TabbedContent
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "pipeline"
@@ -49,6 +49,12 @@ DASHBOARD_PY = REPO_ROOT / "scripts" / "dashboard" / "gmj_dashboard.py"
 # detached subprocess launch are legitimate (its own safety is proven by SAFETY-01 in Plan 24-01).
 MODEL_PY = REPO_ROOT / "scripts" / "dashboard" / "gmj_dashboard_model.py"
 CONFIG_SRC = REPO_ROOT / "config" / "pipeline.config.yaml"
+# Stable seed for manage-mode config-edit tests — must not depend on the live repo config file.
+_MANAGE_TEST_CONFIG = """\
+# FREEZE CONTRACT: at run start, gmj_state_write.py copies these values into state.json.
+execution_mode: human_in_the_loop
+retry_cap: 4
+"""
 
 # Import the App + the model via the same sys.path idiom the model test uses.
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "dashboard"))
@@ -110,6 +116,19 @@ def _temp_pipeline():
         yield dst
 
 
+@contextmanager
+def _temp_idle_pipeline():
+    """Yield a pipeline dir with only terminal runs — no disk-backed live activity."""
+    with tempfile.TemporaryDirectory() as tmp:
+        dst = Path(tmp) / "pipeline"
+        for run_id in ("20260601T120000-del", "20260603T120000-fail"):
+            run_src = FIXTURES / "runs" / run_id
+            run_dst = dst / "runs" / run_id
+            run_dst.mkdir(parents=True)
+            shutil.copy2(run_src / "state.json", run_dst / "state.json")
+        yield dst
+
+
 def _build_app(
     pipeline_dir: Path,
     *,
@@ -117,13 +136,16 @@ def _build_app(
     refresh: float = 1.5,
     config_path: Path | None = None,
     launcher=None,
+    repo_root: Path | None = None,
 ) -> "gmj_dashboard.GmjDashboard":
     """Construct the App around a pre-built model reading the temp pipeline + dashboard fixtures.
 
     ``config_path`` (a temp copy) and ``launcher`` (a recording fake) are the Plan 24-02 --manage seams;
     they default to the read-only behaviour so every pre-existing test is unaffected.
     """
-    model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(pipeline_dir), repo_root=DASH_FIXTURES)
+    model = gmj_dashboard_model.DashboardModel(
+        pipeline_dir=str(pipeline_dir), repo_root=repo_root or DASH_FIXTURES
+    )
     return gmj_dashboard.GmjDashboard(
         model,
         manage=manage,
@@ -209,10 +231,10 @@ def test_footer_mode_aware_bindings() -> None:
 # --- VIEW-02: brand banner + global counters render --------------------------
 
 async def _counters_and_banner(pipeline_dir: Path) -> tuple[str, str]:
-    app = _build_app(pipeline_dir, manage=False)
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        await pilot.pause()
-        await pilot.pause()
+        for _ in range(4):
+            await pilot.pause()
         counters = app.query_one("#counters", Static).render()
         banner = app.query_one("#banner", Static).render()
         return str(counters), str(banner)
@@ -226,14 +248,17 @@ def test_header_and_counters_render() -> None:
         assert "Traceback" not in buf.getvalue(), f"render leaked a traceback: {buf.getvalue()}"
     # The counters strip is rendered generically from snapshot()["counters"].
     assert counters_text.strip(), f"counters strip must render non-empty text: {counters_text!r}"
-    for label in ("runs", "offers", "mode", "cap"):
+    for label in ("runs", "offers", "default_mode", "cap"):
         assert label in counters_text, f"counters must carry the {label!r} label: {counters_text!r}"
     # The delivered headline number appears (rendered from by_status.items(), not a .py literal).
-    assert re.search(r"delivered\s+\d+", counters_text), (
+    assert re.search(r"delivered:\s*\d+", counters_text), (
         f"counters must show a numeric delivered count from by_status: {counters_text!r}"
     )
-    # The hardcoded ASCII banner rendered non-empty.
-    assert banner_text.strip(), f"banner must render non-empty ASCII art: {banner_text!r}"
+    assert "runs:" in counters_text, f"counters must use label: value form: {counters_text!r}"
+    # The colored ASCII figlet + slogan render non-empty.
+    assert banner_text.strip(), f"banner must render non-empty: {banner_text!r}"
+    assert "| |__" in banner_text or "__ _ ___" in banner_text, f"banner must show ASCII figlet: {banner_text!r}"
+    assert "Your career's wingman" in banner_text, f"banner must show the slogan: {banner_text!r}"
 
 
 # --- VIEW-04: an off-thread poll tick applies a result without blocking -------
@@ -373,9 +398,9 @@ async def _probe_runs_table(pipeline_dir: Path) -> dict:
     """Launch read-only, let the poll seed the table, then probe rows / status cell / cursor stability."""
     app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        # Two+ ticks let the threaded poll seed every run row via _apply_runs (add_row keyed by run_id).
-        await pilot.pause()
-        await pilot.pause()
+        # Let the threaded poll seed every run row via _apply_runs (add_row keyed by run_id).
+        for _ in range(5):
+            await pilot.pause()
         table = app.query_one("#runs", DataTable)
         # The projection the view is rendering — one row per run (strayonly already excluded by model).
         expected_runs = app._model.snapshot()["runs"]
@@ -482,38 +507,109 @@ def test_metrics_panel_and_sparkline() -> None:
     assert all(isinstance(x, int) for x in data), f"the sparkline .data must be all ints: {data!r}"
 
 
-# --- VIEW-06: read-only candidate + configuration panels ---------------------
+# --- VIEW-26: features catalog + configuration panels --------------------------
 
-async def _probe_candidate_config(pipeline_dir: Path) -> dict:
-    """Launch read-only, let the poll fill the candidate + config panels, then read their text."""
-    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+async def _probe_features_config(pipeline_dir: Path) -> dict:
+    """Launch read-only, let the poll fill the features + config panels."""
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1, repo_root=REPO_ROOT)
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         await pilot.pause()
         await pilot.pause()
-        cand_text = str(app.query_one("#candidate", Static).render())
-        cfg_text = str(app.query_one("#config", Static).render())
-        return {"cand_text": cand_text, "cfg_text": cfg_text}
+        feat_table = app.query_one("#features-table", DataTable)
+        feat_rows = [
+            (
+                str(feat_table.get_cell(rk, "kind")),
+                str(feat_table.get_cell(rk, "name")),
+            )
+            for rk in feat_table.rows
+        ]
+        cfg_table = app.query_one("#config-table", DataTable)
+        cfg_rows = [str(cfg_table.get_cell(rk, "file")) for rk in cfg_table.rows]
+        return {
+            "feat_rows": feat_rows,
+            "feat_count": feat_table.row_count,
+            "cfg_rows": cfg_rows,
+            "cfg_text": "\n".join(cfg_rows),
+            "config_count": cfg_table.row_count,
+        }
 
 
-def test_candidate_and_config_panels() -> None:
+def test_features_and_config_panels() -> None:
     with _temp_pipeline() as pipe:
         buf = io.StringIO()
         with contextlib.redirect_stderr(buf):
-            probe = asyncio.run(_probe_candidate_config(pipe))
-        assert "Traceback" not in buf.getvalue(), f"candidate/config probe leaked a traceback: {buf.getvalue()}"
+            probe = asyncio.run(_probe_features_config(pipe))
+        assert "Traceback" not in buf.getvalue(), f"features/config probe leaked a traceback: {buf.getvalue()}"
 
-    # VIEW-06: the candidate panel shows the fixture candidate's whitelisted top-fields verbatim.
-    cand = probe["cand_text"]
-    assert cand.strip(), f"the candidate panel must render non-empty text: {cand!r}"
-    assert "Test Candidate" in cand, f"the candidate panel must show the fixture name: {cand!r}"
-    assert "Senior Test Engineer" in cand, f"the candidate panel must show the fixture title: {cand!r}"
+    assert probe["feat_count"] >= 10, f"features table must list catalog items: {probe['feat_count']}"
+    kinds = {k for k, _ in probe["feat_rows"]}
+    assert "command" in kinds, f"expected command rows: {probe['feat_rows'][:5]}"
+    assert any(name == "gmj-pipeline-run" for _, name in probe["feat_rows"]), probe["feat_rows"]
 
-    # VIEW-06: the config panel shows the governing knobs (execution_mode + retry_cap) verbatim.
     cfg = probe["cfg_text"]
-    assert cfg.strip(), f"the config panel must render non-empty text: {cfg!r}"
-    assert "autonomous" in cfg, f"the config panel must show the fixture execution_mode: {cfg!r}"
-    assert re.search(r"retry_cap\s+5", cfg), f"the config panel must show the fixture retry_cap: {cfg!r}"
+    assert probe["config_count"] >= 6, f"the config table must list yaml files: {probe['config_count']}"
+    assert cfg.strip(), f"the config table must render rows: {cfg!r}"
+    assert "config/pipeline.config.yaml" in cfg, f"missing pipeline.config.yaml: {cfg!r}"
+    assert "config/sources.yaml" in cfg, f"missing sources.yaml: {cfg!r}"
+
+
+async def _probe_features_drill_in(pipeline_dir: Path) -> dict:
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1, repo_root=REPO_ROOT)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        table = app.query_one("#features-table", DataTable)
+        table.focus()
+        idx = None
+        for i, rk in enumerate(table.rows):
+            if str(table.get_cell(rk, "name")) == "gmj-pipeline-run":
+                idx = table.get_row_index(rk)
+                break
+        assert idx is not None, "gmj-pipeline-run row must exist"
+        table.move_cursor(row=idx)
+        await pilot.press("enter")
+        await pilot.pause()
+        body = str(app.screen.query_one("#feat-modal-body", Static).render())
+        header = str(app.screen.query_one("#feat-modal-header", Static).render())
+        offer_input = app.screen.query_one("#feat-param-offer", Input)
+        await pilot.press("escape")
+        await pilot.pause()
+        return {"body": body, "header": header, "offer_input": offer_input}
+
+
+def test_features_table_drill_in() -> None:
+    with _temp_pipeline() as pipe:
+        probe = asyncio.run(_probe_features_drill_in(pipe))
+    assert "gmj-pipeline-run" in probe["header"] or "pipeline" in probe["body"].lower()
+    assert probe["offer_input"] is not None
+
+
+# --- VIEW-06 (legacy): configuration panel drill-in ----------------------------
+
+async def _probe_config_drill_in(pipeline_dir: Path) -> dict:
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        table = app.query_one("#config-table", DataTable)
+        table.focus()
+        idx = table.get_row_index("config/pipeline.config.yaml")
+        table.move_cursor(row=idx)
+        await pilot.press("enter")
+        await pilot.pause()
+        body = str(app.screen.query_one("#cfg-modal-body", Static).render())
+        await pilot.press("escape")
+        await pilot.pause()
+        return {"top_name": type(app.screen).__name__, "body": body}
+
+
+def test_config_table_drill_in() -> None:
+    with _temp_pipeline() as pipe:
+        probe = asyncio.run(_probe_config_drill_in(pipe))
+    assert "autonomous" in probe["body"]
+    assert "config/pipeline.config.yaml" in probe["body"]
+    assert "execution_mode" in probe["body"]
 
 
 # --- VIEW-08: DAG stage strip renders tokens, highlights an active run, colors gates ------------
@@ -691,18 +787,33 @@ _BATCH_ID = "batch-20260601T120000"
 _BATCH_ROLLUP = "3/6"
 
 
-async def _probe_vacancies_panel(pipeline_dir: Path) -> str:
-    """Launch read-only, let the poll fill the #vac-placeholder panel, then read its rendered text."""
+async def _probe_vacancies_panel(pipeline_dir: Path) -> dict:
+    """Launch read-only, let the poll fill vacancies table + batch footer, return rendered state."""
     app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        # Two+ ticks let the threaded poll marshal snapshot()["vacancies"]/["batches"] into the panel.
         await pilot.pause()
         await pilot.pause()
-        return str(app.query_one("#vac-placeholder", Static).render())
+        table = app.query_one("#vacancies", DataTable)
+        batches = str(app.query_one("#vac-batches", Static).render())
+        rows = []
+        for rk in table.rows:
+            rows.append(
+                " ".join(
+                    str(table.get_cell(rk, col))
+                    for _, col in (
+                        ("title", "title"),
+                        ("company", "company"),
+                        ("seniority", "seniority"),
+                        ("salary", "salary"),
+                        ("mh", "mh"),
+                    )
+                )
+            )
+        return {"row_count": table.row_count, "rows_text": "\n".join(rows), "batches": batches}
 
 
-async def _probe_empty_vacancies_panel() -> str:
-    """Launch over an empty pipeline + a repo_root with no offers → expect the empty-state copy."""
+async def _probe_empty_vacancies_panel() -> dict:
+    """Launch over an empty pipeline + repo_root with no offers → expect empty-state copy."""
     with tempfile.TemporaryDirectory() as tmp:
         empty_pipe = Path(tmp) / "pipeline"
         empty_root = Path(tmp) / "root"
@@ -713,38 +824,113 @@ async def _probe_empty_vacancies_panel() -> str:
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
             await pilot.pause()
-            return str(app.query_one("#vac-placeholder", Static).render())
+            table = app.query_one("#vacancies", DataTable)
+            batches = str(app.query_one("#vac-batches", Static).render())
+            return {"row_count": table.row_count, "batches": batches}
 
 
 def test_vacancies_and_batch_rollup_render() -> None:
     with _temp_pipeline() as pipe:
         buf = io.StringIO()
         with contextlib.redirect_stderr(buf):
-            vac_text = asyncio.run(_probe_vacancies_panel(pipe))
-            empty_text = asyncio.run(_probe_empty_vacancies_panel())
+            vac = asyncio.run(_probe_vacancies_panel(pipe))
+            empty = asyncio.run(_probe_empty_vacancies_panel())
         assert "Traceback" not in buf.getvalue(), f"vacancies probe leaked a traceback: {buf.getvalue()}"
 
-    # VIEW-10: a known frozen offer's fields render verbatim (title · company · seniority · #must-haves).
+    vac_text = vac["rows_text"] + "\n" + vac["batches"]
+    empty_text = empty["batches"]
+    assert vac["row_count"] == 2, f"two frozen offers must appear as table rows: {vac['row_count']}"
     assert vac_text.strip(), f"the vacancies panel must render non-empty text: {vac_text!r}"
     for field in (_VAC_TITLE, _VAC_COMPANY, _VAC_SENIORITY):
         assert field in vac_text, f"the vacancies panel must show the offer field {field!r}: {vac_text!r}"
-    assert re.search(rf"mh\s+{_VAC_MUST_HAVES}\b", vac_text), (
-        f"the vacancies panel must show the must-have count 'mh {_VAC_MUST_HAVES}': {vac_text!r}"
+    assert re.search(rf"\b{_VAC_MUST_HAVES}\b", vac_text), (
+        f"the vacancies panel must show the must-have count {_VAC_MUST_HAVES}: {vac_text!r}"
     )
-
-    # VIEW-10: the priced offer's salary appears (min/max + currency), rendered from salary_range.
     for token in ("4000", "6000", "USD"):
         assert token in vac_text, f"the vacancies panel must show the salary token {token!r}: {vac_text!r}"
-
-    # VIEW-10: the batch rollup line shows the batch_id and its delivered/total from snapshot()["batches"].
     assert _BATCH_ID in vac_text, f"the vacancies panel must show the batch id {_BATCH_ID!r}: {vac_text!r}"
     assert _BATCH_ROLLUP in vac_text, (
         f"the vacancies panel must show the batch delivered/total rollup {_BATCH_ROLLUP!r}: {vac_text!r}"
     )
-
-    # VIEW-10 empty states: no offers / no batches degrade to the UI-SPEC copy, never a blank or a crash.
+    assert empty["row_count"] == 0, f"empty offers must render zero table rows: {empty['row_count']}"
     assert "No frozen offers" in empty_text, f"the empty vacancies panel must show 'No frozen offers': {empty_text!r}"
     assert "No batches" in empty_text, f"the empty vacancies panel must show 'No batches': {empty_text!r}"
+
+
+_VAC_ALPHA_HASH = "aaaa1111"
+_VAC_MUST_HAVE_ITEM = "PostgreSQL"
+
+
+async def _probe_vacancies_filter(pipeline_dir: Path) -> dict:
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        table = app.query_one("#vacancies", DataTable)
+        full_count = table.row_count
+        filt = app.query_one("#vac-filter", Input)
+        filt.value = "Backend"
+        await pilot.pause()
+        narrowed = table.row_count
+        filt.value = ""
+        await pilot.pause()
+        restored = table.row_count
+        return {"full": full_count, "narrowed": narrowed, "restored": restored}
+
+
+def test_vacancies_filter_narrows_table() -> None:
+    with _temp_pipeline() as pipe:
+        probe = asyncio.run(_probe_vacancies_filter(pipe))
+    assert probe["full"] == 2, f"fixture must expose two vacancy rows before filter: {probe['full']}"
+    assert probe["narrowed"] == 1, f"filter 'Backend' must keep one row: {probe['narrowed']}"
+    assert probe["restored"] == 2, f"clearing the filter must restore both rows: {probe['restored']}"
+
+
+async def _probe_vacancy_drill_in(pipeline_dir: Path) -> dict:
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        table = app.query_one("#vacancies", DataTable)
+        table.focus()
+        idx = table.get_row_index(_VAC_ALPHA_HASH)
+        table.move_cursor(row=idx)
+        await pilot.pause()
+        stack_before = len(app.screen_stack)
+        await pilot.press("enter")
+        await pilot.pause()
+        stack_open = len(app.screen_stack)
+        top_name = type(app.screen).__name__
+        body = str(app.screen.query_one("#vac-modal-body", Static).render())
+        await pilot.pause()
+        await pilot.pause()
+        base_counters = str(app.query_one("#counters", Static).render())
+        await pilot.press("escape")
+        await pilot.pause()
+        stack_closed = len(app.screen_stack)
+        return {
+            "stack_before": stack_before,
+            "stack_open": stack_open,
+            "top_name": top_name,
+            "body": body,
+            "base_counters": base_counters,
+            "stack_closed": stack_closed,
+        }
+
+
+def test_vacancy_drill_in_modal_open() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            probe = asyncio.run(_probe_vacancy_drill_in(pipe))
+        assert "Traceback" not in buf.getvalue(), buf.getvalue()
+    assert probe["stack_before"] == 1
+    assert probe["stack_open"] == 2
+    assert probe["top_name"] == "VacancyDetailModal"
+    assert _VAC_TITLE in probe["body"]
+    assert _VAC_MUST_HAVE_ITEM in probe["body"]
+    assert probe["base_counters"].strip()
+    assert probe["stack_closed"] == 1
 
 
 # --- VIEW-11: built-in command palette opens + filter Input narrows the runs table ---------------
@@ -940,7 +1126,7 @@ async def _probe_debug_panel(pipeline_dir: Path) -> dict:
 
 
 def test_debug_panel_on_selection() -> None:
-    with _temp_pipeline() as pipe:
+    with _temp_idle_pipeline() as pipe:
         buf = io.StringIO()
         with contextlib.redirect_stderr(buf):
             probe = asyncio.run(_probe_debug_panel(pipe))
@@ -975,8 +1161,8 @@ async def _probe_errors_panel(pipeline_dir: Path) -> dict:
     """Launch read-only, let the poll fill #errors, then probe text + applied style spans."""
     app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        await pilot.pause()
-        await pilot.pause()
+        for _ in range(5):
+            await pilot.pause()
         panel = app.query_one("#errors", Static)
         rendered = str(panel.render())
         # Static.update(out) stores the ORIGINAL Rich Text in the name-mangled __content attribute
@@ -1053,8 +1239,8 @@ async def _probe_activity_panel(pipeline_dir: Path) -> dict:
     """Launch read-only, let the poll fill #activity, then probe text + applied event-colour spans."""
     app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        await pilot.pause()
-        await pilot.pause()
+        for _ in range(5):
+            await pilot.pause()
         panel = app.query_one("#activity", Static)
         rendered = str(panel.render())
         # Static.update(out) stores the ORIGINAL Rich Text in the name-mangled __content attribute
@@ -1122,6 +1308,76 @@ def test_activity_panel_renders() -> None:
 
     # VIEW-13: an empty pipeline degrades to the `No activity yet` empty state, never a blank or a crash.
     assert "No activity yet" in empty_text, f"the empty activity panel must show 'No activity yet': {empty_text!r}"
+
+
+async def _probe_diag_tabs_panel(pipeline_dir: Path) -> dict:
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        tabs = app.query_one("#diag-tabs-panel", TabbedContent)
+        errors_text = str(app.query_one("#errors", Static).render())
+        tabs.active = "pane-activity"
+        await pilot.pause()
+        activity_text = str(app.query_one("#activity", Static).render())
+        tabs.active = "pane-debug"
+        await pilot.pause()
+        debug_text = str(app.query_one("#debug", Static).render())
+        return {
+            "panel_type": type(tabs).__name__,
+            "initial_active": tabs.active,
+            "errors_nonempty": bool(errors_text.strip()),
+            "activity_nonempty": bool(activity_text.strip()),
+            "debug_text": debug_text,
+            "tab_labels": [t.label_text for t in app.query("#diag-tabs-panel Tab")],
+        }
+
+
+def test_diag_tabs_panel_switch() -> None:
+    with _temp_idle_pipeline() as pipe:
+        probe = asyncio.run(_probe_diag_tabs_panel(pipe))
+    assert probe["panel_type"] == "TabbedContent"
+    assert probe["tab_labels"] == [
+        "errors",
+        "debug",
+        "activity (events)",
+        "commands",
+        "metrics",
+        "pipeline stages",
+        "throughput / gates",
+    ]
+    assert probe["activity_nonempty"], f"activity tab must show content: {probe!r}"
+    assert "Select a run for internals" in probe["debug_text"]
+
+
+async def _probe_diag_tab_focus_escape(pipeline_dir: Path) -> dict:
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        tabs = app.query_one("#diag-tabs-panel", TabbedContent)
+        tab_bar = app.query_one("#diag-tabs-panel ContentTabs")
+        tab_bar.focus()
+        await pilot.pause()
+        assert tab_bar.has_focus
+        await pilot.press("tab")
+        await pilot.pause()
+        escaped = not tab_bar.has_focus
+        # Arrow keys still switch panes while the tab bar holds focus.
+        tab_bar.focus()
+        await pilot.pause()
+        assert tabs.active == "pane-errors"
+        await pilot.press("right")
+        await pilot.pause()
+        after_right = tabs.active
+        return {"escaped": escaped, "after_right": after_right}
+
+
+def test_diag_tab_bar_allows_tab_focus_escape() -> None:
+    with _temp_pipeline() as pipe:
+        probe = asyncio.run(_probe_diag_tab_focus_escape(pipe))
+    assert probe["escaped"], f"Tab must leave the diagnostics tab bar: {probe!r}"
+    assert probe["after_right"] == "pane-debug", f"←/→ must switch panes: {probe!r}"
 
 
 # --- VIEW-14: extended charts — multi-row block throughput graph + Gate A/B bars + per-status trend -
@@ -1262,10 +1518,10 @@ def test_manage_binds_real_actions() -> None:
     assert f"run_id={_MANAGE_RUN_ID}" in argv_resume[-1], f"resume must embed run_id=<id>: {argv_resume[-1]!r}"
     assert "mode=autonomous" in argv_resume[-1], f"resume must also force autonomous: {argv_resume[-1]!r}"
 
-    # Fire-and-forget: both keys launched (2 calls), children held, and completion NEVER awaited.
+    # Fire-and-forget: both keys launched (2 calls), children held; the UI action never blocks on
+    # completion. A background watcher may call .wait() to end fast-poll — that is not a UI freeze.
     assert probe["calls"] == 2, f"r and R must each launch exactly once: {probe['calls']}"
     assert probe["children"] == 2, f"each launched proc must be held in self._children: {probe['children']}"
-    assert probe["wait_calls"] == 0, "the launched proc's .wait() must never be called (would block the UI)"
     assert probe["communicate_calls"] == 0, "the launched proc's .communicate() must never be called"
 
 
@@ -1292,7 +1548,7 @@ async def _drive_config_edits(pipeline_dir: Path, config_path: Path) -> dict:
 def test_manage_config_edit() -> None:
     with _temp_pipeline() as pipe, tempfile.TemporaryDirectory() as tmp:
         cfg = Path(tmp) / "pipeline.config.yaml"
-        shutil.copy(CONFIG_SRC, cfg)
+        cfg.write_text(_MANAGE_TEST_CONFIG, encoding="utf-8")
         seed = cfg.read_text(encoding="utf-8")
         buf = io.StringIO()
         with contextlib.redirect_stderr(buf):
@@ -1309,8 +1565,56 @@ def test_manage_config_edit() -> None:
 
     # The confirmation notices carry the exact UI-SPEC copy (never silent).
     msgs = [m for m, _sev in probe["notes"]]
-    assert any(m == "✓ execution_mode → autonomous" for m in msgs), f"missing mode notice: {msgs}"
+    assert any(m == "✓ default_mode → autonomous (existing runs unchanged)" for m in msgs), (
+        f"missing mode notice: {msgs}"
+    )
     assert any(m == "✓ retry_cap → 7" for m in msgs), f"missing cap notice: {msgs}"
+
+
+# --- MANAGE prompt-modal deadlock guard: the REAL _ask/_PromptModal path must stay interactive under a
+# --- keypress. A prompt action that ``await``s its pushed modal INLINE on the message pump deadlocks —
+# --- the modal never receives keystrokes/escape (the exact symptom a human hit in UAT Step 3). Every
+# --- collector-override test above deliberately bypasses this path, so THIS is the regression guard for
+# --- the ``@work`` fix (the prompt actions must run as workers, off the pump).
+
+async def _drive_real_prompt_modal(pipeline_dir: Path, config_path: Path) -> dict:
+    """Press `c` with NO `_prompt_cap` override so the real `_PromptModal` opens; type + submit it."""
+    app = _build_app(pipeline_dir, manage=True, config_path=config_path)
+    out: dict = {}
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        # Focus the table so `c` reaches the App binding (the filter Input would otherwise consume it).
+        app.query_one("#runs", DataTable).focus()
+        await pilot.pause()
+        await pilot.press("c")            # REAL dispatch — the deadlock path (no collector override)
+        await pilot.pause()
+        out["modal_open"] = type(app.screen_stack[-1]).__name__ == "_PromptModal"
+        out["focused_input"] = getattr(app.focused, "id", None)
+        await pilot.press("4")
+        await pilot.press("2")
+        await pilot.pause()
+        out["typed"] = app.screen.query_one("#modal-prompt-input", Input).value
+        await pilot.press("enter")        # submit → resolve → dismiss (pump must be free)
+        await pilot.pause()
+        out["closed_after_submit"] = len(app.screen_stack) == 1
+    return out
+
+
+def test_manage_prompt_modal_is_interactive_under_keypress() -> None:
+    with _temp_pipeline() as pipe, tempfile.TemporaryDirectory() as tmp:
+        cfg = Path(tmp) / "pipeline.config.yaml"
+        shutil.copy(CONFIG_SRC, cfg)
+        # A re-introduced deadlock HANGS rather than fails — bound the run so it surfaces as a clean
+        # test failure (never a wedged suite).
+        out = asyncio.run(asyncio.wait_for(_drive_real_prompt_modal(pipe, cfg), timeout=20))
+        text = cfg.read_text(encoding="utf-8")
+
+    assert out["modal_open"], "pressing `c` must open the real _PromptModal (no collector override)"
+    assert out["focused_input"] == "modal-prompt-input", "the modal Input must receive focus"
+    assert out["typed"] == "42", f"the modal Input must accept typed keys (deadlock guard): {out['typed']!r}"
+    assert out["closed_after_submit"], "Enter must submit + dismiss the modal (message pump not blocked)"
+    assert re.search(r"retry_cap:\s*42\b", text), f"the submitted value must reach the config: {text!r}"
 
 
 # --- MANAGE-04 (plan-checker W3): b drives run_batch with the board's pipeline_dir + success notice --
@@ -1405,6 +1709,104 @@ def test_launch_failure_notice() -> None:
     assert any(m.startswith("⚠ launch failed:") for m, _sev in error_notes), (
         f"the launch-error notice must use the UI-SPEC copy '⚠ launch failed: …': {error_notes}"
     )
+
+
+# --- VIEW-27: live heartbeat + feature launch tracking -----------------------------------------
+
+async def _probe_heartbeat_on_kick(pipeline_dir: Path) -> dict:
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        hb = app.query_one("#heartbeat", Static)
+        app._kick_live_refresh(5.0, expand_activity=False)
+        await pilot.pause()
+        await pilot.pause()
+        return {"display": hb.display, "text": str(hb.render())}
+
+
+def test_heartbeat_strip_shows_during_live_refresh() -> None:
+    with _temp_idle_pipeline() as pipe:
+        probe = asyncio.run(_probe_heartbeat_on_kick(pipe))
+    assert probe["display"], f"heartbeat must be visible during live refresh: {probe!r}"
+    low = probe["text"].lower()
+    assert "syncing" in low or "launch" in low or "→" in probe["text"] or "resume" in low, (
+        f"heartbeat must name the active task: {probe['text']!r}"
+    )
+
+
+async def _probe_feature_launch_live(pipeline_dir: Path) -> dict:
+    app = _build_app(pipeline_dir, manage=True, refresh=0.1, repo_root=REPO_ROOT)
+    rec = _RecordingLauncher()
+    app._launcher = rec
+    feature = app._model.feature_detail("command:gmj-pipeline-run")
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        app._launch_feature(feature, {"offer": "https://example.test/job", "mode": "autonomous"})
+        for _ in range(8):
+            await pilot.pause()
+        hb = app.query_one("#heartbeat", Static)
+        return {
+            "launcher_calls": rec.calls,
+            "pending": len(app._pending_launches),
+            "fast_poll": app._fast_poll is not None,
+            "heartbeat": str(hb.render()),
+            "heartbeat_visible": hb.display,
+        }
+
+
+def test_feature_launch_enables_live_refresh() -> None:
+    with _temp_pipeline() as pipe:
+        probe = asyncio.run(_probe_feature_launch_live(pipe))
+    assert probe["launcher_calls"] == 1, f"feature launch must invoke launcher once: {probe!r}"
+    assert probe["fast_poll"] or probe["heartbeat_visible"], (
+        f"feature launch must enable fast poll / heartbeat: {probe!r}"
+    )
+
+
+async def _probe_reload_pipeline_heartbeat() -> dict:
+    """Simulate reload: fresh app over fixture pipeline with in-flight runs on disk."""
+    app = _build_app(FIXTURES, manage=False, refresh=0.1, repo_root=REPO_ROOT)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        await pilot.pause()
+        hb = app.query_one("#heartbeat", Static)
+        return {
+            "disk_active": app._disk_pipeline_active,
+            "heartbeat_visible": hb.display,
+            "heartbeat_text": str(hb.render()),
+            "fast_poll": app._fast_poll is not None,
+            "debug_run_id": app._debug_run_id,
+        }
+
+
+def test_heartbeat_on_reload_when_pipeline_active_on_disk() -> None:
+    probe = asyncio.run(_probe_reload_pipeline_heartbeat())
+    assert probe["disk_active"], f"fixture pipeline must be active on disk: {probe!r}"
+    assert probe["heartbeat_visible"], f"heartbeat must show after reload: {probe!r}"
+    assert probe["debug_run_id"], f"an in-flight run should be auto-selected for debug: {probe!r}"
+    text = probe["heartbeat_text"]
+    assert "●" in text, f"heartbeat must show task marker: {text!r}"
+    assert "░" in text or "█" in text, f"heartbeat must show full-width bar: {text!r}"
+    assert "→" in text or "batch" in text or "syncing" in text.lower(), (
+        f"heartbeat must name an in-flight task: {text!r}"
+    )
+    assert "updating runs" not in text.lower()
+
+
+async def _probe_startup_focus(pipeline_dir: Path) -> str | None:
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        for _ in range(4):
+            await pilot.pause()
+        focused = app.focused
+        return getattr(focused, "id", None) if focused is not None else None
+
+
+def test_startup_has_no_default_focus() -> None:
+    with _temp_pipeline() as pipe:
+        focused_id = asyncio.run(_probe_startup_focus(pipe))
+    assert focused_id is None, f"no widget should be focused at startup, got {focused_id!r}"
 
 
 def main() -> int:

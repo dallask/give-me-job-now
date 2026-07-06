@@ -476,8 +476,18 @@ def test_vacancies_thin_reader() -> None:
     assert snap["counters"]["offers"] == 2
 
 
+def test_offer_detail_reader() -> None:
+    model = _thin_model()
+    detail = model.offer_detail("aaaa1111")
+    assert detail["title"] == "Backend Engineer"
+    assert detail["company"] == "TestCorp"
+    assert detail["must_haves"] == ["Python", "PostgreSQL", "REST APIs"]
+    assert detail["spec_basename"] == "alpha-backend-engineer.offer-spec.json"
+    assert model.offer_detail("missing-hash") == {}
+
+
 def test_candidate_thin_reader_top_fields_only() -> None:
-    cand = _snapshot(_thin_model())["candidate"]
+    cand = _thin_model()._candidate()
     assert cand["name"] == "Test Candidate"
     assert cand["title"] == "Senior Test Engineer"
     assert cand["summary"].startswith("A concise fixture summary")
@@ -507,14 +517,38 @@ def test_config_thin_reader_and_dag_from_disk() -> None:
     assert snap["counters"]["retry_cap"] == 5
 
 
+def test_config_yaml_files_and_file_text() -> None:
+    model = _thin_model()
+    snap = _snapshot(model)
+    files = snap["config_files"]
+    assert "config/pipeline.config.yaml" in files, files
+    assert "config/sources.yaml" in files, files
+    assert all(path.startswith("config/") and path.endswith(".yaml") for path in files)
+    payload = model.config_file_text("config/pipeline.config.yaml")
+    assert payload.get("path") == "config/pipeline.config.yaml"
+    assert "execution_mode: autonomous" in (payload.get("text") or "")
+    assert model.config_file_text("../config/pipeline.config.yaml").get("error")
+    assert model.config_file_text("config/missing.yaml").get("error")
+
+
+def test_pipeline_activity_detects_in_flight_work() -> None:
+    model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(FIXTURES), repo_root=REPO_ROOT)
+    pa = model.pipeline_activity()
+    assert pa["active"], f"fixture corpus must include in-flight pipeline work: {pa}"
+    assert pa["active_run_ids"], f"expected active run ids: {pa}"
+    snap = _snapshot(model)
+    assert snap["pipeline_activity"]["active"]
+
+
 def test_missing_files_degrade_without_raising() -> None:
     # A repo_root with NO config/ and NO sources/offers/ must degrade to {}/[] — never raise.
     with tempfile.TemporaryDirectory() as tmp:
         model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(Path(tmp) / "nopipeline"), repo_root=Path(tmp))
         snap = _snapshot(model)
         assert snap["vacancies"] == [], "a missing offers dir degrades to []"
-        assert snap["candidate"] == {}, "a missing candidate.yaml degrades to {}"
+        assert snap["features"] == [], "a missing .claude catalog degrades features to []"
         assert snap["config"]["boards"] == [], "a missing sources.yaml degrades boards to []"
+        assert snap["config_files"] == [], "a missing config/ dir degrades config_files to []"
         assert snap["stages"]["dag"] == [], "a missing pipeline.dag.yaml degrades dag to []"
         json.dumps(snap)  # still JSON-serializable
 
@@ -526,8 +560,9 @@ def test_snapshot_nine_key_shape_and_json_serializable() -> None:
     snap = _snapshot(model)
     assert set(snap) >= {
         "counters", "metrics", "stages", "runs", "batches",
-        "vacancies", "candidate", "config", "run_detail",
-    }, f"snapshot() must carry all nine panel keys: {sorted(snap)}"
+        "vacancies", "features", "config", "config_files", "run_detail",
+        "pipeline_activity",
+    }, f"snapshot() must carry all panel keys: {sorted(snap)}"
     assert set(snap["stages"]) >= {"dag", "active"}, "stages must carry dag + active"
     json.dumps(snap)  # the whole nine-key dict is plain dicts/lists/str/int only
 

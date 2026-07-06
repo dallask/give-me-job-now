@@ -38,19 +38,23 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
+import time
 from pathlib import Path
 
 from rich.text import Text
 
+from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding  # noqa: F401  (documented seam; bindings are installed via App.bind)
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.theme import Theme
-from textual.widgets import DataTable, Digits, Footer, Header, Input, Sparkline, Static  # noqa: F401
+from textual.widgets import Button, DataTable, Digits, Footer, Header, Input, Sparkline, Static, TabbedContent, TabPane  # noqa: F401
 
 # Single-source seam — put scripts/dashboard on sys.path and import the read model. The view does
 # ZERO disk I/O itself; it only ever calls model.snapshot() / model.run_detail().
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from gmj_dashboard_features import build_feature_prompt  # noqa: E402
 from gmj_dashboard_model import DashboardModel  # noqa: E402
 
 # scripts/dashboard/gmj_dashboard.py -> repo root is three parents up. Used only to resolve the
@@ -59,14 +63,43 @@ from gmj_dashboard_model import DashboardModel  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_CONFIG = REPO_ROOT / "config" / "pipeline.config.yaml"
 
-# Hardcoded ASCII brand banner (VIEW-02) — a fixed multi-line block, NO pyfiglet dependency.
-BANNER_ASCII = r"""
+
+# Hardcoded ASCII brand banner (VIEW-02) — fixed multi-line figlet block, NO pyfiglet dependency.
+_BANNER_ASCII_LINES: tuple[str, ...] = tuple(
+    r"""
   __ _ ___ _   _____   _ __ ___   ___    (_) ___ | |__
  / _` |_ _\ \ / / _ \ | '_ ` _ \ / _ \   | |/ _ \| '_ \
 | (_| || | \ V /  __/ | | | | | |  __/   | | (_) | |_) |
  \__, |___| \_/ \___| |_| |_| |_|\___|  _/ |\___/|_.__/
- |___/                                 |__/   give-me-job
-""".strip("\n")
+ |___/                                 |__/
+""".strip("\n").splitlines()
+)
+_BANNER_SLOGAN = "Your career's wingman"
+# Ukrainian flag palette — top band blue, bottom band yellow (#0057B7 / #FFD700).
+_BANNER_BLUE = "bold #0057B7"
+_BANNER_YELLOW = "bold #FFD700"
+_BANNER_LINE_STYLES: tuple[str, ...] = (
+    _BANNER_BLUE,
+    _BANNER_BLUE,
+    _BANNER_BLUE,
+    _BANNER_YELLOW,
+    _BANNER_YELLOW,
+)
+
+
+def _render_banner() -> Text:
+    """VIEW-02 — Ukrainian-flag ASCII figlet + centered slogan (static, seeded once)."""
+    out = Text()
+    figlet_width = max(len(line) for line in _BANNER_ASCII_LINES)
+    for i, line in enumerate(_BANNER_ASCII_LINES):
+        if i:
+            out.append("\n")
+        style = _BANNER_LINE_STYLES[i] if i < len(_BANNER_LINE_STYLES) else _BANNER_YELLOW
+        out.append(line, style=style)
+    slogan_pad = max(0, (figlet_width - len(_BANNER_SLOGAN)) // 2)
+    out.append("\n")
+    out.append(" " * slogan_pad + _BANNER_SLOGAN, style="italic #ffd700")
+    return out
 
 # Guard-safe status palette (VIEW-03). Keys are `status-<value>` — NOT bare status literals — so the
 # Phase-20 exact-match grep-guard stays green while the runs table (21-02) colors a cell by looking
@@ -104,13 +137,53 @@ GMJ_THEME = Theme(
 _RUN_COLUMNS: tuple[tuple[str, str], ...] = (
     ("run_id", "run_id"),
     ("status", "status"),
-    ("mode", "mode"),
+    ("run_mode", "mode"),
     ("A", "gate_a"),
     ("B", "gate_b"),
     ("step", "current_step"),
 )
 
-# Mutating keys (key, action, description) — bound ONLY under --manage so the footer is mode-aware.
+# Vacancies-table columns (label, stable key). Seeded once for targeted update_cell in _apply_vacancies.
+_VAC_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("title", "title"),
+    ("company", "company"),
+    ("seniority", "seniority"),
+    ("salary", "salary"),
+    ("mh", "mh"),
+)
+
+# Configuration file browser (VIEW-19): one column listing ``config/**/*.yaml`` paths.
+_CONFIG_COLUMNS: tuple[tuple[str, str], ...] = (("file", "file"),)
+# Features catalog (skills / agents / commands / flows).
+_FEATURE_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("kind", "kind"),
+    ("name", "name"),
+    ("summary", "summary"),
+)
+# VIEW-21 tabbed diagnostics panel — TabbedContent pane ids (errors · debug · activity · commands).
+_DIAG_PANE_ERRORS = "pane-errors"
+_DIAG_PANE_DEBUG = "pane-debug"
+_DIAG_PANE_ACTIVITY = "pane-activity"
+_DIAG_PANE_COMMANDS = "pane-commands"
+_DIAG_PANE_METRICS = "pane-metrics"
+_DIAG_PANE_STAGES = "pane-stages"
+_DIAG_PANE_CHARTS = "pane-charts"
+_DIAG_PANE_DEFAULT = _DIAG_PANE_ERRORS
+_DIAG_PANE_ORDER: tuple[str, ...] = (
+    _DIAG_PANE_ERRORS,
+    _DIAG_PANE_DEBUG,
+    _DIAG_PANE_ACTIVITY,
+    _DIAG_PANE_COMMANDS,
+    _DIAG_PANE_METRICS,
+    _DIAG_PANE_STAGES,
+    _DIAG_PANE_CHARTS,
+)
+
+# Heartbeat live-sync strip (VIEW-27) — theme primary green for task + bar.
+_HEARTBEAT_STYLE = "bold #3fb950"
+
+# Global counters strip delimiter — swap for another TUI-friendly separator if desired.
+_COUNTERS_DELIM = " │ "
 # Under --manage each key binds to its REAL action (run/resume/batch/mode/cap) which delegates to the
 # gmj_dashboard_actions module (Plan 24-02); WITHOUT --manage they are never constructed, so the
 # read-only board genuinely lacks them (MANAGE-01). The action_* handlers lazily import the actions
@@ -119,7 +192,7 @@ _MANAGE_KEYS: tuple[tuple[str, str, str], ...] = (
     ("r", "run", "Run"),
     ("R", "resume", "Resume"),
     ("b", "batch", "Batch"),
-    ("m", "mode", "Mode"),
+    ("m", "mode", "Default mode"),
     ("c", "cap", "Cap"),
 )
 
@@ -177,24 +250,232 @@ class RunDetailModal(ModalScreen):
         super().__init__()
 
     def compose(self) -> ComposeResult:
-        d = self._detail
-        if not d:  # unsafe/missing run_id → run_detail returned {} → graceful empty state, never a crash
+        if not self._detail:  # unsafe/missing run_id → run_detail returned {} → graceful empty state
             yield Static("Run detail unavailable", id="modal-body", classes="modal")
             return
-        lines = [
-            f"[b]Run {d['run_id']}[/b]",
-            f"status {d['status']}   mode {d['mode']}   A:{d['gate_a']} B:{d['gate_b']}",
-            f"offer_spec_hash {d.get('offer_spec_hash') or '—'}",
-            # offer_spec_path is displayed VERBATIM from the payload — never resolved/stat'd (T-20-02).
-            f"offer_spec_path {d.get('offer_spec_path') or '—'}",
-            "",
-            "attempts: " + (", ".join(d.get("attempts") or []) or "—"),
-            "artifacts: " + (", ".join(d.get("artifacts") or []) or "—"),
-            "",
-            # The resume command is a DISPLAY string only — printed here, never executed (Pitfall 2).
-            f"Resume: {d.get('resume_command') or '—'}",
-        ]
-        yield Static("\n".join(lines), id="modal-body", classes="modal")
+        yield Static("", id="modal-body", classes="modal")
+
+    def on_mount(self) -> None:
+        if not self._detail:
+            return
+        self.query_one("#modal-body", Static).update(self._render_body())
+
+    def _render_body(self) -> Text:
+        """One labeled field per line — bold labels, status/gate values colored via theme vars."""
+        d = self._detail
+        css = self.app.get_css_variables()
+        out = Text()
+        out.append(f"Run {d['run_id']}\n\n", style="bold")
+        self._append_field(out, "run_id", d["run_id"])
+        self._append_field(
+            out, "status", d["status"], value_style=css.get(f"status-{d['status']}") or ""
+        )
+        # Per-run mode is frozen at init_run — ``m`` only changes the config default for NEW runs.
+        self._append_field(out, "mode (frozen)", d["mode"])
+        self._append_field(
+            out, "gate_a", d["gate_a"], value_style=css.get(f"gate-{d['gate_a']}") or ""
+        )
+        self._append_field(
+            out, "gate_b", d["gate_b"], value_style=css.get(f"gate-{d['gate_b']}") or ""
+        )
+        step = d.get("current_step")
+        if step:
+            self._append_field(out, "current_step", step)
+        cap = d.get("retry_cap")
+        if cap is not None:
+            self._append_field(out, "retry_cap (frozen)", cap)
+        self._append_field(out, "offer_spec_hash", d.get("offer_spec_hash"))
+        # offer_spec_path is displayed VERBATIM from the payload — never resolved/stat'd (T-20-02).
+        self._append_field(out, "offer_spec_path", d.get("offer_spec_path"))
+        out.append("\n")
+        attempts = ", ".join(d.get("attempts") or []) or "—"
+        self._append_field(out, "attempts", attempts)
+        artifacts = ", ".join(d.get("artifacts") or []) or "—"
+        self._append_field(out, "artifacts", artifacts)
+        out.append("\n")
+        # The resume command is a DISPLAY string only — printed here, never executed (Pitfall 2).
+        self._append_field(out, "Resume", d.get("resume_command"))
+        return out
+
+    @staticmethod
+    def _append_field(out: Text, label: str, value, *, value_style: str = "") -> None:
+        out.append(f"{label}: ", style="bold")
+        out.append(str(value if value not in (None, "") else "—"), style=value_style)
+        out.append("\n")
+
+
+def _format_salary(sal) -> str:
+    """Format a projected ``salary_range`` dict for display; ``None`` → ``—``."""
+    if isinstance(sal, dict):
+        return f"{sal.get('min', '?')}-{sal.get('max', '?')} {sal.get('currency', '')}".strip()
+    return "—"
+
+
+class VacancyDetailModal(ModalScreen):
+    """Read-only offer drill-in overlay (VIEW-17) — frozen ``offer_detail`` payload, no disk/exec."""
+
+    BINDINGS = [("escape", "dismiss", "Close")]
+
+    def __init__(self, detail: dict) -> None:
+        self._detail = detail
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        if not self._detail:
+            yield Static("Offer detail unavailable", id="vac-modal-body", classes="modal")
+            return
+        yield Static("", id="vac-modal-body", classes="modal")
+
+    def on_mount(self) -> None:
+        if not self._detail:
+            return
+        self.query_one("#vac-modal-body", Static).update(self._render_body())
+
+    def _render_body(self) -> Text:
+        d = self._detail
+        out = Text()
+        out.append(f"{d.get('title') or 'Offer'}\n\n", style="bold")
+        RunDetailModal._append_field(out, "company", d.get("company"))
+        RunDetailModal._append_field(out, "location", d.get("location"))
+        RunDetailModal._append_field(out, "seniority", d.get("seniority"))
+        RunDetailModal._append_field(out, "employment_type", d.get("employment_type"))
+        RunDetailModal._append_field(out, "language", d.get("language"))
+        RunDetailModal._append_field(out, "salary_range", _format_salary(d.get("salary_range")))
+        RunDetailModal._append_field(out, "offer_spec_hash", d.get("offer_spec_hash"))
+        RunDetailModal._append_field(out, "spec_basename", d.get("spec_basename"))
+        RunDetailModal._append_field(out, "captured_at", d.get("captured_at"))
+        out.append("\n")
+        RunDetailModal._append_field(out, "must_haves", ", ".join(d.get("must_haves") or []) or "—")
+        nice = d.get("nice_to_haves") or []
+        if nice:
+            RunDetailModal._append_field(out, "nice_to_haves", ", ".join(nice))
+        resp = d.get("responsibilities") or []
+        if resp:
+            RunDetailModal._append_field(out, "responsibilities", ", ".join(resp))
+        out.append("\n")
+        # source_url is DISPLAY only — never fetched or opened (SAFETY-02).
+        RunDetailModal._append_field(out, "source_url", d.get("source_url"))
+        excerpt = d.get("raw_text_excerpt")
+        if excerpt:
+            RunDetailModal._append_field(out, "raw_text_excerpt", excerpt)
+        return out
+
+
+class ConfigFileModal(ModalScreen):
+    """Read-only configuration file drill-in — full YAML text, no disk write."""
+
+    BINDINGS = [("escape", "dismiss", "Close")]
+
+    def __init__(self, payload: dict) -> None:
+        self._payload = payload
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="cfg-modal-card"):
+            if not self._payload:
+                yield Static("Configuration unavailable", id="cfg-modal-body")
+                return
+            with VerticalScroll(id="cfg-modal-scroll"):
+                yield Static("", id="cfg-modal-body")
+
+    def on_mount(self) -> None:
+        if not self._payload:
+            return
+        self.query_one("#cfg-modal-body", Static).update(self._render_body())
+        try:
+            self.query_one("#cfg-modal-scroll", VerticalScroll).focus()
+        except Exception:
+            pass
+
+    def _render_body(self) -> Text:
+        payload = self._payload
+        path = payload.get("path") or "config"
+        out = Text()
+        out.append(f"{path}\n\n", style="bold")
+        if payload.get("error"):
+            out.append(str(payload["error"]))
+            return out
+        out.append(payload.get("text") or "(empty file)")
+        return out
+
+
+class FeatureModal(ModalScreen):
+    """Feature drill-in + optional run launcher (``--manage``) with per-item parameter inputs."""
+
+    BINDINGS = [("escape", "dismiss", "Close")]
+
+    def __init__(self, detail: dict, *, manage: bool, run_callback=None) -> None:
+        self._detail = detail
+        self._manage = manage
+        self._run_callback = run_callback
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        detail = self._detail
+        with Vertical(id="feat-modal-card"):
+            if not detail:
+                yield Static("Feature unavailable", id="feat-modal-body")
+                return
+            yield Static("", id="feat-modal-header")
+            with VerticalScroll(id="feat-modal-scroll"):
+                yield Static("", id="feat-modal-body")
+                for param in detail.get("params") or []:
+                    name = param["name"]
+                    label = param.get("label") or name
+                    yield Static(f"{label}:", classes="feat-param-label")
+                    yield Input(
+                        placeholder=param.get("placeholder") or "",
+                        id=f"feat-param-{name}",
+                        value=str(param.get("default") or ""),
+                    )
+            with Horizontal(id="feat-modal-actions"):
+                if detail.get("runnable"):
+                    yield Button("Run", id="feat-run-btn", variant="success", disabled=not self._manage)
+                yield Button("Close", id="feat-close-btn", variant="default")
+
+    def on_mount(self) -> None:
+        if not self._detail:
+            return
+        d = self._detail
+        header = Text()
+        header.append(f"{d.get('kind', 'feature')}: ", style="bold #39d0d8")
+        header.append(f"{d.get('name') or '—'}\n", style="bold")
+        if d.get("slash"):
+            header.append(f"{d['slash']}\n", style="italic #8b949e")
+        if d.get("source_path"):
+            header.append(f"{d['source_path']}\n", style="#8b949e")
+        self.query_one("#feat-modal-header", Static).update(header)
+        body = Text(d.get("description") or "(no description)")
+        self.query_one("#feat-modal-body", Static).update(body)
+        if not self._manage and self._detail.get("runnable"):
+            hint = Static("(Run requires --manage)", id="feat-manage-hint")
+            self.query_one("#feat-modal-scroll", VerticalScroll).mount(hint)
+        try:
+            params = self._detail.get("params") or []
+            if params:
+                first = self.query_one(f"#feat-param-{params[0]['name']}", Input)
+                first.focus()
+            else:
+                self.query_one("#feat-modal-scroll", VerticalScroll).focus()
+        except Exception:
+            pass
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "feat-close-btn":
+            self.dismiss()
+            return
+        if event.button.id != "feat-run-btn" or not self._manage:
+            return
+        values: dict[str, str] = {}
+        for param in self._detail.get("params") or []:
+            name = param["name"]
+            try:
+                values[name] = self.query_one(f"#feat-param-{name}", Input).value
+            except Exception:
+                values[name] = ""
+        self.dismiss()
+        if self._run_callback:
+            self._run_callback(self._detail, values)
 
 
 class _PromptModal(ModalScreen):
@@ -239,6 +520,7 @@ class GmjDashboard(App):
 
     CSS_PATH = "gmj_dashboard.tcss"
     TITLE = "gmj-dashboard"
+    AUTO_FOCUS = ""  # no filter/table focused at startup — user picks a panel explicitly
 
     def __init__(
         self,
@@ -263,72 +545,121 @@ class GmjDashboard(App):
         self._pipeline_dir = pipeline_dir                           # threaded into run_batch (W2)
         self._cwd = cwd if cwd is not None else REPO_ROOT           # repo root for the launched child
         self._children: list = []                                   # detached proc refs (silence GC)
+        # While a dashboard-launched claude child is alive, poll faster and (for resume) show the row
+        # as ``running`` even if the on-disk projection is still ``failed``/``delivered`` until gates move.
+        self._launched_runs: dict[str, object] = {}                 # run_id -> proc (resume only)
+        self._pending_launches: list = []                         # procs from fresh ``r`` (no run_id yet)
+        self._fast_poll = None                                    # 0.4s interval while any launch is active
         # VIEW-11 row filter: a persistent, lowercased substring predicate applied INSIDE _apply_runs
         # (so a poll never resurrects a filtered-out row — Pitfall 4), plus a cached last snapshot so
         # an Input.Changed re-renders immediately without waiting for the next ~1.5s poll.
         self._filter = ""
+        # VIEW-18 vacancies filter — same Pitfall-4 contract as VIEW-11 runs filter.
+        self._vac_filter = ""
+        # Features panel filter (kind / name / summary substring).
+        self._features_filter = ""
         self._last_snap: dict | None = None
         # VIEW-16 debug/internals selection state: the run_id whose run_detail() the #debug panel
         # renders. Unset (None) => the `Select a run for internals` empty state. Set on RowSelected.
         self._debug_run_id: str | None = None
+        # VIEW-20 live refresh: fast-poll window after manage launches so errors/activity/debug track disk.
+        self._live_refresh_until: float = 0.0
+        self._auto_debug_until: float = 0.0
+        self._heartbeat_phase: int = 0
+        self._heartbeat_anim = None
+        self._disk_pipeline_active = False
+        self._pipeline_activity: dict = {}
+        self._launch_labels: dict[int, str] = {}
         super().__init__()
 
     def compose(self) -> ComposeResult:
         """Reserve the full proposal-§7 grid up front — real panels + titled Phase-22 placeholders."""
         yield Header(show_clock=True)
-        yield Static(BANNER_ASCII, id="banner")          # VIEW-02 hardcoded ASCII banner
-        yield Static(id="counters")                       # VIEW-02 global counters (filled per poll)
+        yield Static("", id="banner")                   # VIEW-02 brand wordmark (seeded in _seed_widgets)
 
-        metrics = Static("", id="metrics")                # VIEW-05 (filled in 21-03)
-        metrics.border_title = "metrics"
-        yield metrics
+        status_panel = Vertical(
+            Static(id="counters"),
+            id="status-panel",
+        )
+        status_panel.border_title = "status"
 
-        dag = Static("(pipeline stages — Phase 22)", id="dag-placeholder")  # Phase-22 frame reserved
-        dag.border_title = "pipeline stages"
-        yield dag
+        heartbit_panel = Vertical(
+            Static("", id="heartbeat"),
+            id="heartbit-panel",
+        )
+        heartbit_panel.border_title = "heartbit"
 
-        # VIEW-11 filter: a full-width Input directly above the runs table; typing narrows the runs
-        # DataTable over already-projected rows only (a pure view predicate — no new data source).
-        yield Input(placeholder="filter runs (run_id / status substring)…", id="filter")
+        with Vertical(id="status-band"):
+            yield status_panel
+            yield Static("", id="panel-gap-status-heartbit", classes="panel-v-gap")
+            yield heartbit_panel
 
-        yield DataTable(id="runs", cursor_type="row")     # VIEW-03 (rows diffed in via _apply_runs)
+        feat_panel = Vertical(
+            Input(
+                placeholder="filter features (kind / name / summary substring)…",
+                id="features-filter",
+            ),
+            DataTable(id="features-table", cursor_type="row"),
+            id="features-panel",
+        )
+        feat_panel.border_title = "features"
 
-        vac = Static("(vacancies — Phase 22)", id="vac-placeholder")        # Phase-22 frame reserved
-        vac.border_title = "vacancies"
-        yield vac
+        cfg_panel = Vertical(
+            DataTable(id="config-table", cursor_type="row"),
+            id="config-panel",
+        )
+        cfg_panel.border_title = "configuration"
 
-        cand = Static("", id="candidate")                 # VIEW-06 (filled in 21-03)
-        cand.border_title = "candidate"
-        yield cand
+        runs_panel = Vertical(
+            Input(placeholder="filter runs (run_id / status substring)…", id="filter"),
+            DataTable(id="runs", cursor_type="row"),
+            id="runs-panel",
+        )
+        runs_panel.border_title = "runs"
 
-        cfg = Static("", id="config")                     # VIEW-06 (filled in 21-03)
-        cfg.border_title = "configuration"
-        yield cfg
+        vac_panel = Vertical(
+            Input(
+                placeholder="filter vacancies (title / company / seniority substring)…",
+                id="vac-filter",
+            ),
+            DataTable(id="vacancies", cursor_type="row"),
+            Static("", id="vac-batches"),
+            id="vac-panel",
+        )
+        vac_panel.border_title = "vacancies"
 
-        yield Sparkline(id="throughput")                  # VIEW-05 throughput (filled in 21-03)
+        with Horizontal(id="features-config-row"):
+            yield feat_panel
+            yield cfg_panel
 
-        # ── Phase-23 max-density band (VIEW-12/13/14/15/16) — five framed panels packed into the
-        # appended grid rows. Reserved here as empty, titled frames so the grid geometry is stable;
-        # Wave 2 fills errors/commands/debug, Wave 3 fills activity/charts (content swaps, no relayout).
-        charts = Static("", id="charts")                  # VIEW-14 (full-width; filled in 23-03)
-        charts.border_title = "throughput / gates"
-        yield charts
+        with Horizontal(id="runs-vac-row"):
+            yield runs_panel
+            yield vac_panel
 
-        errors = Static("", id="errors")                  # VIEW-12 red-forward failure detail
-        errors.border_title = "errors"
-        yield errors
-
-        activity = Static("", id="activity")              # VIEW-13 event feed (filled in 23-03)
-        activity.border_title = "activity (events)"        # honesty label: event-level, not live stdout
-        yield activity
-
-        commands = Static("", id="commands")              # VIEW-15 static mode-aware keybinding list
-        commands.border_title = "commands"
-        yield commands
-
-        debug = Static("", id="debug")                    # VIEW-16 per-run internals key/value grid
-        debug.border_title = "debug"
-        yield debug
+        with TabbedContent(id="diag-tabs-panel", initial=_DIAG_PANE_DEFAULT):
+            with TabPane("errors", id=_DIAG_PANE_ERRORS):
+                with VerticalScroll():
+                    yield Static("", id="errors")
+            with TabPane("debug", id=_DIAG_PANE_DEBUG):
+                with VerticalScroll():
+                    yield Static("", id="debug")
+            with TabPane("activity (events)", id=_DIAG_PANE_ACTIVITY):
+                with VerticalScroll():
+                    yield Static("", id="activity")
+            with TabPane("commands", id=_DIAG_PANE_COMMANDS):
+                with VerticalScroll():
+                    yield Static("", id="commands")
+            with TabPane("metrics", id=_DIAG_PANE_METRICS):
+                with VerticalScroll():
+                    with Vertical():
+                        yield Static("", id="metrics")
+                        yield Sparkline(id="throughput")
+            with TabPane("pipeline stages", id=_DIAG_PANE_STAGES):
+                with VerticalScroll():
+                    yield Static("", id="dag-placeholder")
+            with TabPane("throughput / gates", id=_DIAG_PANE_CHARTS):
+                with VerticalScroll():
+                    yield Static("", id="charts")
 
         yield Footer()                                    # VIEW-07 mode-aware keybind strip
 
@@ -338,11 +669,33 @@ class GmjDashboard(App):
         """Register the theme + seed the widgets that only need building once (columns, sparkline)."""
         self.register_theme(GMJ_THEME)
         self.theme = "gmj-btop"
+        self.query_one("#banner", Static).update(_render_banner())
         table = self.query_one("#runs", DataTable)
         for label, key in _RUN_COLUMNS:
             table.add_column(label, key=key)
+        vac_table = self.query_one("#vacancies", DataTable)
+        for label, key in _VAC_COLUMNS:
+            vac_table.add_column(label, key=key)
+        cfg_table = self.query_one("#config-table", DataTable)
+        for label, key in _CONFIG_COLUMNS:
+            cfg_table.add_column(label, key=key)
+        feat_table = self.query_one("#features-table", DataTable)
+        for label, key in _FEATURE_COLUMNS:
+            feat_table.add_column(label, key=key)
         # An empty Sparkline has nothing to draw; seed a single zero so it renders a stable frame.
         self.query_one("#throughput", Sparkline).data = [0]
+        # VIEW-21: per-tab color classes (Tab extends Static — avoid id selectors with a ``--`` prefix).
+        tab_bar = self.query_one("#diag-tabs-panel ContentTabs")
+        for pane_id, class_name in (
+            (_DIAG_PANE_ERRORS, "diag-tab-errors"),
+            (_DIAG_PANE_DEBUG, "diag-tab-debug"),
+            (_DIAG_PANE_ACTIVITY, "diag-tab-activity"),
+            (_DIAG_PANE_COMMANDS, "diag-tab-commands"),
+            (_DIAG_PANE_METRICS, "diag-tab-metrics"),
+            (_DIAG_PANE_STAGES, "diag-tab-stages"),
+            (_DIAG_PANE_CHARTS, "diag-tab-charts"),
+        ):
+            tab_bar.get_content_tab(pane_id).add_class(class_name)
         # The commands reference (VIEW-15) is STATIC + mode-aware — seed it once here, not per-poll.
         self._apply_commands()
 
@@ -389,13 +742,8 @@ class GmjDashboard(App):
 
     # ── --manage config handlers (m/c) — delegate to the actions module, then notify ───────────────
 
-    async def action_mode(self) -> None:
-        """Toggle ``execution_mode`` in the config via the actions module and notify the new value.
-
-        LAZILY imports gmj_dashboard_actions (defense-in-depth: the read-only path never imports a
-        subprocess-capable module). A ValueError (missing key / bad value) becomes a visible
-        error-severity notice — never a silent failure.
-        """
+    async def _apply_mode_toggle(self) -> None:
+        """Toggle ``execution_mode`` via the actions module (``m`` under --manage)."""
         import gmj_dashboard_actions as actions  # lazy — only under --manage
 
         try:
@@ -403,10 +751,15 @@ class GmjDashboard(App):
         except ValueError as exc:
             self.notify(f"⚠ config edit failed: {exc}", severity="error")
             return
-        self.notify(f"✓ execution_mode → {value}")
+        self.notify(f"✓ default_mode → {value} (existing runs unchanged)")
+        self._poll()
 
-    async def action_cap(self) -> None:
-        """Collect + set ``retry_cap`` in the config via the actions module and notify the new value."""
+    async def action_mode(self) -> None:
+        """Toggle ``execution_mode`` in the config via the actions module and notify the new value."""
+        await self._apply_mode_toggle()
+
+    async def _apply_retry_cap(self) -> None:
+        """Collect + set ``retry_cap`` (``c`` under --manage)."""
         import gmj_dashboard_actions as actions  # lazy — only under --manage
 
         cap = await self._prompt_cap()
@@ -418,6 +771,209 @@ class GmjDashboard(App):
             self.notify(f"⚠ config edit failed: {exc}", severity="error")
             return
         self.notify(f"✓ retry_cap → {cap}")
+        self._poll()
+
+    @work
+    async def action_cap(self) -> None:
+        """Set ``retry_cap`` via modal prompt — runs as a worker so the modal stays interactive."""
+        await self._apply_retry_cap()
+
+    def _kick_live_refresh(self, seconds: float = 90.0, *, expand_activity: bool = True) -> None:
+        """Fast-poll + immediate snapshot after a manage action (VIEW-20).
+
+        Keeps errors / activity / debug / metrics / runs mirroring on-disk pipeline writes at ~0.4s
+        even after the detached ``claude`` child exits (grandchild pipeline may still be writing).
+        """
+        self._live_refresh_until = max(self._live_refresh_until, time.monotonic() + seconds)
+        self._ensure_fast_poll()
+        self._ensure_heartbeat_anim()
+        self._poll()
+        if expand_activity:
+            try:
+                self.query_one("#diag-tabs-panel", TabbedContent).active = _DIAG_PANE_ACTIVITY
+            except Exception:  # noqa: BLE001 — teardown / headless edge
+                pass
+
+    def _needs_rapid_poll(self) -> bool:
+        """True when a detached child or post-launch sync window needs sub-second polling."""
+        if self._launched_runs or self._pending_launches:
+            return True
+        return time.monotonic() < self._live_refresh_until
+
+    def _fast_poll_active(self) -> bool:
+        """True when the heartbeat strip should stay visible (launch, sync window, or disk activity)."""
+        if self._needs_rapid_poll():
+            return True
+        return self._disk_pipeline_active
+
+    def _ensure_heartbeat_anim(self) -> None:
+        if self._heartbeat_anim is None and self._fast_poll_active():
+            self._heartbeat_anim = self.set_interval(0.12, self._tick_heartbeat)
+
+    def _set_heartbeat_chrome(self, visible: bool) -> None:
+        """Show or hide the heartbit titled panel and its 1-row gap below status."""
+        try:
+            self.query_one("#heartbit-panel", Vertical).display = visible
+        except Exception:  # noqa: BLE001 — teardown / headless edge
+            pass
+        try:
+            self.query_one("#panel-gap-status-heartbit", Static).display = visible
+        except Exception:  # noqa: BLE001 — teardown / headless edge
+            pass
+        try:
+            hb = self.query_one("#heartbeat", Static)
+            if not visible:
+                hb.update("")
+            hb.display = visible
+        except Exception:  # noqa: BLE001 — teardown / headless edge
+            pass
+
+    def _stop_heartbeat_anim_if_idle(self) -> None:
+        if not self._fast_poll_active() and self._heartbeat_anim is not None:
+            self._heartbeat_anim.stop()
+            self._heartbeat_anim = None
+        if not self._fast_poll_active():
+            self._set_heartbeat_chrome(False)
+
+    def _tick_heartbeat(self) -> None:
+        self._heartbeat_phase = (self._heartbeat_phase + 1) % 64
+        self._render_heartbeat()
+
+    def _heartbeat_task_items(self) -> list[str]:
+        """All in-flight work items the heartbeat strip is tracking."""
+        labels: list[str] = []
+
+        for run_id, proc in self._launched_runs.items():
+            if getattr(proc, "returncode", None) is None:
+                labels.append(f"resume {run_id}")
+
+        for proc in self._pending_launches:
+            if getattr(proc, "returncode", None) is None:
+                labels.append(self._launch_labels.get(id(proc), "claude launch"))
+
+        if labels:
+            return labels
+
+        if self._disk_pipeline_active:
+            pa = self._pipeline_activity
+            run_ids = pa.get("active_run_ids") or []
+            batch_ids = pa.get("active_batch_ids") or []
+            snap = self._last_snap or {}
+            runs_by_id = {r["run_id"]: r for r in (snap.get("runs") or [])}
+
+            for rid in run_ids:
+                row = runs_by_id.get(rid) or {}
+                step = row.get("current_step")
+                status = row.get("status") or "—"
+                if step:
+                    labels.append(f"{rid} → {step}")
+                else:
+                    labels.append(f"{rid} ({status})")
+
+            for bid in batch_ids:
+                labels.append(f"batch {bid}")
+
+            if labels:
+                return labels
+
+        return []
+
+    def _heartbeat_primary_task(self) -> str:
+        """Single-line task label — primary item when several are in flight."""
+        items = self._heartbeat_task_items()
+        if not items:
+            return "syncing"
+        if len(items) == 1:
+            return items[0]
+        return f"{items[0]} (+{len(items) - 1} more)"
+
+    def _heartbeat_content_width(self, hb: Static) -> int:
+        """Usable character width for a full-row heartbeat bar."""
+        region = getattr(hb, "content_region", None)
+        candidates = (
+            region.width if region is not None else 0,
+            hb.size.width,
+            self.size.width,
+        )
+        for width in candidates:
+            if width and width > 0:
+                return max(20, width - 2)
+        return 76
+
+    def _heartbeat_bar(self, width: int, phase: int) -> str:
+        cells = ["░"] * width
+        for offset in range(8):
+            idx = (phase + offset * 2) % width
+            cells[idx] = "█"
+        return "".join(cells)
+
+    def _render_heartbeat(self) -> None:
+        """Animated strip shown while a background launch or live-sync window is active."""
+        if not self._fast_poll_active():
+            self._stop_heartbeat_anim_if_idle()
+            return
+        try:
+            hb = self.query_one("#heartbeat", Static)
+        except Exception:  # noqa: BLE001 — teardown / headless edge
+            return
+        self._set_heartbeat_chrome(True)
+        task = self._heartbeat_primary_task()
+        style = _HEARTBEAT_STYLE
+        bar_width = self._heartbeat_content_width(hb)
+        bar = self._heartbeat_bar(bar_width, self._heartbeat_phase)
+        out = Text()
+        out.append(f"● {task}\n", style=style)
+        out.append(bar, style=style)
+        hb.update(out)
+
+    def _track_launch(self, proc, *, run_id: str | None = None, label: str | None = None) -> None:
+        """Hold a detached child ref, poll faster while it lives, and drop it when the proc exits."""
+        self._children.append(proc)
+        if label:
+            self._launch_labels[id(proc)] = label
+        if run_id:
+            self._launched_runs[run_id] = proc
+            self._debug_run_id = run_id
+        else:
+            self._pending_launches.append(proc)
+            self._auto_debug_until = time.monotonic() + 120.0
+        self._kick_live_refresh(120.0)
+        asyncio.get_running_loop().create_task(self._watch_launch(proc, run_id=run_id))
+
+    def _ensure_fast_poll(self) -> None:
+        if self._fast_poll is None and self._needs_rapid_poll():
+            self._fast_poll = self.set_interval(0.4, self._poll)
+        self._ensure_heartbeat_anim()
+
+    def _stop_fast_poll_if_idle(self) -> None:
+        if not self._needs_rapid_poll() and self._fast_poll is not None:
+            self._fast_poll.stop()
+            self._fast_poll = None
+        self._stop_heartbeat_anim_if_idle()
+
+    async def _watch_launch(self, proc, *, run_id: str | None = None) -> None:
+        await proc.wait()
+        if run_id:
+            self._launched_runs.pop(run_id, None)
+        else:
+            self._pending_launches = [p for p in self._pending_launches if p is not proc]
+        self._launch_labels.pop(id(proc), None)
+        self._kick_live_refresh(60.0, expand_activity=False)
+        self._stop_fast_poll_if_idle()
+
+    def _inflight_status_token(self) -> str:
+        """Theme-derived in-flight label for an active resume child (grep-guard safe)."""
+        marker = "status-running"
+        if marker in GMJ_THEME.variables:
+            return marker.removeprefix("status-")
+        return "—"
+
+    def _table_status(self, run_id: str, projected: str) -> Text:
+        """Status cell for the runs table — in-flight while a resume child for this row is alive."""
+        proc = self._launched_runs.get(run_id)
+        if proc is not None and getattr(proc, "returncode", None) is None:
+            return self._status_cell(self._inflight_status_token())
+        return self._status_cell(projected)
 
     # ── --manage launch collectors (all OVERRIDABLE — Pilot tests inject values) ────────────────────
 
@@ -452,6 +1008,7 @@ class GmjDashboard(App):
 
     # ── --manage launch handlers (r/R/b) — delegate to the actions module, never-silent feedback ────
 
+    @work
     async def action_run(self) -> None:
         """Launch a fresh, force-autonomous gated run in the background via the launcher seam (MANAGE-02).
 
@@ -460,6 +1017,9 @@ class GmjDashboard(App):
         ``self._children`` WITHOUT awaiting completion (the UI never freezes), and notifies success. A
         FileNotFoundError/OSError becomes a VISIBLE error-severity notice — never a silent failure
         (MANAGE-03 locked decision).
+
+        Runs as a Textual WORKER so the ``_prompt_offer`` modal ``await`` happens off the message pump
+        (awaiting a pushed screen inline on the pump deadlocks modal input — see ``action_cap``).
         """
         import gmj_dashboard_actions as actions  # lazy — only under --manage
 
@@ -472,15 +1032,16 @@ class GmjDashboard(App):
         except (FileNotFoundError, OSError) as exc:
             self.notify(f"⚠ launch failed: {exc}", severity="error")
             return
-        self._children.append(proc)  # hold a ref so GC never reaps/warns; completion is never awaited
+        self._track_launch(proc, label="pipeline run (new offer)")
         self.notify("▸ launched autonomous run (background)")
 
+    @work
     async def action_resume(self) -> None:
         """Resume the selected run in the background via the launcher seam (MANAGE-03).
 
         Reads the #runs cursor run_id, builds a resume prompt embedding it, and launches detached — same
         fire-and-forget + never-silent failure contract as ``action_run``. A missing selection is itself
-        surfaced as a visible notice.
+        surfaced as a visible notice. Runs as a Textual WORKER for pump-safety parity with ``action_run``.
         """
         import gmj_dashboard_actions as actions  # lazy — only under --manage
 
@@ -494,9 +1055,12 @@ class GmjDashboard(App):
         except (FileNotFoundError, OSError) as exc:
             self.notify(f"⚠ launch failed: {exc}", severity="error")
             return
-        self._children.append(proc)
-        self.notify(f"▸ resuming {run_id} (autonomous, background)")
+        self._track_launch(proc, run_id=run_id, label=f"resume {run_id}")
+        self.notify(
+            f"▸ resuming {run_id} (autonomous) — watch step/gates; fast refresh while active"
+        )
 
+    @work
     async def action_batch(self) -> None:
         """Batch the selected offers into a deterministic manifest via the actions module (MANAGE-04).
 
@@ -504,6 +1068,9 @@ class GmjDashboard(App):
         seeding + schema validation + path hardening to gmj_batch.py) threading the board's own
         ``pipeline_dir`` so the manifest lands under it (W2), and notifies success. A non-zero returncode
         or a raised OSError becomes a visible error-severity notice — never silent.
+
+        Runs as a Textual WORKER so the two sequential ``_prompt_batch`` modals ``await`` off the message
+        pump (awaiting a pushed screen inline on the pump deadlocks modal input — see ``action_cap``).
         """
         import gmj_dashboard_actions as actions  # lazy — only under --manage
 
@@ -520,41 +1087,58 @@ class GmjDashboard(App):
             self.notify(f"⚠ batch failed: {completed.stderr or completed.returncode}", severity="error")
             return
         self.notify("▸ batch manifest written")
+        self._kick_live_refresh(45.0)
 
     # ── VIEW-11 row filter — Input.Changed re-applies the predicate over the cached snapshot ────────
 
     def on_input_changed(self, event: Input.Changed) -> None:
-        """Persist the ``#filter`` substring and re-narrow the runs table immediately (VIEW-11).
+        """Persist filter substrings and re-narrow tables immediately (VIEW-11 / VIEW-18).
 
-        Only the ``filter`` Input drives this: its value is lowercased into ``self._filter`` (the
-        persistent predicate applied inside ``_apply_runs`` every poll), then ``_apply_runs`` is re-run
-        over the CACHED ``self._last_snap`` rows so the table narrows at once — no wait for the next
-        ~1.5s poll, no new data source (a pure view re-render over already-projected rows).
+        Each Input lowercases into its persistent predicate (applied inside the matching ``_apply_*``
+        every poll so Pitfall 4 never resurrects filtered rows), then re-runs over the CACHED
+        ``self._last_snap`` — no wait for the next poll, no new data source.
         """
         if event.input.id == "filter":
             self._filter = event.value.strip().lower()
             if self._last_snap is not None:
                 self._apply_runs(self._last_snap.get("runs") or [])
+        elif event.input.id == "vac-filter":
+            self._vac_filter = event.value.strip().lower()
+            if self._last_snap is not None:
+                self._apply_vacancies(
+                    self._last_snap.get("vacancies") or [],
+                    self._last_snap.get("batches") or [],
+                )
+        elif event.input.id == "features-filter":
+            self._features_filter = event.value.strip().lower()
+            if self._last_snap is not None:
+                self._apply_features(self._last_snap.get("features") or [])
 
     # ── run drill-in (VIEW-09) — RowSelected → on-demand run_detail → frozen modal ────────────────
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        """Open the run drill-in modal for the selected runs row.
-
-        With the ``#runs`` ``DataTable`` focused, ``enter`` is consumed by the table and surfaces here
-        as ``RowSelected`` (verified in 22-RESEARCH — an App-level ``enter`` binding would be swallowed,
-        which is why the existing ``enter``→``action_noop`` binding is kept for footer documentation
-        only). ``event.row_key.value`` is the ``run_id`` (the table is keyed by ``run_id`` in Phase 21);
-        the frozen ``run_detail(run_id)`` payload is captured once by the pushed modal.
-
-        VIEW-16: the selected run also drives the base-screen ``#debug`` internals panel. Record the
-        run_id and repaint ``#debug`` BEFORE pushing the drill-in modal, so the internals grid reflects
-        the selection immediately (and every subsequent poll keeps it live) while the Phase-22 modal
-        behaviour is preserved unchanged.
-        """
-        self._debug_run_id = event.row_key.value
+        """Open drill-in or edit flow for runs, vacancies, features, or configuration rows."""
+        row_key = event.row_key.value
+        if event.control.id == "vacancies":
+            self.open_offer_detail(row_key)
+            return
+        if event.control.id == "config-table":
+            self._on_config_row_selected(row_key)
+            return
+        if event.control.id == "features-table":
+            self.open_feature_detail(row_key)
+            return
+        self._debug_run_id = row_key
         self._apply_debug()
-        self.open_run_detail(event.row_key.value)
+        self.open_run_detail(row_key)
+
+    def _on_config_row_selected(self, rel_path: str) -> None:
+        """VIEW-19: open a read-only modal with the selected config YAML file contents."""
+        self.open_config_file(rel_path)
+
+    def open_config_file(self, rel_path: str) -> None:
+        """Push a ``ConfigFileModal`` with the on-demand ``config_file_text`` payload."""
+        self.push_screen(ConfigFileModal(self._model.config_file_text(rel_path)))
 
     def open_run_detail(self, run_id: str) -> None:
         """Push a ``RunDetailModal`` built from the on-demand ``run_detail(run_id)`` payload.
@@ -565,6 +1149,34 @@ class GmjDashboard(App):
         """
         self.push_screen(RunDetailModal(self._model.run_detail(run_id)))
 
+    def open_offer_detail(self, offer_spec_hash: str) -> None:
+        """Push a ``VacancyDetailModal`` from the on-demand ``offer_detail`` payload."""
+        self.push_screen(VacancyDetailModal(self._model.offer_detail(offer_spec_hash)))
+
+    def open_feature_detail(self, feature_id: str) -> None:
+        """Push a ``FeatureModal`` with description + parameter inputs for the selected catalog row."""
+        detail = self._model.feature_detail(feature_id)
+        self.push_screen(
+            FeatureModal(detail, manage=self._manage, run_callback=self._launch_feature)
+        )
+
+    @work
+    async def _launch_feature(self, feature: dict, values: dict) -> None:
+        """Detached ``claude -p`` launch for a features-panel selection (``--manage`` only)."""
+        if not self._manage or not feature:
+            return
+        import gmj_dashboard_actions as actions  # lazy — only under --manage
+
+        prompt = build_feature_prompt(feature, values)
+        try:
+            proc = await actions.launch_pipeline(prompt, launcher=self._launcher, cwd=self._cwd)
+        except (FileNotFoundError, OSError) as exc:
+            self.notify(f"⚠ feature launch failed: {exc}", severity="error")
+            return
+        label = feature.get("name") or feature.get("slash") or "feature"
+        self._track_launch(proc, label=label)
+        self.notify(f"▸ launched {label} (autonomous) — live refresh while active")
+
     # ── non-blocking poll spine (VIEW-04) ──────────────────────────────────────────────────────
 
     def on_mount(self) -> None:
@@ -573,6 +1185,14 @@ class GmjDashboard(App):
         self._install_bindings()
         self.set_interval(self._refresh, self._poll)
         self._poll()  # paint immediately — don't wait a full interval for the first frame
+        self.call_after_refresh(self._clear_startup_focus)
+
+    def _clear_startup_focus(self) -> None:
+        """Ensure no filter input steals keys before the user clicks a panel (FIND-03 superseded)."""
+        try:
+            self.set_focus(None)
+        except Exception:  # noqa: BLE001 — teardown / headless edge
+            pass
 
     def _poll(self) -> None:
         """Schedule the (disk-bound) snapshot OFF the event loop on a thread worker."""
@@ -595,13 +1215,36 @@ class GmjDashboard(App):
         self._apply_runs(snap.get("runs") or [])
         self._apply_dag(snap.get("stages") or {})
         self._apply_metrics(snap.get("metrics") or {})
-        self._apply_candidate(snap.get("candidate") or {})
-        self._apply_config(snap.get("config") or {})
+        self._apply_features(snap.get("features") or [])
+        self._apply_config(snap.get("config_files") or [])
         self._apply_vacancies(snap.get("vacancies") or [], snap.get("batches") or [])
         self._apply_errors(snap.get("errors") or [])  # VIEW-12: red-forward per-failed-run gate detail
         self._apply_activity(snap.get("activity") or [])  # VIEW-13: newest-first event timeline
         self._apply_charts(snap.get("metrics") or {})  # VIEW-14: block throughput graph + gate bars + trend
         self._apply_debug()  # VIEW-16: refresh the selected run's internals live (retry counts / step)
+        self._sync_pipeline_activity(snap.get("pipeline_activity") or {})
+        self._render_heartbeat()
+
+    def _sync_pipeline_activity(self, activity: dict) -> None:
+        """Enable live refresh when disk shows in-flight pipeline runs or batches (VIEW-28).
+
+        Survives dashboard reload: detached children are untracked, but ``.pipeline/`` state is read
+        each poll via ``snapshot()["pipeline_activity"]``.
+        """
+        self._disk_pipeline_active = bool(activity.get("active"))
+        self._pipeline_activity = activity
+        if not self._disk_pipeline_active:
+            self._stop_fast_poll_if_idle()
+            return
+        active_ids = activity.get("active_run_ids") or []
+        if active_ids and self._debug_run_id is None:
+            self._debug_run_id = active_ids[0]
+            self._apply_debug()
+        if self._needs_rapid_poll():
+            self._ensure_fast_poll()
+        else:
+            self._ensure_heartbeat_anim()
+            self._poll()
 
     # ── pipeline-DAG stage strip (VIEW-08) — guard-safe, projection-colored ───────────────────────
 
@@ -684,63 +1327,63 @@ class GmjDashboard(App):
         self.query_one("#metrics", Static).update("\n".join(lines) if lines else "(no runs yet)")
         self.query_one("#throughput", Sparkline).data = m.get("throughput") or [0]
 
-    # ── read-only candidate + configuration panels (VIEW-06) ──────────────────────────────────────
+    # ── features catalog panel — skills / agents / commands / flows ─────────────────────────────
 
-    def _apply_candidate(self, cand: dict) -> None:
-        """Render the read-only candidate-summary panel from the whitelisted ``candidate`` top-fields.
+    def _feat_match(self, row: dict) -> bool:
+        """Keep a feature row iff it matches the features filter substring."""
+        f = self._features_filter
+        if not f:
+            return True
+        hay = (
+            str(row.get("kind") or "").lower(),
+            str(row.get("name") or "").lower(),
+            str(row.get("summary") or "").lower(),
+        )
+        return any(f in part for part in hay)
 
-        Displays name / title / summary / a compact contact line / the first few ``expertise_top``
-        items VERBATIM — the model's thin reader already whitelists these fields, so the view surfaces
-        only what ``snapshot()["candidate"]`` exposes (no non-whitelisted profile field can leak). An
-        empty projection (missing/bad ``candidate.yaml``) degrades to a quiet empty-state line.
+    def _apply_features(self, rows: list) -> None:
+        """Diff the features ``DataTable`` from ``snapshot()["features"]``."""
+        t = self.query_one("#features-table", DataTable)
+        known = set(t.rows)
+        seen: set = set()
+        for row in rows:
+            if not self._feat_match(row):
+                continue
+            fid = row.get("id")
+            if not fid:
+                continue
+            seen.add(fid)
+            kind = row.get("kind") or "—"
+            name = row.get("name") or "—"
+            summary = row.get("summary") or "—"
+            if len(summary) > 60:
+                summary = summary[:57] + "…"
+            if fid in known:
+                t.update_cell(fid, "kind", kind)
+                t.update_cell(fid, "name", name)
+                t.update_cell(fid, "summary", summary)
+            else:
+                t.add_row(kind, name, summary, key=fid)
+        for gone in known - seen:
+            t.remove_row(gone)
+
+    def _apply_config(self, files: list) -> None:
+        """Diff the configuration file browser from ``snapshot()["config_files"]`` (VIEW-19).
+
+        One row per ``config/**/*.yaml`` path (posix-relative to repo root). Enter / click opens a
+        read-only modal with the file's full YAML text via ``model.config_file_text``.
         """
-        if not cand:
-            self.query_one("#candidate", Static).update("(no candidate profile)")
-            return
-        lines = [
-            f"[b]{cand.get('name') or '—'}[/b]",
-            cand.get("title") or "—",
-        ]
-        summary = cand.get("summary")
-        if summary:
-            lines.append("")
-            lines.append(str(summary))
-        contact = cand.get("contact") or {}
-        if contact:
-            lines.append("")
-            lines.append(" · ".join(f"{k}: {v}" for k, v in contact.items()))
-        expertise = cand.get("expertise_top") or []
-        if expertise:
-            lines.append("")
-            lines.append("expertise: " + ", ".join(str(e) for e in expertise[:6]))
-        self.query_one("#candidate", Static).update("\n".join(lines))
-
-    def _apply_config(self, cfg: dict) -> None:
-        """Render the read-only configuration panel from the governing ``config`` knobs.
-
-        Shows the boards / cities / languages scope, the frozen ``execution_mode`` and ``retry_cap``,
-        and a compact ``fit_thresholds`` summary — all displayed VERBATIM from the projection. The
-        retry-cap knob is shown as its stored value (a display of the frozen setting), never used in a
-        per-run threshold comparison. Degrades to a quiet empty-state line on an empty projection.
-        """
-        if not cfg:
-            self.query_one("#config", Static).update("(no configuration)")
-            return
-        boards = cfg.get("boards") or []
-        cities = cfg.get("cities") or []
-        languages = cfg.get("languages") or []
-        lines = [
-            f"boards      {len(boards)}",
-            f"cities      {', '.join(str(c) for c in cities) if cities else '—'}",
-            f"languages   {', '.join(str(l) for l in languages) if languages else '—'}",
-            f"mode        {cfg.get('execution_mode') or '—'}",
-            f"retry_cap   {cfg.get('retry_cap') if cfg.get('retry_cap') is not None else '—'}",
-        ]
-        fit = cfg.get("fit_thresholds") or {}
-        if isinstance(fit, dict) and fit:
-            thr = fit.get("coverage_threshold")
-            lines.append(f"fit         coverage_threshold {thr if thr is not None else '—'}")
-        self.query_one("#config", Static).update("\n".join(lines))
+        t = self.query_one("#config-table", DataTable)
+        known = set(t.rows)
+        seen: set = set()
+        for rel in sorted(str(path) for path in (files or [])):
+            seen.add(rel)
+            if rel in known:
+                t.update_cell(rel, "file", rel)
+            else:
+                t.add_row(rel, key=rel)
+        for gone in known - seen:
+            t.remove_row(gone)
 
     # ── errors panel (VIEW-12) — red-forward per-failed-run Gate A/Gate B detail ───────────────────
 
@@ -910,8 +1553,9 @@ class GmjDashboard(App):
         lines = [
             "key     action          (mode)",
             "q       quit            (read-only)",
-            "enter   drill-in        (read-only)",
+            "enter   drill-in        (read-only · runs / vacancies / features / config)",
             "ctrl+p  command menu    (read-only)",
+            "        diagnostics: ←/→ switch pane when tab bar focused",
         ]
         manage_mode = "--manage" if self._manage else "--manage · Phase 24"
         for key, _action, desc in _MANAGE_KEYS:  # (r,run,Run) (R,resume,Resume) (b,batch,Batch) …
@@ -947,7 +1591,7 @@ class GmjDashboard(App):
         lines = [
             f"run_id       {d.get('run_id') or '—'}",
             f"status       {d.get('status') or '—'}",
-            f"mode         {d.get('mode') or '—'}",
+            f"run_mode     {d.get('mode') or '—'}",
             f"gate A/B     {d.get('gate_a')} / {d.get('gate_b')}",
             f"offer_hash   {d.get('offer_spec_hash') or '—'}",
             f"retry_cap    {d.get('retry_cap') if d.get('retry_cap') is not None else '—'}",
@@ -960,51 +1604,64 @@ class GmjDashboard(App):
 
     # ── found-vacancies + batch-rollup panel (VIEW-10) — verbatim projection rows ──────────────────
 
+    def _vac_match(self, v: dict) -> bool:
+        """VIEW-18 view-only predicate: keep a projected vacancy iff it matches ``self._vac_filter``."""
+        f = self._vac_filter
+        if not f:
+            return True
+        hay = (
+            str(v.get("title") or "").lower(),
+            str(v.get("company") or "").lower(),
+            str(v.get("seniority") or "").lower(),
+            str(v.get("location") or "").lower(),
+            str(v.get("offer_spec_hash") or "").lower(),
+        )
+        return any(f in part for part in hay)
+
     def _apply_vacancies(self, vac: list, batches: list) -> None:
-        """Render the found-vacancies + batch-rollup panel from the projection — targeted, no recompose.
+        """Diff the vacancies ``DataTable`` + batch rollup from the projection (VIEW-10 / VIEW-17 / VIEW-18).
 
-        Two verbatim bands, both DATA-DERIVED from ``snapshot()`` (so no offer/batch field is a code
-        literal and the view never touches disk):
-
-        - one line per frozen offer in ``snapshot()["vacancies"]`` as
-          ``{title} · {company} · {seniority} · {salary} · mh {n_must_haves}`` with a ``—`` fallback for
-          any ``None`` field; ``salary_range`` (a ``{min, max, currency}`` dict or ``None``) is formatted
-          as ``{min}-{max} {currency}`` and degrades to ``—`` when null. The view renders these fields
-          straight from the dict — it NEVER follows/resolves/stats ``offer_spec_path`` (the model omits
-          the path from the vacancies dict entirely, T-22-07);
-        - a ``batches:`` header then one ``  {batch_id}  {done}/{total}  {status}`` rollup line per
-          batch from ``snapshot()["batches"]``, where ``done`` is the batch's completed count. The
-          completed-count key is a forbidden grep-guard status literal, so it is read by EXCLUSION of
-          the other known rollup keys (never written as a code string) — exactly the trick
-          ``_apply_counters`` uses. ``status`` is likewise a payload VARIABLE (it may be the permitted
-          ``unknown`` degrade sentinel) — never a re-derived status literal, so the grep-guard stays green.
-
-        Empty vacancies degrade to the ``No frozen offers`` empty-state (plus a one-line hint); empty
-        batches degrade to ``No batches``. Written with a single targeted ``Static.update`` (SAFETY-02:
-        no file read / write / subprocess anywhere in this path).
+        The table is keyed by ``offer_spec_hash`` with targeted cell updates (never clear+refill).
+        VIEW-18: rows failing ``_vac_match`` are skipped/removed every tick (Pitfall 4). The sibling
+        ``#vac-batches`` Static carries batch rollups and empty-offer hints below the table.
         """
+        t = self.query_one("#vacancies", DataTable)
+        known = set(t.rows)
+        seen: set = set()
+        for v in vac:
+            if not self._vac_match(v):
+                continue
+            rk = v.get("offer_spec_hash")
+            if not rk:
+                continue
+            seen.add(rk)
+            title = v.get("title") or "—"
+            company = v.get("company") or "—"
+            seniority = v.get("seniority") or "—"
+            sal_s = _format_salary(v.get("salary_range"))
+            mh = str(v.get("n_must_haves", 0))
+            if rk in known:
+                t.update_cell(rk, "title", title)
+                t.update_cell(rk, "company", company)
+                t.update_cell(rk, "seniority", seniority)
+                t.update_cell(rk, "salary", sal_s)
+                t.update_cell(rk, "mh", mh)
+            else:
+                t.add_row(title, company, seniority, sal_s, mh, key=rk)
+        for gone in known - seen:
+            t.remove_row(gone)
+
+        lines: list[str] = []
         if not vac:
-            lines = ["No frozen offers", "Freeze an offer with the scout/freeze step."]
-        else:
-            lines = []
-            for v in vac:
-                sal = v.get("salary_range")
-                if isinstance(sal, dict):
-                    sal_s = f"{sal.get('min', '?')}-{sal.get('max', '?')} {sal.get('currency', '')}".strip()
-                else:
-                    sal_s = "—"
-                lines.append(
-                    f"{v.get('title') or '—'} · {v.get('company') or '—'} · "
-                    f"{v.get('seniority') or '—'} · {sal_s} · mh {v.get('n_must_haves', 0)}"
-                )
+            lines.extend(["No frozen offers", "Freeze an offer with the scout/freeze step."])
+        elif not seen:
+            lines.append("No vacancies match filter")
         lines.append("")
         lines.append("batches:" if batches else "No batches")
         for b in batches:
-            # The completed-count key is a forbidden grep-guard status literal — read it by EXCLUSION
-            # of the other known rollup keys so no status word is ever a code string in this file.
-            done = next((v for k, v in b.items() if k not in ("batch_id", "total", "status")), 0)
+            done = next((val for k, val in b.items() if k not in ("batch_id", "total", "status")), 0)
             lines.append(f"  {b['batch_id']}  {done}/{b['total']}  {b['status']}")
-        self.query_one("#vac-placeholder", Static).update("\n".join(lines))
+        self.query_one("#vac-batches", Static).update("\n".join(lines).strip())
 
     # ── runs table (VIEW-03) — guard-safe status cell + targeted RowKey diff ──────────────────────
 
@@ -1054,7 +1711,7 @@ class GmjDashboard(App):
             seen.add(rk)
             step = r.get("current_step") or "-"
             if rk in known:            # targeted per-cell patch — no clear+refill, no recompose
-                t.update_cell(rk, "status", self._status_cell(r["status"]))
+                t.update_cell(rk, "status", self._table_status(rk, r["status"]))
                 t.update_cell(rk, "mode", r["mode"])
                 t.update_cell(rk, "gate_a", r["gate_a"])
                 t.update_cell(rk, "gate_b", r["gate_b"])
@@ -1062,7 +1719,7 @@ class GmjDashboard(App):
             else:                      # a newly-appeared run — append keyed by run_id
                 t.add_row(
                     r["run_id"],
-                    self._status_cell(r["status"]),
+                    self._table_status(rk, r["status"]),
                     r["mode"],
                     r["gate_a"],
                     r["gate_b"],
@@ -1071,22 +1728,44 @@ class GmjDashboard(App):
                 )
         for gone in known - seen:      # a run dir that vanished mid-session — drop its row
             t.remove_row(gone)
+        if time.monotonic() < self._auto_debug_until and rows:
+            self._debug_run_id = rows[0]["run_id"]
+            self._apply_debug()
+
+    def _counter_item_style(self, label: str) -> str:
+        """Per-segment color for the counters strip — status buckets use theme ``status-*`` vars."""
+        css = self.get_css_variables()
+        status_color = css.get(f"status-{label}")
+        if status_color:
+            return str(status_color)
+        return {
+            "runs": "#39d0d8",
+            "offers": "#bc8cff",
+            "default_mode": "#d29922",
+            "cap": "#3fb950",
+        }.get(label, "#c9d1d9")
 
     def _apply_counters(self, c: dict) -> None:
         """Render the global counters strip GENERICALLY so no status word is a standalone literal.
 
         The per-status counts come from iterating ``c['by_status'].items()`` (keys are data-derived,
-        never hardcoded), so the headline delivered count appears without ``"delivered"`` ever being
-        written as a string constant in this file. Copy: ``runs N · <status N ...> · offers N ·
-        mode {..} · cap N``.
+        never hardcoded). Copy: ``runs: N │ <status>: N … │ offers: N │ default_mode: … │ cap: N``.
+        Each segment is colored independently via ``_counter_item_style``.
         """
         by_status = c.get("by_status") or {}
-        parts = [f"runs {c.get('runs', 0)}"]
-        parts += [f"{k} {v}" for k, v in sorted(by_status.items())]
-        parts.append(f"offers {c.get('offers', 0)}")
-        parts.append(f"mode {c.get('mode', '—')}")
-        parts.append(f"cap {c.get('retry_cap')}")
-        self.query_one("#counters", Static).update(" · ".join(parts))
+        items: list[tuple[str, object]] = [("runs", c.get("runs", 0))]
+        items.extend(sorted(by_status.items()))
+        items.append(("offers", c.get("offers", 0)))
+        items.append(("default_mode", c.get("mode", "—")))
+        items.append(("cap", c.get("retry_cap")))
+        out = Text()
+        for i, (label, value) in enumerate(items):
+            if i:
+                out.append(_COUNTERS_DELIM, style="#6e7681")
+            style = self._counter_item_style(label)
+            out.append(f"{label}: ", style=style)
+            out.append(str(value), style=f"bold {style}")
+        self.query_one("#counters", Static).update(out)
 
 
 def main() -> int:
@@ -1095,7 +1774,7 @@ def main() -> int:
     parser.add_argument("--pipeline-dir", default=".pipeline", help="Pipeline root to project (and batch into).")
     parser.add_argument("--manage", action="store_true", help="Bind the mutating action keys (r/R/b/m/c).")
     parser.add_argument("--read-only", action="store_true", help="Explicit read-only (the default).")
-    parser.add_argument("--refresh", type=float, default=1.5, help="Poll interval in seconds (default 1.5).")
+    parser.add_argument("--refresh", type=float, default=1.0, help="Poll interval in seconds (default 1.0).")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG), help="Config file the m/c knobs edit under --manage.")
     args = parser.parse_args()
     manage = args.manage and not args.read_only

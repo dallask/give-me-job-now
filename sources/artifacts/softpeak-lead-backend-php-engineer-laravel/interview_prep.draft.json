@@ -1,0 +1,186 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "interview_prep",
+    "language": "en",
+    "claims": [
+      {
+        "section": "likely_questions",
+        "text": "Can you walk me through your commercial experience building REST API services with Laravel, including the scale of enterprise clients you supported?",
+        "source_span": "professional_experience[0].achievements[7]"
+      },
+      {
+        "section": "likely_questions",
+        "text": "How do you approach schema design and query optimization when working with MySQL databases?",
+        "source_span": "expertise[10].skills[0]"
+      },
+      {
+        "section": "likely_questions",
+        "text": "What's your experience with PostgreSQL specifically, versus other relational databases you've used?",
+        "source_span": "expertise[10].skills[2]",
+        "reframing_note": "Candidate lists PostgreSQL as a database skill; no achievement narrative names a specific PostgreSQL project, so the question probes depth rather than asserting a specific PostgreSQL deployment."
+      },
+      {
+        "section": "likely_questions",
+        "text": "Tell me about how you've used Docker and CI/CD pipelines (Travis CI, GitHub Actions) to standardize delivery across teams.",
+        "source_span": "professional_experience[0].achievements[5]"
+      },
+      {
+        "section": "likely_questions",
+        "text": "What AWS platforms have you worked with in production systems?",
+        "source_span": "expertise[5].skills[3]"
+      },
+      {
+        "section": "likely_questions",
+        "text": "What Azure platforms have you worked with in production systems?",
+        "source_span": "expertise[5].skills[4]"
+      },
+      {
+        "section": "likely_questions",
+        "text": "How have you approached security hardening in your engineering work, especially around production environments?",
+        "source_span": "expertise[11].skills[10]",
+        "reframing_note": "Reframed toward the offer's 'secure, auditable authentication' language; the candidate span is the general 'Security hardening' skill entry, not an OAuth2/JWT-specific claim."
+      },
+      {
+        "section": "likely_questions",
+        "text": "Describe your experience integrating third-party services like payment gateways or CRMs into a backend platform.",
+        "source_span": "professional_experience[0].achievements[9]"
+      },
+      {
+        "section": "likely_questions",
+        "text": "What's your English proficiency level, and how comfortable are you working in an English-speaking team?",
+        "source_span": "languages[0].proficiency"
+      },
+      {
+        "section": "star_stories",
+        "text": "Situation: I was leading the Drupal 8-11 multi-site platform for Otsuka, a multinational healthcare client, with direct accountability for architecture decisions and release quality across a 20-person dev team within a 47-member delivery org.",
+        "source_span": "professional_experience[0].achievements[3]"
+      },
+      {
+        "section": "star_stories",
+        "text": "Task: I needed to standardize local environments and CI/CD to reduce environment drift and onboarding time across the delivery team.",
+        "source_span": "professional_experience[0].achievements[5]"
+      },
+      {
+        "section": "star_stories",
+        "text": "Action: I owned the deployment pipelines and Drupal/PHP update cycles, introducing Capistrano automation and CI/CD tooling to achieve zero-downtime releases.",
+        "source_span": "professional_experience[0].achievements[8]"
+      },
+      {
+        "section": "star_stories",
+        "text": "Result: Environment-related regression incidents dropped by approximately 30% across release cycles.",
+        "source_span": "professional_experience[0].achievements[8]",
+        "reframing_note": "Quantified framing highlights the '~30%' figure already present in the cited achievement; no rounding or estimation applied beyond the source text."
+      },
+      {
+        "section": "star_stories",
+        "text": "Situation: Enterprise clients needed backend services built on Laravel that could integrate cleanly with multiple external systems.",
+        "source_span": "professional_experience[0].achievements[7]"
+      },
+      {
+        "section": "star_stories",
+        "text": "Task: The team needed reliable REST and SOAP integrations connecting CMS platforms with third-party services across up to 5 concurrent client projects.",
+        "source_span": "professional_experience[0].achievements[9]"
+      },
+      {
+        "section": "star_stories",
+        "text": "Action: I developed and maintained Laravel-based REST API services using OOP/MVC principles, PSR coding standards, and Eloquent ORM, integrating 10+ third-party APIs including payment gateways, CRMs, and data feeds.",
+        "source_span": "professional_experience[0].achievements[7]"
+      },
+      {
+        "section": "star_stories",
+        "text": "Result: Delivered clean, testable back-end code at production scale for enterprise clients.",
+        "source_span": "professional_experience[0].achievements[7]"
+      },
+      {
+        "section": "star_stories",
+        "text": "Situation: At [empty] Studio, 10+ client sites were compromised, putting production uptime and data integrity at risk.",
+        "source_span": "professional_experience[1].achievements[1]"
+      },
+      {
+        "section": "star_stories",
+        "text": "Task: I needed to remediate each compromised site and prevent any recurrence of the incidents.",
+        "source_span": "professional_experience[1].achievements[1]"
+      },
+      {
+        "section": "star_stories",
+        "text": "Action: I performed proactive security incident response - malware removal, vulnerability identification, and remediation - restoring each site to full production.",
+        "source_span": "professional_experience[1].achievements[1]"
+      },
+      {
+        "section": "star_stories",
+        "text": "Result: Achieved zero recurrence of the security incidents while preserving client uptime and data integrity across the affected portfolio.",
+        "source_span": "professional_experience[1].achievements[1]"
+      },
+      {
+        "section": "talking_points",
+        "text": "My Laravel background is production-proven: I built and maintained Laravel-based REST API services for enterprise clients, integrating 10+ third-party APIs including payment gateways and CRMs.",
+        "source_span": "professional_experience[0].achievements[7]"
+      },
+      {
+        "section": "talking_points",
+        "text": "I've driven CI/CD and containerization practice (Travis CI, GitHub Actions, Docker Compose, Docksal) across the delivery team.",
+        "source_span": "professional_experience[0].achievements[5]"
+      },
+      {
+        "section": "talking_points",
+        "text": "That CI/CD and deployment automation work cut environment-related regression incidents by ~30% across release cycles.",
+        "source_span": "professional_experience[0].achievements[8]",
+        "reframing_note": "Emphasizes the quantified '~30%' outcome already in the source achievement to speak to the offer's CI/CD requirement."
+      },
+      {
+        "section": "talking_points",
+        "text": "I've led a 20-person engineering team with full architecture and release-quality accountability, which maps directly to this role's lead-level scope.",
+        "source_span": "professional_experience[0].achievements[3]",
+        "reframing_note": "Reframes the 'Lead Software Engineer' team-leadership fact toward the offer's 'lead' seniority language; no new fact added."
+      },
+      {
+        "section": "talking_points",
+        "text": "My database experience includes MySQL, named in this role's must-have requirements.",
+        "source_span": "expertise[10].skills[0]"
+      },
+      {
+        "section": "talking_points",
+        "text": "My database experience also includes PostgreSQL, named in this role's must-have requirements.",
+        "source_span": "expertise[10].skills[2]"
+      },
+      {
+        "section": "talking_points",
+        "text": "I've worked with AWS in production delivery.",
+        "source_span": "expertise[5].skills[3]"
+      },
+      {
+        "section": "talking_points",
+        "text": "I've worked with Azure in production delivery.",
+        "source_span": "expertise[5].skills[4]"
+      },
+      {
+        "section": "talking_points",
+        "text": "Security hardening has been part of my engineering background, which speaks to this role's emphasis on secure, auditable systems.",
+        "source_span": "expertise[11].skills[10]",
+        "reframing_note": "Reframes the general 'Security hardening' skill entry toward the offer's secure/auditable-authentication language; the candidate span does not itself name OAuth2, JWT, or RBAC."
+      },
+      {
+        "section": "talking_points",
+        "text": "As Technical Director at [empty] Studio, I handled proactive security incident response across compromised client sites.",
+        "source_span": "professional_experience[1].achievements[1]"
+      },
+      {
+        "section": "questions_to_ask",
+        "text": "Given my work driving CI/CD and containerization adoption (Docksal, Docker Compose) at EPAM, what does SoftPeak's current CI/CD and deployment tooling stack look like, and where's the biggest opportunity to improve it?",
+        "source_span": "professional_experience[0].achievements[5]"
+      },
+      {
+        "section": "questions_to_ask",
+        "text": "I've spent the last year driving AI-assisted engineering adoption (Claude Code, GitHub Copilot, Cursor) across my delivery team - is SoftPeak exploring AI-assisted tooling for the backend engineering team?",
+        "source_span": "professional_experience[0].achievements[0]"
+      },
+      {
+        "section": "questions_to_ask",
+        "text": "My background includes leading a 20-person engineering team within a larger delivery org - what does the team structure and reporting line look like for this Lead Backend PHP Engineer position?",
+        "source_span": "professional_experience[0].achievements[3]"
+      }
+    ]
+  }
+}

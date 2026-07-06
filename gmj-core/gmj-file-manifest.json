@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "timestamp": "2026-07-05T19:58:47.776Z",
+  "timestamp": "2026-07-06T08:17:10.071Z",
   "mode": "full",
   "files": {
     "gmj-core/VERSION": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
@@ -81,8 +81,8 @@
     "gmj-core/scripts/cv/gmj_template_lint.py": "3fed9b5cb2ceb74bd614e30e028e426db248be842072ff1ad3d7b8f89bb86054",
     "gmj-core/scripts/cv/gmj_visual_diff.py": "4a004dce40f68f88a6c268ddb119dc13cef1005ac75b791351fbbcf53bbd8bf6",
     "gmj-core/scripts/cv/requirements.txt": "937675e4f61c1ab18936474009d841df0f0359f706be362847ad6360a2d131d4",
-    "gmj-core/scripts/dashboard/gmj_dashboard.py": "7ecb9dd2a456c39e4beb1224b15b3f231fcfefb223fbf8aaa7705c31f33a34aa",
-    "gmj-core/scripts/dashboard/gmj_dashboard.tcss": "a2ad8b09b8e2ddebcb077ef15813df63eb68492fb5c19074255a2f2a88064a19",
+    "gmj-core/scripts/dashboard/gmj_dashboard.py": "ca1664c1ec1d9c360a785ee5aef0130080b3cf15226e17d895a25ca19fb4d5c5",
+    "gmj-core/scripts/dashboard/gmj_dashboard.tcss": "98a0f41961f82a0c7075ad9b9ae73d8210550f0cdd192f6cefbc4b3509d0a33b",
     "gmj-core/scripts/dashboard/gmj_dashboard_actions.py": "ef4693216d4d2ba3f3bef4e6fd98284354778b7998205752630b90873efd03df",
     "gmj-core/scripts/dashboard/gmj_dashboard_model.py": "2b1e8740873f27a916017380e91faa7f0ceb1e4d3aa5516e6dc877a0d67ba512",
     "gmj-core/scripts/dashboard/requirements.txt": "4051e2dd5a5633109d9910dfe6d4a67e456f67cb1f04b5545dcebe32f3572989",

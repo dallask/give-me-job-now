@@ -131,6 +131,24 @@ def project_status(state: dict) -> str:
     return "running"
 
 
+_PIPELINE_TERMINAL_STATUSES = frozenset({"delivered", "failed", "unknown"})
+
+
+def is_pipeline_in_flight_status(status: str) -> bool:
+    """True when a projected run status indicates the pipeline may still be advancing."""
+    return bool(status) and status not in _PIPELINE_TERMINAL_STATUSES
+
+
+def is_batch_in_flight(batch_row: dict) -> bool:
+    """True when a batch rollup shows offers still undelivered."""
+    if batch_row.get("status") != "ok":
+        return False
+    total = batch_row.get("total") or 0
+    if not total:
+        return False
+    return (batch_row.get("delivered") or 0) < total
+
+
 def _emit_json(payload: dict) -> None:
     """Canonical, byte-deterministic JSON (sorted keys, indent 2, trailing newline)."""
     sys.stdout.write(json.dumps(payload, sort_keys=True, ensure_ascii=False, indent=2) + "\n")

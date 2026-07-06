@@ -1,0 +1,139 @@
+{
+  "schema_version": "1.0",
+  "kind": "artifact_draft",
+  "content": {
+    "artifact_type": "cv",
+    "language": "en",
+    "claims": [
+      { "text": "Your Name", "source_span": "name", "section": "header" },
+      { "text": "you@example.com", "source_span": "contact.email[0]", "section": "header" },
+      { "text": "+00000000000", "source_span": "contact.phone", "section": "header" },
+      { "text": "City, Country", "source_span": "contact.address", "section": "header" },
+      { "text": "https://www.linkedin.com/in/ievgen-kyvgyla-4882345b/?locale=en-US", "source_span": "contact.website.media.linkedin", "section": "header" },
+      { "text": "https://github.com/dallask", "source_span": "contact.website.media.github", "section": "header" },
+
+      {
+        "text": "Lead Software Engineer with 19+ years building and shipping production web systems, with deep hands-on full-stack expertise in PHP and Laravel.",
+        "source_span": "summary",
+        "section": "summary",
+        "reframing_note": "Reframed from the candidate's AI/Drupal-forward headline to foreground the Lead Software Engineer title, 19+ years of tenure, and PHP/Laravel full-stack expertise most relevant to a Lead Backend PHP Engineer (Laravel) role; no new facts added, only emphasis shifted away from the AI/Azure framing."
+      },
+      {
+        "text": "19+ years of professional software engineering experience.",
+        "source_span": "summary",
+        "section": "summary"
+      },
+      {
+        "text": "Currently leads a 20-person engineering team within a 47-member delivery organization, aligning with the role's Lead seniority level.",
+        "source_span": "summary",
+        "section": "summary",
+        "reframing_note": "Quantified reframe positioning team-scale leadership against the offer's 'lead' seniority; the 20-person/47-member figures are quoted verbatim from the summary field."
+      },
+
+      { "text": "Laravel", "source_span": "expertise[4].skills[0]", "section": "skills" },
+      { "text": "PHP", "source_span": "expertise[6].skills[0]", "section": "skills" },
+      { "text": "REST APIs", "source_span": "expertise[6].skills[4]", "section": "skills" },
+      { "text": "SOAP/XML-RPC", "source_span": "expertise[6].skills[5]", "section": "skills" },
+      { "text": "E-commerce integrations", "source_span": "expertise[6].skills[6]", "section": "skills" },
+      { "text": "OOP / MVC / PSR standards", "source_span": "expertise[6].skills[7]", "section": "skills" },
+      { "text": "Composer", "source_span": "expertise[6].skills[9]", "section": "skills" },
+      { "text": "MySQL", "source_span": "expertise[10].skills[0]", "section": "skills" },
+      { "text": "PostgreSQL", "source_span": "expertise[10].skills[2]", "section": "skills" },
+      { "text": "SQL", "source_span": "expertise[10].skills[6]", "section": "skills" },
+      { "text": "AWS", "source_span": "expertise[5].skills[3]", "section": "skills" },
+      { "text": "Azure", "source_span": "expertise[5].skills[4]", "section": "skills" },
+      { "text": "Docker", "source_span": "expertise[11].skills[1]", "section": "skills" },
+      { "text": "Docker Compose", "source_span": "expertise[11].skills[2]", "section": "skills" },
+      { "text": "CI/CD pipelines", "source_span": "expertise[9].skills[6]", "section": "skills" },
+      { "text": "GitHub Actions", "source_span": "expertise[9].skills[8]", "section": "skills" },
+      { "text": "Travis CI", "source_span": "expertise[9].skills[7]", "section": "skills" },
+      { "text": "Security hardening", "source_span": "expertise[11].skills[10]", "section": "skills" },
+      { "text": "PHPUnit", "source_span": "expertise[9].skills[0]", "section": "skills" },
+      { "text": "PHP Code Sniffer", "source_span": "expertise[9].skills[1]", "section": "skills" },
+      { "text": "SOLID & Design Patterns", "source_span": "expertise[9].skills[2]", "section": "skills" },
+      { "text": "Dependency Injection", "source_span": "expertise[9].skills[4]", "section": "skills" },
+      { "text": "Accessibility (WCAG-aware)", "source_span": "expertise[7].skills[16]", "section": "skills" },
+      { "text": "Engineering team management (20+ engineers)", "source_span": "expertise[16].skills[0]", "section": "skills" },
+      { "text": "Technical leadership & decision-making", "source_span": "expertise[16].skills[1]", "section": "skills" },
+
+      {
+        "text": "Developed and maintained Laravel-based REST API services for enterprise clients, applying OOP/MVC principles, PSR coding standards, and Eloquent ORM; integrated 10+ third-party APIs (payment gateways, CRMs, data feeds) to deliver clean, testable back-end code at production scale.",
+        "source_span": "professional_experience[0].achievements[7]",
+        "section": "experience"
+      },
+      {
+        "text": "Established CI/CD pipelines via Travis CI and GitHub Actions; standardized local development with Docksal and containerization with Docker Compose, reducing environment drift and onboarding time across the delivery team.",
+        "source_span": "professional_experience[0].achievements[5]",
+        "section": "experience"
+      },
+      {
+        "text": "Owned deployment pipelines and Drupal/PHP application update cycles across multi-site environments, achieving zero-downtime releases and reducing environment-related regression incidents by ~30% through CI/CD tooling and Capistrano automation.",
+        "source_span": "professional_experience[0].achievements[8]",
+        "section": "experience"
+      },
+      {
+        "text": "Implemented and maintained REST and SOAP integrations connecting CMS platforms with third-party services (payment gateways, CRMs, data feeds) across up to 5 concurrent client projects, improving data reliability and eliminating manual synchronization overhead.",
+        "source_span": "professional_experience[0].achievements[9]",
+        "section": "experience"
+      },
+      {
+        "text": "Introduced PHPUnit test coverage and PHP Code Sniffer enforcement in delivery squads, raising core-module unit test coverage to 80%+ and reducing regression incidents across release cycles.",
+        "source_span": "professional_experience[0].achievements[10]",
+        "section": "experience"
+      },
+      {
+        "text": "Leading development of a Drupal 8-11 multi-site platform for Otsuka (multinational healthcare company), managing a 20-person dev team within a 47-member delivery team; accountable for architecture decisions, release quality, and cross-team coordination.",
+        "source_span": "professional_experience[0].achievements[3]",
+        "section": "experience"
+      },
+      {
+        "text": "Collaborated in agile (Scrum/Kanban) delivery squads, reviewing PRs for a team of 6+ engineers per project, contributing to sprint planning, architectural design discussions, and cross-functional stakeholder communication.",
+        "source_span": "professional_experience[0].achievements[11]",
+        "section": "experience"
+      },
+      {
+        "text": "Led full-stack delivery of 50+ web projects across e-commerce, corporate, and media verticals—business-card sites, online stores, corporate portals, and marketing experiences—across PHP, Bitrix, WordPress, OpenCart, and PrestaShop stacks, averaging 8–10 concurrent active client engagements.",
+        "source_span": "professional_experience[1].achievements[0]",
+        "section": "experience"
+      },
+      {
+        "text": "Performed proactive security incident response across 10+ compromised client sites: malware removal, vulnerability identification and remediation, and full restoration of production environments, preserving client uptime and data integrity with zero recurrence.",
+        "source_span": "professional_experience[1].achievements[1]",
+        "section": "experience"
+      },
+      {
+        "text": "Architected and shipped 20+ CMS modules, plugins, and API integrations, resolving cross-system conflicts and extending platform capabilities for e-commerce and content workflows across SMB client portfolios.",
+        "source_span": "professional_experience[1].achievements[2]",
+        "section": "experience"
+      },
+      {
+        "text": "Integrated payment systems, hosting administration, and SEO improvements; collaborated within a 5-person dev team.",
+        "source_span": "professional_experience[2].achievements[1]",
+        "section": "experience"
+      },
+      {
+        "text": "Built and maintained PHP-backed e-commerce features, MySQL schemas, and hosting/system reliability for live production properties.",
+        "source_span": "professional_experience[3].achievements[0]",
+        "section": "experience"
+      },
+      {
+        "text": "Delivered PHP applications and CMS-driven client sites with emphasis on SEO-ready structure, clean MySQL data modeling, and maintainable code across multiple frameworks.",
+        "source_span": "professional_experience[5].achievements[0]",
+        "section": "experience"
+      },
+
+      {
+        "text": "English proficiency: Upper-Intermediate (B2), meeting the role's required English level.",
+        "source_span": "languages[0].proficiency",
+        "section": "languages",
+        "reframing_note": "Emphasis added ('meeting the role's required English level') pairing the candidate's stated B2 proficiency with the offer's English B2 must-have; proficiency level itself is quoted verbatim."
+      },
+
+      {
+        "text": "Master of Mining (Underground Mining of Mineral Deposits) — Faculty of Mining and Metallurgy; progressed through Bachelor and Specialist degrees.",
+        "source_span": "education[0].program",
+        "section": "education"
+      }
+    ]
+  }
+}
