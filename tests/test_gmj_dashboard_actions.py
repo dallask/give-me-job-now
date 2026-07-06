@@ -97,6 +97,25 @@ def test_prompt_forces_autonomous() -> None:
     ], "build_launch_argv must be the exact 4-element argv list"
 
 
+def test_prompt_embeds_pipeline_dir() -> None:
+    # HON-01 carrier: a pipeline_dir stamps a readable pipeline-dir=<dir> token into the prompt while
+    # mode=autonomous stays FIRST and unconditional (locked v3.0 force-autonomous decision).
+    prompt = actions.build_pipeline_prompt(offer="https://work.ua/jobs/7890/", pipeline_dir="/DIR")
+    assert "pipeline-dir=/DIR" in prompt, f"prompt must embed the operator pipeline dir: {prompt!r}"
+    assert prompt.startswith(f"{actions.PIPELINE_RUN}  mode=autonomous"), (
+        f"mode=autonomous must stay first and unconditional: {prompt!r}"
+    )
+    assert prompt.index("mode=autonomous") < prompt.index("pipeline-dir="), (
+        f"force-autonomous must precede the pipeline-dir token: {prompt!r}"
+    )
+
+
+def test_prompt_omits_pipeline_dir_when_absent() -> None:
+    # Unchanged behavior: with no pipeline_dir the prompt carries no pipeline-dir token.
+    prompt = actions.build_pipeline_prompt(offer="https://work.ua/jobs/7890/")
+    assert "pipeline-dir=" not in prompt, f"no dir → no pipeline-dir token: {prompt!r}"
+
+
 def test_prompt_resume_carries_run_id() -> None:
     run_id = "20260705T120000-abcd"
     prompt = actions.build_pipeline_prompt(run_id=run_id)
@@ -129,6 +148,34 @@ def test_launch_not_awaited() -> None:
     # Fire-and-forget: the returned process is NEVER awaited to completion.
     assert proc.wait_calls == 0, "launch_pipeline must never call .wait() (would block the UI)"
     assert proc.communicate_calls == 0, "launch_pipeline must never call .communicate() (would block the UI)"
+
+
+def test_launch_env_carries_pipeline_dir() -> None:
+    # HON-01 authoritative carrier: a pipeline_dir builds the child env from a COPY of os.environ
+    # (GMJ_PIPELINE_DIR set, PATH preserved) — never a bare dict that would strip PATH.
+    launcher = _RecordingLauncher()
+
+    async def _go():
+        return await actions.launch_pipeline(
+            "PROMPT-X", launcher=launcher, cwd="/tmp", pipeline_dir="/DIR"
+        )
+
+    asyncio.run(_go())
+    env = launcher.kwargs.get("env")
+    assert env is not None, "a pipeline_dir must produce a child env (never inherit)"
+    assert env.get("GMJ_PIPELINE_DIR") == "/DIR", f"child env must carry the operator dir: {env!r}"
+    assert "PATH" in env, "env must be a COPY of os.environ (child keeps PATH — no bare dict)"
+
+
+def test_launch_env_inherits_when_no_pipeline_dir() -> None:
+    # No pipeline_dir → env inherits (env=None), so the existing fire-and-forget contract is unchanged.
+    launcher = _RecordingLauncher()
+
+    async def _go():
+        return await actions.launch_pipeline("PROMPT-X", launcher=launcher, cwd="/tmp")
+
+    asyncio.run(_go())
+    assert launcher.kwargs.get("env") is None, "no pipeline_dir → env inherits (None)"
 
 
 def test_launch_failure_propagates() -> None:
