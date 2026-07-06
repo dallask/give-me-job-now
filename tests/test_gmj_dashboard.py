@@ -1617,6 +1617,82 @@ def test_manage_prompt_modal_is_interactive_under_keypress() -> None:
     assert re.search(r"retry_cap:\s*42\b", text), f"the submitted value must reach the config: {text!r}"
 
 
+# --- SAFE-02: first m/c write to the real repo-default config is blocked behind a confirm gate ------
+# The gate is an INJECTABLE seam (``_confirm_manage_write``) so the Pilot test never opens a real modal:
+# it forces ``_editing_repo_default`` True over a TEMP config copy (never the real repo file) and swaps
+# the confirm seam for a counting coroutine. A cancel (seam → False) must leave the config byte-unchanged;
+# a confirm (seam → True) writes once and, crucially, a SECOND mutating key does NOT re-invoke the seam
+# (confirm-once-per-session) yet still writes.
+
+_SAFE02_SEED = """\
+# FREEZE CONTRACT: at run start, gmj_state_write.py copies these values into state.json.
+execution_mode: human_in_the_loop
+retry_cap: 4
+"""
+
+
+async def _drive_confirm_gate(config_path: Path, *, confirm: bool, presses: int) -> dict:
+    """Force the SAFE-02 gate ON over a temp config; press `m` ``presses`` times through a counting seam."""
+    with _temp_pipeline() as pipe:
+        app = _build_app(pipe, manage=True, config_path=config_path)
+        calls = {"confirm": 0}
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await pilot.pause()
+            app._editing_repo_default = lambda: True          # force gate ON over the temp copy
+            app.notify = lambda message, **kw: None
+
+            async def _c() -> bool:
+                calls["confirm"] += 1
+                return confirm
+
+            app._confirm_manage_write = _c
+            app.query_one("#runs", DataTable).focus()
+            await pilot.pause()
+            for _ in range(presses):
+                await pilot.press("m")
+                await pilot.pause()
+        return {"confirm_calls": calls["confirm"], "text": config_path.read_text(encoding="utf-8")}
+
+
+def test_manage_confirm_gate_blocks_first_write() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        # (a) cancel (seam → False) leaves the config byte-unchanged (no write).
+        cancel_cfg = Path(tmp) / "cancel.yaml"
+        cancel_cfg.write_text(_SAFE02_SEED, encoding="utf-8")
+        seed = cancel_cfg.read_text(encoding="utf-8")
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            cancelled = asyncio.run(_drive_confirm_gate(cancel_cfg, confirm=False, presses=1))
+        assert "Traceback" not in buf.getvalue(), f"confirm-cancel leaked a traceback: {buf.getvalue()}"
+        assert cancelled["confirm_calls"] == 1, (
+            f"pressing `m` on the repo-default must invoke the confirm seam once: {cancelled['confirm_calls']}"
+        )
+        assert cancelled["text"] == seed, (
+            f"a cancelled confirm must leave the config byte-unchanged (no write): {cancelled['text']!r}"
+        )
+        assert "execution_mode: human_in_the_loop" in cancelled["text"], "cancel must not flip execution_mode"
+
+        # (b) confirm (seam → True): first `m` writes, second `m` does NOT re-prompt yet still writes.
+        ok_cfg = Path(tmp) / "ok.yaml"
+        ok_cfg.write_text(_SAFE02_SEED, encoding="utf-8")
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            confirmed = asyncio.run(_drive_confirm_gate(ok_cfg, confirm=True, presses=2))
+        assert "Traceback" not in buf.getvalue(), f"confirm-proceed leaked a traceback: {buf.getvalue()}"
+        # Confirm-once-per-session: two mutating presses, exactly ONE confirm-seam invocation.
+        assert confirmed["confirm_calls"] == 1, (
+            f"after the first acknowledgement subsequent writes must NOT re-prompt (confirm-once): "
+            f"{confirmed['confirm_calls']}"
+        )
+        # Both presses wrote: `m` toggles execution_mode, so two toggles land back on human_in_the_loop —
+        # the SECOND write is what proves the write proceeds without a second confirm.
+        assert "execution_mode: human_in_the_loop" in confirmed["text"], (
+            f"two confirmed toggles must land back on human_in_the_loop (both writes proceeded): {confirmed['text']!r}"
+        )
+        assert "# FREEZE CONTRACT" in confirmed["text"], "the freeze-contract comment block must survive"
+
+
 # --- MANAGE-04 (plan-checker W3): b drives run_batch with the board's pipeline_dir + success notice --
 
 def test_manage_batch_action() -> None:

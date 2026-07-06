@@ -516,6 +516,51 @@ class _PromptModal(ModalScreen):
         self.dismiss()
 
 
+class _ConfirmModal(ModalScreen):
+    """A yes/no acknowledgement gate for a mutating write to the real repo-default config (SAFE-02).
+
+    Copies the ``_PromptModal`` Future-marshalling shape but resolves the injected ``future`` with a
+    BOOL: enter / the confirm button → ``True`` (proceed), escape / the cancel button → ``False``
+    (leave the file untouched). Like ``_PromptModal`` it owns NO write/subprocess API — it only
+    marshals the operator's acknowledgement back to ``_confirm_manage_write``, keeping the view
+    AST-clean (SAFETY-02 / MANAGE-06). Its widget ids are ``#confirm-`` / ``#modal-confirm-``
+    namespaced (NOT ``#modal-prompt-*``) so the ~1.5s base-screen poll's ``query_one`` never collides
+    with a duplicate id (Pitfall 4). The warning copy names the real repo-default config path and
+    deliberately avoids the SAFETY-03 forbidden status/gate-node string literals.
+    """
+
+    BINDINGS = [("escape", "cancel", "Cancel")]
+
+    def __init__(self, prompt: str, future: asyncio.Future) -> None:
+        self._prompt = prompt
+        self._future = future
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="modal-confirm-card"):
+            yield Static(self._prompt, id="modal-confirm", classes="modal")
+            with Horizontal(id="modal-confirm-actions"):
+                yield Button("Proceed", id="confirm-ok-btn", variant="warning")
+                yield Button("Cancel", id="confirm-cancel-btn", variant="default")
+
+    def on_mount(self) -> None:
+        try:
+            self.query_one("#confirm-ok-btn", Button).focus()
+        except Exception:  # noqa: BLE001 — headless / teardown edge
+            pass
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self._resolve(event.button.id == "confirm-ok-btn")
+
+    def action_cancel(self) -> None:
+        self._resolve(False)
+
+    def _resolve(self, value: bool) -> None:
+        if not self._future.done():
+            self._future.set_result(bool(value))
+        self.dismiss()
+
+
 class GmjDashboard(App):
     """The read-only btop-style pipeline board. Takes a PRE-BUILT model; touches no disk itself."""
 
@@ -543,6 +588,9 @@ class GmjDashboard(App):
         # every config write / process spawn is delegated to gmj_dashboard_actions (MANAGE-06).
         self._launcher = launcher                                   # injected recording fake in tests
         self._config_path = config_path if config_path is not None else DEFAULT_CONFIG
+        # SAFE-02 confirm-once-per-session flag: after the first acknowledged mutating write to the real
+        # repo-default config, later m/c writes proceed without re-prompting (the banner stays visible).
+        self._manage_confirmed = False
         self._pipeline_dir = pipeline_dir                           # threaded into run_batch (W2)
         self._cwd = cwd if cwd is not None else REPO_ROOT           # repo root for the launched child
         self._children: list = []                                   # detached proc refs (silence GC)
@@ -741,12 +789,55 @@ class GmjDashboard(App):
             self.notify("⚠ retry_cap must be an integer", severity="error")
             return None
 
+    # ── SAFE-02 repo-default write gate (detection + injectable confirm seam, confirm-once) ─────────
+
+    def _editing_repo_default(self) -> bool:
+        """True iff --config resolves to the packaged repo-default config (SAFE-02).
+
+        Path identity only — a ``Path.resolve()`` equality vs the module-level ``DEFAULT_CONFIG`` (NOT
+        ``samefile``, which raises on a missing path). No content hashing/sniffing (locked decision).
+        Never raises: an ``OSError`` on resolve degrades to ``False``. Overridable in tests.
+        """
+        try:
+            return Path(self._config_path).resolve() == DEFAULT_CONFIG.resolve()
+        except OSError:
+            return False
+
+    async def _confirm_manage_write(self) -> bool:
+        """Push a ``_ConfirmModal`` and await the operator's acknowledgement (SAFE-02). Overridable.
+
+        Mirrors ``_ask``: create a loop Future, push the modal, and return the marshalled bool. A pure
+        UI marshal — no disk, no subprocess (MANAGE-06). The warning names the real repo-default config
+        path and avoids the SAFETY-03 forbidden status/gate-node literals.
+        """
+        future: asyncio.Future = asyncio.get_running_loop().create_future()
+        warning = f"⚠ editing the real repo-default config: {Path(self._config_path).resolve()} — proceed?"
+        self.push_screen(_ConfirmModal(warning, future))
+        return bool(await future)
+
+    async def _guard_repo_default_write(self) -> bool:
+        """Gate a mutating write behind the confirm seam — once per session (SAFE-02).
+
+        Returns ``True`` immediately when the config is not the repo-default OR the operator has already
+        acknowledged this session. Otherwise awaits the confirm seam; a ``True`` acknowledgement latches
+        ``self._manage_confirmed`` so later m/c writes proceed without re-prompting. A cancel returns
+        ``False`` so the caller skips its ``actions.*`` write (cancel = no write).
+        """
+        if not self._editing_repo_default() or self._manage_confirmed:
+            return True
+        ok = await self._confirm_manage_write()
+        if ok:
+            self._manage_confirmed = True
+        return ok
+
     # ── --manage config handlers (m/c) — delegate to the actions module, then notify ───────────────
 
     async def _apply_mode_toggle(self) -> None:
         """Toggle ``execution_mode`` via the actions module (``m`` under --manage)."""
         import gmj_dashboard_actions as actions  # lazy — only under --manage
 
+        if not await self._guard_repo_default_write():   # SAFE-02 — cancel means no write
+            return
         try:
             value = actions.toggle_execution_mode(self._config_path)
         except ValueError as exc:
@@ -755,14 +846,19 @@ class GmjDashboard(App):
         self.notify(f"✓ default_mode → {value} (existing runs unchanged)")
         self._poll()
 
+    @work
     async def action_mode(self) -> None:
-        """Toggle ``execution_mode`` in the config via the actions module and notify the new value."""
+        """Toggle ``execution_mode`` via the actions module — runs as a worker so awaiting the SAFE-02
+        confirm modal happens off the message pump (an inline await of a pushed screen deadlocks — see
+        ``action_cap``)."""
         await self._apply_mode_toggle()
 
     async def _apply_retry_cap(self) -> None:
         """Collect + set ``retry_cap`` (``c`` under --manage)."""
         import gmj_dashboard_actions as actions  # lazy — only under --manage
 
+        if not await self._guard_repo_default_write():   # SAFE-02 — cancel means no write
+            return
         cap = await self._prompt_cap()
         if cap is None:
             return
