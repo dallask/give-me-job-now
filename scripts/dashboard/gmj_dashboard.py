@@ -753,9 +753,7 @@ class GmjDashboard(App):
         # resolved --config is the real repo-default; empty otherwise. Copy avoids the SAFETY-03
         # forbidden status/gate-node literals (phrased around "editing the real repo-default config").
         if self._manage and self._editing_repo_default():
-            self.query_one("#config-warning", Static).update(
-                f"⚠ editing the real repo-default config: {Path(self._config_path).resolve()}"
-            )
+            self.query_one("#config-warning", Static).update(self._repo_default_warning())
 
     def _install_bindings(self) -> None:
         """Install read-only bindings always; the mutating keys ONLY under --manage (VIEW-01/07).
@@ -805,12 +803,22 @@ class GmjDashboard(App):
 
         Path identity only — a ``Path.resolve()`` equality vs the module-level ``DEFAULT_CONFIG`` (NOT
         ``samefile``, which raises on a missing path). No content hashing/sniffing (locked decision).
-        Never raises: an ``OSError`` on resolve degrades to ``False``. Overridable in tests.
+        Never raises: any resolve failure — ``OSError`` OR ``ValueError`` (e.g. an embedded NUL byte in a
+        crafted ``--config`` value) — degrades safely to ``False`` (IN-02). Overridable in tests.
         """
         try:
             return Path(self._config_path).resolve() == DEFAULT_CONFIG.resolve()
-        except OSError:
+        except (OSError, ValueError):
             return False
+
+    def _repo_default_warning(self) -> str:
+        """Single source for the SAFE-02 repo-default warning copy (IN-01).
+
+        Built once here and reused by both the persistent ``#config-warning`` banner and the confirm
+        modal so the two operator-facing phrasings can never drift. Names the resolved real config path
+        and deliberately avoids the SAFETY-03 forbidden status/gate-node string literals.
+        """
+        return f"⚠ editing the real repo-default config: {Path(self._config_path).resolve()}"
 
     async def _confirm_manage_write(self) -> bool:
         """Push a ``_ConfirmModal`` and await the operator's acknowledgement (SAFE-02). Overridable.
@@ -820,7 +828,7 @@ class GmjDashboard(App):
         path and avoids the SAFETY-03 forbidden status/gate-node literals.
         """
         future: asyncio.Future = asyncio.get_running_loop().create_future()
-        warning = f"⚠ editing the real repo-default config: {Path(self._config_path).resolve()} — proceed?"
+        warning = f"{self._repo_default_warning()} — proceed?"
         self.push_screen(_ConfirmModal(warning, future))
         return bool(await future)
 
