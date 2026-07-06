@@ -1513,6 +1513,14 @@ def test_manage_binds_real_actions() -> None:
     assert "run_id=" not in argv_run[-1], f"a fresh run must not carry a run_id: {argv_run[-1]!r}"
     assert probe["kwargs_run"].get("start_new_session") is True, "the child must be detached (start_new_session=True)"
 
+    # HON-02: a --manage `r` launch under --pipeline-dir <dir> carries the operator dir in BOTH carriers —
+    # the readable prompt token AND the authoritative child env (built from an os.environ COPY, so PATH
+    # survives). _build_app sets pipeline_dir=str(pipe); no real claude spawns (recording launcher).
+    assert f"pipeline-dir={pipe}" in argv_run[-1], f"prompt must carry the operator dir: {argv_run[-1]!r}"
+    env_run = probe["kwargs_run"].get("env") or {}
+    assert env_run.get("GMJ_PIPELINE_DIR") == str(pipe), f"child env must carry the operator dir: {env_run!r}"
+    assert "PATH" in env_run, "env must be a COPY of os.environ (child keeps PATH — no bare dict)"
+
     # MANAGE-03: `R` embedded the selected run_id in the resume prompt.
     argv_resume = probe["argv_resume"]
     assert f"run_id={_MANAGE_RUN_ID}" in argv_resume[-1], f"resume must embed run_id=<id>: {argv_resume[-1]!r}"
