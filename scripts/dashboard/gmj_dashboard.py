@@ -1004,6 +1004,14 @@ class GmjDashboard(App):
             for bid in batch_ids:
                 labels.append(f"batch {bid}")
 
+            # RELOAD-02: recover non-pipeline feature launches at parity with runs/batches. This
+            # append sits AFTER the in-memory `if labels: return labels` dedup (:985-986), so a live
+            # in-memory launch wins and the disk branch only fills in on reload (no double-count).
+            for lc in (pa.get("active_launches") or []):
+                launch_label = lc.get("label") or "feature"
+                launch_kind = lc.get("kind") or ""
+                labels.append(f"{launch_label} ({launch_kind})" if launch_kind else launch_label)
+
             if labels:
                 return labels
 
@@ -1096,6 +1104,12 @@ class GmjDashboard(App):
         else:
             self._pending_launches = [p for p in self._pending_launches if p is not proc]
         self._launch_labels.pop(id(proc), None)
+        # RELOAD-01: reap this launch's sidecar on clean exit. The WRITE/delete is delegated to the
+        # actions mutator — the view never unlinks (SAFETY-02). reap_launch_sidecar swallows OSError.
+        if launch_id:
+            import gmj_dashboard_actions as actions  # lazy — only reached for a --manage feature launch
+
+            actions.reap_launch_sidecar(self._pipeline_dir, launch_id)
         self._kick_live_refresh(60.0, expand_activity=False)
         self._stop_fast_poll_if_idle()
 
