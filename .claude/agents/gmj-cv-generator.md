@@ -115,8 +115,10 @@ This mode is **additive** — the legacy direct-YAML render path above (`config/
 `artifact_draft` (Gate A **and** Gate B recorded pass) whose content was fixed upstream by
 the gates; the agent authors no content and no PDF itself.
 
-**Delivery precondition (hub-enforced):** before dispatching a render, the hub runs
-`python3 scripts/pipeline/gmj_check_delivery.py --state .pipeline/runs/<run_id>/state.json`
+**Delivery precondition (hub-enforced):** before dispatching a render, the hub resolves the
+pipeline root `<root>` (`pipeline-dir=<dir>` prompt arg, else `GMJ_PIPELINE_DIR` environment
+variable, else `.pipeline` fallback — same resolution as `/gmj-pipeline-run`) and runs
+`python3 scripts/pipeline/gmj_check_delivery.py --state <root>/runs/<run_id>/state.json`
 (named in `.claude/commands/gmj-pipeline/generate.md`). The agent renders **only** approved
 drafts — a draft missing either recorded gate verdict is never rendered.
 
