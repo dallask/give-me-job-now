@@ -49,7 +49,7 @@ from textual.binding import Binding  # noqa: F401  (documented seam; bindings ar
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.theme import Theme
-from textual.widgets import Button, DataTable, Digits, Footer, Header, Input, Sparkline, Static, TabbedContent, TabPane  # noqa: F401
+from textual.widgets import Button, DataTable, Digits, Footer, Header, Input, Markdown, Sparkline, Static, TabbedContent, TabPane  # noqa: F401
 
 # Single-source seam — put scripts/dashboard on sys.path and import the read model. The view does
 # ZERO disk I/O itself; it only ever calls model.snapshot() / model.run_detail().
@@ -154,6 +154,8 @@ _VAC_COLUMNS: tuple[tuple[str, str], ...] = (
 
 # Configuration file browser (VIEW-19): one column listing ``config/**/*.yaml`` paths.
 _CONFIG_COLUMNS: tuple[tuple[str, str], ...] = (("file", "file"),)
+# Docs browser (DOCTAB-01): one column listing top-level docs/*.md paths.
+_DOCS_COLUMNS: tuple[tuple[str, str], ...] = (("file", "file"),)
 # Features catalog (skills / agents / commands / flows).
 _FEATURE_COLUMNS: tuple[tuple[str, str], ...] = (
     ("kind", "kind"),
@@ -168,6 +170,7 @@ _DIAG_PANE_COMMANDS = "pane-commands"
 _DIAG_PANE_METRICS = "pane-metrics"
 _DIAG_PANE_STAGES = "pane-stages"
 _DIAG_PANE_CHARTS = "pane-charts"
+_DIAG_PANE_DOCS = "pane-docs"
 _DIAG_PANE_DEFAULT = _DIAG_PANE_ERRORS
 _DIAG_PANE_ORDER: tuple[str, ...] = (
     _DIAG_PANE_ERRORS,
@@ -177,6 +180,7 @@ _DIAG_PANE_ORDER: tuple[str, ...] = (
     _DIAG_PANE_METRICS,
     _DIAG_PANE_STAGES,
     _DIAG_PANE_CHARTS,
+    _DIAG_PANE_DOCS,
 )
 
 # Heartbeat live-sync strip (VIEW-27) — compact row; see also top-of-file #heartbeat block.
@@ -398,6 +402,40 @@ class ConfigFileModal(ModalScreen):
             return out
         out.append(payload.get("text") or "(empty file)")
         return out
+
+
+class DocFileModal(ModalScreen):
+    """Read-only project-doc drill-in — full Markdown text, no disk write (DOCTAB-02/03)."""
+
+    BINDINGS = [("escape", "dismiss", "Close")]
+
+    def __init__(self, payload: dict) -> None:
+        self._payload = payload
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="doc-modal-card"):
+            if not self._payload:
+                yield Static("Documentation unavailable", id="doc-modal-body")
+                return
+            with VerticalScroll(id="doc-modal-scroll"):
+                yield Markdown("", id="doc-modal-body")
+
+    def on_mount(self) -> None:
+        if not self._payload:
+            return
+        self.query_one("#doc-modal-body", Markdown).update(self._render_body())
+        try:
+            self.query_one("#doc-modal-scroll", VerticalScroll).focus()
+        except Exception:
+            pass
+
+    def _render_body(self) -> str:
+        payload = self._payload
+        path = payload.get("path") or "docs"
+        if payload.get("error"):
+            return f"**{path}**\n\n{payload['error']}"
+        return f"**{path}**\n\n{payload.get('text') or '(empty file)'}"
 
 
 class FeatureModal(ModalScreen):
@@ -710,6 +748,10 @@ class GmjDashboard(App):
             with TabPane("throughput / gates", id=_DIAG_PANE_CHARTS):
                 with VerticalScroll():
                     yield Static("", id="charts")
+            with TabPane("docs", id=_DIAG_PANE_DOCS):
+                with VerticalScroll():
+                    yield DataTable(id="docs-table", cursor_type="row")
+                    yield Static("", id="docs-placeholder")
 
         yield Footer()                                    # VIEW-07 mode-aware keybind strip
 
@@ -729,6 +771,9 @@ class GmjDashboard(App):
         cfg_table = self.query_one("#config-table", DataTable)
         for label, key in _CONFIG_COLUMNS:
             cfg_table.add_column(label, key=key)
+        docs_table = self.query_one("#docs-table", DataTable)
+        for label, key in _DOCS_COLUMNS:
+            docs_table.add_column(label, key=key)
         feat_table = self.query_one("#features-table", DataTable)
         for label, key in _FEATURE_COLUMNS:
             feat_table.add_column(label, key=key)
@@ -744,6 +789,7 @@ class GmjDashboard(App):
             (_DIAG_PANE_METRICS, "diag-tab-metrics"),
             (_DIAG_PANE_STAGES, "diag-tab-stages"),
             (_DIAG_PANE_CHARTS, "diag-tab-charts"),
+            (_DIAG_PANE_DOCS, "diag-tab-docs"),
         ):
             tab_bar.get_content_tab(pane_id).add_class(class_name)
         # The commands reference (VIEW-15) is STATIC + mode-aware — seed it once here, not per-poll.
