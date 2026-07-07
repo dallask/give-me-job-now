@@ -158,12 +158,24 @@ detect success (a single-line stdout means no HTML sibling was produced).
   ReportLab-only rendering — a single stdout line (PDF path only) — and writes the
   non-blocking warning `Falling back to ReportLab built-in layout.` to stderr. This is a
   **graceful degrade, never a render failure** (exit code stays 0).
+- **Hard failure (mid-render crash):** `render_weasyprint_html()` writes the `.html` file to
+  disk **before** invoking WeasyPrint's PDF step, so any exception during that PDF step
+  (WeasyPrint internal error, bad CSS, missing font/image resource — anything other than the
+  `ImportError` that triggers the graceful-degrade branch above) crashes the script non-zero
+  with **zero** stdout lines, yet the `.html` file may already exist on disk with **no**
+  matching `.pdf`. Stdout-line-count alone cannot distinguish "no HTML produced" from "HTML
+  produced then the PDF step crashed" in this case — the agent must not infer either outcome
+  from stdout when the exit code is non-zero.
 
-The agent's `agent_result_v1.notes` field **must** state exactly one of these two
+The agent's `agent_result_v1.notes` field **must** state exactly one of these three
 outcomes for a CV render:
-- `"HTML produced"` — the HTML sibling line was present on stdout.
-- `"HTML degraded to PDF-only (WeasyPrint unavailable)"` — only the PDF path was
+- `"HTML produced"` — exit 0, the HTML sibling line was present on stdout.
+- `"HTML degraded to PDF-only (WeasyPrint unavailable)"` — exit 0, only the PDF path was
   printed.
+- `"render failed (exit <code>) — check for stray .html sibling"` — non-zero exit; report
+  `status: fail`, and separately check (e.g. via `LS`/`Glob` on the expected `output/cv/`
+  filename) whether a stray `.html` file was left behind with no matching `.pdf`, so the
+  operator can clean it up rather than mistaking it for a successful render.
 
 Never report a uniform "success" note that hides which branch ran — the stderr warning
 is invisible to the operator unless the dispatching agent explicitly surfaces it here.
@@ -192,4 +204,7 @@ End with an `agent_result_v1` envelope — full schema and field rules in `.clau
   — for a CV render (`content.artifact_type == "cv"` or legacy YAML mode), notes must also state
   the HTML outcome per "HTML sibling (ARTF-02)" above: `"HTML produced"` or `"HTML degraded to
   PDF-only (WeasyPrint unavailable)"`.
+- **Failure (CV render, non-zero exit):** `status: fail`, artifacts: `[]` (do not report a stray
+  `.html` as a delivered artifact), notes must state the exit code and note per "HTML sibling
+  (ARTF-02)" above that a `.html` sibling may exist on disk with no matching `.pdf`.
 - **Handoff:** `status: handoff`, `handoff_target: "gmj-template-creator"`, artifacts: `[]`, notes: "User provided prototype image; template must be created first".
