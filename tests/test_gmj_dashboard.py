@@ -40,7 +40,7 @@ from pathlib import Path
 
 from rich.text import Text
 
-from textual.widgets import DataTable, Input, Sparkline, Static, TabbedContent
+from textual.widgets import DataTable, Input, Markdown, Sparkline, Static, TabbedContent
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "pipeline"
@@ -688,6 +688,101 @@ def test_config_table_drill_in() -> None:
     assert "autonomous" in probe["body"]
     assert "config/pipeline.config.yaml" in probe["body"]
     assert "execution_mode" in probe["body"]
+
+
+# --- DOCTAB-01/02/03: docs tab row-select -> modal -> content -> dismiss + fresh-read + empty-state ---
+
+async def _probe_docs_drill_in(pipeline_dir: Path) -> dict:
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await _settle(pilot, lambda: app.query_one("#docs-table", DataTable).row_count > 0)
+        table = app.query_one("#docs-table", DataTable)
+        table.focus()
+        idx = table.get_row_index("docs/alpha.md")
+        table.move_cursor(row=idx)
+        await pilot.press("enter")
+        await pilot.pause()
+        screen_type_open = type(app.screen).__name__
+        body_markdown = app.screen.query_one("#doc-modal-body", Markdown)._markdown
+        await pilot.press("escape")
+        await pilot.pause()
+        screen_type_after_escape = type(app.screen).__name__
+        return {
+            "screen_type_open": screen_type_open,
+            "body_markdown": body_markdown,
+            "screen_type_after_escape": screen_type_after_escape,
+        }
+
+
+def test_docs_table_drill_in() -> None:
+    with _temp_pipeline() as pipe:
+        probe = asyncio.run(_probe_docs_drill_in(pipe))
+    assert probe["screen_type_open"] == "DocFileModal"
+    assert "docs/alpha.md" in probe["body_markdown"]
+    assert "Alpha fixture body." in probe["body_markdown"]
+    assert probe["screen_type_after_escape"] != "DocFileModal"
+
+
+async def _probe_docs_reopen_after_change(pipeline_dir: Path) -> dict:
+    """Open docs/alpha.md, dismiss, mutate the file on disk, reopen — proves no stale cache (DOCTAB-03)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        dash_copy = Path(tmp) / "dashboard"
+        shutil.copytree(DASH_FIXTURES, dash_copy)
+        app = _build_app(pipeline_dir, manage=False, refresh=0.1, repo_root=dash_copy)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await _settle(pilot, lambda: app.query_one("#docs-table", DataTable).row_count > 0)
+            table = app.query_one("#docs-table", DataTable)
+            table.focus()
+            idx = table.get_row_index("docs/alpha.md")
+            table.move_cursor(row=idx)
+            await pilot.press("enter")
+            await pilot.pause()
+            first_markdown = app.screen.query_one("#doc-modal-body", Markdown)._markdown
+            await pilot.press("escape")
+            await pilot.pause()
+
+            (dash_copy / "docs" / "alpha.md").write_text(
+                "# Alpha Fixture Doc\n\nUPDATED alpha fixture body after on-disk change.\n",
+                encoding="utf-8",
+            )
+
+            table = app.query_one("#docs-table", DataTable)
+            table.focus()
+            idx = table.get_row_index("docs/alpha.md")
+            table.move_cursor(row=idx)
+            await pilot.press("enter")
+            await pilot.pause()
+            second_markdown = app.screen.query_one("#doc-modal-body", Markdown)._markdown
+            await pilot.press("escape")
+            await pilot.pause()
+            return {"first_markdown": first_markdown, "second_markdown": second_markdown}
+
+
+def test_docs_reopen_shows_updated_content() -> None:
+    with _temp_pipeline() as pipe:
+        probe = asyncio.run(_probe_docs_reopen_after_change(pipe))
+    assert "UPDATED alpha fixture body after on-disk change." not in probe["first_markdown"]
+    assert "UPDATED alpha fixture body after on-disk change." in probe["second_markdown"]
+
+
+async def _probe_docs_empty_state(pipeline_dir: Path, empty_repo_root: Path) -> dict:
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1, repo_root=empty_repo_root)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await _settle(
+            pilot,
+            lambda: str(app.query_one("#docs-placeholder", Static).render()).strip() != "",
+        )
+        placeholder_text = str(app.query_one("#docs-placeholder", Static).render()).strip()
+        row_count = app.query_one("#docs-table", DataTable).row_count
+        return {"placeholder_text": placeholder_text, "row_count": row_count}
+
+
+def test_docs_empty_state_shows_placeholder() -> None:
+    with _temp_pipeline() as pipe:
+        with tempfile.TemporaryDirectory() as tmp:
+            probe = asyncio.run(_probe_docs_empty_state(pipe, Path(tmp)))
+    assert probe["placeholder_text"] == "(no docs found)"
+    assert probe["row_count"] == 0
 
 
 # --- VIEW-08: DAG stage strip renders tokens, highlights an active run, colors gates ------------
