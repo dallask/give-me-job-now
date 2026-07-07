@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="{{ candidate.lang | default('en') }}">
+<html lang="{{ lang | default('en') }}">
 <head>
   <meta charset="utf-8">
   <title>{{ candidate.name }} — {{ candidate.title }}</title>
@@ -84,31 +84,25 @@
     <h2>{{ labels.contact }}</h2>
     <ul>
       {% if candidate.contact.phone %}<li>{{ candidate.contact.phone }}</li>{% endif %}
-      {% if candidate.contact.email %}<li><a href="mailto:{{ candidate.contact.email }}">{{ candidate.contact.email }}</a></li>{% endif %}
-      {% if candidate.contact.secondary_email %}<li><a href="mailto:{{ candidate.contact.secondary_email }}">{{ candidate.contact.secondary_email }}</a></li>{% endif %}
+      {% if candidate.contact.email %}<li><a href="mailto:{{ candidate.contact.email[0] }}">{{ candidate.contact.email[0] }}</a></li>{% endif %}
+      {% if candidate.contact.email | length > 1 %}<li><a href="mailto:{{ candidate.contact.email[1] }}">{{ candidate.contact.email[1] }}</a></li>{% endif %}
       {% if candidate.contact.address %}<li>{{ candidate.contact.address }}</li>{% endif %}
-      {% if candidate.contact.website %}<li><a href="{{ candidate.contact.website }}">{{ candidate.contact.website }}</a></li>{% endif %}
-      {% if candidate.contact.portfolio %}<li><a href="{{ candidate.contact.portfolio }}">{{ candidate.contact.portfolio }}</a></li>{% endif %}
-      {% if candidate.contact.github %}<li><a href="{{ candidate.contact.github }}">{{ candidate.contact.github }}</a></li>{% endif %}
-      {% if candidate.contact.linkedin %}<li><a href="{{ candidate.contact.linkedin }}">{{ candidate.contact.linkedin }}</a></li>{% endif %}
+      {% if candidate.contact.website and candidate.contact.website.personal %}<li><a href="{{ candidate.contact.website.personal[0] }}">{{ candidate.contact.website.personal[0] }}</a></li>{% endif %}
+      {% if candidate.contact.website and candidate.contact.website.portfolio %}<li><a href="{{ candidate.contact.website.portfolio[0] }}">{{ candidate.contact.website.portfolio[0] }}</a></li>{% endif %}
+      {% if candidate.contact.website and candidate.contact.website.media and candidate.contact.website.media.github %}<li><a href="{{ candidate.contact.website.media.github }}">{{ candidate.contact.website.media.github }}</a></li>{% endif %}
+      {% if candidate.contact.website and candidate.contact.website.media and candidate.contact.website.media.linkedin %}<li><a href="{{ candidate.contact.website.media.linkedin }}">{{ candidate.contact.website.media.linkedin }}</a></li>{% endif %}
+      {% if candidate.contact.messengers %}{% for label, handle in candidate.contact.messengers.items() %}<li>{{ label | capitalize }}: {{ handle }}</li>{% endfor %}{% endif %}
     </ul>
     {% endif %}
 
-    {% if candidate.technical_expertise %}
-    <h2>{{ labels.technical_expertise }}</h2>
-    {% for group in candidate.technical_expertise %}
+    {% if candidate.expertise %}
+    <h2>{{ labels.expertise | default('Skills') }}</h2>
+    {% for group in candidate.expertise %}
       <div class="skill-group">
         <div class="label">{{ group.resume_title }}</div>
         <div class="skill-list">{{ (group.skills or []) | join(' · ') }}</div>
       </div>
     {% endfor %}
-    {% endif %}
-
-    {% if candidate.skills %}
-    <h2>{{ labels.core_skills }}</h2>
-    <ul>
-      {% for s in candidate.skills %}<li>{{ s }}</li>{% endfor %}
-    </ul>
     {% endif %}
 
     {% if candidate.languages %}
