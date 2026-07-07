@@ -67,6 +67,35 @@ def test_default_invocation_html_sibling_guaranteed_or_gracefully_degraded() -> 
         )
 
 
+def test_documented_draft_mode_invocation_produces_html_sibling_or_gracefully_degrades() -> None:
+    """Proves the ACTUAL documented Draft-mode `cv` invocation (post-32-06 fix), not only
+    gmj_render_cv.py's isolated bare-default invocation. The real Draft-mode flag set is
+    `--config <cv.yaml> --lang <content.language> --out <path>` (no `--no-template`) --
+    this uses config/candidate.yaml as a stand-in valid YAML since the render's template
+    branching does not depend on which YAML is passed, only on the presence/absence of the
+    --template/--no-template flags.
+    """
+    out = Path(tempfile.mkdtemp()) / "draft-mode-cv.pdf"
+    result = _run("--config", str(CONFIG), "--lang", "en", "--out", str(out))
+    assert result.returncode == 0, f"documented Draft-mode invocation must exit 0: {result.stderr}"
+    assert out.is_file(), f"missing PDF: {out}"
+    html_sibling = out.with_suffix(".html")
+    if _WEASYPRINT_AVAILABLE:
+        assert html_sibling.is_file(), (
+            f"WeasyPrint available: expected HTML sibling at {html_sibling}"
+        )
+        assert str(html_sibling) in result.stdout, (
+            "HTML path must be printed on its own stdout line before the PDF path"
+        )
+    else:
+        assert not html_sibling.is_file(), (
+            f"WeasyPrint unavailable: no HTML sibling should be written at {html_sibling}"
+        )
+        assert "Falling back to ReportLab built-in layout." in result.stderr, (
+            "graceful-degrade warning must be visible on stderr"
+        )
+
+
 def test_no_template_flag_never_emits_html() -> None:
     out = Path(tempfile.mkdtemp()) / "no-template-cv.pdf"
     result = _run("--config", str(CONFIG), "--no-template", "--out", str(out))

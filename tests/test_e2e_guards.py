@@ -29,6 +29,7 @@ No pytest — run with ``python3 tests/test_e2e_guards.py``.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -275,6 +276,7 @@ def test_e2e_dryrun_sample_draft_renders_pdf() -> None:
 
 
 CV_GENERATOR_AGENT = REPO_ROOT / ".claude" / "agents" / "gmj-cv-generator.md"
+GENERATE_CMD = REPO_ROOT / ".claude" / "commands" / "gmj-pipeline" / "generate.md"
 RUNBOOK = REPO_ROOT / "docs" / "RUNBOOK.md"
 
 
@@ -293,6 +295,29 @@ def test_cv_generator_wired_to_draft_render() -> None:
         "gmj_render_cv.py",
     ):
         assert token in text, f"gmj-cv-generator.md missing draft-mode wiring token: {token}"
+
+
+def test_draft_mode_cv_render_omits_no_template() -> None:
+    """The ACTUAL documented Draft-mode `cv` render invocation (region-scoped, not a
+    file-wide grep) omits `--no-template` in BOTH gmj-cv-generator.md and generate.md
+    (ARTF-02 / 32-06 gap closure). Reverting the 32-06 fix (re-adding `--no-template` to
+    either doc file's Draft-mode line) makes this test fail.
+    """
+    pattern = re.compile(r"gmj_render_cv\.py --config <cv\.yaml>[^\n]*")
+    for path in (CV_GENERATOR_AGENT, GENERATE_CMD):
+        text = path.read_text(encoding="utf-8")
+        match = pattern.search(text)
+        assert match is not None, f"{path}: no Draft-mode cv render_cv.py invocation line found"
+        line = match.group(0)
+        assert "--no-template" not in line, (
+            f"{path}: Draft-mode cv render line still hardcodes --no-template: {line!r}"
+        )
+        assert "--lang <content.language>" in line, (
+            f"{path}: Draft-mode cv render line missing --lang <content.language>: {line!r}"
+        )
+        assert "--out output/cv/<name>.pdf" in line, (
+            f"{path}: Draft-mode cv render line missing --out output/cv/<name>.pdf: {line!r}"
+        )
 
 
 def test_runbook_maps_done_criteria() -> None:
