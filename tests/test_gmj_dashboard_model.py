@@ -548,6 +548,73 @@ def test_docs_files_and_doc_file_text() -> None:
     assert model.doc_file_text("docs/../secret.md").get("error") == "Invalid docs path"
 
 
+def test_doc_file_text_rejects_nul_byte_path() -> None:
+    # WR-01 regression: an embedded NUL byte reaches Path.resolve() as a ValueError (NOT an
+    # OSError) on crafted input. The accessor must degrade to an error dict, never raise, and
+    # never leak a traceback out of this read-only model method.
+    model = _thin_model()
+    buf = io.StringIO()
+    with contextlib.redirect_stderr(buf):
+        payload = model.doc_file_text("docs/al\x00pha.md")
+    assert "Traceback" not in buf.getvalue(), "doc_file_text must never leak a traceback"
+    assert payload.get("error"), payload
+    assert "text" not in payload
+
+
+def test_config_file_text_rejects_nul_byte_path() -> None:
+    # Mirrors test_doc_file_text_rejects_nul_byte_path -- config_file_text shares the same
+    # resolve()-based validation shape and the same WR-01 gap.
+    model = _thin_model()
+    buf = io.StringIO()
+    with contextlib.redirect_stderr(buf):
+        payload = model.config_file_text("config/al\x00pha.yaml")
+    assert "Traceback" not in buf.getvalue(), "config_file_text must never leak a traceback"
+    assert payload.get("error"), payload
+    assert "text" not in payload
+
+
+def test_doc_file_text_rejects_symlink_escape() -> None:
+    # WR-02: exercise the .resolve()-based containment check itself (not just string-shape
+    # traversal) -- a symlink under docs/ pointing outside repo_root must still be rejected once
+    # resolved, even though the raw path string never contains ".." or an absolute prefix.
+    with tempfile.TemporaryDirectory() as outside, tempfile.TemporaryDirectory() as repo_root:
+        secret = Path(outside) / "secret.md"
+        secret.write_text("TOP SECRET\n", encoding="utf-8")
+        docs_dir = Path(repo_root) / "docs"
+        docs_dir.mkdir()
+        escape_link = docs_dir / "escape"
+        try:
+            escape_link.symlink_to(outside, target_is_directory=True)
+        except OSError:
+            return  # platform/filesystem lacks symlink support or permission -- skip
+        model = gmj_dashboard_model.DashboardModel(
+            pipeline_dir=str(Path(repo_root) / "nopipeline"), repo_root=Path(repo_root)
+        )
+        payload = model.doc_file_text("docs/escape/secret.md")
+        assert payload.get("error"), payload
+        assert "TOP SECRET" not in (payload.get("text") or ""), payload
+
+
+def test_config_file_text_rejects_symlink_escape() -> None:
+    # Mirrors test_doc_file_text_rejects_symlink_escape for config_file_text.
+    with tempfile.TemporaryDirectory() as outside, tempfile.TemporaryDirectory() as repo_root:
+        secret = Path(outside) / "secret.yaml"
+        secret.write_text("password: hunter2\n", encoding="utf-8")
+        config_dir = Path(repo_root) / "config"
+        config_dir.mkdir()
+        escape_link = config_dir / "escape"
+        try:
+            escape_link.symlink_to(outside, target_is_directory=True)
+        except OSError:
+            return  # platform/filesystem lacks symlink support or permission -- skip
+        model = gmj_dashboard_model.DashboardModel(
+            pipeline_dir=str(Path(repo_root) / "nopipeline"), repo_root=Path(repo_root)
+        )
+        payload = model.config_file_text("config/escape/secret.yaml")
+        assert payload.get("error"), payload
+        assert "hunter2" not in (payload.get("text") or ""), payload
+
+
 def test_pipeline_activity_detects_in_flight_work() -> None:
     model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(FIXTURES), repo_root=REPO_ROOT)
     pa = model.pipeline_activity()
