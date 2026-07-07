@@ -2298,6 +2298,92 @@ def test_live_launch_not_double_counted() -> None:
         assert occurrences == 1, f"a live launch must be listed exactly once, not double-counted: {items!r}"
 
 
+# --- TEST-02: the REAL two-step batch modal, Escape-cancelled, launches NOTHING -------------------
+# `test_manage_batch_action` (above) overrides `app._prompt_batch = lambda: _aval(...)` and so NEVER
+# opens the real `_PromptModal`s — it proves threading, not the modal path. THIS test presses `b` with
+# NO override, drives the REAL `action_batch (@work) → _prompt_batch → _ask → _PromptModal` chain under
+# keypress, cancels step 2 with Escape, and proves (a) both steps are real `_PromptModal`s, (b) Escape
+# pops cleanly back to the base screen, and (c) `actions.run_batch` is invoked exactly 0 times. The
+# coroutine is bounded by `asyncio.wait_for(..., timeout=20)` — `action_batch` is `@work`, so a lost
+# decorator would DEADLOCK (awaiting the pushed modal inline on the pump) and HANG the suite; the
+# timeout converts that into a clean failure (RESEARCH Pitfall 4).
+
+
+async def _drive_batch_modal_escape_cancel(pipeline_dir: Path) -> dict:
+    """Press `b` (real path), advance past step 1, Escape-cancel step 2; report the modal chain state."""
+    app = _build_app(pipeline_dir, manage=True)
+    out: dict = {}
+    async with app.run_test(size=(120, 40)) as pilot:
+        await _settle(pilot, lambda: app.query_one("#runs", DataTable).row_count > 0)
+        # Focus the table so `b` reaches the App binding (a filter Input would otherwise consume it).
+        app.query_one("#runs", DataTable).focus()
+        await pilot.pause()
+        await pilot.press("b")            # REAL dispatch — NO `_prompt_batch` override (the whole point)
+        await pilot.pause()
+        # Step 1: the shortlist-path prompt is a real _PromptModal.
+        out["step1_modal"] = type(app.screen_stack[-1]).__name__
+        # Seed a non-empty selection into the REAL Input so step 1 does not itself cancel, then submit.
+        # We set `.value` rather than pressing each char: per-key `pilot.press` each awaits `wait_for_idle`,
+        # and a preceding manage test's `_kick_live_refresh` fast-poll leaves the process just busy enough
+        # that a long char-by-char sequence never reaches idle and deadlocks (a cross-test Textual timing
+        # fragility, NOT a product bug). Setting the value + pressing `enter` exercises the SAME real
+        # submit path (`on_input_submitted → _resolve → future → _ask returns → step 2 opens`) count-free.
+        app.screen.query_one("#modal-prompt-input", Input).value = "shortlist.json"
+        await pilot.press("enter")        # submit step 1 → resolves → step 2 (_ask) opens
+        await pilot.pause()
+        out["step2_modal"] = type(app.screen_stack[-1]).__name__
+        await pilot.press("escape")       # CANCEL step 2 → _prompt_batch returns None → no run_batch
+        await pilot.pause()
+        await pilot.pause()
+        out["stack_after_cancel"] = len(app.screen_stack)
+    return out
+
+
+def test_manage_batch_modal_two_step_escape_cancel() -> None:
+    calls = {"run_batch": 0}
+
+    class _Completed:
+        returncode = 0
+        stderr = ""
+
+    def _spy_run_batch(*args, **kwargs):
+        calls["run_batch"] += 1
+        return _Completed()
+
+    orig = actions.run_batch
+    actions.run_batch = _spy_run_batch  # patch the module attr the lazy import resolves (no subprocess)
+    try:
+        with _temp_pipeline() as pipe:
+            buf = io.StringIO()
+            with contextlib.redirect_stderr(buf):
+                # A re-introduced deadlock HANGS rather than fails — bound the run so a lost `@work`
+                # surfaces as a clean failure, never a wedged suite (RESEARCH Pitfall 4).
+                out = asyncio.run(
+                    asyncio.wait_for(_drive_batch_modal_escape_cancel(pipe), timeout=20)
+                )
+            assert "Traceback" not in buf.getvalue(), (
+                f"the batch modal cancel path leaked a traceback: {buf.getvalue()}"
+            )
+    finally:
+        actions.run_batch = orig
+
+    # Both steps of the REAL two-step chain opened a genuine _PromptModal (no collector override).
+    assert out["step1_modal"] == "_PromptModal", (
+        f"pressing `b` must open the real step-1 _PromptModal: {out['step1_modal']!r}"
+    )
+    assert out["step2_modal"] == "_PromptModal", (
+        f"submitting step 1 must open the real step-2 _PromptModal: {out['step2_modal']!r}"
+    )
+    # Escape on step 2 popped cleanly back to the single base screen (no wedged/leaked modal).
+    assert out["stack_after_cancel"] == 1, (
+        f"Escape on step 2 must pop back to the base screen (stack==1): {out['stack_after_cancel']}"
+    )
+    # The load-bearing safety assertion: a cancelled batch launches NOTHING.
+    assert calls["run_batch"] == 0, (
+        f"a cancelled batch must never call run_batch (launched nothing): {calls['run_batch']}"
+    )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
