@@ -45,6 +45,7 @@ import ast
 import contextlib
 import io
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -604,6 +605,74 @@ def test_read_only_invariant_state_unchanged() -> None:
     model.run_detail("20260601T120000-del")  # the drill-in path is read-only too
     assert sp.read_bytes() == before_bytes, "snapshot()/run_detail must not alter state.json bytes"
     assert sp.stat().st_mtime_ns == before_mtime, "snapshot()/run_detail must not touch state.json mtime"
+
+
+# --- RELOAD-02: read-only launches() liveness filter (never deletes) ----------
+
+# A pid that is guaranteed NOT to exist (above the OS pid_max on Linux/macOS) — deterministic
+# "dead" without the pid-reuse flakiness of a reaped child.
+_IMPOSSIBLE_PID = 2**31 - 1
+
+
+def _seed_launch(launches_dir: Path, launch_id: str, payload: dict) -> Path:
+    """Seed a launches/ sidecar exactly as the actions writer would (the test may write freely)."""
+    launches_dir.mkdir(parents=True, exist_ok=True)
+    p = launches_dir / f"{launch_id}.json"
+    p.write_text(json.dumps(payload), encoding="utf-8")
+    return p
+
+
+def test_is_pid_alive_edge_cases() -> None:
+    # _is_pid_alive rejects pid<=0 / None / bool / non-int BEFORE probing (never signal a process
+    # group), treats an impossible pid as dead, and reports this live process as alive. Never raises.
+    model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(FIXTURES), repo_root=REPO_ROOT)
+    buf = io.StringIO()
+    with contextlib.redirect_stderr(buf):
+        for bad in (0, -1, None, True, False, "x", 3.5, [1]):
+            assert model._is_pid_alive(bad) is False, f"pid {bad!r} must be rejected as not-alive"
+        assert model._is_pid_alive(_IMPOSSIBLE_PID) is False, "an impossible pid must be dead"
+        assert model._is_pid_alive(os.getpid()) is True, "this live process pid must be alive"
+    assert "Traceback" not in buf.getvalue(), "_is_pid_alive must never leak a traceback"
+
+
+def test_launches_liveness_filter_and_never_deletes() -> None:
+    # _launches() over a live + dead sidecar returns ONLY the live one, each row carrying the
+    # {launch_id,kind,label,pid,launched_at} fields; the dead sidecar file is STILL on disk after.
+    with tempfile.TemporaryDirectory() as tmp:
+        launches_dir = Path(tmp) / "launches"
+        _seed_launch(launches_dir, "20260707T120000-aaa", {
+            "launch_id": "20260707T120000-aaa", "kind": "collective", "label": "gmj-collective",
+            "pid": os.getpid(), "launched_at": "2026-07-07T12:00:00Z", "cmd": "claude -p ...",
+        })
+        dead = _seed_launch(launches_dir, "20260707T120001-bbb", {
+            "launch_id": "20260707T120001-bbb", "kind": "interview", "label": "gmj-interview",
+            "pid": _IMPOSSIBLE_PID, "launched_at": "2026-07-07T12:00:01Z", "cmd": "claude -p ...",
+        })
+        model = gmj_dashboard_model.DashboardModel(pipeline_dir=tmp, repo_root=REPO_ROOT)
+        rows = model._launches()
+        ids = {r["launch_id"] for r in rows}
+        assert ids == {"20260707T120000-aaa"}, f"only the live-pid launch must survive: {ids}"
+        row = rows[0]
+        assert set(row) == {"launch_id", "kind", "label", "pid", "launched_at"}, row
+        assert row["kind"] == "collective" and row["label"] == "gmj-collective", row
+        # The model NEVER deletes — the dead sidecar file is still on disk.
+        assert dead.is_file(), "the read model must not delete a dead-pid sidecar"
+
+
+def test_launches_skips_torn_or_nondict_sidecar() -> None:
+    # A torn (truncated) sidecar and a valid-JSON-but-non-dict sidecar are both SKIPPED (never a
+    # degrade row, never a raise); snapshot() leaks no traceback (never-a-traceback contract).
+    with tempfile.TemporaryDirectory() as tmp:
+        launches_dir = Path(tmp) / "launches"
+        launches_dir.mkdir(parents=True)
+        (launches_dir / "20260707T120002-torn.json").write_text('{"pid": 1, "kin', encoding="utf-8")
+        (launches_dir / "20260707T120003-list.json").write_text(json.dumps([1, 2, 3]), encoding="utf-8")
+        model = gmj_dashboard_model.DashboardModel(pipeline_dir=tmp, repo_root=REPO_ROOT)
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            rows = model._launches()
+        assert rows == [], "torn / non-dict sidecars must be skipped, not degrade-rowed"
+        assert "Traceback" not in buf.getvalue(), "_launches() must never leak a traceback"
 
 
 def main() -> int:
