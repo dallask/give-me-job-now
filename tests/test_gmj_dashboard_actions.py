@@ -33,6 +33,8 @@ import ast
 import asyncio
 import contextlib
 import io
+import json
+import os
 import shutil
 import sys
 import tempfile
@@ -41,11 +43,14 @@ from subprocess import DEVNULL
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DASH_DIR = REPO_ROOT / "scripts" / "dashboard"
+PIPELINE_DIR = REPO_ROOT / "scripts" / "pipeline"
 CONFIG_SRC = REPO_ROOT / "config" / "pipeline.config.yaml"
 SHORTLIST = REPO_ROOT / "tests" / "fixtures" / "batch" / "shortlist.thin-and-rich.json"
 
 sys.path.insert(0, str(DASH_DIR))
+sys.path.insert(0, str(PIPELINE_DIR))
 import gmj_dashboard_actions as actions  # noqa: E402
+import gmj_runs  # noqa: E402  (source of the _safe_component path-safety gate)
 
 
 # ── fakes ────────────────────────────────────────────────────────────────────────────────────────
@@ -56,6 +61,7 @@ class _FakeProc:
     def __init__(self) -> None:
         self.wait_calls = 0
         self.communicate_calls = 0
+        self.pid = os.getpid()  # Plan 28-03 launch path reads proc.pid for the sidecar
 
     async def wait(self) -> int:
         self.wait_calls += 1
@@ -253,6 +259,42 @@ def test_run_batch_writes_manifest() -> None:
         )
         manifests = list(Path(tmp).glob("batches/*/manifest.json"))
         assert manifests, f"a batch manifest must be written under the target pipeline-dir: {tmp}"
+
+
+# ── RELOAD-01: launch-sidecar writer + safe id generator ──────────────────────────────────────────
+
+def test_write_launch_sidecar_roundtrip() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        launch_id = actions.write_launch_sidecar(
+            tmp, kind="template", label="gmj-template", pid=os.getpid(), cmd="claude -p /gmj-template"
+        )
+        sidecar = Path(tmp) / "launches" / f"{launch_id}.json"
+        assert sidecar.is_file(), f"a sidecar must be published under launches/: {sidecar}"
+        data = json.loads(sidecar.read_text(encoding="utf-8"))
+        assert set(data) == {"launch_id", "kind", "label", "pid", "launched_at", "cmd"}, (
+            f"the payload must carry exactly the six keys: {sorted(data)}"
+        )
+        assert data["launch_id"] == launch_id, "the payload launch_id must match the return value"
+        assert data["kind"] == "template", "a known kind must round-trip verbatim"
+        assert data["pid"] == os.getpid(), "the pid must round-trip"
+        assert data["label"] == "gmj-template", "the label must round-trip"
+        assert data["cmd"] == "claude -p /gmj-template", "the cmd must round-trip"
+
+
+def test_write_launch_sidecar_clamps_kind() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        launch_id = actions.write_launch_sidecar(
+            tmp, kind="bogus", label="x", pid=os.getpid(), cmd="claude"
+        )
+        data = json.loads((Path(tmp) / "launches" / f"{launch_id}.json").read_text(encoding="utf-8"))
+        assert data["kind"] == "collective", f"an unknown kind must clamp to collective: {data['kind']!r}"
+
+
+def test_generate_launch_id_is_path_safe() -> None:
+    for _ in range(20):
+        lid = actions._generate_launch_id()
+        assert gmj_runs._safe_component(lid), f"generated id must pass _safe_component: {lid!r}"
+        assert "/" not in lid and ".." not in lid, f"generated id must have no traversal: {lid!r}"
 
 
 # ── SAFETY-01: no dashboard code path writes a gate verdict / forces delivery ──────────────────────
