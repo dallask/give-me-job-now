@@ -13,10 +13,13 @@ description: Run the deterministic Gate-A truth check (gmj_check_truth.py, exit 
     --file <artifact_draft.json> --candidate config/candidate.yaml
   # exit 0 ⇒ pass, exit 1 ⇒ fail — IDENTICAL in both modes (no --mode/--force/--bypass flag exists)
   ```
+- **First resolve the pipeline root** `<root>` (as in `/gmj-pipeline-run`): the `pipeline-dir=<dir>`
+  prompt arg if present, else the `GMJ_PIPELINE_DIR` environment variable, else `.pipeline`
+  (the `runs/<run_id>/` layout is identical — only the ROOT is configurable).
 - **Record the verdict** (audit artifact + `state.gate_results`):
   ```bash
   python3 scripts/pipeline/gmj_record_gate.py \
-    --state .pipeline/runs/<run_id>/state.json \
+    --state <root>/runs/<run_id>/state.json \
     --node gmj-truth-verifier --artifact-type <type> --attempt <n> --file <gate_result.json>
   ```
 

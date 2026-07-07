@@ -50,7 +50,7 @@ passed, whether the retry cap is hit, or whether an artifact is deliverable. The
 | Script | Path | Job |
 |---|---|---|
 | `gmj_pipeline_run.py` | `scripts/pipeline/gmj_pipeline_run.py` | Validate `--artifact-types` and derive one run_id per requested artifact type (`<run_id>-cv/-cl/-ip`) — hard-fails on any unknown type before any state is frozen |
-| `gmj_state_write.py` | `scripts/pipeline/gmj_state_write.py` | Freeze `execution_mode` + `retry_cap` + `run_id` into `.pipeline/runs/<run_id>/state.json` at init |
+| `gmj_state_write.py` | `scripts/pipeline/gmj_state_write.py` | Freeze `execution_mode` + `retry_cap` + `run_id` into `<root>/runs/<run_id>/state.json` at init (`<root>` resolved per [init_run](#1-init_run) below; `.pipeline` is only the fallback) |
 | `gmj_route.py` | `scripts/pipeline/gmj_route.py` | Pure `(state, dag) → next_step` — the deterministic router over `config/pipeline.dag.yaml` |
 | `gmj_check_offer.py` | `scripts/offers/gmj_check_offer.py` | Freshness/integrity check of the frozen offer-spec — STALE ⇒ abort |
 | `gmj_check_truth.py` | `scripts/artifacts/gmj_check_truth.py` | Gate A (truth) verdict — exit 0/1, **no mode argument** |
@@ -65,7 +65,13 @@ passed, whether the retry cap is hit, or whether an artifact is deliverable. The
 
 ### 1. init_run
 
-**First, resolve the artifact-type subset and derive one run_id per type.** Resolve the
+**First, resolve the pipeline root `<root>`** (same resolution as `/gmj-pipeline-run` and
+`/gmj-pipeline/freeze`): the `pipeline-dir=<dir>` prompt arg if present, else the
+`GMJ_PIPELINE_DIR` environment variable, else `.pipeline`. Construct **every** run-state path
+below under this resolved `<root>` — the `runs/<run_id>/` layout is identical; only the ROOT is
+configurable (`.pipeline` is the fallback, not the only path).
+
+**Then resolve the artifact-type subset and derive one run_id per type.** Resolve the
 requested artifact-type subset (default all three: `cv`, `cover_letter`, `interview_prep`) and
 run `scripts/pipeline/gmj_pipeline_run.py --run-id <run_id> --artifact-types <list>` via `Bash`
 to derive the per-type run_ids (`<run_id>-cv`/`-cl`/`-ip`). This script hard-fails (exit 1, no
@@ -74,7 +80,7 @@ validate this list by reasoning alone.
 
 Then run `scripts/pipeline/gmj_state_write.py` **once per derived run_id** to freeze
 `execution_mode` (interactive default, or `autonomous` when the run requests it), `retry_cap`,
-and that type's own `run_id` into its OWN `.pipeline/runs/<run_id>-{cv,cl,ip}/state.json` —
+and that type's own `run_id` into its OWN `<root>/runs/<run_id>-{cv,cl,ip}/state.json` —
 **never a single shared `state.json` across artifact types.** `gate_results` is keyed flatly by
 DAG node name with no artifact-type dimension (`gmj_record_gate.py`), so isolation is achieved
 via separate state files, not a nested key shape. Passing an existing derived `run_id` resumes
@@ -84,11 +90,12 @@ a safe charset before it becomes a directory name.
 ### 2. loop
 
 This entire loop runs independently once per derived run_id (once per requested artifact
-type) — every `<run_id>` referenced below is that type's own derived id.
+type) — every `<run_id>` referenced below is that type's own derived id, and every `state.json`
+path referenced below lives under the `<root>` resolved in [init_run](#1-init_run).
 
 Repeat until `gmj_route.py` signals `status: done` or a hard stop fires:
 
-- **a. Next step.** Run `scripts/pipeline/gmj_route.py --state .pipeline/runs/<run_id>/state.json`
+- **a. Next step.** Run `scripts/pipeline/gmj_route.py --state <root>/runs/<run_id>/state.json`
   to get the next DAG node. This is a pure function of the persisted state — no LLM routing,
   no reasoning about which spoke is next.
 - **b. Freshness check BEFORE each dispatch.** Run
@@ -110,7 +117,7 @@ Repeat until `gmj_route.py` signals `status: done` or a hard stop fires:
      `scripts/artifacts/gmj_score_fit.py` (Gate B). **Invoke with NO mode argument** — both
      gates block identically in every mode; there is no bypass, force, or skip flag.
   2. Run `scripts/pipeline/gmj_record_gate.py` to write the normalized `gate_result` artifact
-     under `.pipeline/runs/<run_id>/` **and** set `state.gate_results[<node>]`. `record_gate`
+     under `<root>/runs/<run_id>/` **and** set `state.gate_results[<node>]`. `record_gate`
      unwraps `gmj_score_fit.py`'s `{gate_b, gate_c}` wrapper to a uniform `gate_result` envelope;
      Gate C is advisory (stored separately, never entering the verdict). `gmj_route.py` RAISES on
      a gate node with no recorded verdict, so `record_gate` MUST run after every gate.
@@ -120,7 +127,7 @@ Repeat until `gmj_route.py` signals `status: done` or a hard stop fires:
      `scripts/pipeline/gmj_check_cap.py`:
      - **Below cap →** run `scripts/pipeline/gmj_map_feedback.py --file <gate_result artifact>`
        where `--file` points at the **`record_gate`-normalized `gate_result` artifact under
-       `.pipeline/runs/<run_id>/`** — **NOT** raw `gmj_score_fit.py` stdout (that stdout is a
+       `<root>/runs/<run_id>/`** — **NOT** raw `gmj_score_fit.py` stdout (that stdout is a
        `{gate_b, gate_c}` wrapper with no top-level `.content` and would break the
        projection). `record_gate` always runs before `map_feedback` in this loop, so the
        normalized artifact exists. Then `Task(gmj-artifact-composer)` with the structured
@@ -134,7 +141,15 @@ Repeat until `gmj_route.py` signals `status: done` or a hard stop fires:
 
 ### 3. deliver
 
-Run `scripts/pipeline/gmj_check_delivery.py` **once per derived run_id** — never once for the whole run. Each call refuses to deliver that type's artifact unless it has a recorded **Gate A ∧ Gate B** pass — so even a loop bug cannot ship a failed draft (GUARD-03). Aggregate the N independent results into an explicit **per-type breakdown** (e.g. `cv: delivered, cover_letter: delivered, interview_prep: pending — Gate B retry 1/2`) — **never a single collapsed boolean.** Only a delivery-checked draft reaches `gmj-cv-generator`, which renders `output/cv/*.pdf` via `scripts/cv/gmj_render_cv.py`; the rendered CV additionally carries the guaranteed `.html` sibling when the default template path succeeds (ARTF-02).
+Run `scripts/pipeline/gmj_check_delivery.py --state <root>/runs/<run_id>/state.json` **once per
+derived run_id** (using the same resolved `<root>` from [init_run](#1-init_run)) — never once
+for the whole run. Each call refuses to deliver that type's artifact unless it has a recorded
+**Gate A ∧ Gate B** pass — so even a loop bug cannot ship a failed draft (GUARD-03). Aggregate
+the N independent results into an explicit **per-type breakdown** (e.g. `cv: delivered,
+cover_letter: delivered, interview_prep: pending — Gate B retry 1/2`) — **never a single
+collapsed boolean.** Only a delivery-checked draft reaches `gmj-cv-generator`, which renders
+`output/cv/*.pdf` via `scripts/cv/gmj_render_cv.py`; the rendered CV additionally carries the
+guaranteed `.html` sibling when the default template path succeeds (ARTF-02).
 
 ## Cover-letter tone hint (hub param)
 
@@ -217,7 +232,8 @@ recorded gate verdicts, and state next actions.
   `gmj-fit-evaluator`, `gmj-cv-generator`. No other roster is dispatched.
 - Master data: `config/candidate.yaml` — the single source of truth, **never modified** by a
   pipeline run. Rendered PDFs land in `output/cv/`; per-run state + gate logs live under
-  `.pipeline/runs/<run_id>/` (git-ignored).
+  `<root>/runs/<run_id>/` (git-ignored), where `<root>` defaults to `.pipeline` but is
+  configurable — see [init_run](#1-init_run).
 - Every gate verdict is recorded (`gmj_record_gate.py`) and delivery is precondition-checked
   (`gmj_check_delivery.py`) — nothing reaches "delivered" without a recorded Gate A ∧ Gate B
   pass.
