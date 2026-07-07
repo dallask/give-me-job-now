@@ -754,15 +754,18 @@ class DashboardModel:
         """On-demand full feature record for the run/drill-in modal."""
         return feature_by_id(self.repo_root, feature_id, self._features_cache)
 
-    def pipeline_activity(self) -> dict:
+    def pipeline_activity(self, *, launches: list[dict] | None = None) -> dict:
         """Detect in-flight pipeline work from disk (survives dashboard reload).
 
         Uses IMPORTED ``is_pipeline_in_flight_status`` / ``is_batch_in_flight`` — never re-derives
-        status in this module.
+        status in this module. ``launches`` may be threaded in by ``snapshot()`` so the sidecar dir is
+        walked ONCE per snapshot (IN-01) — both this surface and the top-level ``launches`` key share a
+        single, self-consistent walk; when called standalone it defaults to a fresh walk.
         """
         runs, _ = self._runs()
         batches = self._batches()
-        launches = self._launches()  # RELOAD-02: live-pid launches recovered from disk sidecars
+        if launches is None:
+            launches = self._launches()  # RELOAD-02: live-pid launches recovered from disk sidecars
         active_run_ids = [
             r["run_id"] for r in runs if is_pipeline_in_flight_status(str(r.get("status") or ""))
         ]
@@ -796,6 +799,7 @@ class DashboardModel:
         runs, metric_inputs = self._runs()
         batches = self._batches()
         metrics = self._metrics(runs, metric_inputs)
+        launches = self._launches()  # IN-01: walk launches/ ONCE, thread into both surfaces below
 
         vacancies = self._vacancies()
         config = self._config()
@@ -831,7 +835,7 @@ class DashboardModel:
             "stages": stages,
             "runs": runs,
             "batches": batches,
-            "launches": self._launches(),  # RELOAD-02: disk-recovered live-pid launches (parity)
+            "launches": launches,  # RELOAD-02: disk-recovered live-pid launches (parity), walked once
             "vacancies": vacancies,
             "features": features,
             "config": config,
@@ -839,7 +843,8 @@ class DashboardModel:
             "run_detail": {},   # on-demand: populate via run_detail(run_id), never per-poll
             "errors": self.failures(),  # VIEW-12: per failed-run Gate A/Gate B failure detail
             "activity": self.activity(),  # VIEW-13: newest-first started/gate/terminal event feed
-            "pipeline_activity": self.pipeline_activity(),  # VIEW-28: disk-backed in-flight runs/batches
+            # VIEW-28: disk-backed in-flight runs/batches; reuse the single launches walk (IN-01).
+            "pipeline_activity": self.pipeline_activity(launches=launches),
         }
 
 
