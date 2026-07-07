@@ -214,6 +214,27 @@ def _build_app(
     )
 
 
+async def _settle(pilot, predicate, *, tries: int = 50, delay: float = 0.05) -> None:
+    """Await the app's off-thread poll until ``predicate()`` holds (bounded).
+
+    The poll runs ``model.snapshot()`` on a BACKGROUND THREAD (``run_worker(thread=True,
+    exclusive=True, group="poll")``) and marshals rows back with ``call_from_thread(self._apply,
+    snap)``; a fixed ``pilot.pause()`` count can return before that thread finishes under CPU
+    contention (the documented 26/27/28 flake). This loop pauses AND yields wall-clock so the worker
+    can complete and re-tick the ~0.1s interval, then re-checks the REAL seeding condition. It fails
+    loudly so a genuine regression (predicate never true) still surfaces — never a silent infinite
+    wait.
+    """
+    for _ in range(tries):
+        await pilot.pause()
+        if predicate():
+            return
+        await asyncio.sleep(delay)   # let the BG poll thread run + re-tick the ~0.1s interval
+    await pilot.pause()
+    if not predicate():
+        raise AssertionError(f"predicate never settled after {tries} tries")
+
+
 async def _bound_keys(pipeline_dir: Path, *, manage: bool) -> set[str]:
     """Launch, let the interval + first snapshot run, and return the set of bound keys."""
     app = _build_app(pipeline_dir, manage=manage)
