@@ -167,7 +167,13 @@ def _atomic_write(path: Path, text: str) -> None:
     path = Path(path)
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(text, encoding="utf-8")
-    tmp.replace(path)  # atomic publish — no torn / partial config file
+    try:
+        tmp.replace(path)  # atomic publish — no torn / partial config file
+    except OSError:
+        # IN-02: a failed publish (cross-device / permission / race) must not leave a `<name>.tmp`
+        # orphan on disk (e.g. a `<launch_id>.json.tmp` sidecar). Best-effort clean up, then re-raise.
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def set_execution_mode(path: Path, mode: str) -> None:
