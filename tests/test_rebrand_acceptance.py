@@ -293,18 +293,20 @@ def test_framework_files_pruned_from_rewrite_walk() -> None:
     """WR-02: declared-framework files must NOT appear in the reference-rewrite tree walk.
 
     iter_app_files feeds apply_rewrites; anything it yields can have its content rewritten. Prove
-    the framework artifacts (ai-agents-architect.md, hooks/lib/**, managed-hooks-registry.cjs) are
-    pruned, so their content is never touched."""
+    the framework artifacts are pruned, so their content is never touched. The vendored GSD tooling
+    (ai-agents-architect.md, hooks/lib/**, managed-hooks-registry.cjs) was migrated to a global
+    install and removed from the repo, so the surviving declared-framework tree — .planning/ — is
+    the anchor: its files exist on disk yet must never enter the rewrite walk."""
     walked = {p.resolve() for p in R.iter_app_files()}
     assert walked, "iter_app_files yielded nothing (walk is broken)"
 
-    framework_files = [
-        R.AGENTS_DIR / "ai-agents-architect.md",
-        R.HOOKS_DIR / "managed-hooks-registry.cjs",
-    ]
-    lib_dir = R.HOOKS_DIR / "lib"
-    if lib_dir.is_dir():
-        framework_files.extend(f for f in lib_dir.rglob("*") if f.is_file())
+    repo_root = R.AGENTS_DIR.parent.parent
+    planning_dir = repo_root / ".planning"
+    framework_files = [f for f in planning_dir.rglob("*") if f.is_file()]
+    # Any GSD tooling files still on disk (should be none post-migration) must also be pruned.
+    for extra in (R.AGENTS_DIR / "ai-agents-architect.md", R.HOOKS_DIR / "managed-hooks-registry.cjs"):
+        if extra.exists():
+            framework_files.append(extra)
 
     checked = 0
     for ff in framework_files:

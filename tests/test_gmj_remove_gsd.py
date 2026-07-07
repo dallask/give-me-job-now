@@ -11,7 +11,8 @@ Four named checks (each a ``test_*`` so it is individually reported):
   (a) banner        — exit 0 AND a loud "NOT executed" / "run later" dry-run banner in stdout.
   (b) manifest plan — the REMOVE PLAN enumerates framework traces derived from the
                       ownership-manifest framework_globs + the enumerated trace set
-                      (asserts .claude/gsd-core/ and .planning/ appear; NO app gmj-* path appears).
+                      (asserts .planning/ appears; NO app gmj-* path appears). The GSD tooling
+                      tree was migrated to a global install, so .planning/ is the sole trace left.
   (c) no-delete     — the script SOURCE contains no os.remove / shutil.rmtree / Path.unlink /
                       os.unlink (comment lines stripped first, so a docstring mention can't
                       self-invalidate; the live-code count must be 0).
@@ -41,7 +42,9 @@ _SNAPSHOT_SKIP_DIRS = {
 }
 
 # Expected framework traces that MUST appear in the printed REMOVE PLAN.
-EXPECTED_TRACE_TOKENS = (".claude/gsd-core/", ".planning/")
+# The GSD tooling tree (.claude/gsd-core/, gsd-* agents/commands/hooks) was migrated to a
+# global install and removed from the repo, so .planning/ is the sole remaining framework trace.
+EXPECTED_TRACE_TOKENS = (".planning/",)
 
 # Live-code deletion primitives that must NOT appear anywhere in the reporter source.
 DELETE_PRIMITIVES = ("os.remove", "shutil.rmtree", "Path.unlink", "os.unlink", ".unlink(")
