@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 AGENTS_DIR = REPO_ROOT / ".claude" / "agents"
 COMMANDS_DIR = REPO_ROOT / ".claude" / "commands"
 HUB_PATH = AGENTS_DIR / "gmj-orchestrator.md"
+PIPELINE_RUN_CMD = COMMANDS_DIR / "gmj-pipeline-run.md"
 
 SPOKES = ["gmj-offer-scout", "gmj-artifact-composer", "gmj-truth-verifier", "gmj-fit-evaluator", "gmj-cv-generator"]
 CONTROL_SCRIPTS = [
@@ -28,6 +29,7 @@ CONTROL_SCRIPTS = [
     "gmj_check_cap.py",
     "gmj_map_feedback.py",
     "gmj_check_delivery.py",
+    "gmj_pipeline_run.py",
 ]
 # Retired legacy tokens — the old cv-* review/enhance roster, the deliverable gate,
 # the fast-path label, the enhance-cycle constant, and the LLM router — must be ABSENT
@@ -96,6 +98,31 @@ def test_only_hub_holds_task() -> None:
         spoke_tools = _frontmatter_tools(_read(AGENTS_DIR / f"{spoke}.md"))
         tool_set = {t.strip() for t in spoke_tools.split(",")}
         assert "Task" not in tool_set, f"spoke {spoke} must NOT hold Task; got: {spoke_tools}"
+
+
+def test_hub_documents_per_type_state_isolation() -> None:
+    # ARTF-01/04: the hub must state per-artifact-type state.json isolation explicitly —
+    # each of the -cv/-cl/-ip derived-run_id suffixes, plus the "own ... state.json" phrasing.
+    hub = _read(HUB_PATH)
+    for suffix in ["-cv", "-cl", "-ip"]:
+        assert suffix in hub, (
+            f"hub does not name the per-type derived-run_id suffix {suffix!r} (ARTF-01/04)"
+        )
+    assert "own" in hub and "state.json" in hub, (
+        "hub does not state per-artifact-type state.json isolation via 'own ... state.json' (ARTF-01/04)"
+    )
+
+
+def test_pipeline_run_documents_artifact_types_flag() -> None:
+    # ARTF-03: the whole-flow command doc must document the --artifact-types flag and its
+    # default artifact set.
+    doc = _read(PIPELINE_RUN_CMD)
+    assert "artifact-types" in doc, (
+        "gmj-pipeline-run.md does not document the --artifact-types flag (ARTF-03)"
+    )
+    assert "cv,cover_letter,interview_prep" in doc, (
+        "gmj-pipeline-run.md does not document the default artifact-types set 'cv,cover_letter,interview_prep' (ARTF-03)"
+    )
 
 
 def test_pipeline_commands_exist() -> None:
