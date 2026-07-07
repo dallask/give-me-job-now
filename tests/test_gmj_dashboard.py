@@ -1007,6 +1007,61 @@ def test_vacancy_drill_in_modal_open() -> None:
     assert probe["stack_closed"] == 1
 
 
+# --- TEST-03 (HON-03): a live resume child flips the run-status cell to the in-flight overlay ------
+
+# Deterministic — asserts DIRECTLY on the pure ``_table_status`` `Text` return (`.plain` + `.style`),
+# never on a rendered Pilot frame. The overlay branch fires purely off an in-memory
+# ``_launched_runs[rid]`` entry whose child reads as alive (a ``_FakeProc`` has NO ``returncode``
+# attribute, so ``getattr(proc, "returncode", None) is None`` → True). No disk write, no timing,
+# no ``_settle`` — mutating only ``app._launched_runs`` inside a throwaway ``_temp_pipeline()``
+# (T-29-06: run state is never touched on disk).
+_INFLIGHT_RUN_ID = "20260601T120000-del"
+_INFLIGHT_PROJECTED = "delivered"
+
+
+async def _probe_inflight_overlay(pipeline_dir: Path) -> dict:
+    """Build the app, snapshot ``_table_status`` with NO live child, then seed one and re-snapshot."""
+    app = _build_app(pipeline_dir, manage=True)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        rid = _INFLIGHT_RUN_ID
+        # No live child in _launched_runs → the cell shows the projected status VERBATIM.
+        normal = app._table_status(rid, _INFLIGHT_PROJECTED)
+        # A live resume child (no returncode → alive) sits under this run_id → the cell flips.
+        app._launched_runs[rid] = _FakeProc()
+        inflight = app._table_status(rid, _INFLIGHT_PROJECTED)
+        return {
+            "normal_plain": normal.plain,
+            "normal_style": str(normal.style),
+            "inflight_plain": inflight.plain,
+            "inflight_style": str(inflight.style),
+            "token": app._inflight_status_token(),
+        }
+
+
+def test_resume_shows_inflight_overlay() -> None:
+    with _temp_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            probe = asyncio.run(_probe_inflight_overlay(pipe))
+        assert "Traceback" not in buf.getvalue(), f"in-flight overlay probe leaked a traceback: {buf.getvalue()}"
+
+    # No live child → the projected status is returned verbatim (no overlay).
+    assert probe["normal_plain"] == _INFLIGHT_PROJECTED, (
+        f"with no live child the cell must show the projected status verbatim: {probe['normal_plain']!r}"
+    )
+    # A live resume child flips the cell to the distinct in-flight token ("running").
+    assert probe["token"] == "running", f"the in-flight token must be 'running': {probe['token']!r}"
+    assert probe["inflight_plain"] == probe["token"] == "running", (
+        f"a live resume child must flip the cell to the in-flight token: {probe['inflight_plain']!r}"
+    )
+    # The overlay applies a DISTINCT style (in-flight color != frozen-status color).
+    assert probe["inflight_style"] != probe["normal_style"], (
+        f"the in-flight overlay must apply a distinct style vs the frozen status: "
+        f"{probe['inflight_style']!r} == {probe['normal_style']!r}"
+    )
+
+
 # --- VIEW-11: built-in command palette opens + filter Input narrows the runs table ---------------
 
 # A distinguishing filter substring: "del" matches the -del run by run_id AND the three delivered runs
