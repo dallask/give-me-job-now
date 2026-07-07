@@ -261,6 +261,12 @@ FeatureModal {
     background: $background 60%;
 }
 
+DocFileModal {
+    layout: vertical;
+    align: center middle;
+    background: $background 60%;
+}
+
 #cfg-modal-card {
     width: 90%;
     height: 90%;
@@ -278,6 +284,29 @@ FeatureModal {
 }
 
 #cfg-modal-body {
+    width: 100%;
+    height: auto;
+    border: none;
+    padding: 0 1;
+}
+
+#doc-modal-card {
+    width: 95%;
+    height: 90%;
+    layout: vertical;
+    padding: 0 1;
+    background: #0d1117;
+    color: #c9d1d9;
+    border: round #58a6ff;
+}
+
+#doc-modal-scroll {
+    height: 1fr;
+    width: 100%;
+    border: none;
+}
+
+#doc-modal-body {
     width: 100%;
     height: auto;
     border: none;
@@ -395,7 +424,9 @@ FeatureModal {
 #diag-tabs-panel #debug,
 #diag-tabs-panel #metrics,
 #diag-tabs-panel #dag-placeholder,
-#diag-tabs-panel #charts {
+#diag-tabs-panel #charts,
+#diag-tabs-panel #docs-table,
+#diag-tabs-panel #docs-placeholder {
     height: auto;
     width: 100%;
     border: none;
@@ -426,6 +457,14 @@ FeatureModal {
     color: #c9d1d9;
 }
 
+#docs-table {
+    color: #79c0ff;
+}
+
+#docs-placeholder {
+    color: #79c0ff;
+}
+
 /* Colored tab titles (class-tagged in _seed_widgets). */
 #diag-tabs-panel Tab.diag-tab-errors {
     color: #f85149;
@@ -453,6 +492,10 @@ FeatureModal {
 
 #diag-tabs-panel Tab.diag-tab-charts {
     color: #3fb950;
+}
+
+#diag-tabs-panel Tab.diag-tab-docs {
+    color: #58a6ff;
 }
 
 #diag-tabs-panel Tab.-active {
@@ -491,6 +534,10 @@ FeatureModal {
 
 #diag-tabs-panel Tabs:ansi Tab.diag-tab-charts.-active {
     color: #3fb950;
+}
+
+#diag-tabs-panel Tabs:ansi Tab.diag-tab-docs.-active {
+    color: #58a6ff;
 }
 
 /* Event-type color classes (activity feed, VIEW-13) — .tcss is NOT grep-scanned, so the event word

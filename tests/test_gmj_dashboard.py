@@ -1495,6 +1495,7 @@ def test_diag_tabs_panel_switch() -> None:
         "metrics",
         "pipeline stages",
         "throughput / gates",
+        "docs",
     ]
     assert probe["activity_nonempty"], f"activity tab must show content: {probe!r}"
     assert "Select a run for internals" in probe["debug_text"]
