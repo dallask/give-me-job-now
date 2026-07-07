@@ -53,4 +53,6 @@ end-to-end real-offer run.
 | [References](docs/references.md) | Contracts, schemas, and the `agent_result_v1` envelope. |
 | [Features](docs/features.md) | Core value, guarantees, and capabilities. |
 | [Runbook](docs/RUNBOOK.md) | End-to-end walkthrough of a real-offer run. |
+| [Showcase](docs/SHOWCASE.md) | End-to-end narrative with a concrete walked offer→artifacts example (both gates firing). |
+| [Demo walkthrough](docs/DEMO-WALKTHROUGH.md) | Scripted live demo — exact command sequence, narration beats, and an asciinema recording plan. |
 | [Human testing plan](docs/HUMAN-TESTING-PLAN.md) | Manual verification plan for the collective. |
