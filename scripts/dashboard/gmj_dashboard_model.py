@@ -470,11 +470,18 @@ class DashboardModel:
             return {"path": rel_path, "error": "Invalid config path"}
         if any(part in ("", ".", "..") for part in rel.split("/")):
             return {"path": rel_path, "error": "Invalid config path"}
-        target = (self.repo_root / rel).resolve()
-        config_root = (self.repo_root / "config").resolve()
+        try:
+            target = (self.repo_root / rel).resolve()
+            config_root = (self.repo_root / "config").resolve()
+        except (OSError, ValueError):
+            return {"path": rel_path, "error": "Invalid config path"}
         if target != config_root and config_root not in target.parents:
             return {"path": rel_path, "error": "Invalid config path"}
-        if not target.is_file():
+        try:
+            is_file = target.is_file()
+        except OSError:
+            return {"path": rel, "error": "Invalid config path"}
+        if not is_file:
             return {"path": rel, "error": "File not found"}
         try:
             return {"path": rel, "text": target.read_text(encoding="utf-8")}
@@ -507,11 +514,18 @@ class DashboardModel:
             return {"path": rel_path, "error": "Invalid docs path"}
         if any(part in ("", ".", "..") for part in rel.split("/")):
             return {"path": rel_path, "error": "Invalid docs path"}
-        target = (self.repo_root / rel).resolve()
-        docs_root = (self.repo_root / "docs").resolve()
+        try:
+            target = (self.repo_root / rel).resolve()
+            docs_root = (self.repo_root / "docs").resolve()
+        except (OSError, ValueError):
+            return {"path": rel_path, "error": "Invalid docs path"}
         if target != docs_root and docs_root not in target.parents:
             return {"path": rel_path, "error": "Invalid docs path"}
-        if not target.is_file():
+        try:
+            is_file = target.is_file()
+        except OSError:
+            return {"path": rel, "error": "Invalid docs path"}
+        if not is_file:
             return {"path": rel, "error": "File not found"}
         try:
             return {"path": rel, "text": target.read_text(encoding="utf-8")}
