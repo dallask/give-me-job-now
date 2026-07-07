@@ -29,6 +29,8 @@ import ast
 import asyncio
 import contextlib
 import io
+import json
+import os
 import re
 import shutil
 import sys
@@ -77,6 +79,9 @@ class _FakeProc:
     def __init__(self) -> None:
         self.wait_calls = 0
         self.communicate_calls = 0
+        # 28-03: the sidecar writer records the child pid — a live self-pid keeps the reaper's
+        # dead-pid prune from clearing a just-written sidecar mid-test (os.getpid() is always alive).
+        self.pid = os.getpid()
 
     async def wait(self) -> int:
         self.wait_calls += 1
@@ -85,6 +90,16 @@ class _FakeProc:
     async def communicate(self):
         self.communicate_calls += 1
         return (b"", b"")
+
+
+class _BlockingProc(_FakeProc):
+    """A ``_FakeProc`` whose ``wait()`` never returns — so ``_watch_launch`` does NOT reap the sidecar
+    during a launch-write assertion window (the sidecar-write test inspects disk while the child lives)."""
+
+    async def wait(self) -> int:
+        self.wait_calls += 1
+        await asyncio.Event().wait()  # blocks forever — the child is treated as still alive
+        return 0  # pragma: no cover — never reached
 
 
 class _RecordingLauncher:
@@ -2123,6 +2138,72 @@ def test_startup_has_no_default_focus() -> None:
     with _temp_pipeline() as pipe:
         focused_id = asyncio.run(_probe_startup_focus(pipe))
     assert focused_id is None, f"no widget should be focused at startup, got {focused_id!r}"
+
+
+# --- RELOAD-01/02 (Plan 28-03): view wires the launch sidecar into launch/watch/heartbeat ----------
+
+_LAUNCHES_GLOB = "launches/*.json"
+
+
+def _launches_of(pipeline_dir: Path) -> list[Path]:
+    """All launch sidecars currently on disk under a pipeline dir (empty when none/absent)."""
+    return sorted((Path(pipeline_dir) / "launches").glob("*.json"))
+
+
+def test_launch_sidecar_kind_derives_from_slash() -> None:
+    """The sidecar kind is derived from the feature SLASH (collective/interview/template) — NOT
+    feature['kind'] (command/agent/skill/flow). Pure helper, no pilot render (deterministic)."""
+    with _temp_pipeline() as pipe:
+        app = _build_app(pipe, manage=True)
+        assert app._launch_sidecar_kind({"slash": "/gmj-interview"}) == "interview"
+        assert app._launch_sidecar_kind({"slash": "/gmj-template"}) == "template"
+        assert app._launch_sidecar_kind({"slash": "/gmj-collective"}) == "collective"
+        # The default + writer-clamp backstop: any other slash (or none) maps to collective.
+        assert app._launch_sidecar_kind({"slash": "/gmj-pipeline-run"}) == "collective"
+        assert app._launch_sidecar_kind({}) == "collective"
+
+
+async def _drive_feature_launch(pipeline_dir: Path, feature: dict, *, manage: bool) -> None:
+    """Drive ``_launch_feature`` for a feature under a running pilot; the child ``wait()`` BLOCKS so the
+    sidecar is inspected while the launch is still live (no reap-on-exit race)."""
+    app = _build_app(pipeline_dir, manage=manage, refresh=0.1, repo_root=REPO_ROOT)
+    rec = _RecordingLauncher()
+    rec.proc = _BlockingProc()  # the launched child never exits → _watch_launch does not reap
+    app._launcher = rec
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        app._launch_feature(feature, {"args": "https://example.test/job"})
+        for _ in range(10):
+            await pilot.pause()
+
+
+def test_launch_feature_writes_sidecar_under_manage() -> None:
+    """Under --manage, driving a FeatureModal Run writes exactly one launch sidecar with the
+    slash-derived kind (RELOAD-01 wiring). The view delegates the write to the actions module."""
+    feature = {"kind": "command", "slash": "/gmj-template", "name": "gmj-template"}
+    with _temp_idle_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            asyncio.run(_drive_feature_launch(pipe, feature, manage=True))
+        assert "Traceback" not in buf.getvalue(), f"feature launch leaked a traceback: {buf.getvalue()}"
+        sidecars = _launches_of(pipe)
+        assert len(sidecars) == 1, f"a --manage feature launch must write exactly one sidecar: {sidecars}"
+        payload = json.loads(sidecars[0].read_text(encoding="utf-8"))
+        assert payload.get("kind") == "template", (
+            f"the sidecar kind must be derived from the /gmj-template slash: {payload!r}"
+        )
+        assert payload.get("label") == "gmj-template", f"the sidecar must carry the feature label: {payload!r}"
+
+
+def test_launch_feature_readonly_writes_no_sidecar() -> None:
+    """Without --manage the same action writes NO sidecar — the read-only board never mutates disk."""
+    feature = {"kind": "command", "slash": "/gmj-collective", "name": "gmj-collective"}
+    with _temp_idle_pipeline() as pipe:
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            asyncio.run(_drive_feature_launch(pipe, feature, manage=False))
+        assert "Traceback" not in buf.getvalue(), f"read-only launch leaked a traceback: {buf.getvalue()}"
+        assert _launches_of(pipe) == [], "a read-only feature launch must write NO sidecar"
 
 
 def main() -> int:
