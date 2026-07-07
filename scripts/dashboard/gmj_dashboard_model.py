@@ -31,7 +31,9 @@ Plan 20-02 — their keys are present here as empty/placeholder values so the sn
 
 from __future__ import annotations
 
+import errno
 import json
+import os
 import sys
 import time
 from collections import Counter
@@ -230,6 +232,60 @@ class DashboardModel:
                 else:  # torn or non-dict manifest -> degrade batch row
                     rows.append(_degrade_batch_row(batch_id))
         rows.sort(key=lambda r: r["batch_id"], reverse=True)
+        return rows
+
+    def _is_pid_alive(self, pid) -> bool:
+        """Liveness probe via ``os.kill(pid, 0)`` — a READ-ONLY existence check, never a signal.
+
+        ``os.kill(pid, 0)`` sends no signal; it only tests whether the pid exists and is signalable.
+        ``EPERM`` (the pid exists but is owned by another uid) is treated as ALIVE; ``ESRCH`` (no such
+        process) as dead. A non-positive / non-int / bool pid is rejected BEFORE the probe — signal 0
+        to pid ``0`` or ``-1`` addresses a whole process GROUP, which must never be probed (T-28-02).
+        This helper NEVER raises out of the read model (the never-a-traceback contract).
+        """
+        if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+            return False  # never probe pid<=0 / non-int / bool — os.kill(0,0) hits a process group
+        try:
+            os.kill(pid, 0)
+            return True
+        except ProcessLookupError:  # ESRCH — no such process → dead
+            return False
+        except PermissionError:  # EPERM — exists, owned by another uid → alive
+            return True
+        except OSError as exc:  # any other errno: alive only if it is EPERM, else conservatively dead
+            return exc.errno == errno.EPERM
+
+    def _launches(self) -> list[dict]:
+        """Walk ``<pipeline_dir>/launches/*.json`` (mirror ``_batches()``); keep only LIVE-pid launches.
+
+        Read-only + torn-read tolerant, cloning the ``_batches()`` walk shape: ``is_dir()`` guard,
+        ``sorted(glob)``, ``_safe_component`` gate on the filename stem, ``_load_state_tolerant`` reuse.
+        A missing / torn / non-dict sidecar is SKIPPED (never a degrade row, never a raise). A dead-pid
+        sidecar is FILTERED OUT — never deleted (deletion is the actions reaper's job, not the model's).
+        """
+        rows: list[dict] = []
+        launches_dir = self.pipeline_dir / "launches"
+        if not launches_dir.is_dir():
+            return rows
+        for p in sorted(launches_dir.glob("*.json")):
+            launch_id = p.stem
+            if not _safe_component(launch_id):  # defence in depth on the filename stem
+                continue
+            result = _load_state_tolerant(p)  # reuse the torn-read-tolerant loader
+            if not isinstance(result, dict):
+                continue  # torn / malformed / missing → skip, never degrade-row
+            pid = result.get("pid")
+            if not self._is_pid_alive(pid):
+                continue  # dead / stale → not shown (NEVER deleted — the actions reaper prunes)
+            rows.append(
+                {
+                    "launch_id": result.get("launch_id") or launch_id,
+                    "kind": result.get("kind"),
+                    "label": result.get("label"),
+                    "pid": pid,
+                    "launched_at": result.get("launched_at"),
+                }
+            )
         return rows
 
     # ── thin readers (MODEL-05) — all read-only, all degrade to {}/[] on a missing/bad file ──
