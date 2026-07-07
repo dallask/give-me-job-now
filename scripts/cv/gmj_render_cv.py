@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render candidate YAML to PDF using ReportLab. Optional Jinja2 HTML template via WeasyPrint if installed."""
+"""Render candidate YAML to PDF: defaults to templates/cv/baxter.html via Jinja2 + WeasyPrint, falling back to the built-in ReportLab layout (--no-template, WeasyPrint/Jinja2 unavailable, or default template missing)."""
 
 from __future__ import annotations
 
@@ -496,12 +496,12 @@ def main() -> int:
     parser.add_argument(
         "--template",
         type=Path,
-        help="Optional Jinja2 HTML template (requires weasyprint)",
+        help="Override the default baxter.html Jinja2 template (requires weasyprint)",
     )
     parser.add_argument(
         "--no-template",
         action="store_true",
-        help="Force built-in ReportLab layout (default when --template omitted)",
+        help="Force built-in ReportLab layout (overriding the default baxter.html template)",
     )
     parser.add_argument(
         "--lang",
