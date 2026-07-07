@@ -297,6 +297,73 @@ def test_generate_launch_id_is_path_safe() -> None:
         assert "/" not in lid and ".." not in lid, f"generated id must have no traversal: {lid!r}"
 
 
+# ── RELOAD-02: clean reaper + bounded dead-pid prune ──────────────────────────────────────────────
+
+def _seed_sidecar(tmp: str, pid: int) -> str:
+    """Directly seed one launches/<id>.json with a chosen pid (bypasses the writer's own pid)."""
+    launch_id = actions._generate_launch_id()
+    d = Path(tmp) / "launches"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{launch_id}.json").write_text(
+        json.dumps({"launch_id": launch_id, "kind": "collective", "label": "x", "pid": pid,
+                    "launched_at": "1970-01-01T00:00:00Z", "cmd": "claude"}),
+        encoding="utf-8",
+    )
+    return launch_id
+
+
+def test_reap_launch_sidecar_roundtrip() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        launch_id = actions.write_launch_sidecar(
+            tmp, kind="collective", label="x", pid=os.getpid(), cmd="claude"
+        )
+        sidecar = Path(tmp) / "launches" / f"{launch_id}.json"
+        assert sidecar.is_file(), "precondition: the sidecar exists before reap"
+        actions.reap_launch_sidecar(tmp, launch_id)
+        assert not sidecar.exists(), "reap must remove the sidecar"
+        # A second reap of the same (now absent) id is a no-op and must never raise.
+        actions.reap_launch_sidecar(tmp, launch_id)
+        assert not sidecar.exists(), "a second reap stays a no-op"
+
+
+def test_reap_launch_sidecar_traversal_safe() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        # A crafted traversal id is a no-op guarded by _safe_launch_id — it must never raise and must
+        # never touch anything outside launches/.
+        actions.reap_launch_sidecar(tmp, "../../etc/passwd")
+        actions.reap_launch_sidecar(tmp, "..")
+        actions.reap_launch_sidecar(tmp, "a/b")
+        assert not actions._safe_launch_id("../../etc/passwd"), "traversal id must be rejected"
+        assert not actions._safe_launch_id("a/b"), "slash-bearing id must be rejected"
+        assert not actions._safe_launch_id(""), "empty id must be rejected"
+        assert actions._safe_launch_id("20260707T010203-abcdef"), "a generated id must be accepted"
+
+
+def test_reap_dead_launches_prunes_dead_keeps_live() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        live_id = _seed_sidecar(tmp, os.getpid())        # this process — alive
+        dead_id = _seed_sidecar(tmp, 2**31 - 1)          # impossible pid — dead
+        removed = actions.reap_dead_launches(tmp)
+        assert removed == 1, f"exactly the one dead sidecar must be pruned: removed={removed}"
+        assert (Path(tmp) / "launches" / f"{live_id}.json").is_file(), "a live-pid sidecar must survive"
+        assert not (Path(tmp) / "launches" / f"{dead_id}.json").exists(), "the dead-pid sidecar is gone"
+
+
+def test_reap_dead_launches_bounded_and_torn_tolerant() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        # No launches dir yet → 0, never raises.
+        assert actions.reap_dead_launches(tmp) == 0, "absent launches dir → 0"
+        # Seed 5 dead sidecars but bound the prune at 2.
+        for _ in range(5):
+            _seed_sidecar(tmp, 2**31 - 1)
+        removed = actions.reap_dead_launches(tmp, limit=2)
+        assert removed == 2, f"the prune must be bounded by limit: removed={removed}"
+        # A torn / non-JSON sidecar is skipped without raising.
+        (Path(tmp) / "launches" / "torn.json").write_text("{not json", encoding="utf-8")
+        actions.reap_dead_launches(tmp)  # must not raise
+        assert (Path(tmp) / "launches" / "torn.json").is_file(), "a torn sidecar is skipped, not removed"
+
+
 # ── SAFETY-01: no dashboard code path writes a gate verdict / forces delivery ──────────────────────
 
 # Write sinks: a forbidden path literal is only an offence when it is the TARGET of a WRITE, so a
