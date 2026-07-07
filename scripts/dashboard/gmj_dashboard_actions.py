@@ -29,10 +29,14 @@ and the verbatim (never-executed) resume-command display live in the view (Plan 
 from __future__ import annotations
 
 import asyncio
+import errno
+import json
 import os
 import re
+import secrets
 import subprocess
 import sys
+import time
 from pathlib import Path
 from subprocess import DEVNULL
 
@@ -202,3 +206,49 @@ def set_retry_cap(path: Path, cap: int) -> None:
     if not _CAP_RE.search(text):
         raise ValueError("retry_cap key not found in config")
     _atomic_write(path, _CAP_RE.sub(rf"\g<1>{cap}\g<3>", text, count=1))
+
+
+# ── launch-sidecar persistence + reaping (RELOAD-01 / RELOAD-02) ──────────────────────────────────
+#
+# A non-pipeline feature launch (collective / interview / template) tracked ONLY in memory vanishes on
+# a dashboard restart, whereas pipeline runs and batches survive because the read model walks their
+# on-disk state. This block closes that gap: it persists a per-launch sidecar under
+# ``<pipeline_dir>/launches/<launch_id>.json`` (parallel to ``runs/`` and ``batches/``) so a restarted
+# dashboard's read-only model can recover an in-flight feature launch, and it reaps those sidecars
+# (clean exit + bounded dead-pid prune) — all writes/deletes staying inside this SOLE mutator module.
+
+_LAUNCH_KINDS = ("collective", "interview", "template")
+
+# Mirror gmj_runs._ID_RE (^[A-Za-z0-9._-]+$): the launch_id is a single safe path component under
+# launches/, so a crafted id can never escape the dir. The id is GENERATED here (never operator-
+# supplied), but the reap path re-validates before any unlink (defense in depth, T-28-01).
+_LAUNCH_ID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def _generate_launch_id() -> str:
+    """UTC-timestamp + short hex token — inherently _ID_RE / _safe_component safe (no '/', no '..')."""
+    return f"{time.strftime('%Y%m%dT%H%M%S', time.gmtime())}-{secrets.token_hex(3)}"
+
+
+def write_launch_sidecar(pipeline_dir, *, kind, label, pid, cmd) -> str:
+    """Persist one non-pipeline feature launch (RELOAD-01). Returns the generated launch_id.
+
+    Publishes ``<pipeline_dir>/launches/<launch_id>.json`` atomically via the EXISTING ``_atomic_write``
+    (:160) — never a hand-rolled second tmp+rename. ``kind`` is clamped to a known feature kind; an
+    unknown kind falls back to ``collective``. The sidecar carries the six keys the read model reads
+    back: ``{launch_id, kind, label, pid, launched_at, cmd}``. The write-call path is built ONLY from
+    the ``"launches"`` string literal + a generated id (no forbidden gate/run-state substring).
+    """
+    launch_id = _generate_launch_id()
+    launches_dir = Path(pipeline_dir) / "launches"
+    launches_dir.mkdir(parents=True, exist_ok=True)  # a write — legitimate ONLY in this module
+    payload = {
+        "launch_id": launch_id,
+        "kind": kind if kind in _LAUNCH_KINDS else "collective",
+        "label": str(label),
+        "pid": int(pid),
+        "launched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "cmd": str(cmd),
+    }
+    _atomic_write(launches_dir / f"{launch_id}.json", json.dumps(payload, ensure_ascii=False))
+    return launch_id
