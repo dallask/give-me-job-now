@@ -675,6 +675,61 @@ def test_launches_skips_torn_or_nondict_sidecar() -> None:
         assert "Traceback" not in buf.getvalue(), "_launches() must never leak a traceback"
 
 
+# --- RELOAD-02: launches folded into pipeline_activity() + snapshot() ----------
+
+def test_launches_survive_reload_and_liveness_filter() -> None:
+    # RELOAD simulation: a FRESH DashboardModel (no in-memory state) pointed at the SAME tempdir
+    # recovers the live-pid launch, filters the dead one, marks pipeline_activity active, and NEVER
+    # deletes the dead sidecar. This is the RELOAD-02 recovery half at parity with runs/batches.
+    with tempfile.TemporaryDirectory() as tmp:
+        launches_dir = Path(tmp) / "launches"
+        _seed_launch(launches_dir, "20260707T120000-aaa", {
+            "launch_id": "20260707T120000-aaa", "kind": "collective", "label": "gmj-collective",
+            "pid": os.getpid(), "launched_at": "2026-07-07T12:00:00Z", "cmd": "claude -p ...",
+        })
+        dead = _seed_launch(launches_dir, "20260707T120001-bbb", {
+            "launch_id": "20260707T120001-bbb", "kind": "interview", "label": "gmj-interview",
+            "pid": _IMPOSSIBLE_PID, "launched_at": "2026-07-07T12:00:01Z", "cmd": "claude -p ...",
+        })
+        # RELOAD = a brand-new model instance over the same dir (no carried-over memory).
+        model = gmj_dashboard_model.DashboardModel(pipeline_dir=tmp, repo_root=REPO_ROOT)
+        snap = _snapshot(model)  # asserts never-a-traceback
+        live = {l["launch_id"] for l in snap["launches"]}
+        assert "20260707T120000-aaa" in live, "a live-pid launch must recover after reload (RELOAD-02)"
+        assert "20260707T120001-bbb" not in live, "a dead-pid launch must be filtered out (not shown)"
+        assert snap["pipeline_activity"]["active"] is True, "a live launch must mark disk activity active"
+        assert dead.is_file(), "the read model must not delete the dead-pid sidecar"
+
+
+def test_snapshot_has_launches_key() -> None:
+    # snapshot() carries a top-level `launches` list alongside runs/batches — even with no sidecars.
+    with tempfile.TemporaryDirectory() as tmp:
+        model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(Path(tmp) / "nopipeline"), repo_root=REPO_ROOT)
+        snap = _snapshot(model)
+        assert "launches" in snap, f"snapshot() must carry a `launches` key: {sorted(snap)}"
+        assert snap["launches"] == [], "an absent launches dir degrades to []"
+
+
+def test_pipeline_activity_active_launches_surface() -> None:
+    # pipeline_activity() over a live launch exposes active_launches=[{launch_id,kind,label}] and
+    # flips active True; the existing active_run_ids/active_batch_ids keys stay present (shape parity).
+    with tempfile.TemporaryDirectory() as tmp:
+        launches_dir = Path(tmp) / "launches"
+        _seed_launch(launches_dir, "20260707T130000-ccc", {
+            "launch_id": "20260707T130000-ccc", "kind": "template", "label": "gmj-template",
+            "pid": os.getpid(), "launched_at": "2026-07-07T13:00:00Z", "cmd": "claude -p ...",
+        })
+        model = gmj_dashboard_model.DashboardModel(pipeline_dir=tmp, repo_root=REPO_ROOT)
+        pa = model.pipeline_activity()
+        for key in ("active", "active_run_ids", "active_batch_ids", "active_launches"):
+            assert key in pa, f"pipeline_activity() must carry {key!r}: {sorted(pa)}"
+        assert pa["active"] is True, "a live launch must flip active True"
+        assert pa["active_launches"] == [
+            {"launch_id": "20260707T130000-ccc", "kind": "template", "label": "gmj-template"}
+        ], pa["active_launches"]
+        assert pa["active_run_ids"] == [] and pa["active_batch_ids"] == [], pa
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
