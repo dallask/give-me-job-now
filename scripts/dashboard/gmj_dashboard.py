@@ -1327,6 +1327,9 @@ class GmjDashboard(App):
         if event.control.id == "config-table":
             self._on_config_row_selected(row_key)
             return
+        if event.control.id == "docs-table":
+            self._on_docs_row_selected(row_key)
+            return
         if event.control.id == "features-table":
             self.open_feature_detail(row_key)
             return
@@ -1341,6 +1344,16 @@ class GmjDashboard(App):
     def open_config_file(self, rel_path: str) -> None:
         """Push a ``ConfigFileModal`` with the on-demand ``config_file_text`` payload."""
         self.push_screen(ConfigFileModal(self._model.config_file_text(rel_path)))
+
+    def _on_docs_row_selected(self, rel_path: str) -> None:
+        """DOCTAB-01/02: open a read-only modal with the selected doc's Markdown content."""
+        self.open_doc_file(rel_path)
+
+    def open_doc_file(self, rel_path: str) -> None:
+        """Push a ``DocFileModal`` with the on-demand ``doc_file_text`` payload — read fresh from
+        disk on every call, never cached (DOCTAB-03).
+        """
+        self.push_screen(DocFileModal(self._model.doc_file_text(rel_path)))
 
     def open_run_detail(self, run_id: str) -> None:
         """Push a ``RunDetailModal`` built from the on-demand ``run_detail(run_id)`` payload.
@@ -1458,6 +1471,7 @@ class GmjDashboard(App):
         self._apply_metrics(snap.get("metrics") or {})
         self._apply_features(snap.get("features") or [])
         self._apply_config(snap.get("config_files") or [])
+        self._apply_docs(snap.get("docs_files") or [])
         self._apply_vacancies(snap.get("vacancies") or [], snap.get("batches") or [])
         self._apply_errors(snap.get("errors") or [])  # VIEW-12: red-forward per-failed-run gate detail
         self._apply_activity(snap.get("activity") or [])  # VIEW-13: newest-first event timeline
@@ -1625,6 +1639,27 @@ class GmjDashboard(App):
                 t.add_row(rel, key=rel)
         for gone in known - seen:
             t.remove_row(gone)
+
+    def _apply_docs(self, files: list) -> None:
+        """Diff the docs browser from ``snapshot()['docs_files']`` (DOCTAB-01/03) and toggle the
+        ``#docs-placeholder`` empty-state text (33-CONTEXT.md's locked decision).
+
+        One row per top-level ``docs/*.md`` path (posix-relative to repo root). Enter / click opens
+        a read-only Markdown modal via ``model.doc_file_text``.
+        """
+        t = self.query_one("#docs-table", DataTable)
+        known = set(t.rows)
+        seen: set = set()
+        for rel in sorted(str(path) for path in (files or [])):
+            seen.add(rel)
+            if rel in known:
+                t.update_cell(rel, "file", rel)
+            else:
+                t.add_row(rel, key=rel)
+        for gone in known - seen:
+            t.remove_row(gone)
+        placeholder = self.query_one("#docs-placeholder", Static)
+        placeholder.update("(no docs found)" if not files else "")
 
     # ── errors panel (VIEW-12) — red-forward per-failed-run Gate A/Gate B detail ───────────────────
 
