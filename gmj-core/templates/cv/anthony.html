@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ candidate.name }} - CV</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600;1,700;1,800&display=swap" rel="stylesheet">
+  <style>
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      width: 210mm;
+    }
+
+    body {
+      font-family: 'Open Sans', Arial, sans-serif;
+      font-size: 10pt;
+      color: #1a1a1a;
+      background: #ffffff;
+      width: 210mm;
+      margin: 0 auto;
+      padding: 12mm 18mm 12mm 18mm;
+    }
+
+    /* ===================== HEADER ===================== */
+    .header {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 22px;
+      gap: 22px;
+    }
+
+    .photo-wrapper {
+      flex-shrink: 0;
+    }
+
+    .photo-wrapper img {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #E07B39;
+      display: block;
+    }
+
+    .photo-placeholder {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: #cccccc;
+      border: 3px solid #E07B39;
+      display: block;
+    }
+
+    .header-info {
+      flex: 1;
+      padding-top: 4px;
+    }
+
+    .candidate-name {
+      font-size: 38pt;
+      font-weight: 800;
+      line-height: 1.0;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .name-first {
+      color: #1a1a1a;
+    }
+
+    .name-last {
+      color: #E07B39;
+    }
+
+    .contact-info {
+      font-size: 9.5pt;
+      color: #333333;
+      line-height: 1.75;
+    }
+
+    /* ===================== TIMELINE WRAPPER ===================== */
+    /* The entire body of sections below the header sits in this wrapper.
+       A thin vertical orange line runs on the left side; sections get
+       filled orange circle bullets. */
+    .timeline-wrapper {
+      position: relative;
+      padding-left: 32px;
+    }
+
+    /* The vertical orange line */
+    .timeline-wrapper::before {
+      content: '';
+      position: absolute;
+      left: 6px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background-color: #E07B39;
+    }
+
+    /* ===================== SECTION ===================== */
+    .section {
+      margin-bottom: 18px;
+      position: relative;
+    }
+
+    .section:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-heading {
+      font-size: 15pt;
+      font-weight: 700;
+      font-style: italic;
+      color: #E07B39;
+      margin-bottom: 8px;
+      position: relative;
+    }
+
+    /* Filled orange circle at section heading level */
+    .section-heading::before {
+      content: '';
+      position: absolute;
+      left: -32px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      background-color: #E07B39;
+      border-radius: 50%;
+    }
+
+    /* ===================== SUMMARY ===================== */
+    .summary-text {
+      font-size: 10pt;
+      color: #333333;
+      line-height: 1.6;
+    }
+
+    /* ===================== SKILLS ===================== */
+    .skills-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      columns: 1;
+    }
+
+    .skills-list li {
+      font-size: 10pt;
+      color: #222222;
+      line-height: 1.65;
+      padding-left: 16px;
+      position: relative;
+      margin-bottom: 1px;
+    }
+
+    .skills-list li::before {
+      content: '\2022';
+      position: absolute;
+      left: 0;
+      color: #1a1a1a;
+      font-size: 16pt;
+      line-height: 1.1;
+    }
+
+    .skills-group {
+      margin-bottom: 8px;
+    }
+
+    .skills-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .skills-group-title {
+      font-size: 10pt;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 2px;
+    }
+
+    /* ===================== EXPERIENCE ===================== */
+    .experience-item {
+      margin-bottom: 16px;
+    }
+
+    .experience-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .experience-role-line {
+      font-size: 10pt;
+      color: #1a1a1a;
+      margin-bottom: 1px;
+    }
+
+    .experience-role {
+      font-weight: 700;
+    }
+
+    .experience-dates {
+      font-weight: 400;
+    }
+
+    .experience-company-line {
+      font-size: 10pt;
+      color: #1a1a1a;
+      margin-bottom: 5px;
+    }
+
+    .experience-company {
+      font-weight: 700;
+    }
+
+    .experience-location {
+      font-weight: 400;
+    }
+
+    .experience-achievements {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .experience-achievements li {
+      font-size: 10pt;
+      color: #333333;
+      line-height: 1.55;
+      padding-left: 16px;
+      position: relative;
+      margin-bottom: 3px;
+    }
+
+    .experience-achievements li::before {
+      content: '\2022';
+      position: absolute;
+      left: 0;
+      color: #1a1a1a;
+      font-size: 16pt;
+      line-height: 1.1;
+    }
+
+    /* ===================== EDUCATION ===================== */
+    .education-item {
+      margin-bottom: 10px;
+    }
+
+    .education-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .education-program-line {
+      font-size: 10pt;
+      color: #1a1a1a;
+      margin-bottom: 2px;
+    }
+
+    .education-program {
+      font-weight: 700;
+    }
+
+    .education-institution-line {
+      font-size: 10pt;
+      color: #1a1a1a;
+    }
+
+    .education-institution {
+      font-weight: 700;
+    }
+
+    /* ===================== CERTIFICATIONS ===================== */
+    .certification-item {
+      margin-bottom: 8px;
+    }
+
+    .certification-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .certification-issuer {
+      font-weight: 700;
+      font-size: 10pt;
+    }
+
+    .certification-credential {
+      font-size: 10pt;
+      color: #333333;
+      padding-left: 16px;
+      position: relative;
+    }
+
+    .certification-credential::before {
+      content: '\2022';
+      position: absolute;
+      left: 0;
+      color: #1a1a1a;
+      font-size: 16pt;
+      line-height: 1.1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===================== HEADER ===================== -->
+  <div class="header">
+    <div class="photo-wrapper">
+      {% if candidate.photo %}
+        <img src="{{ candidate.photo }}" alt="{{ candidate.name }}">
+      {% else %}
+        <div class="photo-placeholder"></div>
+      {% endif %}
+    </div>
+    <div class="header-info">
+      {% set _parts = candidate.name.split(' ', 1) %}
+      <div class="candidate-name">
+        <span class="name-first">{{ _parts[0] }}</span>{% if _parts | length > 1 %}<span class="name-last"> {{ _parts[1] }}</span>{% endif %}
+      </div>
+      <div class="contact-info">
+        {% if candidate.contact.phone %}<div>{{ candidate.contact.phone }}</div>{% endif %}
+        {% if candidate.contact.email %}<div>{{ candidate.contact.email[0] }}</div>{% endif %}
+        {% if candidate.contact.website and candidate.contact.website.personal %}<div>{{ candidate.contact.website.personal[0] }}</div>{% endif %}
+        {% if candidate.contact.website and candidate.contact.website.media and candidate.contact.website.media.linkedin %}<div>{{ candidate.contact.website.media.linkedin }}</div>{% endif %}
+        {% if candidate.contact.messengers %}{% for label, handle in candidate.contact.messengers.items() %}<div>{{ label | capitalize }}: {{ handle }}</div>{% endfor %}{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TIMELINE SECTIONS ===================== -->
+  <div class="timeline-wrapper">
+
+    <!-- SUMMARY -->
+    {% if candidate.summary %}
+    <div class="section">
+      <div class="section-heading">{{ labels.summary }}</div>
+      <p class="summary-text">{{ candidate.summary }}</p>
+    </div>
+    {% endif %}
+
+    <!-- SKILL HIGHLIGHTS -->
+    {% if candidate.expertise %}
+    <div class="section">
+      <div class="section-heading">{{ labels.expertise | default('Skills') }}</div>
+      {% for block in candidate.expertise %}
+      <div class="skills-group">
+        <div class="skills-group-title">{{ block.resume_title }}</div>
+        <ul class="skills-list">
+          {% for skill in block.skills %}
+            <li>{{ skill }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- EXPERIENCE -->
+    {% if candidate.professional_experience %}
+    <div class="section">
+      <div class="section-heading">{{ labels.experience }}</div>
+      {% for job in candidate.professional_experience %}
+        <div class="experience-item">
+          <div class="experience-role-line">
+            <span class="experience-role">{{ job.position }}</span>
+            {% if job.duration %}<span class="experience-dates"> - {{ job.duration }}</span>{% endif %}
+          </div>
+          <div class="experience-company-line">
+            <span class="experience-company">{{ job.company }}</span>
+            {% if job.location %}<span class="experience-location">, {{ job.location }}</span>{% endif %}
+          </div>
+          {% if job.achievements %}
+          <ul class="experience-achievements">
+            {% for achievement in job.achievements %}
+              <li>{{ achievement }}</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- EDUCATION -->
+    {% if candidate.education %}
+    <div class="section">
+      <div class="section-heading">{{ labels.education }}</div>
+      {% for edu in candidate.education %}
+        <div class="education-item">
+          <div class="education-program-line">
+            <span class="education-program">{{ edu.program }}</span>{% if edu.duration %} - {{ edu.duration }}{% endif %}
+          </div>
+          <div class="education-institution-line">
+            <span class="education-institution">{{ edu.institution }}</span>{% if edu.location %}, {{ edu.location }}{% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- CERTIFICATIONS -->
+    {% if candidate.certifications %}
+    <div class="section">
+      <div class="section-heading">{{ labels.certifications }}</div>
+      {% for cert in candidate.certifications %}
+        <div class="certification-item">
+          <div class="certification-issuer">{{ cert.issuer }}{% if cert.year %} - {{ cert.year }}{% endif %}</div>
+          {% if cert.credentials %}
+            {% for cred in cert.credentials %}
+              <div class="certification-credential">{{ cred }}</div>
+            {% endfor %}
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </div><!-- /timeline-wrapper -->
+
+</body>
+</html>

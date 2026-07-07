@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="{{ lang | default('en') }}">
+<head>
+  <meta charset="utf-8">
+  <title>{{ candidate.name }} — {{ candidate.title }}</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 10pt;
+      line-height: 1.4;
+      color: #1f2937;
+      background: #fff;
+    }
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      display: grid;
+      grid-template-columns: 70mm 1fr;
+    }
+    aside {
+      background: #1f3b4d;
+      color: #f4f6f8;
+      padding: 12mm 8mm;
+    }
+    aside .photo {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 50%;
+      display: block;
+      margin: 0 auto 6mm;
+    }
+    aside h1 { font-size: 18pt; margin: 0 0 1mm; line-height: 1.1; }
+    aside .role { font-size: 9pt; color: #b3c7d6; margin-bottom: 6mm; }
+    aside h2 {
+      font-size: 9pt;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #f4c95d;
+      margin: 6mm 0 2mm;
+      border-bottom: 1px solid #f4c95d;
+      padding-bottom: 1mm;
+    }
+    aside ul { list-style: none; padding: 0; margin: 0 0 4mm; }
+    aside li { margin-bottom: 1.2mm; word-wrap: break-word; }
+    aside a { color: inherit; text-decoration: none; }
+    main { padding: 12mm 12mm; }
+    main h2 {
+      font-size: 11pt;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #1f3b4d;
+      margin: 6mm 0 2mm;
+      border-bottom: 2px solid #1f3b4d;
+      padding-bottom: 1mm;
+    }
+    main h2:first-of-type { margin-top: 0; }
+    .summary { margin: 0 0 4mm; }
+    .item { margin-bottom: 4mm; }
+    .item .row1 { display: flex; justify-content: space-between; align-items: baseline; }
+    .item .title { font-weight: 600; }
+    .item .meta { font-size: 9pt; color: #6b7280; }
+    .item .desc { margin: 0.5mm 0 1mm; font-style: italic; color: #6b7280; }
+    .item ul { margin: 0; padding-left: 4mm; }
+    .item li { margin-bottom: 0.8mm; }
+    .achievement { margin-bottom: 2.5mm; }
+    .achievement .icon { margin-right: 1mm; }
+    .skill-group { margin-bottom: 2mm; }
+    .skill-group .label { font-weight: 600; font-size: 9pt; }
+    .skill-list { font-size: 9pt; color: #f4f6f8; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <aside>
+    {% if candidate.photo %}<img class="photo" src="{{ candidate.photo }}" alt="{{ candidate.name }}">{% endif %}
+    <h1>{{ candidate.name }}</h1>
+    {% if candidate.title %}<div class="role">{{ candidate.title }}</div>{% endif %}
+
+    {% if candidate.contact %}
+    <h2>{{ labels.contact }}</h2>
+    <ul>
+      {% if candidate.contact.phone %}<li>{{ candidate.contact.phone }}</li>{% endif %}
+      {% if candidate.contact.email %}<li><a href="mailto:{{ candidate.contact.email[0] }}">{{ candidate.contact.email[0] }}</a></li>{% endif %}
+      {% if candidate.contact.email | length > 1 %}<li><a href="mailto:{{ candidate.contact.email[1] }}">{{ candidate.contact.email[1] }}</a></li>{% endif %}
+      {% if candidate.contact.address %}<li>{{ candidate.contact.address }}</li>{% endif %}
+      {% if candidate.contact.website and candidate.contact.website.personal %}<li><a href="{{ candidate.contact.website.personal[0] }}">{{ candidate.contact.website.personal[0] }}</a></li>{% endif %}
+      {% if candidate.contact.website and candidate.contact.website.portfolio %}<li><a href="{{ candidate.contact.website.portfolio[0] }}">{{ candidate.contact.website.portfolio[0] }}</a></li>{% endif %}
+      {% if candidate.contact.website and candidate.contact.website.media and candidate.contact.website.media.github %}<li><a href="{{ candidate.contact.website.media.github }}">{{ candidate.contact.website.media.github }}</a></li>{% endif %}
+      {% if candidate.contact.website and candidate.contact.website.media and candidate.contact.website.media.linkedin %}<li><a href="{{ candidate.contact.website.media.linkedin }}">{{ candidate.contact.website.media.linkedin }}</a></li>{% endif %}
+      {% if candidate.contact.messengers %}{% for label, handle in candidate.contact.messengers.items() %}<li>{{ label | capitalize }}: {{ handle }}</li>{% endfor %}{% endif %}
+    </ul>
+    {% endif %}
+
+    {% if candidate.expertise %}
+    <h2>{{ labels.expertise | default('Skills') }}</h2>
+    {% for group in candidate.expertise %}
+      <div class="skill-group">
+        <div class="label">{{ group.resume_title }}</div>
+        <div class="skill-list">{{ (group.skills or []) | join(' · ') }}</div>
+      </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if candidate.languages %}
+    <h2>{{ labels.languages }}</h2>
+    <ul>
+      {% for l in candidate.languages %}
+        <li>{{ l.language }} — <em>{{ l.proficiency }}</em></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </aside>
+
+  <main>
+    {% if candidate.summary %}
+    <h2>{{ labels.summary }}</h2>
+    <p class="summary">{{ candidate.summary }}</p>
+    {% endif %}
+
+    {% if candidate.key_achievements %}
+    <h2>{{ labels.key_achievements }}</h2>
+    {% for a in candidate.key_achievements %}
+      <div class="achievement">
+        <strong>{% if a.icon %}<span class="icon">{{ a.icon }}</span>{% endif %}{{ a.title }}</strong>
+        <div>{{ a.description }}</div>
+      </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if candidate.professional_experience %}
+    <h2>{{ labels.experience }}</h2>
+    {% for job in candidate.professional_experience %}
+      <div class="item">
+        <div class="row1">
+          <span><span class="title">{{ job.position }}</span> — {{ job.company }}</span>
+          <span class="meta">{{ job.duration }}{% if job.location %} · {{ job.location }}{% endif %}</span>
+        </div>
+        {% if job.company_description %}<div class="desc">{{ job.company_description }}</div>{% endif %}
+        {% if job.achievements %}
+        <ul>
+          {% for line in job.achievements %}<li>{{ line }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if candidate.independent_projects %}
+    <h2>{{ labels.independent_projects }}</h2>
+    {% for p in candidate.independent_projects %}
+      <div class="item">
+        <div class="row1">
+          <span><span class="title">{{ p.name }}</span>{% if p.role %} — {{ p.role }}{% endif %}</span>
+          <span class="meta">{{ p.duration }}</span>
+        </div>
+        {% if p.description %}<div>{{ p.description }}</div>{% endif %}
+      </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if candidate.education %}
+    <h2>{{ labels.education }}</h2>
+    {% for e in candidate.education %}
+      <div class="item">
+        <div class="row1">
+          <span><span class="title">{{ e.program }}</span> — {{ e.institution }}</span>
+          <span class="meta">{{ e.duration }}{% if e.location %} · {{ e.location }}{% endif %}</span>
+        </div>
+      </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if candidate.certifications %}
+    <h2>{{ labels.certifications }}</h2>
+    {% for c in candidate.certifications %}
+      <div class="item">
+        <div class="row1">
+          <span><span class="title">{{ c.issuer }}</span></span>
+          <span class="meta">{{ c.year }}</span>
+        </div>
+        {% if c.credentials %}
+        <ul>{% for cred in c.credentials %}<li>{{ cred }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+    {% endfor %}
+    {% endif %}
+  </main>
+</div>
+</body>
+</html>

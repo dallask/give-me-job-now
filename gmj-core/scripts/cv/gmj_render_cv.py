@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render candidate YAML to PDF using ReportLab. Optional Jinja2 HTML template via WeasyPrint if installed."""
+"""Render candidate YAML to PDF: defaults to templates/cv/baxter.html via Jinja2 + WeasyPrint, falling back to the built-in ReportLab layout (--no-template, WeasyPrint/Jinja2 unavailable, or default template missing)."""
 
 from __future__ import annotations
 
@@ -496,12 +496,12 @@ def main() -> int:
     parser.add_argument(
         "--template",
         type=Path,
-        help="Optional Jinja2 HTML template (requires weasyprint)",
+        help="Override the default baxter.html Jinja2 template (requires weasyprint)",
     )
     parser.add_argument(
         "--no-template",
         action="store_true",
-        help="Force built-in ReportLab layout (default when --template omitted)",
+        help="Force built-in ReportLab layout (overriding the default baxter.html template)",
     )
     parser.add_argument(
         "--lang",
@@ -534,25 +534,45 @@ def main() -> int:
         out_path = out_path.expanduser().resolve()
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    use_html = args.template and not args.no_template
-    if use_html:
+    # Template precedence: --no-template forces ReportLab; an explicit --template
+    # selects that file; otherwise the default is the bundled baxter.html.
+    explicit_template = args.template is not None
+    if args.no_template:
+        tpl = None
+    elif explicit_template:
         tpl = args.template.expanduser().resolve()
+    else:
+        tpl = (repo_root / "templates" / "cv" / "baxter.html").resolve()
+    use_html = tpl is not None
+
+    if use_html:
+        html_out_path = None
         if not tpl.is_file():
-            print(f"Template not found: {tpl}", file=sys.stderr)
-            return 1
-        html_out_path = out_path.with_suffix(".html")
-        try:
-            cand = candidate_with_embedded_photo(candidate, repo_root)
-            render_weasyprint_html(cand, tpl, out_path, repo_root=repo_root,
-                                   html_out_path=html_out_path, labels=labels, lang=lang)
-        except ImportError:
+            if explicit_template:
+                # User asked for a specific file that does not exist — hard error.
+                print(f"Template not found: {tpl}", file=sys.stderr)
+                return 1
+            # Default baxter.html missing — degrade to ReportLab rather than crash.
             print(
-                "WeasyPrint/Jinja2 HTML path requires: pip install weasyprint\n"
+                f"Default template not found: {tpl}\n"
                 "Falling back to ReportLab built-in layout.",
                 file=sys.stderr,
             )
             render_reportlab(candidate, out_path, repo_root=repo_root, labels=labels)
-            html_out_path = None
+        else:
+            html_out_path = out_path.with_suffix(".html")
+            try:
+                cand = candidate_with_embedded_photo(candidate, repo_root)
+                render_weasyprint_html(cand, tpl, out_path, repo_root=repo_root,
+                                       html_out_path=html_out_path, labels=labels, lang=lang)
+            except ImportError:
+                print(
+                    "WeasyPrint/Jinja2 HTML path requires: pip install weasyprint\n"
+                    "Falling back to ReportLab built-in layout.",
+                    file=sys.stderr,
+                )
+                render_reportlab(candidate, out_path, repo_root=repo_root, labels=labels)
+                html_out_path = None
         if html_out_path is not None:
             print(str(html_out_path))
     else:

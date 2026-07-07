@@ -145,6 +145,29 @@ below applies to **all** rendering — `gmj_render_cv.py`, `gmj_render_cover_let
 `gmj_render_interview_prep.py`. Every artifact is produced by a Python renderer via `Bash`;
 the agent never authors a PDF or document body by hand. Tools stay `Read, Bash, Glob, LS`.
 
+## HTML sibling (ARTF-02)
+
+The CV render is the **only** artifact type with a first-class HTML deliverable.
+`gmj_render_cv.py` prints the HTML path as its **own stdout line BEFORE the PDF path**
+**only on the success branch** — the agent must inspect stdout for that extra line to
+detect success (a single-line stdout means no HTML sibling was produced).
+
+- **Success:** two stdout lines — the `.html` path, then the `.pdf` path. The default
+  WeasyPrint/Jinja2 template path (`templates/cv/baxter.html`) succeeded.
+- **Graceful degrade:** when WeasyPrint/Jinja2 is unavailable, the script degrades to
+  ReportLab-only rendering — a single stdout line (PDF path only) — and writes the
+  non-blocking warning `Falling back to ReportLab built-in layout.` to stderr. This is a
+  **graceful degrade, never a render failure** (exit code stays 0).
+
+The agent's `agent_result_v1.notes` field **must** state exactly one of these two
+outcomes for a CV render:
+- `"HTML produced"` — the HTML sibling line was present on stdout.
+- `"HTML degraded to PDF-only (WeasyPrint unavailable)"` — only the PDF path was
+  printed.
+
+Never report a uniform "success" note that hides which branch ran — the stderr warning
+is invisible to the operator unless the dispatching agent explicitly surfaces it here.
+
 ## Language support
 
 - `--lang en` (default) — English labels, English base YAML.
@@ -165,5 +188,8 @@ the agent never authors a PDF or document body by hand. Tools stay `Read, Bash, 
 ## Output contract
 
 End with an `agent_result_v1` envelope — full schema and field rules in `.claude/skills/gmj-agent-output-contract/SKILL.md`.
-- **Success:** `status: success`, artifacts: HTML path (template mode) + PDF path, notes: mode used.
+- **Success:** `status: success`, artifacts: HTML path (template mode) + PDF path, notes: mode used
+  — for a CV render (`content.artifact_type == "cv"` or legacy YAML mode), notes must also state
+  the HTML outcome per "HTML sibling (ARTF-02)" above: `"HTML produced"` or `"HTML degraded to
+  PDF-only (WeasyPrint unavailable)"`.
 - **Handoff:** `status: handoff`, `handoff_target: "gmj-template-creator"`, artifacts: `[]`, notes: "User provided prototype image; template must be created first".
