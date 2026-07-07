@@ -635,8 +635,7 @@ def test_features_and_config_panels() -> None:
 async def _probe_features_drill_in(pipeline_dir: Path) -> dict:
     app = _build_app(pipeline_dir, manage=False, refresh=0.1, repo_root=REPO_ROOT)
     async with app.run_test(size=(120, 40)) as pilot:
-        await pilot.pause()
-        await pilot.pause()
+        await _settle(pilot, lambda: app.query_one("#features-table", DataTable).row_count > 0)
         table = app.query_one("#features-table", DataTable)
         table.focus()
         idx = None
@@ -668,8 +667,7 @@ def test_features_table_drill_in() -> None:
 async def _probe_config_drill_in(pipeline_dir: Path) -> dict:
     app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        await pilot.pause()
-        await pilot.pause()
+        await _settle(pilot, lambda: app.query_one("#config-table", DataTable).row_count > 0)
         table = app.query_one("#config-table", DataTable)
         table.focus()
         idx = table.get_row_index("config/pipeline.config.yaml")
@@ -703,9 +701,8 @@ async def _probe_dag_strip(pipeline_dir: Path) -> dict:
     """Launch read-only, let the poll fill the #dag-placeholder panel, then probe text + style spans."""
     app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        # Two+ ticks let the threaded poll marshal snapshot()["stages"] back into the strip.
-        await pilot.pause()
-        await pilot.pause()
+        # Settle until the threaded poll marshals snapshot()["stages"] back into the strip.
+        await _settle(pilot, lambda: str(app.query_one("#dag-placeholder", Static).render()).strip() != "")
         panel = app.query_one("#dag-placeholder", Static)
         rendered = str(panel.render())
         # Static.update(out) stores the ORIGINAL Rich Text in the name-mangled __content attribute
@@ -773,9 +770,8 @@ async def _probe_drill_in_modal(pipeline_dir: Path) -> dict:
     """Launch read-only, cursor to a known run, enter→modal, read the frozen body, escape→pop."""
     app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        # Two+ ticks let the threaded poll seed the runs table (add_row keyed by run_id).
-        await pilot.pause()
-        await pilot.pause()
+        # Settle until the threaded poll seeds the runs table (add_row keyed by run_id).
+        await _settle(pilot, lambda: app.query_one("#runs", DataTable).row_count > 0)
         table = app.query_one("#runs", DataTable)
         table.focus()
         # Position the row cursor on the known-good run — with the table focused, enter is consumed by
@@ -869,8 +865,7 @@ async def _probe_vacancies_panel(pipeline_dir: Path) -> dict:
     """Launch read-only, let the poll fill vacancies table + batch footer, return rendered state."""
     app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        await pilot.pause()
-        await pilot.pause()
+        await _settle(pilot, lambda: app.query_one("#vacancies", DataTable).row_count == 2)
         table = app.query_one("#vacancies", DataTable)
         batches = str(app.query_one("#vac-batches", Static).render())
         rows = []
@@ -942,8 +937,9 @@ _VAC_MUST_HAVE_ITEM = "PostgreSQL"
 async def _probe_vacancies_filter(pipeline_dir: Path) -> dict:
     app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        await pilot.pause()
-        await pilot.pause()
+        # Settle on the FULL projected count before typing the filter, so the "narrows to subset"
+        # and "clearing restores" assertions stay meaningful.
+        await _settle(pilot, lambda: app.query_one("#vacancies", DataTable).row_count == 2)
         table = app.query_one("#vacancies", DataTable)
         full_count = table.row_count
         filt = app.query_one("#vac-filter", Input)
@@ -967,8 +963,7 @@ def test_vacancies_filter_narrows_table() -> None:
 async def _probe_vacancy_drill_in(pipeline_dir: Path) -> dict:
     app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        await pilot.pause()
-        await pilot.pause()
+        await _settle(pilot, lambda: app.query_one("#vacancies", DataTable).row_count > 0)
         table = app.query_one("#vacancies", DataTable)
         table.focus()
         idx = table.get_row_index(_VAC_ALPHA_HASH)
@@ -1051,9 +1046,13 @@ async def _probe_filter_narrows() -> dict:
     with _temp_pipeline() as pipe:
         app = _build_app(pipe, manage=False, refresh=0.1)
         async with app.run_test(size=(120, 40)) as pilot:
-            # Two+ ticks let the threaded poll seed every run row via _apply_runs.
-            await pilot.pause()
-            await pilot.pause()
+            # Settle on the FULL projected run set (via _apply_runs) BEFORE parking the cursor and
+            # typing, so the "strict subset" and "cursor stays" assertions remain meaningful.
+            await _settle(
+                pilot,
+                lambda: app.query_one("#runs", DataTable).row_count
+                == len(app._model.snapshot()["runs"]),
+            )
             table = app.query_one("#runs", DataTable)
             full_count = table.row_count
             status_by_id = {r["run_id"]: r["status"] for r in (app._last_snap or {}).get("runs", [])}
@@ -1478,8 +1477,7 @@ async def _probe_charts_panel(pipeline_dir: Path) -> dict:
     """Launch read-only, let the poll fill #charts, then probe plain text + applied colour spans."""
     app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        await pilot.pause()
-        await pilot.pause()
+        await _settle(pilot, lambda: str(app.query_one("#charts", Static).render()).strip() != "")
         panel = app.query_one("#charts", Static)
         rendered = str(panel.render())
         # Static.update(out) stores the ORIGINAL Rich Text in the name-mangled __content attribute
