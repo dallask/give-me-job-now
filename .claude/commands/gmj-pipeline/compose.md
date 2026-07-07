@@ -15,4 +15,4 @@ description: Run the gmj-artifact-composer spoke for one artifact type (CV | cov
     --offer-slug <offer-slug> --artifact-type <cv|cover_letter|interview_prep> --increment
   ```
 
-The three artifact types compose as parallel `Task` fan-out (each has its own isolated `retry_counts[offer][type]` slot); each type's gate loop then runs sequentially. Emits an `artifact_draft` (file artifact).
+The three artifact types compose as parallel `Task` fan-out (each has its own isolated `retry_counts[offer][type]` slot and its own isolated `state.json` (`<run_id>-cv`/`-cl`/`-ip`)); each type's gate loop then runs sequentially. Emits an `artifact_draft` (file artifact).

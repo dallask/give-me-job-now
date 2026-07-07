@@ -21,3 +21,5 @@ description: Run the deterministic Gate-A truth check (gmj_check_truth.py, exit 
   ```
 
 The gate blocks the same way regardless of `execution_mode`; mode only decides whether the hub pauses for a human after a PASS. On FAIL the hub increments the retry counter and consults `gmj_check_cap.py` (see `/gmj-pipeline/compose` + `docs/ARCHITECTURE.md` §5.1). Gate A must pass before `/gmj-pipeline/evaluate` runs.
+
+Runs once per derived run_id (once per requested artifact type) — the `<run_id>` above is that type's own `<base_run_id>-cv`/`-cl`/`-ip`.
