@@ -13,12 +13,13 @@ the retry cap is hit, or whether an artifact is deliverable; it shells out to th
 `Bash` and obeys their exit codes. Every safety decision in the pipeline is one of the scripts below.
 
 > **Count discipline.** This catalog enumerates the **disk set of 36** (`scripts/**/gmj_*.py`),
-> not the `config/ownership-manifest.yaml` rename map (which lists only the 23 scripts that were
-> renamed during the rebrand). Eleven scripts — `gmj_build_payload.py`, `gmj_rebrand.py`,
-> `gmj_remove_gsd.py`, `gmj_batch.py`, `gmj_runs.py`, `gmj_merge_shortlists.py`,
-> `gmj_check_claims.py`, `gmj_dashboard.py`, `gmj_dashboard_model.py`, `gmj_dashboard_actions.py`,
-> `gmj_dashboard_features.py` — were authored natively `gmj_`-prefixed and are not part of that
-> rename map.
+> not the `config/ownership-manifest.yaml` rename map (which lists the 23 scripts that were
+> renamed during the rebrand — including `check_claims` → `gmj_check_claims.py`). Thirteen scripts
+> — `gmj_build_payload.py`, `gmj_rebrand.py`, `gmj_remove_gsd.py`, `gmj_batch.py`, `gmj_runs.py`,
+> `gmj_merge_shortlists.py`, `gmj_dashboard.py`, `gmj_dashboard_model.py`,
+> `gmj_dashboard_actions.py`, `gmj_dashboard_features.py`, `gmj_template_lint.py`,
+> `gmj_visual_diff.py`, `gmj_pipeline_paths.py` — were authored natively `gmj_`-prefixed and are
+> not part of that rename map (23 renamed + 13 native = 36).
 
 See [flows.md](flows.md) for the end-to-end sequences these scripts drive,
 [references.md](references.md) for the JSON envelope schemas they read and emit, and
