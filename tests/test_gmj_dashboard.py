@@ -2206,6 +2206,79 @@ def test_launch_feature_readonly_writes_no_sidecar() -> None:
         assert _launches_of(pipe) == [], "a read-only feature launch must write NO sidecar"
 
 
+async def _drive_watch_reap(pipeline_dir: Path, launch_id: str) -> bool:
+    """Under a running pilot, seed a live sidecar then run ``_watch_launch`` to clean exit; return whether
+    the sidecar still exists afterward (it must be reaped via the actions module)."""
+    app = _build_app(pipeline_dir, manage=True, refresh=0.1, repo_root=REPO_ROOT)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await app._watch_launch(_FakeProc(), launch_id=launch_id)
+        return (Path(pipeline_dir) / "launches" / f"{launch_id}.json").exists()
+
+
+def test_watch_launch_reaps_sidecar_on_exit() -> None:
+    """On a clean child exit ``_watch_launch`` reaps the sidecar through the actions module — the file
+    is gone and the view itself never unlinks (the reap is delegated)."""
+    with _temp_idle_pipeline() as pipe:
+        lid = actions.write_launch_sidecar(
+            str(pipe), kind="collective", label="gmj-collective", pid=os.getpid(), cmd="/gmj-collective"
+        )
+        assert _launches_of(pipe), "the seeded sidecar must exist before the watch reaps it"
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            still_there = asyncio.run(_drive_watch_reap(pipe, lid))
+        assert "Traceback" not in buf.getvalue(), f"_watch_launch leaked a traceback: {buf.getvalue()}"
+        assert not still_there, "a clean child exit must reap the launch sidecar"
+        assert _launches_of(pipe) == [], "no sidecar should remain after the reap"
+
+
+def test_heartbeat_recovers_launch_after_reload() -> None:
+    """After reload (in-memory tracking empty, disk pipeline active), the heartbeat strip lists one item
+    per recovered live launch (label + kind) — parity with recovered runs/batches (RELOAD-02)."""
+    with _temp_idle_pipeline() as pipe:
+        app = _build_app(pipe, manage=False)
+        # Simulate the post-reload state the model produces: in-memory branch empty, disk branch active.
+        app._disk_pipeline_active = True
+        app._pipeline_activity = {
+            "active_run_ids": [],
+            "active_batch_ids": [],
+            "active_launches": [{"launch_id": "L1", "kind": "collective", "label": "gmj-collective"}],
+        }
+        items = app._heartbeat_task_items()
+        assert "gmj-collective (collective)" in items, (
+            f"a recovered live launch must surface on the heartbeat strip with label+kind: {items!r}"
+        )
+
+
+def test_heartbeat_recovered_launch_label_without_kind() -> None:
+    """A recovered launch with no kind falls back to a bare label (never an empty ``()`` suffix)."""
+    with _temp_idle_pipeline() as pipe:
+        app = _build_app(pipe, manage=False)
+        app._disk_pipeline_active = True
+        app._pipeline_activity = {"active_launches": [{"label": "gmj-collective", "kind": ""}]}
+        assert app._heartbeat_task_items() == ["gmj-collective"], (
+            "a kind-less recovered launch must render as a bare label"
+        )
+
+
+def test_live_launch_not_double_counted() -> None:
+    """A live-session launch (in-memory branch non-empty) is listed ONCE — the disk branch fills in only
+    when the in-memory branch is empty (the in-memory-wins dedup runs/batches already use)."""
+    with _temp_idle_pipeline() as pipe:
+        app = _build_app(pipe, manage=True)
+        proc = _FakeProc()  # no returncode attr => treated as in-flight
+        app._pending_launches = [proc]
+        app._launch_labels[id(proc)] = "gmj-collective"
+        # Disk ALSO reports the same launch as active (as it would while the child lives).
+        app._disk_pipeline_active = True
+        app._pipeline_activity = {
+            "active_launches": [{"launch_id": "L1", "kind": "collective", "label": "gmj-collective"}],
+        }
+        items = app._heartbeat_task_items()
+        occurrences = sum(1 for it in items if "gmj-collective" in it)
+        assert occurrences == 1, f"a live launch must be listed exactly once, not double-counted: {items!r}"
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
