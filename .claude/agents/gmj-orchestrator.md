@@ -55,7 +55,7 @@ passed, whether the retry cap is hit, or whether an artifact is deliverable. The
 | `gmj_check_offer.py` | `scripts/offers/gmj_check_offer.py` | Freshness/integrity check of the frozen offer-spec — STALE ⇒ abort |
 | `gmj_check_truth.py` | `scripts/artifacts/gmj_check_truth.py` | Gate A (truth) verdict — exit 0/1, **no mode argument** |
 | `gmj_score_fit.py` | `scripts/artifacts/gmj_score_fit.py` | Gate B (target-fit) verdict — exit 0/1, **no mode argument** |
-| `gmj_record_gate.py` | `scripts/pipeline/gmj_record_gate.py` | Write the normalized `gate_result` artifact under `runs/<run_id>/` AND set `state.gate_results[<node>]` |
+| `gmj_record_gate.py` | `scripts/pipeline/gmj_record_gate.py` | Write the normalized `gate_result` artifact under `<root>/runs/<run_id>/` AND set `state.gate_results[<node>]` |
 | `gmj_record_retry.py` | `scripts/artifacts/gmj_record_retry.py` | Increment `state.retry_counts[...]` on a gate FAIL |
 | `gmj_check_cap.py` | `scripts/pipeline/gmj_check_cap.py` | Is `retry_count == retry_cap`? (below cap vs exhausted) |
 | `gmj_map_feedback.py` | `scripts/pipeline/gmj_map_feedback.py` | Pure `gate_result → gate_feedback` projection for the composer loop |
@@ -210,7 +210,8 @@ For a **board-search** goal (discover the best offers across the configured boar
 4. **Merge deterministically.** Invoke `python3 scripts/offers/gmj_merge_shortlists.py` via
    `Bash`, passing every collected per-board file (`--board-file <f> ...`) plus
    `--sources config/sources.yaml` and `--preferences config/preferences.yaml`, to produce the
-   canonical `.pipeline/shortlist.json` (+ `.md` job-seeker view). **The merge script is the
+   canonical `<root>/shortlist.json` (+ `.md` job-seeker view; `<root>` resolved the same way as
+   [init_run](#1-init_run), `.pipeline` only the fallback). **The merge script is the
    deterministic ranking / dedup / scope-filter authority** — union, cross-board dedup, hard
    fail-closed scope-filter, and soft-rank all live in that Python (exit 0/1, no LLM). You
    **never** order, score, or dedup offers in the LLM layer; you only dispatch the workers and

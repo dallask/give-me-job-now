@@ -19,8 +19,8 @@ description: Run the deterministic Gate-A truth check (gmj_check_truth.py, exit 
 - **Record the verdict** (audit artifact + `state.gate_results`):
   ```bash
   python3 scripts/pipeline/gmj_record_gate.py \
-    --state <root>/runs/<run_id>/state.json \
-    --node gmj-truth-verifier --artifact-type <type> --attempt <n> --file <gate_result.json>
+    --state <root>/runs/<run_id>/state.json --run-dir <root>/runs/<run_id> \
+    --node gmj-truth-verifier --artifact-type <type> --attempt <n> --result <gate_result.json>
   ```
 
 The gate blocks the same way regardless of `execution_mode`; mode only decides whether the hub pauses for a human after a PASS. On FAIL the hub increments the retry counter and consults `gmj_check_cap.py` (see `/gmj-pipeline/compose` + `docs/ARCHITECTURE.md` §5.1). Gate A must pass before `/gmj-pipeline/evaluate` runs.
