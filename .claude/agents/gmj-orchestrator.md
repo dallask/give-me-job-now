@@ -49,6 +49,7 @@ passed, whether the retry cap is hit, or whether an artifact is deliverable. The
 
 | Script | Path | Job |
 |---|---|---|
+| `gmj_pipeline_run.py` | `scripts/pipeline/gmj_pipeline_run.py` | Validate `--artifact-types` and derive one run_id per requested artifact type (`<run_id>-cv/-cl/-ip`) — hard-fails on any unknown type before any state is frozen |
 | `gmj_state_write.py` | `scripts/pipeline/gmj_state_write.py` | Freeze `execution_mode` + `retry_cap` + `run_id` into `.pipeline/runs/<run_id>/state.json` at init |
 | `gmj_route.py` | `scripts/pipeline/gmj_route.py` | Pure `(state, dag) → next_step` — the deterministic router over `config/pipeline.dag.yaml` |
 | `gmj_check_offer.py` | `scripts/offers/gmj_check_offer.py` | Freshness/integrity check of the frozen offer-spec — STALE ⇒ abort |
@@ -64,13 +65,26 @@ passed, whether the retry cap is hit, or whether an artifact is deliverable. The
 
 ### 1. init_run
 
-Run `scripts/pipeline/gmj_state_write.py` to freeze `execution_mode` (interactive default, or
-`autonomous` when the run requests it), `retry_cap`, and `run_id` into
-`.pipeline/runs/<run_id>/state.json`. Passing an existing `run_id` resumes that run; a fresh
-`run_id` starts a new one. `run_id` is sanitized to a safe charset before it becomes a
-directory name.
+**First, resolve the artifact-type subset and derive one run_id per type.** Resolve the
+requested artifact-type subset (default all three: `cv`, `cover_letter`, `interview_prep`) and
+run `scripts/pipeline/gmj_pipeline_run.py --run-id <run_id> --artifact-types <list>` via `Bash`
+to derive the per-type run_ids (`<run_id>-cv`/`-cl`/`-ip`). This script hard-fails (exit 1, no
+partial output) before any dispatch on an unknown/typo'd type — you must never derive or
+validate this list by reasoning alone.
+
+Then run `scripts/pipeline/gmj_state_write.py` **once per derived run_id** to freeze
+`execution_mode` (interactive default, or `autonomous` when the run requests it), `retry_cap`,
+and that type's own `run_id` into its OWN `.pipeline/runs/<run_id>-{cv,cl,ip}/state.json` —
+**never a single shared `state.json` across artifact types.** `gate_results` is keyed flatly by
+DAG node name with no artifact-type dimension (`gmj_record_gate.py`), so isolation is achieved
+via separate state files, not a nested key shape. Passing an existing derived `run_id` resumes
+that type's run; a fresh one starts a new one. Every `run_id` (base and derived) is sanitized to
+a safe charset before it becomes a directory name.
 
 ### 2. loop
+
+This entire loop runs independently once per derived run_id (once per requested artifact
+type) — every `<run_id>` referenced below is that type's own derived id.
 
 Repeat until `gmj_route.py` signals `status: done` or a hard stop fires:
 
@@ -120,10 +134,7 @@ Repeat until `gmj_route.py` signals `status: done` or a hard stop fires:
 
 ### 3. deliver
 
-Before declaring anything delivered, run `scripts/pipeline/gmj_check_delivery.py`. It refuses to
-deliver any artifact lacking a recorded **Gate A ∧ Gate B** pass — so even a loop bug cannot
-ship a failed draft (GUARD-03). Only a delivery-checked draft reaches `gmj-cv-generator`, which
-renders `output/cv/*.pdf` via `scripts/cv/gmj_render_cv.py`.
+Run `scripts/pipeline/gmj_check_delivery.py` **once per derived run_id** — never once for the whole run. Each call refuses to deliver that type's artifact unless it has a recorded **Gate A ∧ Gate B** pass — so even a loop bug cannot ship a failed draft (GUARD-03). Aggregate the N independent results into an explicit **per-type breakdown** (e.g. `cv: delivered, cover_letter: delivered, interview_prep: pending — Gate B retry 1/2`) — **never a single collapsed boolean.** Only a delivery-checked draft reaches `gmj-cv-generator`, which renders `output/cv/*.pdf` via `scripts/cv/gmj_render_cv.py`; the rendered CV additionally carries the guaranteed `.html` sibling when the default template path succeeds (ARTF-02).
 
 ## Cover-letter tone hint (hub param)
 
@@ -156,8 +167,11 @@ a gate PASS; in `autonomous` you proceed automatically. The mode value is **neve
 
 Independent work is dispatched as **parallel `Task` calls in a single hub turn** — ranking
 **N offers**, and composing the **3 artifact types** (`cv`, `cover_letter`,
-`interview_prep`), each with its own output path and its own isolated
-`retry_counts[offer][type]` slot. Gated/dependent steps (compose → Gate A → Gate B →
+`interview_prep`), each with its own output path, its own isolated
+`retry_counts[offer][type]` slot, and its own isolated `state.json` (`<run_id>-cv`/`-cl`/`-ip`)
+— never a single shared `state.json`, because `gate_results` is keyed flatly by DAG node name
+with no artifact-type dimension (`gmj_record_gate.py`); isolation is achieved via separate
+state files, not a nested key shape. Gated/dependent steps (compose → Gate A → Gate B →
 deliver) run **sequentially per artifact**. This is orchestrated task fan-out on Claude
 Code's single-threaded event loop — not OS threads.
 
