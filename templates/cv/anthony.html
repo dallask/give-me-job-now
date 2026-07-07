@@ -174,6 +174,21 @@
       line-height: 1.1;
     }
 
+    .skills-group {
+      margin-bottom: 8px;
+    }
+
+    .skills-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .skills-group-title {
+      font-size: 10pt;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 2px;
+    }
+
     /* ===================== EXPERIENCE ===================== */
     .experience-item {
       margin-bottom: 16px;
@@ -312,9 +327,10 @@
       </div>
       <div class="contact-info">
         {% if candidate.contact.phone %}<div>{{ candidate.contact.phone }}</div>{% endif %}
-        {% if candidate.contact.email %}<div>{{ candidate.contact.email }}</div>{% endif %}
-        {% if candidate.contact.website %}<div>{{ candidate.contact.website }}</div>{% endif %}
-        {% if candidate.contact.linkedin %}<div>{{ candidate.contact.linkedin }}</div>{% endif %}
+        {% if candidate.contact.email %}<div>{{ candidate.contact.email[0] }}</div>{% endif %}
+        {% if candidate.contact.website and candidate.contact.website.personal %}<div>{{ candidate.contact.website.personal[0] }}</div>{% endif %}
+        {% if candidate.contact.website and candidate.contact.website.media and candidate.contact.website.media.linkedin %}<div>{{ candidate.contact.website.media.linkedin }}</div>{% endif %}
+        {% if candidate.contact.messengers %}{% for label, handle in candidate.contact.messengers.items() %}<div>{{ label | capitalize }}: {{ handle }}</div>{% endfor %}{% endif %}
       </div>
     </div>
   </div>
@@ -331,14 +347,19 @@
     {% endif %}
 
     <!-- SKILL HIGHLIGHTS -->
-    {% if candidate.skills %}
+    {% if candidate.expertise %}
     <div class="section">
-      <div class="section-heading">{{ labels.skills }}</div>
-      <ul class="skills-list">
-        {% for skill in candidate.skills %}
-          <li>{{ skill }}</li>
-        {% endfor %}
-      </ul>
+      <div class="section-heading">{{ labels.expertise | default('Skills') }}</div>
+      {% for block in candidate.expertise %}
+      <div class="skills-group">
+        <div class="skills-group-title">{{ block.resume_title }}</div>
+        <ul class="skills-list">
+          {% for skill in block.skills %}
+            <li>{{ skill }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endfor %}
     </div>
     {% endif %}
 
