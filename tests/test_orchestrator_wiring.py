@@ -113,6 +113,20 @@ def test_hub_documents_per_type_state_isolation() -> None:
     )
 
 
+def test_deliver_states_never_a_single_collapsed_boolean() -> None:
+    # ARTF-01/04 (32-06 gap closure): Plan 32-04's own acceptance criteria required the
+    # literal phrase "never a single collapsed boolean" to be a contiguous, grep-able
+    # string in the hub persona. A prior markdown line-wrap split it across two physical
+    # lines, so a naive single-line grep returned 0 despite 32-04-SUMMARY.md claiming 1.
+    # This is a plain Python substring check (not multi-line-aware grep), which fails
+    # correctly if the phrase is split by a line break and passes once it is contiguous.
+    hub = _read(HUB_PATH)
+    assert "never a single collapsed boolean" in hub, (
+        "hub does not state the contiguous phrase 'never a single collapsed boolean' "
+        "(ARTF-01/04) -- check for a markdown line-wrap splitting the phrase"
+    )
+
+
 def test_pipeline_run_documents_artifact_types_flag() -> None:
     # ARTF-03: the whole-flow command doc must document the --artifact-types flag and its
     # default artifact set.

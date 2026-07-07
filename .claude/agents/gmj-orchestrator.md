@@ -146,8 +146,7 @@ derived run_id** (using the same resolved `<root>` from [init_run](#1-init_run))
 for the whole run. Each call refuses to deliver that type's artifact unless it has a recorded
 **Gate A ∧ Gate B** pass — so even a loop bug cannot ship a failed draft (GUARD-03). Aggregate
 the N independent results into an explicit **per-type breakdown** (e.g. `cv: delivered,
-cover_letter: delivered, interview_prep: pending — Gate B retry 1/2`) — **never a single
-collapsed boolean.** Only a delivery-checked draft reaches `gmj-cv-generator`, which renders
+cover_letter: delivered, interview_prep: pending — Gate B retry 1/2`) — **never a single collapsed boolean.** Only a delivery-checked draft reaches `gmj-cv-generator`, which renders
 `output/cv/*.pdf` via `scripts/cv/gmj_render_cv.py`; the rendered CV additionally carries the
 guaranteed `.html` sibling when the default template path succeeds (ARTF-02).
 
