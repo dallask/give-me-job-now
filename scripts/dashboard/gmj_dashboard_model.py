@@ -481,6 +481,43 @@ class DashboardModel:
         except OSError as exc:
             return {"path": rel, "error": str(exc)}
 
+    def docs_files(self) -> list[str]:
+        """List every top-level ``docs/*.md`` path under ``repo_root`` (posix-relative, sorted).
+
+        Non-recursive by design (``.glob``, NOT ``.rglob``) — only top-level docs are surfaced,
+        per 33-UI-SPEC.md's docs-tab listing contract.
+        """
+        docs_dir = self.repo_root / "docs"
+        if not docs_dir.is_dir():
+            return []
+        return sorted(
+            path.relative_to(self.repo_root).as_posix()
+            for path in docs_dir.glob("*.md")
+            if path.is_file()
+        )
+
+    def doc_file_text(self, rel_path: str) -> dict:
+        """Read one docs/*.md file for the docs-tab drill-in modal — read-only, path-validated.
+
+        Mirrors ``config_file_text()``'s exact 4-step validation shape substituting the docs
+        domain (T-33-01): never a raw read on an unvalidated path.
+        """
+        rel = Path(rel_path).as_posix()
+        if not rel.startswith("docs/") or not rel.endswith(".md"):
+            return {"path": rel_path, "error": "Invalid docs path"}
+        if any(part in ("", ".", "..") for part in rel.split("/")):
+            return {"path": rel_path, "error": "Invalid docs path"}
+        target = (self.repo_root / rel).resolve()
+        docs_root = (self.repo_root / "docs").resolve()
+        if target != docs_root and docs_root not in target.parents:
+            return {"path": rel_path, "error": "Invalid docs path"}
+        if not target.is_file():
+            return {"path": rel, "error": "File not found"}
+        try:
+            return {"path": rel, "text": target.read_text(encoding="utf-8")}
+        except OSError as exc:
+            return {"path": rel, "error": str(exc)}
+
     def _dag(self) -> list[str]:
         """Ordered pipeline step names READ from ``config/pipeline.dag.yaml`` ``steps`` (never hardcoded).
 
@@ -840,6 +877,7 @@ class DashboardModel:
             "features": features,
             "config": config,
             "config_files": self._config_yaml_files(),
+            "docs_files": self.docs_files(),
             "run_detail": {},   # on-demand: populate via run_detail(run_id), never per-poll
             "errors": self.failures(),  # VIEW-12: per failed-run Gate A/Gate B failure detail
             "activity": self.activity(),  # VIEW-13: newest-first started/gate/terminal event feed
