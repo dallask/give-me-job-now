@@ -128,7 +128,7 @@ Branch on `content.artifact_type`:
   explicitly so the correct labels/overlay apply):
   ```bash
   python3 scripts/cv/gmj_draft_to_cv_yaml.py --file <draft.json> --out <cv.yaml>
-  python3 scripts/cv/gmj_render_cv.py --config <cv.yaml> --no-template --lang <content.language> --out output/cv/<name>.pdf
+  python3 scripts/cv/gmj_render_cv.py --config <cv.yaml> --lang <content.language> --out output/cv/<name>.pdf
   ```
 - **`cover_letter`** — render the approved cover-letter draft to PDF:
   ```bash

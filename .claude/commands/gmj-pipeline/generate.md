@@ -22,7 +22,7 @@ description: Run the gmj-cv-generator spoke to render each gate-passed artifact 
   ```bash
   # cv:
   python3 scripts/cv/gmj_draft_to_cv_yaml.py --file <draft.json> --out <cv.yaml>
-  python3 scripts/cv/gmj_render_cv.py --config <cv.yaml> --no-template --lang <content.language> --out output/cv/<name>.pdf
+  python3 scripts/cv/gmj_render_cv.py --config <cv.yaml> --lang <content.language> --out output/cv/<name>.pdf
   # cover_letter:
   python3 scripts/cv/gmj_render_cover_letter.py --file <draft.json> --lang <content.language>
   # interview_prep:
