@@ -48,6 +48,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -614,6 +615,11 @@ def test_read_only_invariant_state_unchanged() -> None:
 _IMPOSSIBLE_PID = 2**31 - 1
 
 
+def _fresh_launched_at() -> str:
+    """A `launched_at` stamp for NOW (UTC) so a live launch is NOT stale under the age cap (WR-02)."""
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
 def _seed_launch(launches_dir: Path, launch_id: str, payload: dict) -> Path:
     """Seed a launches/ sidecar exactly as the actions writer would (the test may write freely)."""
     launches_dir.mkdir(parents=True, exist_ok=True)
@@ -642,7 +648,7 @@ def test_launches_liveness_filter_and_never_deletes() -> None:
         launches_dir = Path(tmp) / "launches"
         _seed_launch(launches_dir, "20260707T120000-aaa", {
             "launch_id": "20260707T120000-aaa", "kind": "collective", "label": "gmj-collective",
-            "pid": os.getpid(), "launched_at": "2026-07-07T12:00:00Z", "cmd": "claude -p ...",
+            "pid": os.getpid(), "launched_at": _fresh_launched_at(), "cmd": "claude -p ...",
         })
         dead = _seed_launch(launches_dir, "20260707T120001-bbb", {
             "launch_id": "20260707T120001-bbb", "kind": "interview", "label": "gmj-interview",
@@ -675,6 +681,44 @@ def test_launches_skips_torn_or_nondict_sidecar() -> None:
         assert "Traceback" not in buf.getvalue(), "_launches() must never leak a traceback"
 
 
+def test_launches_filters_stale_launched_at_even_if_pid_alive() -> None:
+    # WR-02: a live-pid sidecar whose launched_at is older than the age cap is FILTERED OUT of the
+    # display (a pid-reused ghost must never show as active) — but the model NEVER deletes it.
+    with tempfile.TemporaryDirectory() as tmp:
+        launches_dir = Path(tmp) / "launches"
+        _seed_launch(launches_dir, "20260707T120000-fresh", {
+            "launch_id": "20260707T120000-fresh", "kind": "collective", "label": "gmj-collective",
+            "pid": os.getpid(), "launched_at": _fresh_launched_at(), "cmd": "claude -p ...",
+        })
+        stale = _seed_launch(launches_dir, "19700101T000000-stale", {
+            "launch_id": "19700101T000000-stale", "kind": "collective", "label": "gmj-collective",
+            "pid": os.getpid(), "launched_at": "1970-01-01T00:00:00Z", "cmd": "claude -p ...",
+        })
+        model = gmj_dashboard_model.DashboardModel(pipeline_dir=tmp, repo_root=REPO_ROOT)
+        ids = {r["launch_id"] for r in model._launches()}
+        assert ids == {"20260707T120000-fresh"}, f"only the fresh live launch must show: {ids}"
+        assert stale.is_file(), "the read model must not delete a stale sidecar (only the reaper does)"
+
+
+def test_launches_filters_malformed_launched_at() -> None:
+    # WR-03: a live-pid sidecar with a missing / malformed launched_at is treated as stale and hidden.
+    with tempfile.TemporaryDirectory() as tmp:
+        launches_dir = Path(tmp) / "launches"
+        _seed_launch(launches_dir, "20260707T120000-bad", {
+            "launch_id": "20260707T120000-bad", "kind": "collective", "label": "gmj-collective",
+            "pid": os.getpid(), "launched_at": "not-a-timestamp", "cmd": "claude -p ...",
+        })
+        _seed_launch(launches_dir, "20260707T120001-none", {
+            "launch_id": "20260707T120001-none", "kind": "collective", "label": "gmj-collective",
+            "pid": os.getpid(), "cmd": "claude -p ...",  # launched_at absent entirely
+        })
+        model = gmj_dashboard_model.DashboardModel(pipeline_dir=tmp, repo_root=REPO_ROOT)
+        assert model._launches() == [], "a malformed/absent launched_at must be filtered as stale"
+        assert gmj_dashboard_model._launch_is_stale(None) is True, "absent stamp is stale"
+        assert gmj_dashboard_model._launch_is_stale("bad") is True, "malformed stamp is stale"
+        assert gmj_dashboard_model._launch_is_stale(_fresh_launched_at()) is False, "fresh stamp is live"
+
+
 # --- RELOAD-02: launches folded into pipeline_activity() + snapshot() ----------
 
 def test_launches_survive_reload_and_liveness_filter() -> None:
@@ -685,7 +729,7 @@ def test_launches_survive_reload_and_liveness_filter() -> None:
         launches_dir = Path(tmp) / "launches"
         _seed_launch(launches_dir, "20260707T120000-aaa", {
             "launch_id": "20260707T120000-aaa", "kind": "collective", "label": "gmj-collective",
-            "pid": os.getpid(), "launched_at": "2026-07-07T12:00:00Z", "cmd": "claude -p ...",
+            "pid": os.getpid(), "launched_at": _fresh_launched_at(), "cmd": "claude -p ...",
         })
         dead = _seed_launch(launches_dir, "20260707T120001-bbb", {
             "launch_id": "20260707T120001-bbb", "kind": "interview", "label": "gmj-interview",
@@ -717,7 +761,7 @@ def test_pipeline_activity_active_launches_surface() -> None:
         launches_dir = Path(tmp) / "launches"
         _seed_launch(launches_dir, "20260707T130000-ccc", {
             "launch_id": "20260707T130000-ccc", "kind": "template", "label": "gmj-template",
-            "pid": os.getpid(), "launched_at": "2026-07-07T13:00:00Z", "cmd": "claude -p ...",
+            "pid": os.getpid(), "launched_at": _fresh_launched_at(), "cmd": "claude -p ...",
         })
         model = gmj_dashboard_model.DashboardModel(pipeline_dir=tmp, repo_root=REPO_ROOT)
         pa = model.pipeline_activity()

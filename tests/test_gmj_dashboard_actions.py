@@ -38,6 +38,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 from pathlib import Path
 from subprocess import DEVNULL
 
@@ -299,14 +300,25 @@ def test_generate_launch_id_is_path_safe() -> None:
 
 # ── RELOAD-02: clean reaper + bounded dead-pid prune ──────────────────────────────────────────────
 
-def _seed_sidecar(tmp: str, pid: int) -> str:
-    """Directly seed one launches/<id>.json with a chosen pid (bypasses the writer's own pid)."""
+def _fresh_launched_at() -> str:
+    """A `launched_at` stamp for NOW (UTC) so an age-capped prune (WR-02) treats the seed as recent."""
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _seed_sidecar(tmp: str, pid, launched_at: str | None = None) -> str:
+    """Directly seed one launches/<id>.json with a chosen pid (bypasses the writer's own pid).
+
+    ``launched_at`` defaults to NOW so a live-pid seed is NOT stale under the age cap; pass an explicit
+    old / malformed stamp to exercise the WR-02/WR-03 staleness prune. ``pid`` is written verbatim
+    (may be a non-int) so a malformed-pid seed can be exercised too.
+    """
     launch_id = actions._generate_launch_id()
     d = Path(tmp) / "launches"
     d.mkdir(parents=True, exist_ok=True)
     (d / f"{launch_id}.json").write_text(
         json.dumps({"launch_id": launch_id, "kind": "collective", "label": "x", "pid": pid,
-                    "launched_at": "1970-01-01T00:00:00Z", "cmd": "claude"}),
+                    "launched_at": launched_at if launched_at is not None else _fresh_launched_at(),
+                    "cmd": "claude"}),
         encoding="utf-8",
     )
     return launch_id
@@ -362,6 +374,42 @@ def test_reap_dead_launches_bounded_and_torn_tolerant() -> None:
         (Path(tmp) / "launches" / "torn.json").write_text("{not json", encoding="utf-8")
         actions.reap_dead_launches(tmp)  # must not raise
         assert (Path(tmp) / "launches" / "torn.json").is_file(), "a torn sidecar is skipped, not removed"
+
+
+def test_reap_dead_launches_prunes_stale_even_if_pid_alive() -> None:
+    # WR-02: a launch older than the age cap is collectable EVEN with a still-live pid (bounding the
+    # pid-reuse resurrection window). The identical live pid with a fresh stamp must survive.
+    with tempfile.TemporaryDirectory() as tmp:
+        fresh_id = _seed_sidecar(tmp, os.getpid())                          # live pid, recent → keep
+        stale_id = _seed_sidecar(tmp, os.getpid(), "1970-01-01T00:00:00Z")  # live pid, ancient → prune
+        removed = actions.reap_dead_launches(tmp)
+        assert removed == 1, f"only the stale sidecar must be pruned: removed={removed}"
+        assert (Path(tmp) / "launches" / f"{fresh_id}.json").is_file(), "a fresh live-pid sidecar survives"
+        assert not (Path(tmp) / "launches" / f"{stale_id}.json").exists(), "an aged sidecar is collectable"
+
+
+def test_reap_dead_launches_prunes_malformed_pid() -> None:
+    # WR-03: a sidecar whose pid is not a usable positive int (missing / null / float / str / <=0)
+    # can never be a live process, so it must be collectable rather than an immortal orphan.
+    with tempfile.TemporaryDirectory() as tmp:
+        bad_ids = [
+            _seed_sidecar(tmp, None),      # missing/null pid
+            _seed_sidecar(tmp, 0),         # non-positive
+            _seed_sidecar(tmp, -5),        # negative
+            _seed_sidecar(tmp, 3.5),       # float
+            _seed_sidecar(tmp, "1234"),    # string
+        ]
+        removed = actions.reap_dead_launches(tmp)
+        assert removed == len(bad_ids), f"every malformed-pid sidecar must be prunable: removed={removed}"
+        for bid in bad_ids:
+            assert not (Path(tmp) / "launches" / f"{bid}.json").exists(), f"malformed-pid {bid} not collected"
+
+
+def test_reap_dead_launches_stale_age_helper_never_raises_on_bad_launched_at() -> None:
+    # A malformed launched_at must be treated as stale (prunable) and must never raise.
+    assert actions._launch_is_stale(None) is True, "missing launched_at → stale"
+    assert actions._launch_is_stale("not-a-timestamp") is True, "malformed launched_at → stale"
+    assert actions._launch_is_stale(_fresh_launched_at()) is False, "a fresh stamp is not stale"
 
 
 # ── SAFETY-01: no dashboard code path writes a gate verdict / forces delivery ──────────────────────
