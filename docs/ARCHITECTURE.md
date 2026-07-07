@@ -193,6 +193,12 @@ and calls those scripts via `Bash` for every control decision. Safety lives enti
 deterministic layer: the model never decides whether a gate passed, whether the retry cap is
 hit, or whether an artifact is deliverable.
 
+Every run-state path below is written under a resolved pipeline root `<root>`: the
+`pipeline-dir=<dir>` prompt arg if present, else the `GMJ_PIPELINE_DIR` environment variable,
+else `.pipeline` (the fallback, not the only path — see `/gmj-pipeline-run`'s Parameters
+section and `gmj-orchestrator.md`'s `init_run`). The diagram below shows `.pipeline` as the
+illustrative default; the `runs/<run_id>/` layout is identical under any resolved root.
+
 ```
  CLI: claude --dangerously-skip-permissions  →  /gmj-pipeline-run  (params: mode?, offer, run_id?, artifact-types?)
                                      │
@@ -204,7 +210,7 @@ hit, or whether an artifact is deliverable.
                                      │
                                      ▼
    1. init_run   gmj_state_write.py   freeze execution_mode + retry_cap + run_id  ─┐  (once per
-                       into .pipeline/runs/<run_id>-{cv,cl,ip}/state.json — ITS OWN │   derived id)
+                       into <root>/runs/<run_id>-{cv,cl,ip}/state.json — ITS OWN     │   derived id)
    2. loop:                                                                        ▼
       a. gmj_route.py  --state runs/<run_id>-{cv,cl,ip}/state.json  →  next_step  (pure (state,dag)→step)
       b. gmj_check_offer.py  --file offer-spec.json      (before each dispatch; STALE ⇒ abort)
@@ -243,18 +249,20 @@ artifact lacking a recorded Gate A ∧ Gate B pass — so even a loop bug cannot
 draft.
 
 **Run-scoped state relocation.** State moves from a single `.pipeline/state.json` to a
-per-run **`.pipeline/runs/<run_id>/state.json`**, which holds the resumable run state
+per-run **`<root>/runs/<run_id>/state.json`** (`<root>` resolved as above — `.pipeline` is the
+illustrative default, not the only path), which holds the resumable run state
 (`current_step`, `completed_steps`, `gate_results`, `offer_spec_path`, `offer_spec_hash`,
 `retry_counts`, plus the Phase-7 frozen keys `execution_mode`, `retry_cap`, `run_id`)
 alongside the logged `gate_result` audit artifacts (`gate_<node>_<type>_<attempt>.json`).
 `gmj_route.py` reads that file, so resume is a pure `(state, dag) → next_step` replay: passing an
 existing `run_id` resumes; a single step runs exactly the one node `gmj_route.py` returns.
 `run_id` is sanitized to a safe charset before it becomes a directory name (no path
-traversal), and `.pipeline/` is git-ignored (per-run state + gate logs stay local).
+traversal), and `<root>/runs/<run_id>/` is git-ignored (per-run state + gate logs stay local),
+where `<root>` defaults to `.pipeline` but is configurable via `pipeline-dir`/`GMJ_PIPELINE_DIR`.
 
 **Per-artifact-type state isolation (Phase 32, ARTF-01/04).** A single-offer run produces
 the full default artifact set (CV, cover letter, interview-prep) by default; each requested
-type gets its own `.pipeline/runs/<run_id>-{cv,cl,ip}/state.json`, derived and validated by
+type gets its own `<root>/runs/<run_id>-{cv,cl,ip}/state.json`, derived and validated by
 `scripts/pipeline/gmj_pipeline_run.py` (mirroring `gmj_batch.py`'s per-(offer, artifact_type)
 run_id pattern) — never one shared file, because `gate_results` is keyed flatly by DAG node
 name with no artifact-type dimension (`gmj_record_gate.py`), and a shared file would let a
