@@ -566,6 +566,7 @@ def test_missing_files_degrade_without_raising() -> None:
         assert snap["features"] == [], "a missing .claude catalog degrades features to []"
         assert snap["config"]["boards"] == [], "a missing sources.yaml degrades boards to []"
         assert snap["config_files"] == [], "a missing config/ dir degrades config_files to []"
+        assert snap["docs_files"] == [], "a missing docs/ dir degrades docs_files to []"
         assert snap["stages"]["dag"] == [], "a missing pipeline.dag.yaml degrades dag to []"
         json.dumps(snap)  # still JSON-serializable
 
@@ -577,7 +578,7 @@ def test_snapshot_nine_key_shape_and_json_serializable() -> None:
     snap = _snapshot(model)
     assert set(snap) >= {
         "counters", "metrics", "stages", "runs", "batches",
-        "vacancies", "features", "config", "config_files", "run_detail",
+        "vacancies", "features", "config", "config_files", "docs_files", "run_detail",
         "pipeline_activity",
     }, f"snapshot() must carry all panel keys: {sorted(snap)}"
     assert set(snap["stages"]) >= {"dag", "active"}, "stages must carry dag + active"
