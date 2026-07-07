@@ -307,7 +307,7 @@ def test_draft_mode_cv_render_omits_no_template() -> None:
     for path in (CV_GENERATOR_AGENT, GENERATE_CMD):
         text = path.read_text(encoding="utf-8")
         match = pattern.search(text)
-        assert match is not None, f"{path}: no Draft-mode cv render_cv.py invocation line found"
+        assert match is not None, f"{path}: no Draft-mode cv gmj_render_cv.py invocation line found"
         line = match.group(0)
         assert "--no-template" not in line, (
             f"{path}: Draft-mode cv render line still hardcodes --no-template: {line!r}"
