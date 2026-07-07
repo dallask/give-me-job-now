@@ -252,3 +252,86 @@ def write_launch_sidecar(pipeline_dir, *, kind, label, pid, cmd) -> str:
     }
     _atomic_write(launches_dir / f"{launch_id}.json", json.dumps(payload, ensure_ascii=False))
     return launch_id
+
+
+def _safe_launch_id(launch_id) -> bool:
+    """True when ``launch_id`` is a single safe path component (mirrors gmj_runs._ID_RE).
+
+    Rejects empty, non-str, ``..``, and any ``/``- or ``\\``-bearing id so a crafted id can never
+    escape ``launches/`` on reap (T-28-01). The generated id always passes; this guards the reap seam.
+    """
+    return (
+        isinstance(launch_id, str)
+        and launch_id not in (".", "..")
+        and ".." not in launch_id
+        and "/" not in launch_id
+        and "\\" not in launch_id
+        and bool(_LAUNCH_ID_RE.match(launch_id))
+    )
+
+
+def _pid_alive(pid) -> bool:
+    """Liveness probe via ``os.kill(pid, 0)``. NEVER raises. Rejects pid<=0 / non-int / bool up front.
+
+    A ``pid <= 0`` is refused BEFORE probing because ``os.kill(0, 0)`` / ``os.kill(-1, 0)`` signal a
+    whole process GROUP, not one process. ``ESRCH`` (ProcessLookupError) → dead; ``EPERM``
+    (PermissionError) → alive but owned by another uid; any other OSError is treated conservatively
+    (alive only on EPERM). This is a deliberate duplicate of the read model's read-only helper: the
+    model copy backs a read filter, THIS copy backs the reaper's write decision.
+    """
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:  # ESRCH — no such process
+        return False
+    except PermissionError:  # EPERM — exists, owned by another uid → alive
+        return True
+    except OSError as exc:  # any other errno: conservative — alive only on EPERM
+        return exc.errno == errno.EPERM
+
+
+def reap_launch_sidecar(pipeline_dir, launch_id) -> None:
+    """Remove one launch sidecar on clean exit (RELOAD-02). Traversal-guarded; NEVER raises.
+
+    A crafted / unsafe ``launch_id`` is a silent no-op (guarded by ``_safe_launch_id`` before any
+    ``unlink``). A missing file is also a no-op. The delete path is built ONLY from the ``"launches"``
+    literal + a validated id.
+    """
+    if not _safe_launch_id(launch_id):
+        return
+    p = Path(pipeline_dir) / "launches" / f"{launch_id}.json"
+    try:
+        p.unlink()
+    except OSError:
+        pass
+
+
+def reap_dead_launches(pipeline_dir, *, limit: int = 20) -> int:
+    """Prune up to ``limit`` dead-pid orphan sidecars (RELOAD-02). Bounded + torn-tolerant. Returns count.
+
+    Bounded (N=20 default) so a launch keypress stays cheap. A torn / non-JSON / non-dict sidecar is
+    skipped (never raises); the next launch retries it. Only a sidecar whose recorded ``pid`` is a
+    positive int AND not alive is removed. The delete path uses the ``"launches"`` literal + ``.json``
+    only — no forbidden gate/run-state substring.
+    """
+    launches_dir = Path(pipeline_dir) / "launches"
+    if not launches_dir.is_dir():
+        return 0
+    removed = 0
+    for p in sorted(launches_dir.glob("*.json")):
+        if removed >= limit:
+            break
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue  # torn / missing — skip; next launch retries
+        pid = data.get("pid") if isinstance(data, dict) else None
+        if isinstance(pid, int) and pid > 0 and not _pid_alive(pid):
+            try:
+                p.unlink()
+                removed += 1
+            except OSError:
+                pass
+    return removed
