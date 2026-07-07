@@ -194,19 +194,25 @@ deterministic layer: the model never decides whether a gate passed, whether the 
 hit, or whether an artifact is deliverable.
 
 ```
- CLI: claude --dangerously-skip-permissions  →  /gmj-pipeline-run  (params: mode?, offer, run_id?)
+ CLI: claude --dangerously-skip-permissions  →  /gmj-pipeline-run  (params: mode?, offer, run_id?, artifact-types?)
                                      │
                                      ▼
-   1. init_run   gmj_state_write.py   freeze execution_mode + retry_cap + run_id  ─┐
-                                  into .pipeline/runs/<run_id>/state.json       │
-   2. loop:                                                                     ▼
-      a. gmj_route.py  --state runs/<run_id>/state.json  →  next_step   (pure (state,dag)→step)
+   0. resolve + derive   gmj_pipeline_run.py --run-id <run_id> --artifact-types <list>
+                          validates against the 3-item enum (cv / cover_letter / interview_prep),
+                          hard-fails BEFORE any dispatch on an unknown/typo'd type, and derives
+                          one run_id per type: <run_id>-cv / <run_id>-cl / <run_id>-ip
+                                     │
+                                     ▼
+   1. init_run   gmj_state_write.py   freeze execution_mode + retry_cap + run_id  ─┐  (once per
+                       into .pipeline/runs/<run_id>-{cv,cl,ip}/state.json — ITS OWN │   derived id)
+   2. loop:                                                                        ▼
+      a. gmj_route.py  --state runs/<run_id>-{cv,cl,ip}/state.json  →  next_step  (pure (state,dag)→step)
       b. gmj_check_offer.py  --file offer-spec.json      (before each dispatch; STALE ⇒ abort)
       c. Task(spoke for next_step)                   (parallel fan-out for 3 artifacts / N offers)
       d. spoke emits a file artifact (draft / gate_result)
       e. GATE node?
            gmj_check_truth.py (Gate A) | gmj_score_fit.py (Gate B)   exit 0/1 — NO bypass flag
-           gmj_record_gate.py  → writes gate_result artifact under runs/<run_id>/
+           gmj_record_gate.py  → writes gate_result artifact under runs/<run_id>-{cv,cl,ip}/
                              AND sets state.gate_results[node]
            FAIL ⇒ gmj_record_retry.py --increment
                   gmj_check_cap.py
@@ -215,9 +221,11 @@ hit, or whether an artifact is deliverable.
                     └ at cap    ⇒ HARD STOP report (names failing artifact + reason)
            PASS ⇒ (HITL: pause for human) → route advances
    3. deliver:   gmj_check_delivery.py   (Gate A ∧ Gate B recorded pass?)  else blocked
+                  — runs once per derived run_id; reported as a per-type breakdown,
+                    never a single collapsed boolean
                                      │
                                      ▼
-                     output/cv/*.pdf  (gmj-cv-generator)
+                output/cv/*.pdf (+ .html sibling, ARTF-02)  (gmj-cv-generator)
 ```
 
 **Mode gates only the pause, never the gate.** `execution_mode` (frozen at `init_run`) is
@@ -243,6 +251,20 @@ alongside the logged `gate_result` audit artifacts (`gate_<node>_<type>_<attempt
 existing `run_id` resumes; a single step runs exactly the one node `gmj_route.py` returns.
 `run_id` is sanitized to a safe charset before it becomes a directory name (no path
 traversal), and `.pipeline/` is git-ignored (per-run state + gate logs stay local).
+
+**Per-artifact-type state isolation (Phase 32, ARTF-01/04).** A single-offer run produces
+the full default artifact set (CV, cover letter, interview-prep) by default; each requested
+type gets its own `.pipeline/runs/<run_id>-{cv,cl,ip}/state.json`, derived and validated by
+`scripts/pipeline/gmj_pipeline_run.py` (mirroring `gmj_batch.py`'s per-(offer, artifact_type)
+run_id pattern) — never one shared file, because `gate_results` is keyed flatly by DAG node
+name with no artifact-type dimension (`gmj_record_gate.py`), and a shared file would let a
+later type's gate write clobber an earlier type's recorded verdict. `gmj_check_delivery.py`
+runs once per derived run_id, and delivery is reported as an explicit per-type breakdown,
+never a single collapsed boolean. An operator narrows the default set via
+`--artifact-types=cv,cover_letter`, with an unknown/typo'd type hard-failing before any
+dispatch. The CV render additionally always attempts a first-class `.html` sibling
+(guaranteed on the default WeasyPrint/Jinja2 path, gracefully PDF-only with a surfaced
+warning otherwise, ARTF-02).
 
 ### Parallel fan-out, sequential gates
 
