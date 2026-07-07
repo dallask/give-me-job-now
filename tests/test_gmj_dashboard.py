@@ -2468,17 +2468,26 @@ def test_layout_panels_visible_under_long_candidate() -> None:
         long_cand += [f"  - skill {i} with a longish descriptive clause" for i in range(120)]
         (root / "config" / "candidate.yaml").write_text("\n".join(long_cand), encoding="utf-8")
 
+        _panels = ("#runs", "#vacancies", "#features-table", "#config-table")
+
         async def _probe() -> dict:
             app = _build_app(pipe, manage=False, refresh=0.1, repo_root=root)
             async with app.run_test(size=(120, 40)) as pilot:
-                # Settle the off-thread poll, then a couple more pauses so the grid is computed and each
-                # panel's `size.height` is non-zero (Pitfall 5 — pre-layout height reads 0).
-                await _settle(pilot, lambda: app.query_one("#runs", DataTable).row_count >= 0, tries=20)
+                # Settle on the REAL seeding + layout condition (WR-01): the fixture-guaranteed run rows
+                # are marshalled off-thread AND every asserted panel has a computed (non-zero) height, so
+                # `_settle` actually blocks on wall-clock and fails loudly if layout never settles — the
+                # always-true `row_count >= 0` predicate did neither (Pitfall 5 — pre-layout height reads 0).
+                await _settle(
+                    pilot,
+                    lambda: app.query_one("#runs", DataTable).row_count > 0
+                    and all(app.query_one(wid).size.height > 0 for wid in _panels),
+                    tries=20,
+                )
                 for _ in range(3):
                     await pilot.pause()
                 return {
                     wid: (app.query_one(wid).size.height, app.query_one(wid).display)
-                    for wid in ("#runs", "#vacancies", "#features-table", "#config-table")
+                    for wid in _panels
                 }
 
         buf = io.StringIO()
