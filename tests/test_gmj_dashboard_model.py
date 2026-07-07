@@ -533,6 +533,21 @@ def test_config_yaml_files_and_file_text() -> None:
     assert model.config_file_text("config/missing.yaml").get("error")
 
 
+def test_docs_files_and_doc_file_text() -> None:
+    model = _thin_model()
+    snap = _snapshot(model)
+    files = snap["docs_files"]
+    assert files == ["docs/alpha.md", "docs/beta.md"], files
+    assert all(path.startswith("docs/") and path.endswith(".md") for path in files)
+    assert snap["docs_files"] == model.docs_files()
+    payload = model.doc_file_text("docs/alpha.md")
+    assert payload == {"path": "docs/alpha.md", "text": "# Alpha Fixture Doc\n\nAlpha fixture body.\n"}
+    assert model.doc_file_text("docs/missing.md") == {"path": "docs/missing.md", "error": "File not found"}
+    assert model.doc_file_text("../docs/alpha.md").get("error") == "Invalid docs path"
+    assert model.doc_file_text("docs/alpha.txt").get("error") == "Invalid docs path"
+    assert model.doc_file_text("docs/../secret.md").get("error") == "Invalid docs path"
+
+
 def test_pipeline_activity_detects_in_flight_work() -> None:
     model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(FIXTURES), repo_root=REPO_ROOT)
     pa = model.pipeline_activity()
