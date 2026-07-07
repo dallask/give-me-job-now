@@ -29,6 +29,7 @@ and the verbatim (never-executed) resume-command display live in the view (Plan 
 from __future__ import annotations
 
 import asyncio
+import calendar
 import errno
 import json
 import os
@@ -224,6 +225,35 @@ _LAUNCH_KINDS = ("collective", "interview", "template")
 # supplied), but the reap path re-validates before any unlink (defense in depth, T-28-01).
 _LAUNCH_ID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
+# Bounded staleness cap (WR-02 / WR-03). Pid-only liveness has no reuse disambiguation: an
+# uncleanly-exited launch whose sidecar was never reaped can resurrect as permanently "active" once
+# the OS reuses its pid, and a sidecar whose recorded pid is missing / non-int / <= 0 can never be
+# collected by a pid-liveness prune at all. A generous absolute age cap keyed on the recorded
+# ``launched_at`` bounds both: a launch older than the cap is collectable regardless of pid state, so
+# no sidecar class is immortal. 24h is far longer than any real dashboard-launched run.
+LAUNCH_MAX_AGE_SECONDS = 24 * 3600
+
+
+def _launch_age_seconds(launched_at, *, now: float | None = None) -> float | None:
+    """Seconds since a sidecar's UTC ``launched_at`` (``YYYY-MM-DDTHH:MM:SSZ``); ``None`` if unparsable.
+
+    NEVER raises — a missing / non-str / malformed ``launched_at`` yields ``None`` and the caller
+    treats ``None`` as stale (a sidecar with no usable timestamp cannot be shown to be recent).
+    """
+    if not isinstance(launched_at, str):
+        return None
+    try:
+        epoch = calendar.timegm(time.strptime(launched_at, "%Y-%m-%dT%H:%M:%SZ"))
+    except (ValueError, TypeError):
+        return None
+    return (time.time() if now is None else now) - epoch
+
+
+def _launch_is_stale(launched_at, *, now: float | None = None) -> bool:
+    """True when a sidecar is older than ``LAUNCH_MAX_AGE_SECONDS`` OR its ``launched_at`` is unusable."""
+    age = _launch_age_seconds(launched_at, now=now)
+    return age is None or age > LAUNCH_MAX_AGE_SECONDS
+
 
 def _generate_launch_id() -> str:
     """UTC-timestamp + short hex token — inherently _ID_RE / _safe_component safe (no '/', no '..')."""
@@ -309,12 +339,18 @@ def reap_launch_sidecar(pipeline_dir, launch_id) -> None:
 
 
 def reap_dead_launches(pipeline_dir, *, limit: int = 20) -> int:
-    """Prune up to ``limit`` dead-pid orphan sidecars (RELOAD-02). Bounded + torn-tolerant. Returns count.
+    """Prune up to ``limit`` dead / stale orphan sidecars (RELOAD-02). Bounded + torn-tolerant.
 
     Bounded (N=20 default) so a launch keypress stays cheap. A torn / non-JSON / non-dict sidecar is
-    skipped (never raises); the next launch retries it. Only a sidecar whose recorded ``pid`` is a
-    positive int AND not alive is removed. The delete path uses the ``"launches"`` literal + ``.json``
-    only — no forbidden gate/run-state substring.
+    skipped (never raises); the next launch retries it. A sidecar is collected when ANY of the
+    following holds, so no sidecar class is immortal:
+      - its recorded ``pid`` is not a usable positive int (missing / null / float / str / bool /
+        ``<= 0``) — such a launch can never correspond to a live process (WR-03);
+      - its ``pid`` is usable but not alive (the original dead-pid prune);
+      - the launch is older than ``LAUNCH_MAX_AGE_SECONDS`` (or its ``launched_at`` is unparsable),
+        which bounds pid-reuse resurrection after an unclean exit (WR-02).
+    The delete path uses the ``"launches"`` literal + ``.json`` only — no forbidden gate/run-state
+    substring.
     """
     launches_dir = Path(pipeline_dir) / "launches"
     if not launches_dir.is_dir():
@@ -328,7 +364,10 @@ def reap_dead_launches(pipeline_dir, *, limit: int = 20) -> int:
         except (OSError, ValueError):
             continue  # torn / missing — skip; next launch retries
         pid = data.get("pid") if isinstance(data, dict) else None
-        if isinstance(pid, int) and pid > 0 and not _pid_alive(pid):
+        launched_at = data.get("launched_at") if isinstance(data, dict) else None
+        pid_usable = isinstance(pid, int) and not isinstance(pid, bool) and pid > 0
+        dead = (not pid_usable) or (not _pid_alive(pid)) or _launch_is_stale(launched_at)
+        if dead:
             try:
                 p.unlink()
                 removed += 1

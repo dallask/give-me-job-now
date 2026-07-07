@@ -31,6 +31,7 @@ Plan 20-02 — their keys are present here as empty/placeholder values so the sn
 
 from __future__ import annotations
 
+import calendar
 import errno
 import json
 import os
@@ -77,6 +78,29 @@ _BACKOFF_S = 0.01
 _TRANSIENT = object()  # torn/empty read, retry budget spent -> serve last-good else degrade
 _MALFORMED = object()  # valid JSON but not a dict -> degrade immediately (no retry)
 _MISSING = object()    # file vanished mid-poll -> skip the dir
+
+# Bounded launch-sidecar staleness cap (WR-02 / WR-03) — a DELIBERATE read-only duplicate of the
+# actions-module constant/helper (mirrors the intentional ``_pid_alive`` / ``_is_pid_alive`` twin).
+# Pid-only liveness cannot disambiguate pid reuse after an unclean exit, so a launch whose
+# ``launched_at`` age exceeds this cap (or is unparsable) is treated as stale and FILTERED OUT of the
+# display here (the model never deletes — the actions reaper collects). 24h >> any real run.
+LAUNCH_MAX_AGE_SECONDS = 24 * 3600
+
+
+def _launch_is_stale(launched_at, *, now: float | None = None) -> bool:
+    """True when a sidecar is older than ``LAUNCH_MAX_AGE_SECONDS`` OR its ``launched_at`` is unusable.
+
+    NEVER raises — a missing / non-str / malformed ``launched_at`` is treated as stale (a sidecar with
+    no usable timestamp cannot be shown to be recent). Pure function of the recorded string + ``now``.
+    """
+    if not isinstance(launched_at, str):
+        return True
+    try:
+        epoch = calendar.timegm(time.strptime(launched_at, "%Y-%m-%dT%H:%M:%SZ"))
+    except (ValueError, TypeError):
+        return True
+    age = (time.time() if now is None else now) - epoch
+    return age > LAUNCH_MAX_AGE_SECONDS
 
 
 def _load_state_tolerant(state_path: Path):
@@ -276,7 +300,9 @@ class DashboardModel:
                 continue  # torn / malformed / missing → skip, never degrade-row
             pid = result.get("pid")
             if not self._is_pid_alive(pid):
-                continue  # dead / stale → not shown (NEVER deleted — the actions reaper prunes)
+                continue  # dead pid → not shown (NEVER deleted — the actions reaper prunes)
+            if _launch_is_stale(result.get("launched_at")):
+                continue  # WR-02/WR-03: age-capped so a pid-reused ghost is never shown as active
             rows.append(
                 {
                     "launch_id": result.get("launch_id") or launch_id,
