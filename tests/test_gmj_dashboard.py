@@ -476,9 +476,10 @@ async def _probe_runs_table(pipeline_dir: Path) -> dict:
     """Launch read-only, let the poll seed the table, then probe rows / status cell / cursor stability."""
     app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        # Let the threaded poll seed every run row via _apply_runs (add_row keyed by run_id).
-        for _ in range(5):
-            await pilot.pause()
+        # Settle on the REAL seeding condition (IN-02): the threaded poll seeds every run row via
+        # _apply_runs (add_row keyed by run_id) — a fixed pause count races the ~0.1s worker. _settle
+        # blocks on wall-clock and fails loudly if the rows never arrive (loud-fail guarantee).
+        await _settle(pilot, lambda: app.query_one("#runs", DataTable).row_count > 0)
         table = app.query_one("#runs", DataTable)
         # The projection the view is rendering — one row per run (strayonly already excluded by model).
         expected_runs = app._model.snapshot()["runs"]
@@ -1308,8 +1309,9 @@ async def _probe_errors_panel(pipeline_dir: Path) -> dict:
     """Launch read-only, let the poll fill #errors, then probe text + applied style spans."""
     app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        for _ in range(5):
-            await pilot.pause()
+        # Settle on the real seeding (IN-02): the failure detail is marshalled off-thread into #errors —
+        # a fixed pause count races the ~0.1s poll worker. _settle blocks and fails loudly if it never fills.
+        await _settle(pilot, lambda: str(app.query_one("#errors", Static).render()).strip() != "")
         panel = app.query_one("#errors", Static)
         rendered = str(panel.render())
         # Static.update(out) stores the ORIGINAL Rich Text in the name-mangled __content attribute
@@ -1386,8 +1388,9 @@ async def _probe_activity_panel(pipeline_dir: Path) -> dict:
     """Launch read-only, let the poll fill #activity, then probe text + applied event-colour spans."""
     app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        for _ in range(5):
-            await pilot.pause()
+        # Settle on the real seeding (IN-02): the event timeline is marshalled off-thread into #activity —
+        # a fixed pause count races the ~0.1s poll worker. _settle blocks and fails loudly if it never fills.
+        await _settle(pilot, lambda: str(app.query_one("#activity", Static).render()).strip() != "")
         panel = app.query_one("#activity", Static)
         rendered = str(panel.render())
         # Static.update(out) stores the ORIGINAL Rich Text in the name-mangled __content attribute
