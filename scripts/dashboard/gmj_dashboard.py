@@ -1057,7 +1057,9 @@ class GmjDashboard(App):
         out.append(bar, style=style)
         hb.update(out)
 
-    def _track_launch(self, proc, *, run_id: str | None = None, label: str | None = None) -> None:
+    def _track_launch(
+        self, proc, *, run_id: str | None = None, label: str | None = None, launch_id: str | None = None
+    ) -> None:
         """Hold a detached child ref, poll faster while it lives, and drop it when the proc exits."""
         self._children.append(proc)
         if label:
@@ -1069,7 +1071,10 @@ class GmjDashboard(App):
             self._pending_launches.append(proc)
             self._auto_debug_until = time.monotonic() + 120.0
         self._kick_live_refresh(120.0)
-        asyncio.get_running_loop().create_task(self._watch_launch(proc, run_id=run_id))
+        # RELOAD-01: thread launch_id to the watch task so a clean child exit reaps its sidecar.
+        asyncio.get_running_loop().create_task(
+            self._watch_launch(proc, run_id=run_id, launch_id=launch_id)
+        )
 
     def _ensure_fast_poll(self) -> None:
         if self._fast_poll is None and self._needs_rapid_poll():
@@ -1082,7 +1087,9 @@ class GmjDashboard(App):
             self._fast_poll = None
         self._stop_heartbeat_anim_if_idle()
 
-    async def _watch_launch(self, proc, *, run_id: str | None = None) -> None:
+    async def _watch_launch(
+        self, proc, *, run_id: str | None = None, launch_id: str | None = None
+    ) -> None:
         await proc.wait()
         if run_id:
             self._launched_runs.pop(run_id, None)
@@ -1295,6 +1302,20 @@ class GmjDashboard(App):
             FeatureModal(detail, manage=self._manage, run_callback=self._launch_feature)
         )
 
+    def _launch_sidecar_kind(self, feature: dict) -> str:
+        """Derive the launch-sidecar kind from a feature SLASH (collective/interview/template).
+
+        RELOAD-01 kind-derivation caveat: ``feature['kind']`` is ``command/agent/skill/flow`` — NOT the
+        sidecar kind. The sidecar kind is derived from the FLOW slash/name; the 28-01 writer clamps any
+        unknown kind back to ``collective`` as a backstop, so the default here is the safe collective.
+        """
+        slash = feature.get("slash") or ""
+        if slash.endswith("gmj-interview"):
+            return "interview"
+        if slash.endswith("gmj-template"):
+            return "template"
+        return "collective"
+
     @work
     async def _launch_feature(self, feature: dict, values: dict) -> None:
         """Detached ``claude -p`` launch for a features-panel selection (``--manage`` only)."""
@@ -1302,6 +1323,8 @@ class GmjDashboard(App):
             return
         import gmj_dashboard_actions as actions  # lazy — only under --manage
 
+        # RELOAD-01: bounded orphan prune BEFORE writing — the view calls the mutator, never deletes.
+        actions.reap_dead_launches(self._pipeline_dir, limit=20)
         prompt = build_feature_prompt(feature, values)
         try:
             # HON-01: _launch_feature is the easy-to-miss third launch path. It uses build_feature_prompt
@@ -1313,7 +1336,16 @@ class GmjDashboard(App):
             self.notify(f"⚠ feature launch failed: {exc}", severity="error")
             return
         label = feature.get("name") or feature.get("slash") or "feature"
-        self._track_launch(proc, label=label)
+        # RELOAD-01 wiring: persist a launch sidecar so a reloaded board recovers this live launch.
+        # The view NEVER writes — every mutation is delegated to the actions module (SAFETY-02).
+        launch_id = actions.write_launch_sidecar(
+            self._pipeline_dir,
+            kind=self._launch_sidecar_kind(feature),
+            label=label,
+            pid=proc.pid,
+            cmd=prompt,
+        )
+        self._track_launch(proc, label=label, launch_id=launch_id)
         self.notify(f"▸ launched {label} (autonomous) — live refresh while active")
 
     # ── non-blocking poll spine (VIEW-04) ──────────────────────────────────────────────────────
