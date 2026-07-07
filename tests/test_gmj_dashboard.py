@@ -555,10 +555,10 @@ async def _probe_metrics_panel(pipeline_dir: Path) -> dict:
     """Launch read-only, let the poll fill the metrics panel, then read its text + sparkline data."""
     app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
-        # Two+ ticks let the threaded poll marshal snapshot()["metrics"] back into the panel.
-        await pilot.pause()
-        await pilot.pause()
-        await pilot.pause()
+        # Settle on the REAL seeding condition (metrics text marshalled back off-thread) rather than a
+        # fixed pause count — a bare `pilot.pause()` triple races the ~0.1s poll worker and rotates into
+        # the documented render-settle flake (29-01 retrofit; this probe was one the earlier pass missed).
+        await _settle(pilot, lambda: str(app.query_one("#metrics", Static).render()).strip() != "")
         metrics_text = str(app.query_one("#metrics", Static).render())
         spark_data = app.query_one("#throughput", Sparkline).data
         return {"metrics_text": metrics_text, "spark_data": spark_data}
@@ -591,9 +591,10 @@ async def _probe_features_config(pipeline_dir: Path) -> dict:
     """Launch read-only, let the poll fill the features + config panels."""
     app = _build_app(pipeline_dir, manage=False, refresh=0.1, repo_root=REPO_ROOT)
     async with app.run_test(size=(120, 40)) as pilot:
-        await pilot.pause()
-        await pilot.pause()
-        await pilot.pause()
+        # Settle on the real seeding (features catalog marshalled off-thread) — a fixed pause triple
+        # races the poll worker under CPU contention (the 29-01 render-settle flake class; this probe
+        # was one the earlier retrofit pass missed).
+        await _settle(pilot, lambda: app.query_one("#features-table", DataTable).row_count > 0)
         feat_table = app.query_one("#features-table", DataTable)
         feat_rows = [
             (
@@ -2117,9 +2118,9 @@ async def _probe_reload_pipeline_heartbeat() -> dict:
     """Simulate reload: fresh app over fixture pipeline with in-flight runs on disk."""
     app = _build_app(FIXTURES, manage=False, refresh=0.1, repo_root=REPO_ROOT)
     async with app.run_test(size=(120, 40)) as pilot:
-        await pilot.pause()
-        await pilot.pause()
-        await pilot.pause()
+        # Settle on the real seeding (poll marshalled the on-disk active-pipeline state back) — a fixed
+        # pause triple races the poll worker under CPU contention (the 29-01 render-settle flake class).
+        await _settle(pilot, lambda: app._disk_pipeline_active)
         hb = app.query_one("#heartbeat", Static)
         return {
             "disk_active": app._disk_pipeline_active,
