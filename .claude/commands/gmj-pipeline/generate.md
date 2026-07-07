@@ -2,7 +2,7 @@
 
 ---
 allowed-tools: Task(*), Read(*), Glob(*), LS(*), Bash(*)
-description: Run the gmj-cv-generator spoke to render a gate-passed artifact to PDF via scripts/cv/gmj_render_cv.py (live E2E is Phase 8).
+description: Run the gmj-cv-generator spoke to render each gate-passed artifact type (CV via gmj_render_cv.py, cover letter via gmj_render_cover_letter.py, interview-prep via gmj_render_interview_prep.py; live E2E is Phase 8).
 ---
 
 ## What this step names (thin wrapper — no control logic here)
@@ -17,9 +17,16 @@ description: Run the gmj-cv-generator spoke to render a gate-passed artifact to 
   python3 scripts/pipeline/gmj_check_delivery.py --state <root>/runs/<run_id>-ip/state.json
   # blocked unless BOTH gates recorded a pass in THAT type's own state.json — no ship-last-attempt
   ```
-- **Spoke:** `Task(subagent_type: gmj-cv-generator)` — render-only, renders the gate-passed artifact:
+- **Spoke:** `Task(subagent_type: gmj-cv-generator)` — render-only, renders each gate-passed
+  artifact via the branch matching its type (Draft mode, see `gmj-cv-generator.md`):
   ```bash
-  python3 scripts/cv/gmj_render_cv.py [--lang ua|ru]   # → output/cv/*.pdf
+  # cv:
+  python3 scripts/cv/gmj_draft_to_cv_yaml.py --file <draft.json> --out <cv.yaml>
+  python3 scripts/cv/gmj_render_cv.py --config <cv.yaml> --no-template --lang <content.language> --out output/cv/<name>.pdf
+  # cover_letter:
+  python3 scripts/cv/gmj_render_cover_letter.py --file <draft.json> --lang <content.language>
+  # interview_prep:
+  python3 scripts/cv/gmj_render_interview_prep.py --file <draft.json>
   ```
 
-`gmj-cv-generator` never authors content — content is fixed upstream by the gates. This command just names the render entry point; the live end-to-end run against a real offer is exercised in Phase 8. No type shares another's gate verdict; the N independent results are aggregated into an explicit per-type breakdown — never a single collapsed boolean.
+`gmj-cv-generator` never authors content — content is fixed upstream by the gates. This command just names the render entry points (one Task call per requested type); the live end-to-end run against a real offer is exercised in Phase 8. No type shares another's gate verdict; the N independent results are aggregated into an explicit per-type breakdown — never a single collapsed boolean.
