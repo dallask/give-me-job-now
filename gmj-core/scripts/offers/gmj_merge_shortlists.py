@@ -33,8 +33,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # scripts/offers/ -> 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "preferences"))
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "contracts"))
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "offers"))
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "pipeline"))
 from gmj_validate_preferences import _norm_site, subset_offenders, load_yaml  # noqa: E402,F401
 from gmj_freeze_offer import slugify  # noqa: E402  ([a-z0-9-] slug; returns "offer" when empty)
+from gmj_pipeline_paths import resolve_pipeline_dir  # noqa: E402  (single-sourced pipeline root)
 from jsonschema import Draft202012Validator  # noqa: E402
 
 SHORTLIST_SCHEMA = REPO_ROOT / "schemas" / "shortlist.schema.json"
@@ -52,9 +54,10 @@ def _reject_nan(token: str):
 
 DEFAULT_SOURCES = REPO_ROOT / "config" / "sources.yaml"
 DEFAULT_PREFERENCES = REPO_ROOT / "config" / "preferences.yaml"
-# cwd-relative so writes stay predictable from repo root and isolatable in tests.
-DEFAULT_OUT = Path(".pipeline") / "shortlist.json"
-PIPELINE_SUBDIR = Path(".pipeline")
+# The pipeline root is resolved LAZILY inside main() (mirroring gmj_batch.py / gmj_runs.py), never at
+# import — so a within-process GMJ_PIPELINE_DIR change is honored at call time and the module stays
+# deterministically testable. Root single-sourced via resolve_pipeline_dir()
+# (explicit > GMJ_PIPELINE_DIR env > .pipeline).
 
 
 def _entry_source_url(entry: dict) -> str:
@@ -252,16 +255,18 @@ def _validate_against_schema(doc: dict) -> None:
         )
 
 
-def write_shortlist(ranked: list[dict], out: Path) -> Path:
-    """Write the canonical byte-identical JSON + sibling job-seeker ``.md`` under ``.pipeline/``.
+def write_shortlist(ranked: list[dict], out: Path, pipeline_dir: Path) -> Path:
+    """Write the canonical byte-identical JSON + sibling job-seeker ``.md`` under the pipeline root.
 
-    Asserts the resolved output path stays under ``.pipeline/`` before writing (path-traversal
-    defence in depth, mirrors gmj_freeze_offer.py containment).
+    Asserts the resolved output path stays under ``pipeline_dir`` before writing (path-traversal
+    defence in depth, mirrors gmj_freeze_offer.py containment). ``pipeline_dir`` is resolved FRESH at
+    the call site (never a frozen import-time constant), so a relative-vs-absolute or env change is
+    honored at write time.
     """
     resolved = out.expanduser().resolve()
-    pipeline_dir = PIPELINE_SUBDIR.resolve()
-    if resolved != pipeline_dir and pipeline_dir not in resolved.parents:
-        raise ValueError(f"Refusing to write outside {pipeline_dir}: {resolved}")
+    base = pipeline_dir.expanduser().resolve()
+    if resolved != base and base not in resolved.parents:
+        raise ValueError(f"Refusing to write outside {base}: {resolved}")
 
     resolved.parent.mkdir(parents=True, exist_ok=True)
     doc = {"kind": "offer_shortlist", "schema_version": "1.0", "shortlist": ranked}
@@ -312,6 +317,10 @@ def load_board_entries(board_files: list[Path] | None, use_stdin: bool) -> list[
 
 
 def main() -> int:
+    # Resolve the pipeline root LAZILY (mirrors gmj_batch.py / gmj_runs.py) at parser-construction
+    # time — AFTER any parent has stamped GMJ_PIPELINE_DIR into the child env — never at import.
+    pipeline_root = Path(resolve_pipeline_dir())
+    default_out = pipeline_root / "shortlist.json"
     parser = argparse.ArgumentParser(
         description="Deterministically merge/dedup/scope-filter/rank per-board shortlists."
     )
@@ -327,7 +336,7 @@ def main() -> int:
     parser.add_argument(
         "--preferences", type=Path, default=DEFAULT_PREFERENCES, help="preferences.yaml ranking signals."
     )
-    parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Output shortlist JSON path.")
+    parser.add_argument("--out", type=Path, default=default_out, help="Output shortlist JSON path.")
     args = parser.parse_args()
 
     # Load board entries.
@@ -370,7 +379,7 @@ def main() -> int:
     ranked = merge(board_entries, prefs, sources)
 
     try:
-        written = write_shortlist(ranked, args.out)
+        written = write_shortlist(ranked, args.out, pipeline_root)
     except (ValueError, OSError) as exc:
         print(str(exc), file=sys.stderr)
         return 1

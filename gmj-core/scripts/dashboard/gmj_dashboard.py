@@ -179,11 +179,12 @@ _DIAG_PANE_ORDER: tuple[str, ...] = (
     _DIAG_PANE_CHARTS,
 )
 
-# Heartbeat live-sync strip (VIEW-27) — theme primary green for task + bar.
+# Heartbeat live-sync strip (VIEW-27) — compact row; see also top-of-file #heartbeat block.
 _HEARTBEAT_STYLE = "bold #3fb950"
 
 # Global counters strip delimiter — swap for another TUI-friendly separator if desired.
 _COUNTERS_DELIM = " │ "
+
 # Under --manage each key binds to its REAL action (run/resume/batch/mode/cap) which delegates to the
 # gmj_dashboard_actions module (Plan 24-02); WITHOUT --manage they are never constructed, so the
 # read-only board genuinely lacks them (MANAGE-01). The action_* handlers lazily import the actions
@@ -515,6 +516,51 @@ class _PromptModal(ModalScreen):
         self.dismiss()
 
 
+class _ConfirmModal(ModalScreen):
+    """A yes/no acknowledgement gate for a mutating write to the real repo-default config (SAFE-02).
+
+    Copies the ``_PromptModal`` Future-marshalling shape but resolves the injected ``future`` with a
+    BOOL: enter / the confirm button → ``True`` (proceed), escape / the cancel button → ``False``
+    (leave the file untouched). Like ``_PromptModal`` it owns NO write/subprocess API — it only
+    marshals the operator's acknowledgement back to ``_confirm_manage_write``, keeping the view
+    AST-clean (SAFETY-02 / MANAGE-06). Its widget ids are ``#confirm-`` / ``#modal-confirm-``
+    namespaced (NOT ``#modal-prompt-*``) so the ~1.5s base-screen poll's ``query_one`` never collides
+    with a duplicate id (Pitfall 4). The warning copy names the real repo-default config path and
+    deliberately avoids the SAFETY-03 forbidden status/gate-node string literals.
+    """
+
+    BINDINGS = [("escape", "cancel", "Cancel")]
+
+    def __init__(self, prompt: str, future: asyncio.Future) -> None:
+        self._prompt = prompt
+        self._future = future
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="modal-confirm-card"):
+            yield Static(self._prompt, id="modal-confirm", classes="modal")
+            with Horizontal(id="modal-confirm-actions"):
+                yield Button("Proceed", id="confirm-ok-btn", variant="warning")
+                yield Button("Cancel", id="confirm-cancel-btn", variant="default")
+
+    def on_mount(self) -> None:
+        try:
+            self.query_one("#confirm-ok-btn", Button).focus()
+        except Exception:  # noqa: BLE001 — headless / teardown edge
+            pass
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self._resolve(event.button.id == "confirm-ok-btn")
+
+    def action_cancel(self) -> None:
+        self._resolve(False)
+
+    def _resolve(self, value: bool) -> None:
+        if not self._future.done():
+            self._future.set_result(bool(value))
+        self.dismiss()
+
+
 class GmjDashboard(App):
     """The read-only btop-style pipeline board. Takes a PRE-BUILT model; touches no disk itself."""
 
@@ -542,6 +588,9 @@ class GmjDashboard(App):
         # every config write / process spawn is delegated to gmj_dashboard_actions (MANAGE-06).
         self._launcher = launcher                                   # injected recording fake in tests
         self._config_path = config_path if config_path is not None else DEFAULT_CONFIG
+        # SAFE-02 confirm-once-per-session flag: after the first acknowledged mutating write to the real
+        # repo-default config, later m/c writes proceed without re-prompting (the banner stays visible).
+        self._manage_confirmed = False
         self._pipeline_dir = pipeline_dir                           # threaded into run_batch (W2)
         self._cwd = cwd if cwd is not None else REPO_ROOT           # repo root for the launched child
         self._children: list = []                                   # detached proc refs (silence GC)
@@ -605,6 +654,7 @@ class GmjDashboard(App):
         feat_panel.border_title = "features"
 
         cfg_panel = Vertical(
+            Static("", id="config-warning"),          # SAFE-02 (a) repo-default banner — seeded once
             DataTable(id="config-table", cursor_type="row"),
             id="config-panel",
         )
@@ -698,6 +748,12 @@ class GmjDashboard(App):
             tab_bar.get_content_tab(pane_id).add_class(class_name)
         # The commands reference (VIEW-15) is STATIC + mode-aware — seed it once here, not per-poll.
         self._apply_commands()
+        # SAFE-02 (a): a persistent repo-default warning banner, seeded ONCE here (NEVER in a per-poll
+        # _apply_* path — that would flicker/lose it, Pitfall 3). Shown only under --manage when the
+        # resolved --config is the real repo-default; empty otherwise. Copy avoids the SAFETY-03
+        # forbidden status/gate-node literals (phrased around "editing the real repo-default config").
+        if self._manage and self._editing_repo_default():
+            self.query_one("#config-warning", Static).update(self._repo_default_warning())
 
     def _install_bindings(self) -> None:
         """Install read-only bindings always; the mutating keys ONLY under --manage (VIEW-01/07).
@@ -740,28 +796,97 @@ class GmjDashboard(App):
             self.notify("⚠ retry_cap must be an integer", severity="error")
             return None
 
+    # ── SAFE-02 repo-default write gate (detection + injectable confirm seam, confirm-once) ─────────
+
+    def _editing_repo_default(self) -> bool:
+        """True iff --config resolves to the packaged repo-default config (SAFE-02).
+
+        Path identity only — a ``Path.resolve()`` equality vs the module-level ``DEFAULT_CONFIG`` (NOT
+        ``samefile``, which raises on a missing path). No content hashing/sniffing (locked decision).
+        Never raises: any resolve failure — ``OSError`` OR ``ValueError`` (e.g. an embedded NUL byte in a
+        crafted ``--config`` value) — degrades safely to ``False`` (IN-02). Overridable in tests.
+        """
+        try:
+            return Path(self._config_path).resolve() == DEFAULT_CONFIG.resolve()
+        except (OSError, ValueError):
+            return False
+
+    def _repo_default_warning(self) -> str:
+        """Single source for the SAFE-02 repo-default warning copy (IN-01).
+
+        Built once here and reused by both the persistent ``#config-warning`` banner and the confirm
+        modal so the two operator-facing phrasings can never drift. Names the resolved real config path
+        and deliberately avoids the SAFETY-03 forbidden status/gate-node string literals.
+        """
+        return f"⚠ editing the real repo-default config: {Path(self._config_path).resolve()}"
+
+    async def _confirm_manage_write(self) -> bool:
+        """Push a ``_ConfirmModal`` and await the operator's acknowledgement (SAFE-02). Overridable.
+
+        Mirrors ``_ask``: create a loop Future, push the modal, and return the marshalled bool. A pure
+        UI marshal — no disk, no subprocess (MANAGE-06). The warning names the real repo-default config
+        path and avoids the SAFETY-03 forbidden status/gate-node literals.
+        """
+        future: asyncio.Future = asyncio.get_running_loop().create_future()
+        warning = f"{self._repo_default_warning()} — proceed?"
+        self.push_screen(_ConfirmModal(warning, future))
+        return bool(await future)
+
+    async def _guard_repo_default_write(self) -> bool:
+        """Gate a mutating write behind the confirm seam — once per session (SAFE-02).
+
+        Returns ``True`` immediately when the config is not the repo-default OR the operator has already
+        acknowledged a SUCCESSFUL write this session. Otherwise awaits the confirm seam and returns the
+        operator's acknowledgement. A cancel returns ``False`` so the caller skips its ``actions.*`` write
+        (cancel = no write).
+
+        WR-02: this guard NO LONGER latches ``self._manage_confirmed`` on acknowledgement. The latch is
+        set by the caller ONLY AFTER the subsequent ``actions.*`` write succeeds — so a cancelled OR
+        failed first write does not silently consume the session's single prompt (a failed write must
+        still re-prompt on the next attempt).
+        """
+        if not self._editing_repo_default() or self._manage_confirmed:
+            return True
+        return await self._confirm_manage_write()
+
     # ── --manage config handlers (m/c) — delegate to the actions module, then notify ───────────────
 
     async def _apply_mode_toggle(self) -> None:
         """Toggle ``execution_mode`` via the actions module (``m`` under --manage)."""
         import gmj_dashboard_actions as actions  # lazy — only under --manage
 
+        if not await self._guard_repo_default_write():   # SAFE-02 — cancel means no write
+            return
         try:
             value = actions.toggle_execution_mode(self._config_path)
         except ValueError as exc:
             self.notify(f"⚠ config edit failed: {exc}", severity="error")
             return
+        # WR-02: latch confirm-once ONLY after the write actually succeeded — a failed write above
+        # returns early and leaves the prompt armed for the next attempt.
+        self._manage_confirmed = True
         self.notify(f"✓ default_mode → {value} (existing runs unchanged)")
         self._poll()
 
+    @work(exclusive=True, group="manage")
     async def action_mode(self) -> None:
-        """Toggle ``execution_mode`` in the config via the actions module and notify the new value."""
+        """Toggle ``execution_mode`` via the actions module — runs as a worker so awaiting the SAFE-02
+        confirm modal happens off the message pump (an inline await of a pushed screen deadlocks — see
+        ``action_cap``).
+
+        SAFE-02 (WR-01): ``exclusive=True, group="manage"`` means a second ``m``/``c`` keypress while a
+        confirm modal is still open CANCELS the pending worker instead of stacking a second worker +
+        second modal. This preserves the "one prompt per session, one write per action" promise under
+        real, human-paced concurrent keypresses (a bare ``@work`` let a second press stack a redundant
+        confirm and double-write)."""
         await self._apply_mode_toggle()
 
     async def _apply_retry_cap(self) -> None:
         """Collect + set ``retry_cap`` (``c`` under --manage)."""
         import gmj_dashboard_actions as actions  # lazy — only under --manage
 
+        if not await self._guard_repo_default_write():   # SAFE-02 — cancel means no write
+            return
         cap = await self._prompt_cap()
         if cap is None:
             return
@@ -770,12 +895,18 @@ class GmjDashboard(App):
         except ValueError as exc:
             self.notify(f"⚠ config edit failed: {exc}", severity="error")
             return
+        # WR-02: latch confirm-once ONLY after the write actually succeeded (see _apply_mode_toggle).
+        self._manage_confirmed = True
         self.notify(f"✓ retry_cap → {cap}")
         self._poll()
 
-    @work
+    @work(exclusive=True, group="manage")
     async def action_cap(self) -> None:
-        """Set ``retry_cap`` via modal prompt — runs as a worker so the modal stays interactive."""
+        """Set ``retry_cap`` via modal prompt — runs as a worker so the modal stays interactive.
+
+        SAFE-02 (WR-01): shares the exclusive ``"manage"`` worker group with ``action_mode`` so a second
+        manage keypress cancels a pending confirm worker rather than stacking a redundant second modal +
+        write."""
         await self._apply_retry_cap()
 
     def _kick_live_refresh(self, seconds: float = 90.0, *, expand_activity: bool = True) -> None:
@@ -873,6 +1004,14 @@ class GmjDashboard(App):
             for bid in batch_ids:
                 labels.append(f"batch {bid}")
 
+            # RELOAD-02: recover non-pipeline feature launches at parity with runs/batches. This
+            # append sits AFTER the in-memory `if labels: return labels` dedup (:985-986), so a live
+            # in-memory launch wins and the disk branch only fills in on reload (no double-count).
+            for lc in (pa.get("active_launches") or []):
+                launch_label = lc.get("label") or "feature"
+                launch_kind = lc.get("kind") or ""
+                labels.append(f"{launch_label} ({launch_kind})" if launch_kind else launch_label)
+
             if labels:
                 return labels
 
@@ -926,7 +1065,9 @@ class GmjDashboard(App):
         out.append(bar, style=style)
         hb.update(out)
 
-    def _track_launch(self, proc, *, run_id: str | None = None, label: str | None = None) -> None:
+    def _track_launch(
+        self, proc, *, run_id: str | None = None, label: str | None = None, launch_id: str | None = None
+    ) -> None:
         """Hold a detached child ref, poll faster while it lives, and drop it when the proc exits."""
         self._children.append(proc)
         if label:
@@ -938,7 +1079,10 @@ class GmjDashboard(App):
             self._pending_launches.append(proc)
             self._auto_debug_until = time.monotonic() + 120.0
         self._kick_live_refresh(120.0)
-        asyncio.get_running_loop().create_task(self._watch_launch(proc, run_id=run_id))
+        # RELOAD-01: thread launch_id to the watch task so a clean child exit reaps its sidecar.
+        asyncio.get_running_loop().create_task(
+            self._watch_launch(proc, run_id=run_id, launch_id=launch_id)
+        )
 
     def _ensure_fast_poll(self) -> None:
         if self._fast_poll is None and self._needs_rapid_poll():
@@ -951,13 +1095,21 @@ class GmjDashboard(App):
             self._fast_poll = None
         self._stop_heartbeat_anim_if_idle()
 
-    async def _watch_launch(self, proc, *, run_id: str | None = None) -> None:
+    async def _watch_launch(
+        self, proc, *, run_id: str | None = None, launch_id: str | None = None
+    ) -> None:
         await proc.wait()
         if run_id:
             self._launched_runs.pop(run_id, None)
         else:
             self._pending_launches = [p for p in self._pending_launches if p is not proc]
         self._launch_labels.pop(id(proc), None)
+        # RELOAD-01: reap this launch's sidecar on clean exit. The WRITE/delete is delegated to the
+        # actions mutator — the view never unlinks (SAFETY-02). reap_launch_sidecar swallows OSError.
+        if launch_id:
+            import gmj_dashboard_actions as actions  # lazy — only reached for a --manage feature launch
+
+            actions.reap_launch_sidecar(self._pipeline_dir, launch_id)
         self._kick_live_refresh(60.0, expand_activity=False)
         self._stop_fast_poll_if_idle()
 
@@ -1026,9 +1178,11 @@ class GmjDashboard(App):
         offer = await self._prompt_offer()
         if not offer:
             return
-        prompt = actions.build_pipeline_prompt(offer=offer)
+        prompt = actions.build_pipeline_prompt(offer=offer, pipeline_dir=self._pipeline_dir)
         try:
-            proc = await actions.launch_pipeline(prompt, launcher=self._launcher, cwd=self._cwd)
+            proc = await actions.launch_pipeline(
+                prompt, launcher=self._launcher, cwd=self._cwd, pipeline_dir=self._pipeline_dir
+            )
         except (FileNotFoundError, OSError) as exc:
             self.notify(f"⚠ launch failed: {exc}", severity="error")
             return
@@ -1049,9 +1203,11 @@ class GmjDashboard(App):
         if not run_id:
             self.notify("⚠ no run selected", severity="error")
             return
-        prompt = actions.build_pipeline_prompt(run_id=run_id)
+        prompt = actions.build_pipeline_prompt(run_id=run_id, pipeline_dir=self._pipeline_dir)
         try:
-            proc = await actions.launch_pipeline(prompt, launcher=self._launcher, cwd=self._cwd)
+            proc = await actions.launch_pipeline(
+                prompt, launcher=self._launcher, cwd=self._cwd, pipeline_dir=self._pipeline_dir
+            )
         except (FileNotFoundError, OSError) as exc:
             self.notify(f"⚠ launch failed: {exc}", severity="error")
             return
@@ -1160,6 +1316,20 @@ class GmjDashboard(App):
             FeatureModal(detail, manage=self._manage, run_callback=self._launch_feature)
         )
 
+    def _launch_sidecar_kind(self, feature: dict) -> str:
+        """Derive the launch-sidecar kind from a feature SLASH (collective/interview/template).
+
+        RELOAD-01 kind-derivation caveat: ``feature['kind']`` is ``command/agent/skill/flow`` — NOT the
+        sidecar kind. The sidecar kind is derived from the FLOW slash/name; the 28-01 writer clamps any
+        unknown kind back to ``collective`` as a backstop, so the default here is the safe collective.
+        """
+        slash = feature.get("slash") or ""
+        if slash.endswith("gmj-interview"):
+            return "interview"
+        if slash.endswith("gmj-template"):
+            return "template"
+        return "collective"
+
     @work
     async def _launch_feature(self, feature: dict, values: dict) -> None:
         """Detached ``claude -p`` launch for a features-panel selection (``--manage`` only)."""
@@ -1167,14 +1337,39 @@ class GmjDashboard(App):
             return
         import gmj_dashboard_actions as actions  # lazy — only under --manage
 
+        # RELOAD-01: bounded orphan prune BEFORE writing — the view calls the mutator, never deletes.
+        actions.reap_dead_launches(self._pipeline_dir, limit=20)
         prompt = build_feature_prompt(feature, values)
         try:
-            proc = await actions.launch_pipeline(prompt, launcher=self._launcher, cwd=self._cwd)
+            # HON-01: _launch_feature is the easy-to-miss third launch path. It uses build_feature_prompt
+            # (not build_pipeline_prompt), so only the env carrier applies — env-only is sufficient here.
+            proc = await actions.launch_pipeline(
+                prompt, launcher=self._launcher, cwd=self._cwd, pipeline_dir=self._pipeline_dir
+            )
         except (FileNotFoundError, OSError) as exc:
             self.notify(f"⚠ feature launch failed: {exc}", severity="error")
             return
         label = feature.get("name") or feature.get("slash") or "feature"
-        self._track_launch(proc, label=label)
+        # RELOAD-01 wiring: persist a launch sidecar so a reloaded board recovers this live launch.
+        # The view NEVER writes — every mutation is delegated to the actions module (SAFETY-02).
+        # WR-01: the child is ALREADY live here. A sidecar write can raise OSError (mkdir / atomic
+        # write on a full / read-only pipeline_dir) — best-effort it like the reapers so a filesystem
+        # failure NEVER drops tracking of an already-spawned child. Tracking is authoritative; the
+        # sidecar is a recovery convenience. Order the calls so _track_launch is ALWAYS reached.
+        launch_id = None
+        try:
+            launch_id = actions.write_launch_sidecar(
+                self._pipeline_dir,
+                kind=self._launch_sidecar_kind(feature),
+                label=label,
+                pid=proc.pid,
+                cmd=prompt,
+            )
+        except OSError as exc:
+            self.notify(
+                f"⚠ launch tracking degraded (sidecar not persisted): {exc}", severity="warning"
+            )
+        self._track_launch(proc, label=label, launch_id=launch_id)  # child stays tracked regardless
         self.notify(f"▸ launched {label} (autonomous) — live refresh while active")
 
     # ── non-blocking poll spine (VIEW-04) ──────────────────────────────────────────────────────
@@ -1549,6 +1744,11 @@ class GmjDashboard(App):
         deferred note in read-only mode (they stay inert this phase; Phase 24 wires the behaviour). Seeded
         ONCE from ``_seed_widgets`` (it is static — not per-poll). No forbidden literal is a standalone
         string constant here, so the grep-guard stays green.
+
+        Also carries the HON-03 frozen-vs-live legend: two plain-words lines naming that a *marked* run is
+        a live in-flight child spawned this session (see ``_inflight_status_token`` / ``_table_status``)
+        while an *unmarked* run is the frozen on-disk status from the last poll. The legend is text only —
+        it never re-derives ``project_status()`` and stays inside the grep-guard-safe vocabulary.
         """
         lines = [
             "key     action          (mode)",
@@ -1556,6 +1756,8 @@ class GmjDashboard(App):
             "enter   drill-in        (read-only · runs / vacancies / features / config)",
             "ctrl+p  command menu    (read-only)",
             "        diagnostics: ←/→ switch pane when tab bar focused",
+            "        legend: a marked run = a live in-flight child this session",
+            "        legend: an unmarked run = frozen on-disk status from the last poll",
         ]
         manage_mode = "--manage" if self._manage else "--manage · Phase 24"
         for key, _action, desc in _MANAGE_KEYS:  # (r,run,Run) (R,resume,Resume) (b,batch,Batch) …
@@ -1768,6 +1970,20 @@ class GmjDashboard(App):
         self.query_one("#counters", Static).update(out)
 
 
+def resolve_operator_pipeline_dir(raw: str) -> str:
+    """Normalize an operator ``--pipeline-dir`` to an ABSOLUTE, cwd-independent path (HON-01/WR-01).
+
+    The launch paths force the detached child's ``cwd`` to ``REPO_ROOT`` while the read model resolves
+    ``--pipeline-dir`` against the dashboard's OWN process cwd. A RELATIVE dir would therefore make the
+    child write to ``<REPO_ROOT>/dir`` while the board reads ``<cwd>/dir`` — a stale, silently-diverged
+    board that defeats the HON-01 end-to-end honesty this phase exists to deliver. Absolutizing ONCE
+    here, at the single source, before the value is threaded to BOTH the model AND the child env/prompt
+    carrier, makes board and child agree regardless of where the dashboard was launched (and makes the
+    ``launch_pipeline`` ``cwd=REPO_ROOT`` vs ``run_batch`` no-cwd asymmetry stop mattering).
+    """
+    return str(Path(raw).expanduser().resolve())
+
+
 def main() -> int:
     """Parse flags and launch the board. ``--manage`` binds the live r/R/b/m/c action layer (24-02)."""
     parser = argparse.ArgumentParser(description="btop-style pipeline dashboard (read-only; --manage adds actions).")
@@ -1778,13 +1994,16 @@ def main() -> int:
     parser.add_argument("--config", default=str(DEFAULT_CONFIG), help="Config file the m/c knobs edit under --manage.")
     args = parser.parse_args()
     manage = args.manage and not args.read_only
-    model = DashboardModel(pipeline_dir=args.pipeline_dir)
+    # HON-01/WR-01: absolutize the operator dir ONCE so the read model and the launched child agree
+    # regardless of the dashboard's launch cwd (the child is forced to cwd=REPO_ROOT).
+    pipeline_dir = resolve_operator_pipeline_dir(args.pipeline_dir)
+    model = DashboardModel(pipeline_dir=pipeline_dir)
     GmjDashboard(
         model,
         manage=manage,
         refresh=args.refresh,
         config_path=Path(args.config),
-        pipeline_dir=args.pipeline_dir,
+        pipeline_dir=pipeline_dir,
         cwd=REPO_ROOT,
     ).run()
     return 0

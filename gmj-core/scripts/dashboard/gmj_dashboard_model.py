@@ -31,7 +31,10 @@ Plan 20-02 — their keys are present here as empty/placeholder values so the sn
 
 from __future__ import annotations
 
+import calendar
+import errno
 import json
+import os
 import sys
 import time
 from collections import Counter
@@ -75,6 +78,29 @@ _BACKOFF_S = 0.01
 _TRANSIENT = object()  # torn/empty read, retry budget spent -> serve last-good else degrade
 _MALFORMED = object()  # valid JSON but not a dict -> degrade immediately (no retry)
 _MISSING = object()    # file vanished mid-poll -> skip the dir
+
+# Bounded launch-sidecar staleness cap (WR-02 / WR-03) — a DELIBERATE read-only duplicate of the
+# actions-module constant/helper (mirrors the intentional ``_pid_alive`` / ``_is_pid_alive`` twin).
+# Pid-only liveness cannot disambiguate pid reuse after an unclean exit, so a launch whose
+# ``launched_at`` age exceeds this cap (or is unparsable) is treated as stale and FILTERED OUT of the
+# display here (the model never deletes — the actions reaper collects). 24h >> any real run.
+LAUNCH_MAX_AGE_SECONDS = 24 * 3600
+
+
+def _launch_is_stale(launched_at, *, now: float | None = None) -> bool:
+    """True when a sidecar is older than ``LAUNCH_MAX_AGE_SECONDS`` OR its ``launched_at`` is unusable.
+
+    NEVER raises — a missing / non-str / malformed ``launched_at`` is treated as stale (a sidecar with
+    no usable timestamp cannot be shown to be recent). Pure function of the recorded string + ``now``.
+    """
+    if not isinstance(launched_at, str):
+        return True
+    try:
+        epoch = calendar.timegm(time.strptime(launched_at, "%Y-%m-%dT%H:%M:%SZ"))
+    except (ValueError, TypeError):
+        return True
+    age = (time.time() if now is None else now) - epoch
+    return age > LAUNCH_MAX_AGE_SECONDS
 
 
 def _load_state_tolerant(state_path: Path):
@@ -230,6 +256,62 @@ class DashboardModel:
                 else:  # torn or non-dict manifest -> degrade batch row
                     rows.append(_degrade_batch_row(batch_id))
         rows.sort(key=lambda r: r["batch_id"], reverse=True)
+        return rows
+
+    def _is_pid_alive(self, pid) -> bool:
+        """Liveness probe via ``os.kill(pid, 0)`` — a READ-ONLY existence check, never a signal.
+
+        ``os.kill(pid, 0)`` sends no signal; it only tests whether the pid exists and is signalable.
+        ``EPERM`` (the pid exists but is owned by another uid) is treated as ALIVE; ``ESRCH`` (no such
+        process) as dead. A non-positive / non-int / bool pid is rejected BEFORE the probe — signal 0
+        to pid ``0`` or ``-1`` addresses a whole process GROUP, which must never be probed (T-28-02).
+        This helper NEVER raises out of the read model (the never-a-traceback contract).
+        """
+        if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+            return False  # never probe pid<=0 / non-int / bool — os.kill(0,0) hits a process group
+        try:
+            os.kill(pid, 0)
+            return True
+        except ProcessLookupError:  # ESRCH — no such process → dead
+            return False
+        except PermissionError:  # EPERM — exists, owned by another uid → alive
+            return True
+        except OSError as exc:  # any other errno: alive only if it is EPERM, else conservatively dead
+            return exc.errno == errno.EPERM
+
+    def _launches(self) -> list[dict]:
+        """Walk ``<pipeline_dir>/launches/*.json`` (mirror ``_batches()``); keep only LIVE-pid launches.
+
+        Read-only + torn-read tolerant, cloning the ``_batches()`` walk shape: ``is_dir()`` guard,
+        ``sorted(glob)``, ``_safe_component`` gate on the filename stem, ``_load_state_tolerant`` reuse.
+        A missing / torn / non-dict sidecar is SKIPPED (never a degrade row, never a raise). A dead-pid
+        sidecar is FILTERED OUT — never deleted (deletion is the actions reaper's job, not the model's).
+        """
+        rows: list[dict] = []
+        launches_dir = self.pipeline_dir / "launches"
+        if not launches_dir.is_dir():
+            return rows
+        for p in sorted(launches_dir.glob("*.json")):
+            launch_id = p.stem
+            if not _safe_component(launch_id):  # defence in depth on the filename stem
+                continue
+            result = _load_state_tolerant(p)  # reuse the torn-read-tolerant loader
+            if not isinstance(result, dict):
+                continue  # torn / malformed / missing → skip, never degrade-row
+            pid = result.get("pid")
+            if not self._is_pid_alive(pid):
+                continue  # dead pid → not shown (NEVER deleted — the actions reaper prunes)
+            if _launch_is_stale(result.get("launched_at")):
+                continue  # WR-02/WR-03: age-capped so a pid-reused ghost is never shown as active
+            rows.append(
+                {
+                    "launch_id": result.get("launch_id") or launch_id,
+                    "kind": result.get("kind"),
+                    "label": result.get("label"),
+                    "pid": pid,
+                    "launched_at": result.get("launched_at"),
+                }
+            )
         return rows
 
     # ── thin readers (MODEL-05) — all read-only, all degrade to {}/[] on a missing/bad file ──
@@ -672,32 +754,44 @@ class DashboardModel:
         """On-demand full feature record for the run/drill-in modal."""
         return feature_by_id(self.repo_root, feature_id, self._features_cache)
 
-    def pipeline_activity(self) -> dict:
+    def pipeline_activity(self, *, launches: list[dict] | None = None) -> dict:
         """Detect in-flight pipeline work from disk (survives dashboard reload).
 
         Uses IMPORTED ``is_pipeline_in_flight_status`` / ``is_batch_in_flight`` — never re-derives
-        status in this module.
+        status in this module. ``launches`` may be threaded in by ``snapshot()`` so the sidecar dir is
+        walked ONCE per snapshot (IN-01) — both this surface and the top-level ``launches`` key share a
+        single, self-consistent walk; when called standalone it defaults to a fresh walk.
         """
         runs, _ = self._runs()
         batches = self._batches()
+        if launches is None:
+            launches = self._launches()  # RELOAD-02: live-pid launches recovered from disk sidecars
         active_run_ids = [
             r["run_id"] for r in runs if is_pipeline_in_flight_status(str(r.get("status") or ""))
         ]
         active_batch_ids = [b["batch_id"] for b in batches if is_batch_in_flight(b)]
-        active = bool(active_run_ids or active_batch_ids)
+        # A thin launch surface for the heartbeat disk branch (Plan 28-03). Liveness already filtered
+        # by _launches(); the runs/batches derivations above stay UNTOUCHED (no project_status fork).
+        active_launches = [
+            {"launch_id": l["launch_id"], "kind": l["kind"], "label": l["label"]} for l in launches
+        ]
+        active = bool(active_run_ids or active_batch_ids or active_launches)
         return {
             "active": active,
             "active_run_ids": active_run_ids,
             "active_batch_ids": active_batch_ids,
+            "active_launches": active_launches,
         }
 
     def snapshot(self) -> dict:
         """Gather every panel's data in one read-only pass; return ONE JSON-serializable plain dict.
 
         Returns the panel dict: ``counters`` / ``metrics`` / ``stages`` (``dag`` + ``active``) /
-        ``runs`` / ``batches`` / ``vacancies`` / ``features`` / ``config`` / ``run_detail`` plus the
-        Phase-23 rich-panel keys ``errors`` (VIEW-12 ``failures()``) and ``activity`` (VIEW-13
-        ``activity()``) and ``pipeline_activity`` (VIEW-28 disk-backed in-flight detection). Every run/batch status is the IMPORTED projection, passed through untouched;
+        ``runs`` / ``batches`` / ``launches`` / ``vacancies`` / ``features`` / ``config`` /
+        ``run_detail`` plus the Phase-23 rich-panel keys ``errors`` (VIEW-12 ``failures()``) and
+        ``activity`` (VIEW-13 ``activity()``) and ``pipeline_activity`` (VIEW-28 disk-backed in-flight
+        detection, extended by RELOAD-02 with ``active_launches``). The ``launches`` key is the thin
+        disk-recovered live-pid launch list at parity with ``runs``/``batches``. Every run/batch status is the IMPORTED projection, passed through untouched;
         every reader is read-only and degrades to ``{}``/``[]`` on a missing file (never raises).
         ``run_detail`` stays ``{}`` here — it is an on-demand accessor (``run_detail(run_id)``) so the
         per-poll cost stays proportional to the displayed runs (Pitfall 5).
@@ -705,6 +799,7 @@ class DashboardModel:
         runs, metric_inputs = self._runs()
         batches = self._batches()
         metrics = self._metrics(runs, metric_inputs)
+        launches = self._launches()  # IN-01: walk launches/ ONCE, thread into both surfaces below
 
         vacancies = self._vacancies()
         config = self._config()
@@ -740,6 +835,7 @@ class DashboardModel:
             "stages": stages,
             "runs": runs,
             "batches": batches,
+            "launches": launches,  # RELOAD-02: disk-recovered live-pid launches (parity), walked once
             "vacancies": vacancies,
             "features": features,
             "config": config,
@@ -747,7 +843,8 @@ class DashboardModel:
             "run_detail": {},   # on-demand: populate via run_detail(run_id), never per-poll
             "errors": self.failures(),  # VIEW-12: per failed-run Gate A/Gate B failure detail
             "activity": self.activity(),  # VIEW-13: newest-first started/gate/terminal event feed
-            "pipeline_activity": self.pipeline_activity(),  # VIEW-28: disk-backed in-flight runs/batches
+            # VIEW-28: disk-backed in-flight runs/batches; reuse the single launches walk (IN-01).
+            "pipeline_activity": self.pipeline_activity(launches=launches),
         }
 
 
