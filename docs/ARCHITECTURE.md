@@ -196,8 +196,8 @@ hit, or whether an artifact is deliverable.
 Every run-state path below is written under a resolved pipeline root `<root>`: the
 `pipeline-dir=<dir>` prompt arg if present, else the `GMJ_PIPELINE_DIR` environment variable,
 else `.pipeline` (the fallback, not the only path — see `/gmj-pipeline-run`'s Parameters
-section and `gmj-orchestrator.md`'s `init_run`). The diagram below shows `.pipeline` as the
-illustrative default; the `runs/<run_id>/` layout is identical under any resolved root.
+section and `gmj-orchestrator.md`'s `init_run`). The diagram below uses the generic `<root>`
+token throughout; substitute the resolved root per the rule above.
 
 ```
  CLI: claude --dangerously-skip-permissions  →  /gmj-pipeline-run  (params: mode?, offer, run_id?, artifact-types?)
@@ -212,13 +212,13 @@ illustrative default; the `runs/<run_id>/` layout is identical under any resolve
    1. init_run   gmj_state_write.py   freeze execution_mode + retry_cap + run_id  ─┐  (once per
                        into <root>/runs/<run_id>-{cv,cl,ip}/state.json — ITS OWN     │   derived id)
    2. loop:                                                                        ▼
-      a. gmj_route.py  --state runs/<run_id>-{cv,cl,ip}/state.json  →  next_step  (pure (state,dag)→step)
+      a. gmj_route.py  --state <root>/runs/<run_id>-{cv,cl,ip}/state.json  →  next_step  (pure (state,dag)→step)
       b. gmj_check_offer.py  --file offer-spec.json      (before each dispatch; STALE ⇒ abort)
       c. Task(spoke for next_step)                   (parallel fan-out for 3 artifacts / N offers)
       d. spoke emits a file artifact (draft / gate_result)
       e. GATE node?
            gmj_check_truth.py (Gate A) | gmj_score_fit.py (Gate B)   exit 0/1 — NO bypass flag
-           gmj_record_gate.py  → writes gate_result artifact under runs/<run_id>-{cv,cl,ip}/
+           gmj_record_gate.py  → writes gate_result artifact under <root>/runs/<run_id>-{cv,cl,ip}/
                              AND sets state.gate_results[node]
            FAIL ⇒ gmj_record_retry.py --increment
                   gmj_check_cap.py
