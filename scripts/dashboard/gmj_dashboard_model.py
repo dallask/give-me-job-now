@@ -736,24 +736,33 @@ class DashboardModel:
         """
         runs, _ = self._runs()
         batches = self._batches()
+        launches = self._launches()  # RELOAD-02: live-pid launches recovered from disk sidecars
         active_run_ids = [
             r["run_id"] for r in runs if is_pipeline_in_flight_status(str(r.get("status") or ""))
         ]
         active_batch_ids = [b["batch_id"] for b in batches if is_batch_in_flight(b)]
-        active = bool(active_run_ids or active_batch_ids)
+        # A thin launch surface for the heartbeat disk branch (Plan 28-03). Liveness already filtered
+        # by _launches(); the runs/batches derivations above stay UNTOUCHED (no project_status fork).
+        active_launches = [
+            {"launch_id": l["launch_id"], "kind": l["kind"], "label": l["label"]} for l in launches
+        ]
+        active = bool(active_run_ids or active_batch_ids or active_launches)
         return {
             "active": active,
             "active_run_ids": active_run_ids,
             "active_batch_ids": active_batch_ids,
+            "active_launches": active_launches,
         }
 
     def snapshot(self) -> dict:
         """Gather every panel's data in one read-only pass; return ONE JSON-serializable plain dict.
 
         Returns the panel dict: ``counters`` / ``metrics`` / ``stages`` (``dag`` + ``active``) /
-        ``runs`` / ``batches`` / ``vacancies`` / ``features`` / ``config`` / ``run_detail`` plus the
-        Phase-23 rich-panel keys ``errors`` (VIEW-12 ``failures()``) and ``activity`` (VIEW-13
-        ``activity()``) and ``pipeline_activity`` (VIEW-28 disk-backed in-flight detection). Every run/batch status is the IMPORTED projection, passed through untouched;
+        ``runs`` / ``batches`` / ``launches`` / ``vacancies`` / ``features`` / ``config`` /
+        ``run_detail`` plus the Phase-23 rich-panel keys ``errors`` (VIEW-12 ``failures()``) and
+        ``activity`` (VIEW-13 ``activity()``) and ``pipeline_activity`` (VIEW-28 disk-backed in-flight
+        detection, extended by RELOAD-02 with ``active_launches``). The ``launches`` key is the thin
+        disk-recovered live-pid launch list at parity with ``runs``/``batches``. Every run/batch status is the IMPORTED projection, passed through untouched;
         every reader is read-only and degrades to ``{}``/``[]`` on a missing file (never raises).
         ``run_detail`` stays ``{}`` here — it is an on-demand accessor (``run_detail(run_id)``) so the
         per-poll cost stays proportional to the displayed runs (Pitfall 5).
@@ -796,6 +805,7 @@ class DashboardModel:
             "stages": stages,
             "runs": runs,
             "batches": batches,
+            "launches": self._launches(),  # RELOAD-02: disk-recovered live-pid launches (parity)
             "vacancies": vacancies,
             "features": features,
             "config": config,
