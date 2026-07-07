@@ -1352,14 +1352,24 @@ class GmjDashboard(App):
         label = feature.get("name") or feature.get("slash") or "feature"
         # RELOAD-01 wiring: persist a launch sidecar so a reloaded board recovers this live launch.
         # The view NEVER writes — every mutation is delegated to the actions module (SAFETY-02).
-        launch_id = actions.write_launch_sidecar(
-            self._pipeline_dir,
-            kind=self._launch_sidecar_kind(feature),
-            label=label,
-            pid=proc.pid,
-            cmd=prompt,
-        )
-        self._track_launch(proc, label=label, launch_id=launch_id)
+        # WR-01: the child is ALREADY live here. A sidecar write can raise OSError (mkdir / atomic
+        # write on a full / read-only pipeline_dir) — best-effort it like the reapers so a filesystem
+        # failure NEVER drops tracking of an already-spawned child. Tracking is authoritative; the
+        # sidecar is a recovery convenience. Order the calls so _track_launch is ALWAYS reached.
+        launch_id = None
+        try:
+            launch_id = actions.write_launch_sidecar(
+                self._pipeline_dir,
+                kind=self._launch_sidecar_kind(feature),
+                label=label,
+                pid=proc.pid,
+                cmd=prompt,
+            )
+        except OSError as exc:
+            self.notify(
+                f"⚠ launch tracking degraded (sidecar not persisted): {exc}", severity="warning"
+            )
+        self._track_launch(proc, label=label, launch_id=launch_id)  # child stays tracked regardless
         self.notify(f"▸ launched {label} (autonomous) — live refresh while active")
 
     # ── non-blocking poll spine (VIEW-04) ──────────────────────────────────────────────────────
