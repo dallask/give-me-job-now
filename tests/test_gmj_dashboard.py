@@ -2384,6 +2384,59 @@ def test_manage_batch_modal_two_step_escape_cancel() -> None:
     )
 
 
+# --- TEST-01: the fixed grid keeps every panel visible at its min height under a LONG candidate -----
+# Regression guard for the FIND-09/FIND-14 layout starvation: before the Session-5 fixed grid
+# (`grid-rows: auto auto auto 17 17 12`, `min-height: 3`), a realistically long `config/candidate.yaml`
+# could starve the lower panels to zero height. This feeds a generated 400-word-summary / 120-item
+# expertise candidate via a tempdir `repo_root` (the real `config/*.yaml` copied alongside so the
+# sources/pipeline/fit/prefs counters + config-table still resolve) and asserts the four panels stay
+# `display=True` with `size.height >= 3`. The `#candidate` widget was REMOVED in the Session-5 grid, so
+# it is deliberately NOT asserted. Geometry is read only AFTER the grid settles (Pitfall 5: pre-layout
+# height is 0). Every fixture write lands in the tempdir — never a real repo config file.
+
+
+def test_layout_panels_visible_under_long_candidate() -> None:
+    with _temp_pipeline() as pipe, tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "repo"
+        (root / "config").mkdir(parents=True)
+        # Copy the real config yamls so the sources/pipeline/fit/prefs panels + counters resolve …
+        for p in (REPO_ROOT / "config").glob("*.yaml"):
+            shutil.copy2(p, root / "config" / p.name)
+        # … then OVERWRITE candidate.yaml with a realistically long profile (RESEARCH Pattern 4).
+        long_cand = [
+            "name: Test Candidate",
+            "title: Senior Engineer",
+            "summary: " + ("word " * 400),
+            "expertise:",
+        ]
+        long_cand += [f"  - skill {i} with a longish descriptive clause" for i in range(120)]
+        (root / "config" / "candidate.yaml").write_text("\n".join(long_cand), encoding="utf-8")
+
+        async def _probe() -> dict:
+            app = _build_app(pipe, manage=False, refresh=0.1, repo_root=root)
+            async with app.run_test(size=(120, 40)) as pilot:
+                # Settle the off-thread poll, then a couple more pauses so the grid is computed and each
+                # panel's `size.height` is non-zero (Pitfall 5 — pre-layout height reads 0).
+                await _settle(pilot, lambda: app.query_one("#runs", DataTable).row_count >= 0, tries=20)
+                for _ in range(3):
+                    await pilot.pause()
+                return {
+                    wid: (app.query_one(wid).size.height, app.query_one(wid).display)
+                    for wid in ("#runs", "#vacancies", "#features-table", "#config-table")
+                }
+
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            geom = asyncio.run(_probe())
+        assert "Traceback" not in buf.getvalue(), (
+            f"the long-candidate layout probe leaked a traceback: {buf.getvalue()}"
+        )
+
+    for wid, (height, display) in geom.items():
+        assert display is True, f"{wid} must stay visible under a long candidate: {geom}"
+        assert height >= 3, f"{wid} must keep its min height (>=3) under a long candidate: {geom}"
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
