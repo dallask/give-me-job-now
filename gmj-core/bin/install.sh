@@ -60,6 +60,12 @@ if [ -z "${REPO_ROOT:-}" ]; then
   MODE="fresh-clone"
   REPO_URL="${GMJ_REPO_URL:-git@github.com:dallask/give-me-job.git}"
   INSTALL_DIR="${GMJ_INSTALL_DIR:-give-me-job}"
+  case "$INSTALL_DIR" in
+    /*|*/*|*..*)
+      echo "ERROR: GMJ_INSTALL_DIR must be a plain relative directory name (no path separators or \"..\" segments); got \"$INSTALL_DIR\"." >&2
+      exit 1
+      ;;
+  esac
   if [ -e "$INSTALL_DIR" ] || [ -L "$INSTALL_DIR" ]; then
     echo "ERROR: install target \"$INSTALL_DIR\" already exists (file, dir, or symlink) — refusing to clone into a pre-existing path." >&2
     exit 1
