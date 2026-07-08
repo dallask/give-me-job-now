@@ -4,14 +4,24 @@
 Plain-python3 self-running harness (NO pytest) — run with
 ``python3 tests/test_gmj_batch_manifest_concurrency.py``. Proves:
 
-- ``_mutate_manifest_with_retry`` never loses a SIBLING offer/run's interleaved update — two
-  read-modify-write cycles racing on the SAME ``manifest.json`` both land (Test 1),
-- a genuinely CONFLICTING interleaved write (same run this call intends to mutate) resolves via
-  the retry loop's own mutation winning (last-writer-via-retry), not a silent revert, and the
-  manifest still validates against ``schemas/batch_manifest.schema.json`` (Test 2),
-- the real ``mark`` CLI subcommand, now routed through the retry-wrapped write path, still
-  preserves every sibling run's fields unchanged (Test 3, a regression-equivalent of
-  ``test_gmj_batch.py``'s ``test_mark_preserves_siblings``).
+- ``test_real_concurrent_threads_no_lost_update_no_crash``: genuinely CONCURRENT, real OS
+  threads (not nested inside another attempt's ``apply_fn``) racing
+  ``_mutate_manifest_with_retry`` on the SAME ``manifest.json`` never lose an update and never
+  crash with an uncaught traceback — this is the actual CR-01 regression test: a prior version
+  of ``_mutate_manifest_with_retry``/``write_manifest`` reproducibly lost a sibling's update and
+  crashed with an uncaught ``FileNotFoundError`` (shared, non-unique ``.tmp`` name) under exactly
+  this scenario.
+- ``test_simulated_sibling_write_not_lost_sequential`` / ``test_simulated_same_run_conflict_...``:
+  the retry loop's own read-modify-write dance is exercised with a "second writer" simulated
+  SEQUENTIALLY, nested inside the current attempt's own ``apply_fn`` call (i.e. sequenced by the
+  Python call stack, not truly concurrent). These do NOT exercise genuine OS-level concurrency —
+  the temp-file-collision / lost-update failure mode CR-01 identified can never trigger from
+  inside them, since nothing here is really racing. They are kept (relabeled per WR-02/CR-01)
+  because they still document the intended read-modify-write field-preservation semantics, but
+  ``test_real_concurrent_threads_no_lost_update_no_crash`` above is the genuine concurrency proof.
+- ``test_mark_cli_preserves_siblings_through_retry_path``: the real ``mark`` CLI subcommand,
+  routed through the retry-wrapped write path, still preserves every sibling run's fields
+  unchanged (a regression-equivalent of ``test_gmj_batch.py``'s ``test_mark_preserves_siblings``).
 
 Discipline (test_gmj_batch.py): every test asserts the exit code AND a specific field/sentinel,
 and asserts ``"Traceback" not in`` any captured stderr so an unrelated crash's nonzero exit never
@@ -24,6 +34,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
@@ -69,9 +80,79 @@ def _run_ids(manifest: dict) -> dict[tuple[int, str], str]:
     return out
 
 
-# --- Test 1: interleaved SIBLING write is never lost -------------------------
+# --- Test 0: GENUINE concurrent threads racing the SAME manifest (CR-01) ----
 
-def test_mutate_with_retry_sibling_write_not_lost() -> None:
+def test_real_concurrent_threads_no_lost_update_no_crash() -> None:
+    """The actual CR-01 regression: real, genuinely concurrent OS threads (NOT nested inside
+    another attempt's own ``apply_fn``) call ``_mutate_manifest_with_retry`` against the SAME
+    ``manifest.json`` at (as close to) the same instant as a ``threading.Barrier`` can force.
+    Every thread targets a DISTINCT run_id, so a correct implementation must land every single
+    update with none lost, and must never raise (the pre-fix code either silently lost a sibling's
+    update or crashed with an uncaught ``FileNotFoundError`` from two writers colliding on the
+    same literal ``manifest.json.tmp`` temp path).
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        pipeline_dir = (cwd / ".pipeline").resolve()
+        r = _init(cwd, "1,2")
+        assert r.returncode == 0, f"init must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+
+        manifest, _, _ = gmj_batch._load_manifest(pipeline_dir, "b1")
+        rids = _run_ids(manifest)
+        # Every (offer, artifact_type) run_id across both offers -- 6 distinct targets, one per
+        # thread, so no two threads ever intend to mutate the same run.
+        targets = list(rids.values())
+        assert len(targets) == 6, targets
+
+        barrier = threading.Barrier(len(targets))
+        errors: list[BaseException] = []
+        errors_lock = threading.Lock()
+
+        def worker(run_id: str) -> None:
+            barrier.wait()  # maximize genuine overlap of concurrent attempts
+
+            def apply_fn(m: dict) -> None:
+                for offer in m["offers"]:
+                    for run in offer["runs"].values():
+                        if run["run_id"] == run_id:
+                            run["status"] = "in_flight"
+
+            try:
+                rc = gmj_batch._mutate_manifest_with_retry(pipeline_dir, "b1", apply_fn)
+                if rc != 0:
+                    with errors_lock:
+                        errors.append(RuntimeError(f"{run_id}: non-zero rc {rc}"))
+            except BaseException as exc:  # noqa: BLE001 -- must never crash (CR-01)
+                with errors_lock:
+                    errors.append(exc)
+
+        threads = [threading.Thread(target=worker, args=(rid,)) for rid in targets]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors, f"genuinely concurrent writers must never crash or fail: {errors}"
+
+        final, _, _ = gmj_batch._load_manifest(pipeline_dir, "b1")
+        by_id = {
+            run["run_id"]: run["status"]
+            for offer in final["offers"]
+            for run in offer["runs"].values()
+        }
+        for rid in targets:
+            assert by_id[rid] == "in_flight", (
+                f"every genuinely concurrent writer's own update must land, none lost: {by_id}"
+            )
+        schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+        errs = list(Draft202012Validator(schema).iter_errors(final))
+        assert not errs, f"manifest must still validate after concurrent writes: {errs}"
+
+
+# --- Test 1 (sequential simulation, NOT genuine concurrency -- see module docstring) ---
+
+def test_simulated_sibling_write_not_lost_sequential() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         cwd = Path(tmp)
         pipeline_dir = (cwd / ".pipeline").resolve()
@@ -122,9 +203,9 @@ def test_mutate_with_retry_sibling_write_not_lost() -> None:
         assert by_id[target_run_id] == "in_flight", "this call's own update must also be applied"
 
 
-# --- Test 2: genuinely CONFLICTING interleaved write on the SAME run ---------
+# --- Test 2 (sequential simulation, NOT genuine concurrency -- see module docstring) ---
 
-def test_mutate_with_retry_same_run_conflict_last_writer_wins() -> None:
+def test_simulated_same_run_conflict_last_writer_wins_sequential() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         cwd = Path(tmp)
         pipeline_dir = (cwd / ".pipeline").resolve()

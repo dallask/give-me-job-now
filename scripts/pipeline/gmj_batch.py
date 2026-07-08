@@ -35,9 +35,12 @@ contained under the resolved batches dir (defence in depth, mirrors gmj_freeze_o
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
+import os
 import re
 import sys
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -196,8 +199,13 @@ def write_manifest(manifest: dict, out: Path, batches_dir: Path) -> Path:
     )
     # Atomic publish: write a temp sibling then rename over the target (mirrors _seed_state's
     # tmp_path.replace(state_path) idiom) — a reader can never observe a partially-written
-    # manifest.json (T-35-03).
-    tmp_path = resolved.with_name(resolved.name + ".tmp")
+    # manifest.json (T-35-03). The temp name is unique per PID + a random suffix (CR-01): a
+    # shared literal ".tmp" name let two genuinely concurrent writers collide on the same temp
+    # path, so the loser's `tmp_path.replace(resolved)` raised an uncaught FileNotFoundError
+    # instead of failing closed. Uniqueness here means a losing writer (if it ever reaches this
+    # function outside the exclusive lock in `_mutate_manifest_with_retry`) writes its own temp
+    # file and simply loses the final rename race harmlessly, never crashes.
+    tmp_path = resolved.with_name(f".{resolved.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp")
     tmp_path.write_text(payload, encoding="utf-8")
     tmp_path.replace(resolved)
     return resolved
@@ -414,38 +422,58 @@ def _load_manifest(pipeline_dir: Path, batch_id: str) -> tuple[dict | None, Path
 def _mutate_manifest_with_retry(
     pipeline_dir: Path, batch_id: str, apply_fn, max_attempts: int = 5
 ) -> int:
-    """Optimistic-concurrency read-modify-write against ``manifest.json`` (CONC-03).
+    """Lock-serialized read-modify-write against ``manifest.json`` (CONC-03).
 
-    Performs up to ``max_attempts`` cycles of: load a FRESH manifest (a fresh
-    ``_load_manifest`` call, giving the current ``manifest_path``/``batches_dir``), snapshot its
-    on-disk bytes, call ``apply_fn(manifest)`` (mutates the in-memory dict in place), then
-    re-read the on-disk bytes and compare to the snapshot. If DIFFERENT — another writer landed
-    in between this call's read and its own write — ``continue`` to the next attempt, which
-    re-loads the now-current content and re-applies ``apply_fn`` on top of it. If SAME, publish
-    via ``write_manifest`` (atomic temp+replace) and return 0.
+    Holds an exclusive ``fcntl.flock`` on a ``manifest.json.lock`` sibling file for the ENTIRE
+    load -> apply_fn -> write_manifest critical section, so at most one caller for a given
+    ``batch_id`` is ever between its own read and its own write at a time — across real
+    concurrent processes/threads, not just this call's own in-memory mutation (CR-01: a prior
+    version compared only two back-to-back reads straddling the synchronous, in-memory
+    ``apply_fn`` call, which is NOT the true read-to-write window; two genuinely concurrent
+    callers could each pass that narrow check before either had published, silently losing one
+    writer's update, and their unconditional ``write_manifest`` calls could then also collide on
+    a shared temp-file name and crash with an uncaught ``FileNotFoundError``).
+
+    While holding the lock this still performs up to ``max_attempts`` cycles of: load a FRESH
+    manifest (a fresh ``_load_manifest`` call), snapshot its on-disk bytes, call
+    ``apply_fn(manifest)`` (mutates the in-memory dict in place), then re-read the on-disk bytes
+    and compare to the snapshot. Because the lock excludes every other writer that goes through
+    this function, that comparison should hold on the first attempt in practice; it is retained
+    as defence-in-depth for any writer that reaches ``write_manifest`` without first taking this
+    lock (there should be none in this codebase), not as the sole correctness mechanism.
 
     A ``ValueError`` from ``write_manifest`` (a genuine schema violation, not a concurrency
     conflict) is NOT caught here — it propagates uncaught so the caller's existing
     ``except ValueError`` handles it exactly as before. Exhausting ``max_attempts`` prints a
     structured stderr message and returns 1 — never a silent partial write.
     """
-    for _attempt in range(max_attempts):
-        manifest, manifest_path, batches_dir = _load_manifest(pipeline_dir, batch_id)
-        if manifest is None:
-            # _load_manifest already printed a structured stderr message.
+    lock_path = pipeline_dir / "batches" / batch_id / "manifest.json.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock_path, "w") as lockf:
+        fcntl.flock(lockf, fcntl.LOCK_EX)
+        try:
+            for _attempt in range(max_attempts):
+                manifest, manifest_path, batches_dir = _load_manifest(pipeline_dir, batch_id)
+                if manifest is None:
+                    # _load_manifest already printed a structured stderr message.
+                    return 1
+                before = manifest_path.read_bytes()
+                apply_fn(manifest)
+                after = manifest_path.read_bytes()
+                if after != before:
+                    # Belt-and-braces only — see docstring; the exclusive lock above should make
+                    # this branch unreachable for any writer that goes through this function.
+                    continue
+                write_manifest(manifest, manifest_path, batches_dir)
+                return 0
+            print(
+                f"Manifest write error: exhausted {max_attempts} retry attempts due to "
+                "concurrent writers",
+                file=sys.stderr,
+            )
             return 1
-        before = manifest_path.read_bytes()
-        apply_fn(manifest)
-        after = manifest_path.read_bytes()
-        if after != before:
-            continue  # another writer landed in between this read and our write; retry fresh
-        write_manifest(manifest, manifest_path, batches_dir)
-        return 0
-    print(
-        f"Manifest write error: exhausted {max_attempts} retry attempts due to concurrent writers",
-        file=sys.stderr,
-    )
-    return 1
+        finally:
+            fcntl.flock(lockf, fcntl.LOCK_UN)
 
 
 def _cmd_mark(args: argparse.Namespace) -> int:
