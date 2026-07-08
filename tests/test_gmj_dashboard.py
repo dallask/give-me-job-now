@@ -1022,6 +1022,20 @@ def test_vacancies_and_batch_rollup_render() -> None:
     assert _BATCH_ROLLUP in vac_text, (
         f"the vacancies panel must show the batch delivered/total rollup {_BATCH_ROLLUP!r}: {vac_text!r}"
     )
+    # CONC-04: the per-batch line must also show the 5-token by_offer_status breakdown, additively,
+    # alongside the unchanged aggregate segment above -- including zero-count tokens (never omitted).
+    # Fixture facts (per Plan 35-03's worked example over batch-20260601T120000): offer 0's runs
+    # (delivered, delivered, waiting) worst-case to the "waiting" bucket; offer 1's runs
+    # (gate_exhausted, in_flight, delivered) worst-case to the "gate_exhausted" bucket.
+    for present_token in ("waiting:1", "gate_exhausted:1"):
+        assert present_token in vac_text, (
+            f"the vacancies panel must show the by_offer_status token {present_token!r}: {vac_text!r}"
+        )
+    for zero_token in ("error:0", "delivered:0", "in_flight:0"):
+        assert zero_token in vac_text, (
+            f"the vacancies panel must show the zero-count by_offer_status token {zero_token!r} "
+            f"(zero counts are never omitted): {vac_text!r}"
+        )
     assert empty["row_count"] == 0, f"empty offers must render zero table rows: {empty['row_count']}"
     assert "No frozen offers" in empty_text, f"the empty vacancies panel must show 'No frozen offers': {empty_text!r}"
     assert "No batches" in empty_text, f"the empty vacancies panel must show 'No batches': {empty_text!r}"
