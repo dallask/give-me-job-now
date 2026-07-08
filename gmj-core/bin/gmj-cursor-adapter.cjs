@@ -164,6 +164,16 @@ function cmdGenerate(opts) {
   }
   fs.mkdirSync(destDir, { recursive: true });
 
+  // Prune stale destDir/*.md files whose source no longer exists (a spoke deleted or renamed
+  // in srcDir must not leave a ghost .cursor/agents/<old-name>.md behind indefinitely).
+  const existing = fs.readdirSync(destDir).filter((f) => f.endsWith('.md'));
+  for (const stale of existing) {
+    if (!files.includes(stale)) {
+      fs.rmSync(path.join(destDir, stale));
+      process.stdout.write(`gmj-cursor-adapter: removed stale ${path.join(destDir, stale)} (no matching source file)\n`);
+    }
+  }
+
   let count = 0;
   for (const file of files) {
     const text = fs.readFileSync(path.join(srcDir, file), 'utf8');
