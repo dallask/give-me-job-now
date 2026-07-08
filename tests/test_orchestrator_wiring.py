@@ -20,6 +20,7 @@ AGENTS_DIR = REPO_ROOT / ".claude" / "agents"
 COMMANDS_DIR = REPO_ROOT / ".claude" / "commands"
 HUB_PATH = AGENTS_DIR / "gmj-orchestrator.md"
 PIPELINE_RUN_CMD = COMMANDS_DIR / "gmj-pipeline-run.md"
+BATCH_CMD = COMMANDS_DIR / "gmj-batch.md"
 
 SPOKES = ["gmj-offer-scout", "gmj-artifact-composer", "gmj-truth-verifier", "gmj-fit-evaluator", "gmj-cv-generator"]
 CONTROL_SCRIPTS = [
@@ -30,6 +31,7 @@ CONTROL_SCRIPTS = [
     "gmj_map_feedback.py",
     "gmj_check_delivery.py",
     "gmj_pipeline_run.py",
+    "gmj_dispatch_cap.py",
 ]
 # Retired legacy tokens — the old cv-* review/enhance roster, the deliverable gate,
 # the fast-path label, the enhance-cycle constant, and the LLM router — must be ABSENT
@@ -137,6 +139,45 @@ def test_pipeline_run_documents_artifact_types_flag() -> None:
     assert "cv,cover_letter,interview_prep" in doc, (
         "gmj-pipeline-run.md does not document the default artifact-types set 'cv,cover_letter,interview_prep' (ARTF-03)"
     )
+
+
+def test_hub_documents_bounded_concurrent_dispatch() -> None:
+    # CONC-06: the hub must document the bounded concurrent-offer dispatch loop as a
+    # subsection of "Parallel fan-out, sequential gates", placed after "Board-search
+    # fan-out" -- never as a disconnected new heading elsewhere in the file.
+    hub = _read(HUB_PATH)
+    assert "### Bounded concurrent-offer dispatch" in hub, (
+        "hub does not document the bounded concurrent-offer dispatch subsection (CONC-06)"
+    )
+    assert hub.index("### Bounded concurrent-offer dispatch") > hub.index(
+        "### Board-search fan-out"
+    ), "bounded concurrent-offer dispatch subsection must come after Board-search fan-out"
+    assert "gmj_dispatch_cap.py" in hub, "hub does not name gmj_dispatch_cap.py (CONC-06)"
+
+
+def test_batch_command_no_longer_defers_parallelism() -> None:
+    # CONC-06: gmj-batch.md must no longer claim parallelism is deferred/single-threaded-only.
+    # <!-- planner-discipline-allow: parallel deferred -->
+    batch_doc = _read(BATCH_CMD)
+    assert "parallel deferred" not in batch_doc, (
+        "gmj-batch.md still claims parallel dispatch is deferred (CONC-06)"
+    )
+    assert "max-parallel-offers" in batch_doc, (
+        "gmj-batch.md does not document --max-parallel-offers (CONC-06)"
+    )
+
+
+def test_no_nested_orchestrator_task_recommended() -> None:
+    # T-35-09: every literal "Task(gmj-orchestrator)" occurrence in either doc must sit
+    # inside a prohibiting sentence (contains "never" on the same line), never a
+    # recommending one.
+    for path in (HUB_PATH, BATCH_CMD):
+        text = _read(path)
+        for line in text.splitlines():
+            if "Task(gmj-orchestrator)" in line:
+                assert "never" in line.lower(), (
+                    f"{path.name}: line recommends Task(gmj-orchestrator) without 'never': {line!r}"
+                )
 
 
 def test_pipeline_commands_exist() -> None:
