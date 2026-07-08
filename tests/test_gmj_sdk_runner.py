@@ -11,6 +11,7 @@ environment has claude-agent-sdk confirmed absent (test 10 exercises that real p
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -274,6 +275,35 @@ def test_cli_subprocess_reports_actionable_error_when_sdk_not_installed() -> Non
         assert "pip install" in result.stderr, result.stderr
     finally:
         os.unlink(input_path)
+
+
+def test_gmj_core_copy_resolves_flat_layout_paths() -> None:
+    """CR-01 regression: the vendored gmj-core/ copy must resolve the flat payload layout
+    (agents/, hooks/ with no .claude/ prefix), not just the source-tree layout.
+
+    Imports gmj-core/scripts/runtime/gmj_sdk_runner.py under a distinct module name so it
+    does not collide with (or get shadowed by) the source-tree copy already imported above,
+    then exercises _project_layout_root()/load_spoke_system_prompt() against the real
+    on-disk payload directly.
+    """
+    core_path = REPO_ROOT / "gmj-core" / "scripts" / "runtime" / "gmj_sdk_runner.py"
+    if not core_path.is_file():
+        print(
+            "SKIP test_gmj_core_copy_resolves_flat_layout_paths: "
+            "gmj-core/ payload not built in this checkout"
+        )
+        return
+    spec = importlib.util.spec_from_file_location("gmj_sdk_runner_core", core_path)
+    core_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(core_module)
+
+    agents_dir, hooks_dir = core_module._project_layout_root(core_module.REPO_ROOT)
+    assert agents_dir == core_module.REPO_ROOT / "agents", agents_dir
+    assert hooks_dir == core_module.REPO_ROOT / "hooks", hooks_dir
+    assert agents_dir.is_dir() and hooks_dir.is_dir(), (agents_dir, hooks_dir)
+
+    prompt = core_module.load_spoke_system_prompt("gmj-offer-scout")
+    assert prompt, "expected a non-empty system prompt from the gmj-core/ payload"
 
 
 def test_default_cli_path_untouched() -> None:
