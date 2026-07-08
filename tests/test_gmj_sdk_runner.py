@@ -219,6 +219,24 @@ def test_default_cli_path_untouched() -> None:
         assert "claude-agent-sdk" not in text, path
 
 
+def test_hook_parity_doc_names_both_items_and_status_tags() -> None:
+    text = (REPO_ROOT / "scripts" / "runtime" / "HOOK-PARITY.md").read_text(encoding="utf-8")
+    assert "PreToolUse" in text
+    assert "SubagentStop" in text
+    assert "gmj-sources-scope-guard.sh" in text
+    assert "gmj-validate-envelope.sh" in text
+    assert "verified" in text
+    assert "not independently verified — reasoned from API docs" in text
+
+
+def test_readme_documents_label_cli_wrapper_and_opt_in_env_var() -> None:
+    text = (REPO_ROOT / "scripts" / "runtime" / "README.md").read_text(encoding="utf-8")
+    assert "experimental/unsupported for autonomous runs until parity is verified" in text.lower()
+    assert "CLI" in text
+    assert "subprocess" in text
+    assert "GMJ_RUNTIME" in text
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
