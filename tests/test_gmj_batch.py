@@ -555,6 +555,74 @@ def test_refreeze_idempotent_hash() -> None:
     )
 
 
+# --- CONC-01: max_parallel_offers freeze + validation ------------------------
+
+def test_max_parallel_offers_default_freeze() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        r = _init(cwd, "1")
+        assert r.returncode == 0, f"init must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        manifest = _load_manifest(cwd)
+        assert manifest.get("max_parallel_offers") == 3, (
+            f"repo-default config/pipeline.config.yaml must freeze max_parallel_offers=3: {manifest}"
+        )
+
+
+def test_max_parallel_offers_cli_override() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        r = _init(cwd, "1", extra=["--max-parallel-offers", "5"])
+        assert r.returncode == 0, f"init must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        manifest = _load_manifest(cwd)
+        assert manifest.get("max_parallel_offers") == 5, (
+            f"--max-parallel-offers 5 must override the config default: {manifest}"
+        )
+
+
+def test_max_parallel_offers_zero_rejected() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        r = _init(cwd, "1", extra=["--max-parallel-offers", "0"])
+        assert r.returncode == 1, f"--max-parallel-offers 0 must exit 1: {r.stdout}"
+        assert "max_parallel_offers" in r.stderr, f"stderr must name the field: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        assert not _manifest_path(cwd).exists(), "no manifest file may be written on rejection"
+
+
+def test_max_parallel_offers_negative_rejected() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        r = _init(cwd, "1", extra=["--max-parallel-offers", "-1"])
+        assert r.returncode == 1, f"--max-parallel-offers -1 must exit 1: {r.stdout}"
+        assert "max_parallel_offers" in r.stderr, f"stderr must name the field: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        assert not _manifest_path(cwd).exists(), "no manifest file may be written on rejection"
+
+
+# --- CONC-04/05: one offer's terminal mark never mutates a sibling's runs ----
+
+def test_terminal_mark_never_mutates_sibling_runs() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        assert _init(cwd, "1,2").returncode == 0
+        before = _load_manifest(cwd)
+        rids = _run_ids(before)
+        target0 = rids[(0, "cv")]
+        target1 = rids[(1, "cv")]
+        assert _mark(cwd, target0, "gate_exhausted").returncode == 0
+        assert _mark(cwd, target1, "error").returncode == 0
+        after = _load_manifest(cwd)
+        expected = json.loads(json.dumps(before))
+        expected["offers"][0]["runs"]["cv"]["status"] = "gate_exhausted"
+        expected["offers"][1]["runs"]["cv"]["status"] = "error"
+        assert after == expected, (
+            "marking two different offers' cv runs terminal must leave every OTHER run entry "
+            f"(siblings, and the other artifact types of the SAME marked offers) unchanged: {after}"
+        )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

@@ -9,7 +9,8 @@ path (12-02) extends this module with ``mark``/``resume`` ops.
 Subcommand implemented here: ``init``.
 
     init --shortlist <path> --select "1,3,5" [--batch-id <id>] [--run-id-prefix <p>]
-         [--config <path>] [--execution-mode ...] [--retry-cap N] [--pipeline-dir <dir>]
+         [--config <path>] [--execution-mode ...] [--retry-cap N] [--max-parallel-offers N]
+         [--pipeline-dir <dir>]
 
 For each selected shortlist entry it:
   1. resolves the 1-indexed selection string to sorted, deduped, bounds-checked 0-based indices
@@ -40,6 +41,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import yaml
 from jsonschema import Draft202012Validator
 
 # Reuse the audited Gate A ∧ Gate B delivery predicate verbatim — never re-judge a gate here
@@ -243,6 +245,35 @@ def _cmd_init(args: argparse.Namespace) -> int:
     batches_dir = pipeline_dir / "batches"
     runs_dir = pipeline_dir / "runs"
 
+    # Resolve + validate max_parallel_offers BEFORE any disk write (CONC-01): a CLI override
+    # wins over config/pipeline.config.yaml's value, defaulting to 3 when neither is set. The
+    # isinstance(int) and not bool guard + the >= 1 bound mirror gmj_state_write.py's
+    # _freeze_run_config retry_cap guard exactly (T-35-02), except the bound here is < 1 (not
+    # < 0) since zero concurrent offers is nonsensical.
+    config_path = Path(args.config).expanduser()
+    if not config_path.is_file():
+        print(f"Config not found: {config_path}", file=sys.stderr)
+        return 1
+    try:
+        cfg = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        print(f"Invalid pipeline config YAML: {exc}", file=sys.stderr)
+        return 1
+    if not isinstance(cfg, dict):
+        print("Pipeline config YAML must parse to a mapping.", file=sys.stderr)
+        return 1
+    max_parallel_offers = (
+        args.max_parallel_offers
+        if args.max_parallel_offers is not None
+        else cfg.get("max_parallel_offers", 3)
+    )
+    if not isinstance(max_parallel_offers, int) or isinstance(max_parallel_offers, bool):
+        print("max_parallel_offers must be an integer (not a bool).", file=sys.stderr)
+        return 1
+    if max_parallel_offers < 1:
+        print("max_parallel_offers must be >= 1.", file=sys.stderr)
+        return 1
+
     # Load the shortlist (fail-closed: is_file -> json -> isinstance guard).
     shortlist_path = Path(args.shortlist).expanduser()
     if not shortlist_path.is_file():
@@ -345,6 +376,7 @@ def _cmd_init(args: argparse.Namespace) -> int:
         "kind": "batch_manifest",
         "schema_version": "1.0",
         "batch_id": batch_id,
+        "max_parallel_offers": max_parallel_offers,
         "offers": offers,
     }
     manifest_path = batches_dir / batch_id / "manifest.json"
@@ -594,6 +626,12 @@ def main() -> int:
     )
     p_init.add_argument("--execution-mode", default=None, help="Optional CLI override for execution_mode.")
     p_init.add_argument("--retry-cap", type=int, default=None, help="Optional CLI override for retry_cap.")
+    p_init.add_argument(
+        "--max-parallel-offers",
+        type=int,
+        default=None,
+        help="Optional CLI override for max_parallel_offers (frozen into manifest.json, CONC-01).",
+    )
     p_init.add_argument(
         "--pipeline-dir",
         default=resolve_pipeline_dir(),
