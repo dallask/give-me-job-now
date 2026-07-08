@@ -163,7 +163,10 @@ On the target host, in a fresh Claude Code session, confirm the four acceptance 
 
 The deterministic slice of this install (temp-dir install, payload census, idempotent
 settings-merge, the four acceptance checks, and the removal dry-run) is machine-verified by
-`tests/test_gmj_install.py` and `tests/test_gmj_remove_gsd.py`.
+`tests/test_gmj_install.py` and `tests/test_gmj_remove_gsd.py`. The one-script installer
+(`gmj-core/bin/install.sh` itself — prerequisite aggregation, run-in-place vs. fresh-clone
+mode detection, idempotent `.venv` reuse, and the shell-injection/symlink-safety
+regressions) is machine-verified by `tests/test_gmj_install_script.py`.
 
 > **Note (DV-21 — deferred).** A real **cross-machine clean-runtime install** — copying the
 > payload to a second host with dependencies absent and a different OS, running the
