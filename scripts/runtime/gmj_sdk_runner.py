@@ -31,12 +31,17 @@ from gmj_validate_envelope import resolve_kind, validate as validate_against_kin
 # claude-agent-sdk is an OPTIONAL, isolated dependency (scripts/runtime/requirements.txt
 # only) — guard the import so nothing under scripts/contracts or the default CLI path ever
 # needs it installed (mirrors gmj_render_cv.py's WeasyPrint ImportError-guard convention).
+# ResultMessage is imported alongside the others so the structured_output-carrying message
+# can be identified with a real isinstance() check rather than string-matching the class
+# name (a subclass, a differently-namespaced ResultMessage, or an SDK refactor would
+# silently stop matching a type(message).__name__ comparison).
 try:
-    from claude_agent_sdk import query, ClaudeAgentOptions, HookMatcher
+    from claude_agent_sdk import query, ClaudeAgentOptions, HookMatcher, ResultMessage
 except ImportError:
     query = None
     ClaudeAgentOptions = None
     HookMatcher = None
+    ResultMessage = None
 
 # Flat (no $ref/$defs) JSON-schema hint passed to output_format — a generation-time
 # constraint only (RESEARCH.md Pitfall 2). kind/schema_version are included so a
@@ -218,7 +223,7 @@ async def run_spoke(spoke: str, bounded_input: str) -> dict:
 
     structured = None
     async for message in query(prompt=bounded_input, options=options):
-        if type(message).__name__ == "ResultMessage":
+        if ResultMessage is not None and isinstance(message, ResultMessage):
             structured = message.structured_output
 
     if structured is None:

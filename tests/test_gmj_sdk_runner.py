@@ -161,10 +161,16 @@ def test_run_spoke_dispatches_and_returns_validated_envelope() -> None:
     orig_query = gmj_sdk_runner.query
     orig_options = gmj_sdk_runner.ClaudeAgentOptions
     orig_matcher = gmj_sdk_runner.HookMatcher
+    orig_result_message = gmj_sdk_runner.ResultMessage
     try:
         gmj_sdk_runner.query = fake_query
         gmj_sdk_runner.ClaudeAgentOptions = FakeOptions
         gmj_sdk_runner.HookMatcher = FakeHookMatcher
+        # run_spoke() identifies the structured_output-carrying message via
+        # isinstance(message, ResultMessage) — patch the module-level type too so this
+        # fake, SDK-shaped ResultMessage is recognized the same way the real
+        # claude_agent_sdk.ResultMessage would be.
+        gmj_sdk_runner.ResultMessage = ResultMessage
         result = asyncio.run(
             gmj_sdk_runner.run_spoke("gmj-candidate-configurator", '{"ping": "pong"}')
         )
@@ -173,6 +179,7 @@ def test_run_spoke_dispatches_and_returns_validated_envelope() -> None:
         gmj_sdk_runner.query = orig_query
         gmj_sdk_runner.ClaudeAgentOptions = orig_options
         gmj_sdk_runner.HookMatcher = orig_matcher
+        gmj_sdk_runner.ResultMessage = orig_result_message
 
 
 def test_run_spoke_raises_actionable_error_when_sdk_unavailable() -> None:
