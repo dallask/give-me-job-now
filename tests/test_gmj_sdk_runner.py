@@ -92,6 +92,41 @@ def test_pretooluse_scope_guard_passthrough_non_web_tool() -> None:
     assert result == {}, result
 
 
+def test_hook_deny_reason_parses_json_blob_not_raw() -> None:
+    """WR-01 regression: the parsed "reason" field must be surfaced, not the raw JSON blob."""
+
+    class FakeProc:
+        stdout = '{"decision":"block","reason":"evil.example.com not in scope"}\n'
+        stderr = ""
+
+    assert gmj_sdk_runner._hook_deny_reason(FakeProc()) == "evil.example.com not in scope"
+
+
+def test_pretooluse_scope_guard_raises_on_unexpected_exit_code() -> None:
+    """WR-04 regression: an unexpected (non-0, non-2) exit code must raise, not fail open."""
+
+    class FakeProc:
+        returncode = 1
+        stdout = ""
+        stderr = "boom"
+
+    orig_run = gmj_sdk_runner.subprocess.run
+    try:
+        gmj_sdk_runner.subprocess.run = lambda *a, **kw: FakeProc()
+        try:
+            asyncio.run(
+                gmj_sdk_runner.pretooluse_scope_guard(
+                    {"tool_name": "WebFetch", "tool_input": {}}, "tool-1", None
+                )
+            )
+        except RuntimeError as exc:
+            assert "rc=1" in str(exc), exc
+        else:
+            raise AssertionError("expected RuntimeError on rc=1, guard failed open instead")
+    finally:
+        gmj_sdk_runner.subprocess.run = orig_run
+
+
 def test_validate_envelope_accepts_conformant_dict() -> None:
     envelope = {
         "schema": "agent_result_v1",
@@ -132,6 +167,13 @@ def test_validate_envelope_rejects_malformed_dict() -> None:
     errors2 = gmj_sdk_runner.validate_envelope(no_kind)
     assert errors2, "expected validate_envelope to reject a dict with no kind"
     assert any("kind" in e for e in errors2), errors2
+
+
+def test_validate_envelope_rejects_non_dict_cleanly() -> None:
+    """WR-03 regression: non-dict structured_output must return a clean error list, not raise."""
+    for bad in (None, "a string", [1, 2, 3], 42):
+        errors = gmj_sdk_runner.validate_envelope(bad)
+        assert errors and "must be a JSON object" in errors[0], (bad, errors)
 
 
 def test_run_spoke_dispatches_and_returns_validated_envelope() -> None:
