@@ -26,7 +26,9 @@ import gmj_sdk_runner  # noqa: E402
 
 
 def _run(args: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run([sys.executable, str(RUNNER), *args], capture_output=True, text=True)
+    return subprocess.run(
+        [sys.executable, str(RUNNER), *args], capture_output=True, text=True, timeout=30
+    )
 
 
 def _isolated_scope_project_dir() -> Path:
@@ -199,6 +201,25 @@ def test_run_spoke_raises_actionable_error_when_sdk_unavailable() -> None:
 
 
 def test_cli_subprocess_reports_actionable_error_when_sdk_not_installed() -> None:
+    # This test only proves the not-installed path. If claude-agent-sdk IS importable in
+    # whatever interpreter `sys.executable` resolves to (e.g. after someone runs
+    # `pip install -r scripts/runtime/requirements.txt` in the same environment used for
+    # tests, or a CI image that pre-installs it), skip rather than silently falling through
+    # to the real claude_agent_sdk.query() path — an actual subprocess invocation of the
+    # `claude` CLI with no auth guarantees, which could hang (bounded here by the timeout
+    # in _run()) or make a live call.
+    probe = subprocess.run(
+        [sys.executable, "-c", "import claude_agent_sdk"],
+        capture_output=True,
+        timeout=30,
+    )
+    if probe.returncode == 0:
+        print(
+            "SKIP test_cli_subprocess_reports_actionable_error_when_sdk_not_installed: "
+            "claude-agent-sdk is installed in this environment"
+        )
+        return
+
     # claude-agent-sdk is confirmed absent from this environment's Python — this test
     # genuinely exercises the not-installed path against the real, unpatched subprocess.
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
