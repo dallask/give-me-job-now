@@ -117,6 +117,14 @@ GMJ_THEME = Theme(
         "status-failed": "#f85149",
         "status-pending": "#6e7681",
         "status-unknown": "#bc8cff",
+        # Concurrency-era per-offer status palette (CONC-04). Reuses the 5 hexes above verbatim —
+        # zero new colors — mapped by closest existing semantic match per 35-UI-SPEC.md's Color
+        # section: waiting~pending, in_flight~running, gate_exhausted~failed, error~unknown.
+        # status-delivered already exists above and is reused as-is.
+        "status-waiting": "#6e7681",
+        "status-in_flight": "#d29922",
+        "status-gate_exhausted": "#f85149",
+        "status-error": "#bc8cff",
         # Gate-verdict palette (VIEW-08). Keys are `gate-<verdict>` — NOT forbidden literals — so the
         # DAG strip colors a Gate A/B node by looking the projected verdict up at runtime via
         # get_css_variables().get(f"gate-{verdict}"); the "—" absent-sentinel resolves to no var.
