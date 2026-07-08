@@ -100,8 +100,13 @@ SKIP_DIRS = {
 
 # Extensions that constitute a reference-search surface. Extends
 # tests/test_structure_cleanup.py's SEARCH_EXTS with ".cjs"/".js" per 36-RESEARCH.md
-# Pitfall 3, so .claude/scripts/-style .cjs files and any .js file participate.
-SEARCH_EXTS = frozenset({".md", ".py", ".yaml", ".json", ".sh", ".cjs", ".js"})
+# Pitfall 3, so .claude/scripts/-style .cjs files and any .js file participate. Also
+# extends with ".html"/".css"/".tcss"/".txt" (WR-01) so a reference that exists only
+# inside a template's markup/CSS (e.g. templates/cv/*.html font url() refs) is not
+# invisible to the tool.
+SEARCH_EXTS = frozenset(
+    {".md", ".py", ".yaml", ".json", ".sh", ".cjs", ".js", ".html", ".css", ".tcss", ".txt"}
+)
 
 # Every file under these trees counts as a reference-surface site regardless of
 # extension, so hook/frontmatter references (Success Criterion 2) are never missed.
