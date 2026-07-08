@@ -60,6 +60,10 @@ if [ -z "${REPO_ROOT:-}" ]; then
   MODE="fresh-clone"
   REPO_URL="${GMJ_REPO_URL:-git@github.com:dallask/give-me-job.git}"
   INSTALL_DIR="${GMJ_INSTALL_DIR:-give-me-job}"
+  if [ -e "$INSTALL_DIR" ] || [ -L "$INSTALL_DIR" ]; then
+    echo "ERROR: install target \"$INSTALL_DIR\" already exists (file, dir, or symlink) — refusing to clone into a pre-existing path." >&2
+    exit 1
+  fi
   echo "Fresh-clone mode: cloning \"$REPO_URL\" into \"$INSTALL_DIR\"..."
   git clone -- "$REPO_URL" "$INSTALL_DIR"
   REPO_ROOT="$(cd "$INSTALL_DIR" && pwd)"
