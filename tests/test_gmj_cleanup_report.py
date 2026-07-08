@@ -83,6 +83,32 @@ def test_referenced_fixture_excluded_from_candidates() -> None:
         )
 
 
+def test_path_prefixed_reference_excluded_from_candidates() -> None:
+    """A basename referenced via a relative path prefix (the dominant real-world citation
+    style, e.g. ``scripts/referenced.py``) is detected as a hit and excluded (CR-01/WR-03).
+
+    The original ``test_referenced_fixture_excluded_from_candidates`` only ever exercised a
+    bare-basename mention preceded by a space, which happened to pass even with the CR-01
+    word-boundary regex bug (the bug specifically miss-detected basenames immediately
+    preceded by ``/``). This fixture proves the tool detects the dominant citation style
+    used throughout this repo's own docs (``scripts/foo.py``, `` `path/to/foo.py` ``).
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "scripts").mkdir()
+        (root / "scripts" / "referenced.py").write_text("VALUE = 2\n", encoding="utf-8")
+        (root / "caller.md").write_text(
+            "See `scripts/referenced.py` for the implementation details.\n",
+            encoding="utf-8",
+        )
+        result = gmj_cleanup_report.classify(repo_root=root, framework_globs=[])
+        assert "scripts/referenced.py" not in result, (
+            f"scripts/referenced.py is referenced via a path-prefixed mention in caller.md "
+            f"on a non-comment line — must be ABSENT from classify() result entirely, got "
+            f"entry: {result.get('scripts/referenced.py')!r}"
+        )
+
+
 def test_comment_only_hit_tagged_review_recommended() -> None:
     """A fixture whose only mention sits on a comment line is tier 'review', not 'high' or absent.
 
