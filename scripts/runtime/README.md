@@ -36,9 +36,19 @@ from API docs).
 ## Usage
 
 ```bash
-pip install -r scripts/runtime/requirements.txt   # explicit, separate opt-in step — see below
+pip install -r scripts/contracts/requirements.txt -r scripts/runtime/requirements.txt
 python3 scripts/runtime/gmj_sdk_runner.py --spoke <agent-name> --input <bounded-input-file>
 ```
+
+`scripts/runtime/requirements.txt` is deliberately scoped to `claude-agent-sdk` only —
+it stays the explicit, separate opt-in step for the one dependency this directory adds.
+It is NOT sufficient on its own: `gmj_sdk_runner.py` unconditionally imports
+`scripts/contracts/gmj_validate_envelope.py` at module load time (to re-validate every
+spoke's structured_output — the actual trust boundary), which hard-requires
+`jsonschema`/`referencing` from `scripts/contracts/requirements.txt`. Installing only
+`scripts/runtime/requirements.txt` in a clean environment fails at import time with
+`ModuleNotFoundError: No module named 'jsonschema'` before ever reaching the
+SDK-not-installed error path below — install both files as shown above.
 
 ## Package legitimacy: `claude-agent-sdk` is flagged `[SUS]` — this is a false positive
 
