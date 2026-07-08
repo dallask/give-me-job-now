@@ -231,30 +231,53 @@ def test_forged_delivered_label_without_gates_is_not_free_capacity() -> None:
         )
 
 
-# --- Test 6: malformed manifest (missing AND non-int max_parallel_offers) ---
+# --- Test 6: PRESENT but non-int max_parallel_offers is rejected ------------
 
-def test_malformed_manifest_cap_rejected() -> None:
+def test_non_int_manifest_cap_rejected() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         cwd = Path(tmp)
         assert _init(cwd, "1", max_parallel_offers=3).returncode == 0
         mp = _manifest_path(cwd)
 
-        # Missing max_parallel_offers.
+        # Non-int max_parallel_offers is still a hard error -- only a MISSING field falls
+        # back to a default (WR-01); a present-but-invalid value is a genuine malformed
+        # manifest and must still fail closed.
         manifest = json.loads(mp.read_text())
-        del manifest["max_parallel_offers"]
-        mp.write_text(json.dumps(manifest))
-        r = _dispatch(cwd)
-        assert r.returncode == 1, "missing max_parallel_offers must exit 1"
-        assert "max_parallel_offers" in r.stderr, r.stderr
-        assert "Traceback" not in r.stderr, r.stderr
-
-        # Non-int max_parallel_offers.
         manifest["max_parallel_offers"] = "three"
         mp.write_text(json.dumps(manifest))
         r = _dispatch(cwd)
         assert r.returncode == 1, "non-int max_parallel_offers must exit 1"
         assert "max_parallel_offers" in r.stderr, r.stderr
         assert "Traceback" not in r.stderr, r.stderr
+
+
+# --- Test 6b: MISSING max_parallel_offers falls back to a default (WR-01) ----
+
+def test_missing_max_parallel_offers_falls_back_to_config_default() -> None:
+    """``batch_manifest.schema.json`` documents that manifests written before this field
+    existed "remain valid" (the field is not in ``required``). ``gmj_dispatch_cap.py`` must
+    therefore fall back to the same default ``gmj_batch.py init`` itself would resolve
+    (``config/pipeline.config.yaml``'s ``max_parallel_offers``, default 3) instead of
+    hard-failing on a manifest that simply predates the field (WR-01 regression)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        assert _init(cwd, "1", max_parallel_offers=3).returncode == 0
+        mp = _manifest_path(cwd)
+
+        manifest = json.loads(mp.read_text())
+        del manifest["max_parallel_offers"]
+        mp.write_text(json.dumps(manifest))
+        r = _dispatch(cwd)
+        assert r.returncode == 0, (
+            f"a manifest missing max_parallel_offers must fall back to a default, not fail "
+            f"(schema's own backward-compatibility guarantee): {r.stderr}"
+        )
+        assert "Traceback" not in r.stderr, r.stderr
+        report = _parse_dispatch(r.stdout)
+        assert report["cap"] == 3, (
+            f"missing field must fall back to config/pipeline.config.yaml's max_parallel_offers "
+            f"(3): {report!r}"
+        )
 
 
 # --- Test 7: unsafe --batch ---------------------------------------------------

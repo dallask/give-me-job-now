@@ -42,7 +42,12 @@ CLI: ``gmj_dispatch_cap.py --batch <batch_id> [--pipeline-dir <dir>]`` emits ONE
 line to stdout: ``{"dispatchable": [...], "in_flight": <int>, "cap": <int>,
 "waiting": [...]}`` (``sort_keys=True`` for determinism) and exits 0 on any well-formed
 manifest; exits 1 (structured stderr, no traceback) on an unsafe ``--batch``, a missing/
-invalid manifest, or a malformed/missing ``max_parallel_offers``.
+invalid manifest, or a ``max_parallel_offers`` that is PRESENT but not a valid integer. A
+manifest that predates ``max_parallel_offers`` (the field is optional in
+``batch_manifest.schema.json``, which explicitly documents "manifests written before this
+field existed remain valid") falls back to the same default ``gmj_batch.py init`` itself
+uses — ``config/pipeline.config.yaml``'s ``max_parallel_offers``, or ``3`` if that is also
+absent/invalid (WR-01) — rather than hard-failing.
 """
 
 from __future__ import annotations
@@ -52,8 +57,10 @@ import json
 import sys
 from pathlib import Path
 
+import yaml
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from gmj_batch import _load_manifest, _safe_id  # noqa: E402
+from gmj_batch import DEFAULT_CONFIG, _load_manifest, _safe_id  # noqa: E402
 from gmj_check_delivery import blocked_reason  # noqa: E402
 from gmj_pipeline_paths import resolve_pipeline_dir  # noqa: E402  (single-sourced pipeline root)
 
@@ -111,6 +118,30 @@ def _classify_offer(run_classes: list[str]) -> str:
     return ACTIVE
 
 
+def _default_max_parallel_offers(config_path: Path = DEFAULT_CONFIG) -> int:
+    """Fallback cap for a manifest that predates ``max_parallel_offers`` (WR-01).
+
+    ``batch_manifest.schema.json`` explicitly documents that manifests written before this
+    field existed "remain valid" (it is not in ``required``), but this script used to treat an
+    absent field as a hard error, unlike ``gmj_batch.py _cmd_init`` which resolves a sensible
+    default. Mirrors ``_cmd_init``'s own default resolution
+    (``cfg.get("max_parallel_offers", 3)``) so an older/hand-authored manifest can still be
+    queried instead of being permanently unqueryable. This is a fallback, not a validation of
+    ``config_path`` itself — any read/parse problem (missing file, invalid YAML, non-mapping,
+    non-int value) falls back to the conservative default of 3 rather than raising.
+    """
+    try:
+        cfg = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return 3
+    if not isinstance(cfg, dict):
+        return 3
+    value = cfg.get("max_parallel_offers", 3)
+    if not isinstance(value, int) or isinstance(value, bool):
+        return 3
+    return value
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -136,6 +167,11 @@ def main() -> int:
         return 1
 
     cap = manifest.get("max_parallel_offers")
+    if cap is None:
+        # Field absent: the schema's own backward-compatibility guarantee says this manifest
+        # "remain[s] valid" — fall back to the same default gmj_batch.py init would have used
+        # (WR-01), rather than hard-failing.
+        cap = _default_max_parallel_offers()
     if not isinstance(cap, int) or isinstance(cap, bool):
         print(
             "Malformed manifest: 'max_parallel_offers' must be a frozen integer.",

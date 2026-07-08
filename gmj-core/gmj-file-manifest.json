@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "timestamp": "2026-07-08T06:45:38.173Z",
+  "timestamp": "2026-07-08T06:46:20.358Z",
   "mode": "full",
   "files": {
     "gmj-core/VERSION": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
@@ -94,7 +94,7 @@
     "gmj-core/scripts/pipeline/gmj_batch.py": "1811c38087965f82db754e1e2bb917817026dfd78dee949834fda91efbd12042",
     "gmj-core/scripts/pipeline/gmj_check_cap.py": "faf579af1a45146bec2b869b166cef2c6cda047de7b76b9607b24a37cf1af2a5",
     "gmj-core/scripts/pipeline/gmj_check_delivery.py": "b4f59804bd765e0e0ec3d75fe890fa123c3f722fa36615536b8c1ba24a16f632",
-    "gmj-core/scripts/pipeline/gmj_dispatch_cap.py": "674625d7eefb1b55e7bf47dcebbfc328b6b98daeb74e9775ad550a4626e4eccc",
+    "gmj-core/scripts/pipeline/gmj_dispatch_cap.py": "4485d3d3be8c6d94d46b4ef597ab83e8ee0d09918c6cfb7f41336b7a8880bbb2",
     "gmj-core/scripts/pipeline/gmj_map_feedback.py": "4ba9c9e7eeaf42d9fa66b75b5dd0ff21e1dde6ccb630f8ce160f0f6d7bfc3c89",
     "gmj-core/scripts/pipeline/gmj_pipeline_paths.py": "5f0c0abb91fe0409162f7051a0e95b8f6bed6ec16271b28cee80d23949aacc8c",
     "gmj-core/scripts/pipeline/gmj_pipeline_run.py": "0a369c7c0961f53e8d3cdf825bd2cb112bd97f0d678fc478f92da3df858b9d27",
