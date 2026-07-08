@@ -1,8 +1,10 @@
-# config/pipeline.config.yaml — dual-mode + retry-cap knob (EXEC-01, GUARD-03).
+# config/pipeline.config.yaml — dual-mode + retry-cap + max-parallel-offers knobs (EXEC-01,
+# GUARD-03, CONC-01).
 #
-# These two operator-authored knobs govern how a pipeline run executes:
+# These three operator-authored knobs govern how a pipeline run executes:
 #   - execution_mode: whether the run pauses for human approval or runs autonomously.
 #   - retry_cap: the maximum number of enhance/generate retry cycles a run may spend.
+#   - max_parallel_offers: how many offers' pipelines may run concurrently in one batch.
 #
 # FREEZE CONTRACT: at run start, gmj_state_write.py copies these values into
 # .pipeline/runs/<run_id>/state.json (the run-scoped state). Every downstream control
@@ -19,3 +21,10 @@ execution_mode: human_in_the_loop
 # Maximum enhance/generate retry cycles per run. Default 2 matches the legacy
 # MAX_ENHANCE_CYCLES=2 precedent (EXEC-03, RESEARCH Assumption A1).
 retry_cap: 2
+
+# Maximum number of offers' pipelines that may run concurrently within one batch
+# (CONC-01). Frozen into the batch manifest at `gmj_batch.py init` time — same freeze
+# contract as execution_mode/retry_cap above, just batch-scoped instead of run-scoped.
+# Default 3 — a small, safe default mirroring the conservative retry_cap: 2 precedent,
+# per 35-CONTEXT.md.
+max_parallel_offers: 3
