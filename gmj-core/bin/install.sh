@@ -61,7 +61,7 @@ if [ -z "${REPO_ROOT:-}" ]; then
   REPO_URL="${GMJ_REPO_URL:-git@github.com:dallask/give-me-job.git}"
   INSTALL_DIR="${GMJ_INSTALL_DIR:-give-me-job}"
   echo "Fresh-clone mode: cloning \"$REPO_URL\" into \"$INSTALL_DIR\"..."
-  git clone "$REPO_URL" "$INSTALL_DIR"
+  git clone -- "$REPO_URL" "$INSTALL_DIR"
   REPO_ROOT="$(cd "$INSTALL_DIR" && pwd)"
 fi
 
