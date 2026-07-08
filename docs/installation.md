@@ -25,6 +25,39 @@ It is safe to re-run — the script is idempotent (INSTALL-02).
 
 ---
 
+## Fresh install (no local checkout)
+
+`install.sh` also supports running with no existing checkout on disk — piped straight from
+a `curl` fetch of the raw script:
+
+```bash
+curl -fsSL <raw-url>/install.sh | bash
+```
+
+In this mode the script clones the repository into a new directory (`give-me-job` by
+default) before continuing the same install flow (`.venv` bootstrap, Python dependency
+install, payload/config staging).
+
+- **SSH prerequisite.** With no overrides, the script clones the **private** SSH remote
+  `git@github.com:dallask/give-me-job.git` — the invoking host must already have SSH access
+  configured (an SSH key registered with GitHub) for the default fresh-clone invocation to
+  succeed.
+- **`GMJ_REPO_URL`** overrides the git remote to clone (e.g. an HTTPS URL or a different
+  fork). It must be a valid git remote; values are passed to `git clone` with a `--`
+  option-terminator so they are always treated as a literal remote, never as a flag.
+- **`GMJ_INSTALL_DIR`** overrides the destination directory name (default `give-me-job`).
+  It must be a plain relative directory name — absolute paths, embedded path separators,
+  and `..` segments are rejected — and the script refuses to clone into a path that already
+  exists (file, directory, or symlink).
+
+```bash
+GMJ_REPO_URL=https://github.com/dallask/give-me-job.git \
+GMJ_INSTALL_DIR=my-give-me-job \
+  bash -c "curl -fsSL <raw-url>/install.sh | bash"
+```
+
+---
+
 ## What gets installed
 
 ### The `gmj-core/` payload
