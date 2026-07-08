@@ -2,12 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:give-me-job:schema:batch_manifest",
   "title": "batch_manifest",
-  "description": "Frozen contract for the per-offer batch manifest written by scripts/pipeline/gmj_batch.py (SELECT-03/SELECT-04). Local URN $id only (never a fetchable URL — SSRF precedent, see shortlist.schema.json). The manifest is offer-centric: each offer entry groups its per-(offer, artifact_type) run_ids under `runs` (cv/cover_letter/interview_prep) because state.gate_results is per-DAG-node and would clobber across the three artifact types if they shared one run. offer_spec_path/offer_spec_hash are empty-string placeholders at `init` time and are filled post-freeze by the record-spec op (12-02); both empty and populated instances validate. Phase 16 inspects this manifest read-only.",
+  "description": "Frozen contract for the per-offer batch manifest written by scripts/pipeline/gmj_batch.py (SELECT-03/SELECT-04). Local URN $id only (never a fetchable URL — SSRF precedent, see shortlist.schema.json). The manifest is offer-centric: each offer entry groups its per-(offer, artifact_type) run_ids under `runs` (cv/cover_letter/interview_prep) because state.gate_results is per-DAG-node and would clobber across the three artifact types if they shared one run. offer_spec_path/offer_spec_hash are empty-string placeholders at `init` time and are filled post-freeze by the record-spec op (12-02); both empty and populated instances validate. An optional root `max_parallel_offers` integer freezes the batch-wide bounded-concurrency cap at `init` time (CONC-01); manifests written before this field existed remain valid (not in `required`). Phase 16 inspects this manifest read-only.",
   "type": "object",
   "properties": {
     "kind": { "const": "batch_manifest" },
     "schema_version": { "const": "1.0" },
     "batch_id": { "type": "string" },
+    "max_parallel_offers": { "type": "integer", "minimum": 1 },
     "offers": {
       "type": "array",
       "items": { "$ref": "#/$defs/offer_entry" }
@@ -45,7 +46,7 @@
         "run_id": { "type": "string" },
         "status": {
           "type": "string",
-          "enum": ["pending", "running", "delivered", "failed"]
+          "enum": ["waiting", "in_flight", "delivered", "gate_exhausted", "error"]
         }
       },
       "required": ["run_id", "status"],

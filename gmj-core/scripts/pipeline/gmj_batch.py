@@ -9,7 +9,8 @@ path (12-02) extends this module with ``mark``/``resume`` ops.
 Subcommand implemented here: ``init``.
 
     init --shortlist <path> --select "1,3,5" [--batch-id <id>] [--run-id-prefix <p>]
-         [--config <path>] [--execution-mode ...] [--retry-cap N] [--pipeline-dir <dir>]
+         [--config <path>] [--execution-mode ...] [--retry-cap N] [--max-parallel-offers N]
+         [--pipeline-dir <dir>]
 
 For each selected shortlist entry it:
   1. resolves the 1-indexed selection string to sorted, deduped, bounds-checked 0-based indices
@@ -40,6 +41,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import yaml
 from jsonschema import Draft202012Validator
 
 # Reuse the audited Gate A ∧ Gate B delivery predicate verbatim — never re-judge a gate here
@@ -189,10 +191,15 @@ def write_manifest(manifest: dict, out: Path, batches_dir: Path) -> Path:
         raise ValueError(f"Refusing to write outside {base}: {resolved}")
     _validate_manifest(manifest)
     resolved.parent.mkdir(parents=True, exist_ok=True)
-    resolved.write_text(
-        json.dumps(manifest, sort_keys=True, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
-        encoding="utf-8",
+    payload = (
+        json.dumps(manifest, sort_keys=True, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
     )
+    # Atomic publish: write a temp sibling then rename over the target (mirrors _seed_state's
+    # tmp_path.replace(state_path) idiom) — a reader can never observe a partially-written
+    # manifest.json (T-35-03).
+    tmp_path = resolved.with_name(resolved.name + ".tmp")
+    tmp_path.write_text(payload, encoding="utf-8")
+    tmp_path.replace(resolved)
     return resolved
 
 
@@ -237,6 +244,35 @@ def _cmd_init(args: argparse.Namespace) -> int:
     pipeline_dir = Path(args.pipeline_dir).expanduser().resolve()
     batches_dir = pipeline_dir / "batches"
     runs_dir = pipeline_dir / "runs"
+
+    # Resolve + validate max_parallel_offers BEFORE any disk write (CONC-01): a CLI override
+    # wins over config/pipeline.config.yaml's value, defaulting to 3 when neither is set. The
+    # isinstance(int) and not bool guard + the >= 1 bound mirror gmj_state_write.py's
+    # _freeze_run_config retry_cap guard exactly (T-35-02), except the bound here is < 1 (not
+    # < 0) since zero concurrent offers is nonsensical.
+    config_path = Path(args.config).expanduser()
+    if not config_path.is_file():
+        print(f"Config not found: {config_path}", file=sys.stderr)
+        return 1
+    try:
+        cfg = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        print(f"Invalid pipeline config YAML: {exc}", file=sys.stderr)
+        return 1
+    if not isinstance(cfg, dict):
+        print("Pipeline config YAML must parse to a mapping.", file=sys.stderr)
+        return 1
+    max_parallel_offers = (
+        args.max_parallel_offers
+        if args.max_parallel_offers is not None
+        else cfg.get("max_parallel_offers", 3)
+    )
+    if not isinstance(max_parallel_offers, int) or isinstance(max_parallel_offers, bool):
+        print("max_parallel_offers must be an integer (not a bool).", file=sys.stderr)
+        return 1
+    if max_parallel_offers < 1:
+        print("max_parallel_offers must be >= 1.", file=sys.stderr)
+        return 1
 
     # Load the shortlist (fail-closed: is_file -> json -> isinstance guard).
     shortlist_path = Path(args.shortlist).expanduser()
@@ -326,9 +362,9 @@ def _cmd_init(args: argparse.Namespace) -> int:
                 "offer_spec_path": "",  # filled post-freeze by the record-spec op (12-02)
                 "offer_spec_hash": "",
                 "runs": {
-                    "cv": {"run_id": per_type["cv"], "status": "pending"},
-                    "cover_letter": {"run_id": per_type["cl"], "status": "pending"},
-                    "interview_prep": {"run_id": per_type["ip"], "status": "pending"},
+                    "cv": {"run_id": per_type["cv"], "status": "waiting"},
+                    "cover_letter": {"run_id": per_type["cl"], "status": "waiting"},
+                    "interview_prep": {"run_id": per_type["ip"], "status": "waiting"},
                 },
             }
         )
@@ -340,6 +376,7 @@ def _cmd_init(args: argparse.Namespace) -> int:
         "kind": "batch_manifest",
         "schema_version": "1.0",
         "batch_id": batch_id,
+        "max_parallel_offers": max_parallel_offers,
         "offers": offers,
     }
     manifest_path = batches_dir / batch_id / "manifest.json"
@@ -374,12 +411,49 @@ def _load_manifest(pipeline_dir: Path, batch_id: str) -> tuple[dict | None, Path
     return manifest, manifest_path, batches_dir
 
 
+def _mutate_manifest_with_retry(
+    pipeline_dir: Path, batch_id: str, apply_fn, max_attempts: int = 5
+) -> int:
+    """Optimistic-concurrency read-modify-write against ``manifest.json`` (CONC-03).
+
+    Performs up to ``max_attempts`` cycles of: load a FRESH manifest (a fresh
+    ``_load_manifest`` call, giving the current ``manifest_path``/``batches_dir``), snapshot its
+    on-disk bytes, call ``apply_fn(manifest)`` (mutates the in-memory dict in place), then
+    re-read the on-disk bytes and compare to the snapshot. If DIFFERENT — another writer landed
+    in between this call's read and its own write — ``continue`` to the next attempt, which
+    re-loads the now-current content and re-applies ``apply_fn`` on top of it. If SAME, publish
+    via ``write_manifest`` (atomic temp+replace) and return 0.
+
+    A ``ValueError`` from ``write_manifest`` (a genuine schema violation, not a concurrency
+    conflict) is NOT caught here — it propagates uncaught so the caller's existing
+    ``except ValueError`` handles it exactly as before. Exhausting ``max_attempts`` prints a
+    structured stderr message and returns 1 — never a silent partial write.
+    """
+    for _attempt in range(max_attempts):
+        manifest, manifest_path, batches_dir = _load_manifest(pipeline_dir, batch_id)
+        if manifest is None:
+            # _load_manifest already printed a structured stderr message.
+            return 1
+        before = manifest_path.read_bytes()
+        apply_fn(manifest)
+        after = manifest_path.read_bytes()
+        if after != before:
+            continue  # another writer landed in between this read and our write; retry fresh
+        write_manifest(manifest, manifest_path, batches_dir)
+        return 0
+    print(
+        f"Manifest write error: exhausted {max_attempts} retry attempts due to concurrent writers",
+        file=sys.stderr,
+    )
+    return 1
+
+
 def _cmd_mark(args: argparse.Namespace) -> int:
     """Set exactly one per-(offer, artifact_type) run's status (read-modify-preserve, canonical)."""
     pipeline_dir = Path(args.pipeline_dir).expanduser().resolve()
     if _safe_id(args.batch, "batch_id") is None:
         return 1
-    manifest, manifest_path, batches_dir = _load_manifest(pipeline_dir, args.batch)
+    manifest, _manifest_path, _batches_dir = _load_manifest(pipeline_dir, args.batch)
     if manifest is None:
         return 1
 
@@ -395,12 +469,28 @@ def _cmd_mark(args: argparse.Namespace) -> int:
         print(f"run_id not found in batch {args.batch!r}: {args.run_id!r}", file=sys.stderr)
         return 1
 
-    matched["status"] = args.status
+    run_id = args.run_id
+    status = args.status
+
+    def _apply(m: dict) -> None:
+        for offer in m.get("offers", []):
+            for run in (offer.get("runs") or {}).values():
+                if isinstance(run, dict) and run.get("run_id") == run_id:
+                    run["status"] = status
+                    return
+        # Defensive only: run_ids are never removed by another process in this codebase.
+        raise LookupError(run_id)
+
     try:
-        write_manifest(manifest, manifest_path, batches_dir)
+        rc = _mutate_manifest_with_retry(pipeline_dir, args.batch, _apply)
+    except LookupError:
+        print(f"run_id not found in batch {args.batch!r}: {args.run_id!r}", file=sys.stderr)
+        return 1
     except ValueError as exc:
         print(f"Manifest write error: {exc}", file=sys.stderr)
         return 1
+    if rc != 0:
+        return rc
     print(f"marked run_id={args.run_id} status={args.status}")
     return 0
 
@@ -410,7 +500,7 @@ def _cmd_record_spec(args: argparse.Namespace) -> int:
     pipeline_dir = Path(args.pipeline_dir).expanduser().resolve()
     if _safe_id(args.batch, "batch_id") is None:
         return 1
-    manifest, manifest_path, batches_dir = _load_manifest(pipeline_dir, args.batch)
+    manifest, _manifest_path, _batches_dir = _load_manifest(pipeline_dir, args.batch)
     if manifest is None:
         return 1
 
@@ -425,13 +515,31 @@ def _cmd_record_spec(args: argparse.Namespace) -> int:
         )
         return 1
 
-    matched["offer_spec_path"] = args.offer_spec_path
-    matched["offer_spec_hash"] = args.offer_spec_hash
+    offer_index = args.offer_index
+    offer_spec_path = args.offer_spec_path
+    offer_spec_hash = args.offer_spec_hash
+
+    def _apply(m: dict) -> None:
+        for offer in m.get("offers", []):
+            if offer.get("offer_index") == offer_index:
+                offer["offer_spec_path"] = offer_spec_path
+                offer["offer_spec_hash"] = offer_spec_hash
+                return
+        # Defensive only: offer_index entries are never removed by another process.
+        raise LookupError(offer_index)
+
     try:
-        write_manifest(manifest, manifest_path, batches_dir)
+        rc = _mutate_manifest_with_retry(pipeline_dir, args.batch, _apply)
+    except LookupError:
+        print(
+            f"offer_index not found in batch {args.batch!r}: {args.offer_index}", file=sys.stderr
+        )
+        return 1
     except ValueError as exc:
         print(f"Manifest write error: {exc}", file=sys.stderr)
         return 1
+    if rc != 0:
+        return rc
     print(f"recorded offer_index={args.offer_index} offer_spec_hash={args.offer_spec_hash}")
     return 0
 
@@ -519,6 +627,12 @@ def main() -> int:
     p_init.add_argument("--execution-mode", default=None, help="Optional CLI override for execution_mode.")
     p_init.add_argument("--retry-cap", type=int, default=None, help="Optional CLI override for retry_cap.")
     p_init.add_argument(
+        "--max-parallel-offers",
+        type=int,
+        default=None,
+        help="Optional CLI override for max_parallel_offers (frozen into manifest.json, CONC-01).",
+    )
+    p_init.add_argument(
         "--pipeline-dir",
         default=resolve_pipeline_dir(),
         help="Writable pipeline root (default .pipeline); resolved and used as the containment anchor.",
@@ -533,7 +647,7 @@ def main() -> int:
     p_mark.add_argument(
         "--status",
         required=True,
-        choices=["pending", "running", "delivered", "failed"],
+        choices=["waiting", "in_flight", "delivered", "gate_exhausted", "error"],
         help="New run status.",
     )
     p_mark.add_argument(

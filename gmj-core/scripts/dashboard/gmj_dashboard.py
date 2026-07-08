@@ -49,7 +49,7 @@ from textual.binding import Binding  # noqa: F401  (documented seam; bindings ar
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.theme import Theme
-from textual.widgets import Button, DataTable, Digits, Footer, Header, Input, Sparkline, Static, TabbedContent, TabPane  # noqa: F401
+from textual.widgets import Button, DataTable, Digits, Footer, Header, Input, Markdown, Sparkline, Static, TabbedContent, TabPane  # noqa: F401
 
 # Single-source seam — put scripts/dashboard on sys.path and import the read model. The view does
 # ZERO disk I/O itself; it only ever calls model.snapshot() / model.run_detail().
@@ -154,6 +154,8 @@ _VAC_COLUMNS: tuple[tuple[str, str], ...] = (
 
 # Configuration file browser (VIEW-19): one column listing ``config/**/*.yaml`` paths.
 _CONFIG_COLUMNS: tuple[tuple[str, str], ...] = (("file", "file"),)
+# Docs browser (DOCTAB-01): one column listing top-level docs/*.md paths.
+_DOCS_COLUMNS: tuple[tuple[str, str], ...] = (("file", "file"),)
 # Features catalog (skills / agents / commands / flows).
 _FEATURE_COLUMNS: tuple[tuple[str, str], ...] = (
     ("kind", "kind"),
@@ -168,6 +170,7 @@ _DIAG_PANE_COMMANDS = "pane-commands"
 _DIAG_PANE_METRICS = "pane-metrics"
 _DIAG_PANE_STAGES = "pane-stages"
 _DIAG_PANE_CHARTS = "pane-charts"
+_DIAG_PANE_DOCS = "pane-docs"
 _DIAG_PANE_DEFAULT = _DIAG_PANE_ERRORS
 _DIAG_PANE_ORDER: tuple[str, ...] = (
     _DIAG_PANE_ERRORS,
@@ -177,6 +180,7 @@ _DIAG_PANE_ORDER: tuple[str, ...] = (
     _DIAG_PANE_METRICS,
     _DIAG_PANE_STAGES,
     _DIAG_PANE_CHARTS,
+    _DIAG_PANE_DOCS,
 )
 
 # Heartbeat live-sync strip (VIEW-27) — compact row; see also top-of-file #heartbeat block.
@@ -398,6 +402,40 @@ class ConfigFileModal(ModalScreen):
             return out
         out.append(payload.get("text") or "(empty file)")
         return out
+
+
+class DocFileModal(ModalScreen):
+    """Read-only project-doc drill-in — full Markdown text, no disk write (DOCTAB-02/03)."""
+
+    BINDINGS = [("escape", "dismiss", "Close")]
+
+    def __init__(self, payload: dict) -> None:
+        self._payload = payload
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="doc-modal-card"):
+            if not self._payload:
+                yield Static("Documentation unavailable", id="doc-modal-body")
+                return
+            with VerticalScroll(id="doc-modal-scroll"):
+                yield Markdown("", id="doc-modal-body")
+
+    def on_mount(self) -> None:
+        if not self._payload:
+            return
+        self.query_one("#doc-modal-body", Markdown).update(self._render_body())
+        try:
+            self.query_one("#doc-modal-scroll", VerticalScroll).focus()
+        except Exception:
+            pass
+
+    def _render_body(self) -> str:
+        payload = self._payload
+        path = payload.get("path") or "docs"
+        if payload.get("error"):
+            return f"**{path}**\n\n{payload['error']}"
+        return f"**{path}**\n\n{payload.get('text') or '(empty file)'}"
 
 
 class FeatureModal(ModalScreen):
@@ -710,6 +748,10 @@ class GmjDashboard(App):
             with TabPane("throughput / gates", id=_DIAG_PANE_CHARTS):
                 with VerticalScroll():
                     yield Static("", id="charts")
+            with TabPane("docs", id=_DIAG_PANE_DOCS):
+                with VerticalScroll():
+                    yield DataTable(id="docs-table", cursor_type="row")
+                    yield Static("", id="docs-placeholder")
 
         yield Footer()                                    # VIEW-07 mode-aware keybind strip
 
@@ -729,6 +771,9 @@ class GmjDashboard(App):
         cfg_table = self.query_one("#config-table", DataTable)
         for label, key in _CONFIG_COLUMNS:
             cfg_table.add_column(label, key=key)
+        docs_table = self.query_one("#docs-table", DataTable)
+        for label, key in _DOCS_COLUMNS:
+            docs_table.add_column(label, key=key)
         feat_table = self.query_one("#features-table", DataTable)
         for label, key in _FEATURE_COLUMNS:
             feat_table.add_column(label, key=key)
@@ -744,6 +789,7 @@ class GmjDashboard(App):
             (_DIAG_PANE_METRICS, "diag-tab-metrics"),
             (_DIAG_PANE_STAGES, "diag-tab-stages"),
             (_DIAG_PANE_CHARTS, "diag-tab-charts"),
+            (_DIAG_PANE_DOCS, "diag-tab-docs"),
         ):
             tab_bar.get_content_tab(pane_id).add_class(class_name)
         # The commands reference (VIEW-15) is STATIC + mode-aware — seed it once here, not per-poll.
@@ -1281,6 +1327,9 @@ class GmjDashboard(App):
         if event.control.id == "config-table":
             self._on_config_row_selected(row_key)
             return
+        if event.control.id == "docs-table":
+            self._on_docs_row_selected(row_key)
+            return
         if event.control.id == "features-table":
             self.open_feature_detail(row_key)
             return
@@ -1295,6 +1344,16 @@ class GmjDashboard(App):
     def open_config_file(self, rel_path: str) -> None:
         """Push a ``ConfigFileModal`` with the on-demand ``config_file_text`` payload."""
         self.push_screen(ConfigFileModal(self._model.config_file_text(rel_path)))
+
+    def _on_docs_row_selected(self, rel_path: str) -> None:
+        """DOCTAB-01/02: open a read-only modal with the selected doc's Markdown content."""
+        self.open_doc_file(rel_path)
+
+    def open_doc_file(self, rel_path: str) -> None:
+        """Push a ``DocFileModal`` with the on-demand ``doc_file_text`` payload — read fresh from
+        disk on every call, never cached (DOCTAB-03).
+        """
+        self.push_screen(DocFileModal(self._model.doc_file_text(rel_path)))
 
     def open_run_detail(self, run_id: str) -> None:
         """Push a ``RunDetailModal`` built from the on-demand ``run_detail(run_id)`` payload.
@@ -1412,6 +1471,7 @@ class GmjDashboard(App):
         self._apply_metrics(snap.get("metrics") or {})
         self._apply_features(snap.get("features") or [])
         self._apply_config(snap.get("config_files") or [])
+        self._apply_docs(snap.get("docs_files") or [])
         self._apply_vacancies(snap.get("vacancies") or [], snap.get("batches") or [])
         self._apply_errors(snap.get("errors") or [])  # VIEW-12: red-forward per-failed-run gate detail
         self._apply_activity(snap.get("activity") or [])  # VIEW-13: newest-first event timeline
@@ -1579,6 +1639,27 @@ class GmjDashboard(App):
                 t.add_row(rel, key=rel)
         for gone in known - seen:
             t.remove_row(gone)
+
+    def _apply_docs(self, files: list) -> None:
+        """Diff the docs browser from ``snapshot()['docs_files']`` (DOCTAB-01/03) and toggle the
+        ``#docs-placeholder`` empty-state text (33-CONTEXT.md's locked decision).
+
+        One row per top-level ``docs/*.md`` path (posix-relative to repo root). Enter / click opens
+        a read-only Markdown modal via ``model.doc_file_text``.
+        """
+        t = self.query_one("#docs-table", DataTable)
+        known = set(t.rows)
+        seen: set = set()
+        for rel in sorted(str(path) for path in (files or [])):
+            seen.add(rel)
+            if rel in known:
+                t.update_cell(rel, "file", rel)
+            else:
+                t.add_row(rel, key=rel)
+        for gone in known - seen:
+            t.remove_row(gone)
+        placeholder = self.query_one("#docs-placeholder", Static)
+        placeholder.update("(no docs found)" if not files else "")
 
     # ── errors panel (VIEW-12) — red-forward per-failed-run Gate A/Gate B detail ───────────────────
 

@@ -23,3 +23,7 @@ description: Freeze the offer draft into an immutable offer-spec and freeze mode
   ```
 
 `execution_mode` + `retry_cap` are **frozen** here and read from state thereafter — a mid-run config edit cannot change an in-flight run. No spoke, no `Task`; pure deterministic control plane.
+
+For the default 3-artifact-type run, this freeze step runs **once per derived run_id**
+(`<run_id>-cv`/`-cl`/`-ip`, from `scripts/pipeline/gmj_pipeline_run.py` — see
+`/gmj-pipeline-run`), each producing its OWN `state.json` — never one shared state file.
