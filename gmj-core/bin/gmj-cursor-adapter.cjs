@@ -174,13 +174,28 @@ function cmdGenerate(opts) {
     }
   }
 
+  // Parse/render each file independently: a malformed or unrelated stray .md file (e.g. a
+  // future .claude/agents/README.md) must not abort regeneration for the rest of the real
+  // roster. Collect all failures and report them together after processing every file.
   let count = 0;
+  const errors = [];
   for (const file of files) {
     const text = fs.readFileSync(path.join(srcDir, file), 'utf8');
-    const { fields, body } = parseAgentFile(text, file);
-    const out = renderCursorAgent(fields, body);
-    fs.writeFileSync(path.join(destDir, file), out, 'utf8');
-    count += 1;
+    try {
+      const { fields, body } = parseAgentFile(text, file);
+      const out = renderCursorAgent(fields, body);
+      fs.writeFileSync(path.join(destDir, file), out, 'utf8');
+      count += 1;
+    } catch (err) {
+      errors.push(err && err.message ? err.message : String(err));
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(
+      `${errors.length} of ${files.length} file(s) failed to parse/generate (${count} succeeded):\n` +
+        errors.map((e) => `  - ${e}`).join('\n')
+    );
   }
 
   process.stdout.write(
