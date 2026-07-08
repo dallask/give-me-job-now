@@ -417,7 +417,7 @@ def test_mark_reemits_canonical() -> None:
         cwd = Path(tmp)
         assert _init(cwd, "1").returncode == 0
         target = _run_ids(_load_manifest(cwd))[(0, "interview_prep")]
-        r = _mark(cwd, target, "failed")
+        r = _mark(cwd, target, "gate_exhausted")
         assert r.returncode == 0, f"mark must exit 0: {r.stderr}"
         assert "Traceback" not in r.stderr, r.stderr
         raw = _manifest_path(cwd).read_text()
@@ -469,8 +469,8 @@ def test_resume_running_label_not_delivered_even_with_passing_gates() -> None:
         target = _run_ids(_load_manifest(cwd))[(0, "cv")]
         # recorded gates BOTH pass...
         _set_gates(cwd, target, truth="pass", fit="pass")
-        # ...but a crash before gmj-cv-generator left the label at 'running' (never 'delivered').
-        assert _mark(cwd, target, "running").returncode == 0
+        # ...but a crash before gmj-cv-generator left the label at 'in_flight' (never 'delivered').
+        assert _mark(cwd, target, "in_flight").returncode == 0
         r = _resume(cwd)
         assert r.returncode == 0, f"resume must exit 0: {r.stderr}"
         assert "Traceback" not in r.stderr, r.stderr
