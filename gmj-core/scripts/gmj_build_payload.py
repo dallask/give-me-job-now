@@ -262,6 +262,7 @@ def census_payload(framework_globs: list[str]) -> list[tuple[Path, str]]:
         "scripts/contracts/requirements.txt",
         "scripts/preferences/requirements.txt",
         "scripts/dashboard/requirements.txt",  # NEW — the `textual` pin for /gmj-dashboard
+        "scripts/runtime/requirements.txt",  # the `claude-agent-sdk` pin for gmj_sdk_runner.py
     ):
         req = REPO_ROOT / req_rel
         if req.is_file():
