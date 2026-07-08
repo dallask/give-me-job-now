@@ -221,6 +221,38 @@ def test_word_boundary_regex_no_false_positive_on_short_basename() -> None:
         )
 
 
+def test_url_embedded_basename_not_treated_as_reference() -> None:
+    """A basename that only appears as the tail of an unrelated URL is NOT a reference (WR-05).
+
+    CR-01 correctly dropped ``/`` from the negative lookbehind so a genuine repo-relative
+    path mention (``scripts/foo.py``) is detected. But that same character-class change
+    also unblocked matching immediately after ANY ``/``, including inside an unrelated URL
+    like ``http://example.com/foo.py``. This fixture proves the WR-05 fix: the URL-embedded
+    mention does not suppress the candidate (it must still report as unused/tier 'high'),
+    while a genuine repo-relative path reference elsewhere in the same fixture tree
+    (exercised by ``test_path_prefixed_reference_excluded_from_candidates``) is unaffected.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "foo.py").write_text("VALUE = 7\n", encoding="utf-8")
+        (root / "decoy.md").write_text(
+            "Unrelated path: some/other/not-foo.py and http://example.com/foo.py "
+            "are mentioned.\n",
+            encoding="utf-8",
+        )
+        result = gmj_cleanup_report.classify(repo_root=root, framework_globs=[])
+        assert "foo.py" in result, (
+            f"foo.py has zero genuine references (only a URL-embedded mention in "
+            f"decoy.md) — must be PRESENT (tier 'high'), got keys: {sorted(result)}"
+        )
+        entry = result["foo.py"]
+        assert entry["tier"] == "high", (
+            f"foo.py: a URL-embedded mention (http://example.com/foo.py) must NOT count "
+            f"as a reference — expected tier 'high', got {entry['tier']!r} "
+            f"(evidence: {entry.get('evidence')!r})"
+        )
+
+
 def test_manifest_load_fails_closed_on_missing_and_non_list() -> None:
     """A missing manifest raises FileNotFoundError; a non-list framework_globs raises ValueError."""
     with tempfile.TemporaryDirectory() as tmp:

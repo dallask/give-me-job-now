@@ -144,6 +144,36 @@ def _searchable_files(repo_root: Path) -> list[Path]:
     return out
 
 
+# Boundary characters that terminate a contiguous path/URL-like run when scanning
+# backward from a basename match (WR-05). Whitespace, quotes, backticks, and common
+# markup/bracket delimiters all end a "token" for this purpose.
+_URL_TOKEN_BOUNDARY_CHARS = " \t\n\r\"'`()[]{}<>,;"
+
+
+def _is_url_embedded(line: str, match_start: int) -> bool:
+    """True if the basename match at ``match_start`` is embedded in a URL (WR-05).
+
+    Dropping ``/`` from the negative lookbehind (CR-01) correctly unblocks genuine
+    repo-relative path references (``scripts/foo.py``), but it also unblocks matching
+    immediately after ANY ``/``, including inside an unrelated URL such as
+    ``http://example.com/foo.py``. To distinguish the two, walk backward from the match
+    to the start of the contiguous non-whitespace/non-quote "token" containing it, and
+    check whether that token contains a ``://`` scheme separator anywhere before the
+    match. A genuine repo-relative path segment (e.g. ``scripts/foo.py``) never contains
+    ``://``; a URL always does before its path component.
+    """
+    i = match_start
+    while i > 0 and line[i - 1] not in _URL_TOKEN_BOUNDARY_CHARS:
+        i -= 1
+    token_prefix = line[i:match_start]
+    return "://" in token_prefix
+
+
+def _non_url_hits(token: re.Pattern[str], line: str) -> bool:
+    """True if ``token`` matches ``line`` at least once outside of a URL context."""
+    return any(not _is_url_embedded(line, m.start()) for m in token.finditer(line))
+
+
 def _any_hits(basename: str, files: list[Path], repo_root: Path) -> list[str]:
     """Repo-relative path:lineno sites mentioning basename, on ANY line (comments included).
 
@@ -157,7 +187,7 @@ def _any_hits(basename: str, files: list[Path], repo_root: Path) -> list[str]:
         except (OSError, UnicodeDecodeError):
             continue
         for i, line in enumerate(text.splitlines(), start=1):
-            if token.search(line):
+            if _non_url_hits(token, line):
                 sites.append(f"{p.relative_to(repo_root)}:{i}")
     return sites
 
@@ -189,7 +219,7 @@ def _code_hits(basename: str, files: list[Path], repo_root: Path) -> list[str]:
                     continue
             elif stripped.startswith("#"):
                 continue
-            if token.search(line):
+            if _non_url_hits(token, line):
                 sites.append(f"{p.relative_to(repo_root)}:{i}")
     return sites
 
