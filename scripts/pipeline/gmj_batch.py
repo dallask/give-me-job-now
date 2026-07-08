@@ -241,8 +241,13 @@ def _seed_state(
     state_path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(state, ensure_ascii=False, indent=2) + "\n"
     # Atomic publish: write a temp sibling then rename over the target (no partial/no-current_step
-    # state is ever visible to a concurrent gmj_route.py read).
-    tmp_path = state_path.with_name(state_path.name + ".tmp")
+    # state is ever visible to a concurrent gmj_route.py read). The temp name is unique per PID +
+    # a random suffix (WR-03, same bug class as CR-01's write_manifest fix): a shared literal
+    # ".tmp" name let two genuinely concurrent writers targeting the SAME state.json (e.g. a
+    # duplicate `init` invocation for the same --batch-id) collide on the same temp path, so the
+    # loser's `tmp_path.replace(state_path)` raised an uncaught FileNotFoundError instead of
+    # failing closed.
+    tmp_path = state_path.with_name(f".{state_path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp")
     tmp_path.write_text(payload, encoding="utf-8")
     tmp_path.replace(state_path)
     return 0
@@ -388,8 +393,21 @@ def _cmd_init(args: argparse.Namespace) -> int:
         "offers": offers,
     }
     manifest_path = batches_dir / batch_id / "manifest.json"
+    # Hold the same exclusive fcntl.flock `_mutate_manifest_with_retry` uses (WR-03, same bug
+    # class as CR-01): this is the initial create, so there is no prior manifest to read-modify,
+    # but the lock still protects against two concurrent `init` invocations for the SAME
+    # --batch-id racing this write (an accidental duplicate dispatch, a retry-on-timeout wrapper
+    # firing twice, or an orchestration bug) — without it, a duplicate init could silently drop
+    # one invocation's offers with no crash and no coordination.
+    lock_path = batches_dir / batch_id / "manifest.json.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        write_manifest(manifest, manifest_path, batches_dir)
+        with open(lock_path, "w") as lockf:
+            fcntl.flock(lockf, fcntl.LOCK_EX)
+            try:
+                write_manifest(manifest, manifest_path, batches_dir)
+            finally:
+                fcntl.flock(lockf, fcntl.LOCK_UN)
     except ValueError as exc:
         print(f"Manifest write error: {exc}", file=sys.stderr)
         return 1
