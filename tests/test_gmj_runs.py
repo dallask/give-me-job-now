@@ -43,6 +43,7 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures" / "pipeline"
 # the CLI label against blocked_reason itself, NEVER a re-derived predicate (T-16-06).
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "pipeline"))
 import gmj_check_delivery as check_delivery  # noqa: E402
+import gmj_runs  # noqa: E402
 
 
 def _cli(
@@ -334,6 +335,118 @@ def test_absent_batches_dir_is_empty() -> None:
         assert "Traceback" not in r.stderr, r.stderr
         doc = json.loads(r.stdout)
         assert doc.get("batches") == [], f"absent batches/ must yield an empty list: {doc}"
+
+
+# --- CONC-04: by_offer_status worst-case per-offer aggregate ----------------
+
+def test_by_offer_status_worst_case_priority() -> None:
+    # One tiny manifest per priority tier, each proving exactly one non-zero bucket.
+    delivered_only = {
+        "offers": [
+            {
+                "runs": {
+                    "cv": {"status": "delivered"},
+                    "cover_letter": {"status": "delivered"},
+                    "interview_prep": {"status": "delivered"},
+                }
+            }
+        ]
+    }
+    assert gmj_runs._batch_rollup(delivered_only, "x")["by_offer_status"] == {
+        "waiting": 0, "in_flight": 0, "delivered": 1, "gate_exhausted": 0, "error": 0,
+    }
+
+    waiting_mixed = {
+        "offers": [
+            {
+                "runs": {
+                    "cv": {"status": "delivered"},
+                    "cover_letter": {"status": "delivered"},
+                    "interview_prep": {"status": "waiting"},
+                }
+            }
+        ]
+    }
+    assert gmj_runs._batch_rollup(waiting_mixed, "x")["by_offer_status"] == {
+        "waiting": 1, "in_flight": 0, "delivered": 0, "gate_exhausted": 0, "error": 0,
+    }
+
+    in_flight_mixed = {
+        "offers": [
+            {
+                "runs": {
+                    "cv": {"status": "delivered"},
+                    "cover_letter": {"status": "waiting"},
+                    "interview_prep": {"status": "in_flight"},
+                }
+            }
+        ]
+    }
+    assert gmj_runs._batch_rollup(in_flight_mixed, "x")["by_offer_status"] == {
+        "waiting": 0, "in_flight": 1, "delivered": 0, "gate_exhausted": 0, "error": 0,
+    }
+
+    gate_exhausted_mixed = {
+        "offers": [
+            {
+                "runs": {
+                    "cv": {"status": "delivered"},
+                    "cover_letter": {"status": "in_flight"},
+                    "interview_prep": {"status": "gate_exhausted"},
+                }
+            }
+        ]
+    }
+    assert gmj_runs._batch_rollup(gate_exhausted_mixed, "x")["by_offer_status"] == {
+        "waiting": 0, "in_flight": 0, "delivered": 0, "gate_exhausted": 1, "error": 0,
+    }
+
+    # error must outrank gate_exhausted even when both appear on the same offer.
+    error_outranks_gate_exhausted = {
+        "offers": [
+            {
+                "runs": {
+                    "cv": {"status": "error"},
+                    "cover_letter": {"status": "gate_exhausted"},
+                    "interview_prep": {"status": "delivered"},
+                }
+            }
+        ]
+    }
+    assert gmj_runs._batch_rollup(error_outranks_gate_exhausted, "x")["by_offer_status"] == {
+        "waiting": 0, "in_flight": 0, "delivered": 0, "gate_exhausted": 0, "error": 1,
+    }
+
+
+def test_by_offer_status_against_fixture() -> None:
+    manifest_path = FIXTURES / "batches" / "batch-20260601T120000" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    rollup = gmj_runs._batch_rollup(manifest, "batch-20260601T120000")
+    # offer_index 0: cv+cover_letter delivered, interview_prep waiting -> bucket "waiting".
+    # offer_index 1: cv in_flight, cover_letter gate_exhausted (outranks in_flight), interview_prep
+    # delivered -> bucket "gate_exhausted".
+    assert rollup["by_offer_status"] == {
+        "waiting": 1, "in_flight": 0, "delivered": 0, "gate_exhausted": 1, "error": 0,
+    }, rollup["by_offer_status"]
+
+
+def test_by_offer_status_degrade_path_all_zero_keys() -> None:
+    rollup = gmj_runs._batch_rollup({}, "torn-batch")
+    assert rollup["by_offer_status"] == {
+        "waiting": 0, "in_flight": 0, "delivered": 0, "gate_exhausted": 0, "error": 0,
+    }, rollup["by_offer_status"]
+
+
+def test_existing_batch_rollup_keys_unchanged() -> None:
+    sample = {
+        "batch_id": "b",
+        "offers": [
+            {"runs": {"cv": {"status": "delivered"}, "cover_letter": {"status": "waiting"}}},
+        ],
+    }
+    assert set(gmj_runs._batch_rollup(sample, "x").keys()) == {
+        "batch_id", "delivered", "total", "status", "by_offer_status",
+    }
 
 
 def main() -> int:
