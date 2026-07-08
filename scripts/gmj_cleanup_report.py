@@ -97,7 +97,7 @@ def _any_hits(basename: str, files: list[Path], repo_root: Path) -> list[str]:
 
     This is the raw corpus for the "review recommended" detector — no comment filtering.
     """
-    token = re.compile(r"(?<![\w./-])" + re.escape(basename) + r"(?![\w-])")
+    token = re.compile(r"(?<![\w.-])" + re.escape(basename) + r"(?![\w-])")
     sites: list[str] = []
     for p in files:
         try:
@@ -116,7 +116,7 @@ def _code_hits(basename: str, files: list[Path], repo_root: Path) -> list[str]:
     Mirrors tests/test_structure_cleanup.py's _inbound_ref_count exactly — this is the
     "high confidence" detector's corpus (word-boundary regex, comment lines skipped).
     """
-    token = re.compile(r"(?<![\w./-])" + re.escape(basename) + r"(?![\w-])")
+    token = re.compile(r"(?<![\w.-])" + re.escape(basename) + r"(?![\w-])")
     sites: list[str] = []
     for p in files:
         try:
