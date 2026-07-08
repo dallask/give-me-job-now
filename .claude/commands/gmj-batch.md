@@ -44,8 +44,10 @@ orchestrates, it never re-judges a gate.
    selection: **`1,3,5` | `all`**.
 
 2. **Init the batch.**
-   `Bash: python3 scripts/pipeline/gmj_batch.py init --shortlist .pipeline/shortlist.json --select "<sel>" [--execution-mode <mode>]`.
-   Read the printed `batch_id` and the per-offer lines
+   `Bash: python3 scripts/pipeline/gmj_batch.py init --shortlist .pipeline/shortlist.json --select "<sel>" [--execution-mode <mode>] [--max-parallel-offers N]`.
+   `--max-parallel-offers N` overrides the `max_parallel_offers` default (3) from
+   `config/pipeline.config.yaml`; frozen into the batch's manifest at `init` time, same moment
+   `--execution-mode`/`--retry-cap` freeze today. Read the printed `batch_id` and the per-offer lines
    `offer_index=<i> run_id=<base_run_id> thin=<true|false>`. `init` is the single producer
    of the manifest and of the **three** seeded per-(offer, artifact_type) `state.json` files
    per offer (`<base_run_id>-cv` / `-cl` / `-ip`), each already frozen with mode/cap/run_id
@@ -74,16 +76,23 @@ orchestrates, it never re-judges a gate.
      `init` already froze mode/cap/run_id + seeded `current_step` into all three — record
      ONLY the offer-spec here; do not re-init.
 
-4. **Per offer, SEQUENTIALLY, run the UNCHANGED per-offer pipeline loop** (single-threaded
-   default; parallel deferred) scoped to that offer's run_ids. For **each** artifact type
-   (`cv` / `cover_letter` / `interview_prep`) run the `gmj-orchestrator` loop verbatim:
-   `gmj_route.py` (next step) → `gmj_check_offer.py` before each dispatch → `Task(<spoke>)` →
-   on a gate node: `gmj_check_truth.py` (Gate A) → `gmj_record_gate.py` → `gmj_score_fit.py` (Gate B) →
-   `gmj_record_gate.py` → on FAIL: `gmj_record_retry.py --increment` → `gmj_check_cap.py`
-   (below-cap → `gmj_map_feedback.py` → `Task(gmj-artifact-composer)` recompose; at-cap → **HARD
-   STOP** naming the failing artifact + the last gate's reason) → `gmj_check_delivery.py`
-   (Gate A ∧ Gate B recorded pass) → `Task(gmj-cv-generator)` render. Consult `execution_mode`
-   ONLY for the post-PASS human pause; both gates block identically in every mode.
+4. **Bounded greedy-refill dispatch across offers, scoped to each offer's run_ids.** After
+   `init`, repeatedly ask `scripts/pipeline/gmj_dispatch_cap.py --batch <batch_id>` (via `Bash`)
+   how many offers may start/continue right now — bounded by the batch's frozen
+   `max_parallel_offers` — then dispatch up to that many offers' next pipeline steps as
+   parallel `Task` calls in the SAME hub turn. The per-offer pipeline loop itself — for
+   **each** artifact type (`cv` / `cover_letter` / `interview_prep`) run the
+   `gmj-orchestrator` loop verbatim: `gmj_route.py` (next step) → `gmj_check_offer.py` before
+   each dispatch → `Task(<spoke>)` → on a gate node: `gmj_check_truth.py` (Gate A) →
+   `gmj_record_gate.py` → `gmj_score_fit.py` (Gate B) → `gmj_record_gate.py` → on FAIL:
+   `gmj_record_retry.py --increment` → `gmj_check_cap.py` (below-cap → `gmj_map_feedback.py` →
+   `Task(gmj-artifact-composer)` recompose; at-cap → **HARD STOP** naming the failing artifact
+   + the last gate's reason) → `gmj_check_delivery.py` (Gate A ∧ Gate B recorded pass) →
+   `Task(gmj-cv-generator)` render — stays **completely unchanged** and runs once per offer per
+   artifact type, exactly as documented above. Consult `execution_mode` ONLY for the post-PASS
+   human pause; both gates block identically in every mode. Mark each terminal completion via
+   `gmj_batch.py mark` (step 5 below), then immediately re-ask `gmj_dispatch_cap.py` to top
+   back up to the cap (greedy refill) until every offer's 3 runs reach a terminal status.
 
 5. **Mark delivered.** After a per-artifact-type run's `gmj_check_delivery.py` passes and it
    renders:
@@ -120,6 +129,10 @@ skipped).
 - **`mode`** — `human_in_the_loop` | `autonomous`. Overrides the `execution_mode` default;
   frozen into each run state at `init` (a mid-run config edit cannot change an in-flight
   run). `mode` gates ONLY the post-PASS human pause, never the machine gate.
+- **`--max-parallel-offers`** — overrides the `max_parallel_offers` default (3) from
+  `config/pipeline.config.yaml`; frozen into the batch's manifest at `init` (a mid-batch
+  config edit cannot change an in-flight batch). Bounds how many offers' pipelines may be
+  concurrently in flight at once — `gmj_dispatch_cap.py` reads this frozen value.
 - **`--resume <batch_id>`** — resume an existing batch (explicit); auto-detect the latest
   batch under `.pipeline/batches/` when the id is omitted.
 
