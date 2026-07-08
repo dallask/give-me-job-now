@@ -251,6 +251,95 @@ def test_experimental_label_in_generator_docstring() -> None:
     assert "experimental" in text.lower(), "the module's own source must name EXPERIMENTAL"
 
 
+# --- Test 10: CURSOR-HOOK-PARITY.md has all four items with status tags -----
+
+def test_cursor_hook_parity_doc_has_four_items_with_status_tags() -> None:
+    parity = REPO_ROOT / "gmj-core" / "bin" / "CURSOR-HOOK-PARITY.md"
+    text = parity.read_text(encoding="utf-8")
+    for needle in (
+        "PreToolUse",
+        "SubagentStop",
+        "Task-nesting",
+        "readonly",
+        "gmj-sources-scope-guard.sh",
+        "gmj-validate-envelope.sh",
+    ):
+        assert needle in text, f"CURSOR-HOOK-PARITY.md missing required item marker: {needle}"
+    for tag in (
+        "not independently verified — reasoned from direct installed-binary source inspection",
+        "open — no runtime equivalent",
+        "known, permanent precision loss",
+    ):
+        assert tag in text, f"CURSOR-HOOK-PARITY.md missing required status tag: {tag}"
+
+
+# --- Test 11: the full exact Finding-2 tag appears in BOTH the parity doc and README ---
+
+def test_finding2_tag_present_in_parity_doc_and_readme() -> None:
+    parity = REPO_ROOT / "gmj-core" / "bin" / "CURSOR-HOOK-PARITY.md"
+    readme = REPO_ROOT / "gmj-core" / "bin" / "gmj-cursor-adapter.README.md"
+    exact_tag = (
+        "not independently verified — reasoned from direct installed-binary source "
+        "inspection, needs a human's live Cursor session to confirm"
+    )
+    for path in (parity, readme):
+        text = path.read_text(encoding="utf-8")
+        assert exact_tag in text, f"{path} is missing the exact Finding-2 caveat tag"
+
+
+# --- Test 12: README documents the operator prerequisite + field-translation table ---
+
+def test_readme_documents_prerequisite_and_field_translation_table() -> None:
+    readme = REPO_ROOT / "gmj-core" / "bin" / "gmj-cursor-adapter.README.md"
+    text = readme.read_text(encoding="utf-8")
+    assert "Cursor CLI" in text or "Cursor IDE" in text, "README missing the operator prerequisite"
+    assert "readonly" in text, "README missing the readonly field in its translation table"
+    assert "inherit" in text, "README missing the inherit model value in its translation table"
+    assert "Task" in text and "tool" in text, (
+        "README missing the Pitfall-1 Task-tool correction"
+    )
+
+
+# --- Test 13: new gmj-core/bin/ files stay excluded from the gmj-core/ payload census ---
+
+def test_new_adapter_files_excluded_from_gmj_core_census() -> None:
+    build_script = REPO_ROOT / "scripts" / "gmj_build_payload.py"
+    payload_root = Path(tempfile.mkdtemp(prefix="gmj-core-census-"))
+    env = dict(os.environ)
+    env["GMJ_PAYLOAD_ROOT"] = str(payload_root)
+    result = run([sys.executable, str(build_script)], cwd=REPO_ROOT, env=env, timeout=180)
+    assert result.returncode == 0, (
+        f"isolated payload build must exit 0: rc={result.returncode} "
+        f"stderr={result.stderr.strip()[:400]}"
+    )
+    manifest_path = payload_root / "gmj-file-manifest.json"
+    assert manifest_path.is_file(), f"manifest not found at {manifest_path}"
+    import json
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    files = manifest["files"]
+    for key in files:
+        assert "gmj-cursor-adapter" not in key, f"census leaked adapter file: {key}"
+        assert "CURSOR-HOOK-PARITY" not in key, f"census leaked parity doc: {key}"
+    shutil.rmtree(payload_root, ignore_errors=True)
+
+
+# --- Test 14: default Claude Code path carries zero references to this phase's tooling ---
+
+def test_default_claude_code_path_has_no_cursor_references() -> None:
+    forbidden = (".cursor/", "gmj-cursor-adapter", "CURSOR-HOOK-PARITY")
+    paths = sorted((REPO_ROOT / ".claude" / "agents").glob("*.md")) + [
+        REPO_ROOT / ".claude" / "commands" / "gmj-collective.md",
+        REPO_ROOT / ".claude" / "commands" / "gmj-pipeline-run.md",
+        REPO_ROOT / ".claude" / "settings.json",
+    ]
+    for path in paths:
+        assert path.is_file(), f"expected default-path file missing: {path}"
+        text = path.read_text(encoding="utf-8")
+        for needle in forbidden:
+            assert needle not in text, f"{path} references this phase's new tooling: {needle}"
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
