@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "timestamp": "2026-07-08T06:58:57.374Z",
+  "timestamp": "2026-07-08T08:09:19.181Z",
   "mode": "full",
   "files": {
     "gmj-core/VERSION": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
@@ -88,6 +88,7 @@
     "gmj-core/scripts/dashboard/gmj_dashboard_model.py": "83ea711b0f301d497c9fad44b872ee914c57117b410bd5d8cfbec6534cc67c0b",
     "gmj-core/scripts/dashboard/requirements.txt": "4051e2dd5a5633109d9910dfe6d4a67e456f67cb1f04b5545dcebe32f3572989",
     "gmj-core/scripts/gmj_build_payload.py": "cca14e33db5bf0a9e0e5175f23305c5b6097540af1456decd4bd96435d43ff0d",
+    "gmj-core/scripts/gmj_cleanup_report.py": "057d36525a63723304714efb1b73a1213adfac863f034f75d146b17f948c2e28",
     "gmj-core/scripts/offers/gmj_check_offer.py": "9c37fea0b0c6d6b0d08611b92f48d7ab4eedabfab8a757bb8d971e98672b2bfa",
     "gmj-core/scripts/offers/gmj_freeze_offer.py": "b7f52b460ebc2d06c88f9c66ed159c3a813cc42d7dfb94bbc33fd90565078396",
     "gmj-core/scripts/offers/gmj_merge_shortlists.py": "ddbe4307f194aa1cc3333a04f02c1e09196ce444c9109b50240852f1b3c50349",
