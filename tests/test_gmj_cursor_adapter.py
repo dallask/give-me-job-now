@@ -340,6 +340,17 @@ def test_default_claude_code_path_has_no_cursor_references() -> None:
             assert needle not in text, f"{path} references this phase's new tooling: {needle}"
 
 
+# --- Test 15: committed .cursor/agents/*.md files match a fresh regeneration (WR-02) ---
+
+def test_committed_cursor_agents_match_fresh_regeneration() -> None:
+    dest = _generate_real_into_tempdir()
+    real = REPO_ROOT / ".cursor" / "agents"
+    for name in sorted(p.name for p in dest.glob("*.md")):
+        assert (dest / name).read_bytes() == (real / name).read_bytes(), (
+            f"{name}: checked-in .cursor/agents/ has drifted from a fresh regeneration"
+        )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
