@@ -64,9 +64,26 @@ SPOKE_OUTPUT_SCHEMA = {
 }
 
 
+def _project_layout_root(repo_root: Path) -> tuple[Path, Path]:
+    """Return (agents_dir, hooks_dir), supporting both the source tree (.claude/*)
+    and the flat gmj-core/ payload layout (agents/, hooks/).
+
+    This module ships in two locations: the source tree, where spoke definitions
+    and hooks live under `.claude/agents` / `.claude/hooks`, and the standalone
+    `gmj-core/` install payload (see `gmj-core/gmj-file-manifest.json`), whose
+    layout is flat (`gmj-core/agents/`, `gmj-core/hooks/`, no `.claude/` prefix).
+    Detecting the layout at call time keeps a single source file correct in both
+    trees without needing per-tree forks.
+    """
+    if (repo_root / ".claude" / "agents").is_dir():
+        return repo_root / ".claude" / "agents", repo_root / ".claude" / "hooks"
+    return repo_root / "agents", repo_root / "hooks"
+
+
 def load_spoke_system_prompt(spoke: str) -> str:
-    """Read `.claude/agents/<spoke>.md`'s body (frontmatter stripped) as the system prompt."""
-    path = REPO_ROOT / ".claude" / "agents" / f"{spoke}.md"
+    """Read `<agents_dir>/<spoke>.md`'s body (frontmatter stripped) as the system prompt."""
+    agents_dir, _ = _project_layout_root(REPO_ROOT)
+    path = agents_dir / f"{spoke}.md"
     if not path.is_file():
         raise FileNotFoundError(f"No spoke definition for {spoke!r} at {path}")
     text = path.read_text(encoding="utf-8")
@@ -107,7 +124,8 @@ async def pretooluse_scope_guard(
         "tool_name": input_data.get("tool_name", ""),
         "tool_input": input_data.get("tool_input", {}),
     }
-    hook_path = REPO_ROOT / ".claude" / "hooks" / "gmj-sources-scope-guard.sh"
+    _, hooks_dir = _project_layout_root(REPO_ROOT)
+    hook_path = hooks_dir / "gmj-sources-scope-guard.sh"
     proc = subprocess.run(
         [str(hook_path)],
         input=json.dumps(payload),
@@ -137,7 +155,8 @@ async def subagentstop_envelope_guard(input_data, tool_use_id, context) -> dict:
         "transcript_path": input_data.get("transcript_path", ""),
         "agent_id": input_data.get("agent_id", ""),
     }
-    hook_path = REPO_ROOT / ".claude" / "hooks" / "gmj-validate-envelope.sh"
+    _, hooks_dir = _project_layout_root(REPO_ROOT)
+    hook_path = hooks_dir / "gmj-validate-envelope.sh"
     proc = subprocess.run(
         [str(hook_path)],
         input=json.dumps(payload),
