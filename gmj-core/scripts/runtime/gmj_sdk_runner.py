@@ -109,6 +109,24 @@ def validate_envelope(structured_output: dict) -> list[str]:
     return validate_against_kind_schema(structured_output, kind, REPO_ROOT / "schemas")
 
 
+def _hook_deny_reason(proc: subprocess.CompletedProcess) -> str:
+    """Extract the human-readable "reason" from a hook's stdout JSON blob.
+
+    The underlying .sh scripts print a JSON object ({"decision":"block","reason":"..."})
+    to stdout and a separate human-readable line to stderr. Prefer the parsed "reason"
+    field; fall back to raw stdout/stderr only if the stdout cannot be parsed as the
+    expected shape.
+    """
+    reason = proc.stdout or proc.stderr
+    try:
+        parsed = json.loads(proc.stdout)
+        if isinstance(parsed, dict) and "reason" in parsed:
+            reason = parsed["reason"]
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return reason
+
+
 async def pretooluse_scope_guard(
     input_data, tool_use_id, context, *, project_dir: Path = REPO_ROOT
 ) -> dict:
@@ -139,7 +157,7 @@ async def pretooluse_scope_guard(
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
                 "permissionDecision": "deny",
-                "permissionDecisionReason": proc.stdout or proc.stderr,
+                "permissionDecisionReason": _hook_deny_reason(proc),
             }
         }
     return {}
@@ -170,7 +188,7 @@ async def subagentstop_envelope_guard(input_data, tool_use_id, context) -> dict:
             "hookSpecificOutput": {
                 "hookEventName": "SubagentStop",
                 "permissionDecision": "deny",
-                "permissionDecisionReason": proc.stdout or proc.stderr,
+                "permissionDecisionReason": _hook_deny_reason(proc),
             }
         }
     return {}
