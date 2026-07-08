@@ -100,8 +100,13 @@ SKIP_DIRS = {
 
 # Extensions that constitute a reference-search surface. Extends
 # tests/test_structure_cleanup.py's SEARCH_EXTS with ".cjs"/".js" per 36-RESEARCH.md
-# Pitfall 3, so .claude/scripts/-style .cjs files and any .js file participate.
-SEARCH_EXTS = frozenset({".md", ".py", ".yaml", ".json", ".sh", ".cjs", ".js"})
+# Pitfall 3, so .claude/scripts/-style .cjs files and any .js file participate. Also
+# extends with ".html"/".css"/".tcss"/".txt" (WR-01) so a reference that exists only
+# inside a template's markup/CSS (e.g. templates/cv/*.html font url() refs) is not
+# invisible to the tool.
+SEARCH_EXTS = frozenset(
+    {".md", ".py", ".yaml", ".json", ".sh", ".cjs", ".js", ".html", ".css", ".tcss", ".txt"}
+)
 
 # Every file under these trees counts as a reference-surface site regardless of
 # extension, so hook/frontmatter references (Success Criterion 2) are never missed.
@@ -162,6 +167,12 @@ def _code_hits(basename: str, files: list[Path], repo_root: Path) -> list[str]:
 
     Mirrors tests/test_structure_cleanup.py's _inbound_ref_count exactly — this is the
     "high confidence" detector's corpus (word-boundary regex, comment lines skipped).
+
+    A leading ``#`` is a genuine comment marker in ``.py``/``.sh``/``.yaml`` etc, but in
+    Markdown it denotes a HEADING, not a comment (WR-02) — e.g. a doc section titled
+    ``# `gmj_offer_scout.py` design notes`` is a substantive reference, not a throwaway
+    comment. For ``.md`` files, only HTML-style ``<!-- -->`` comment lines are skipped;
+    a leading ``#`` is treated as ordinary (code-hit-eligible) content.
     """
     token = re.compile(r"(?<![\w.-])" + re.escape(basename) + r"(?![\w-])")
     sites: list[str] = []
@@ -170,8 +181,13 @@ def _code_hits(basename: str, files: list[Path], repo_root: Path) -> list[str]:
             text = p.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
+        is_markdown = p.suffix == ".md"
         for i, line in enumerate(text.splitlines(), start=1):
-            if line.lstrip().startswith("#"):
+            stripped = line.lstrip()
+            if is_markdown:
+                if stripped.startswith("<!--"):
+                    continue
+            elif stripped.startswith("#"):
                 continue
             if token.search(line):
                 sites.append(f"{p.relative_to(repo_root)}:{i}")
