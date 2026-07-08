@@ -34,6 +34,24 @@ relative to the repo root) and writes the translated roster directly into the wo
 Override either side with `--src <dir>` / `--dest <dir>` (used only by this generator's own
 fixture-based tests, never in normal operation).
 
+## Stale-file pruning
+
+Every `generate` run also removes `.cursor/agents/*.md` files left behind by a spoke that was
+since deleted or renamed in `.claude/agents/` — otherwise a ghost `.cursor/agents/<old-name>.md`
+would keep carrying a plausible-looking `readonly:`/`tools:` grant for a role that no longer
+exists in the real roster.
+
+**Safety guarantee: only files this generator itself wrote are ever eligible for removal.**
+`.cursor/agents/` is Cursor's real, general-purpose subagent directory — an operator may
+legitimately keep their own hand-authored, project-specific Cursor subagents there. Before
+deleting any `.md` file in `--dest` that has no matching `--src` file, the generator checks that
+the file's own content contains the exact `GENERATED FILE — DO NOT HAND-EDIT` banner that every
+file this tool writes carries in its header comment (see Field translation below). A file without
+that banner is **never** deleted — it is left untouched and a warning naming the file is printed
+to stderr (`gmj-cursor-adapter: warning: leaving non-generated file untouched ...`) so the
+skip is visible, not silent. A file that does carry the banner and has no matching source is
+removed and reported to stdout (`gmj-cursor-adapter: removed stale ...`).
+
 ## Field translation
 
 | Claude Code field | Cursor field | Translation |
