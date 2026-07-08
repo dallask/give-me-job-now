@@ -53,7 +53,7 @@ const ORCHESTRATOR_NAME = 'gmj-orchestrator';
  * gmj-tools.cjs's own zero-transitive-dep philosophy (no js-yaml dependency).
  */
 function parseAgentFile(text, label) {
-  const lines = text.split('\n');
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
   if (lines[0] !== '---') {
     throw new Error(`${label}: expected frontmatter to open with "---" on line 1`);
   }
