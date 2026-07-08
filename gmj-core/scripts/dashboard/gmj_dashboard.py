@@ -55,7 +55,7 @@ from textual.widgets import Button, DataTable, Digits, Footer, Header, Input, Ma
 # ZERO disk I/O itself; it only ever calls model.snapshot() / model.run_detail().
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gmj_dashboard_features import build_feature_prompt  # noqa: E402
-from gmj_dashboard_model import DashboardModel  # noqa: E402
+from gmj_dashboard_model import OFFER_STATUS_TOKENS, DashboardModel  # noqa: E402
 
 # scripts/dashboard/gmj_dashboard.py -> repo root is three parents up. Used only to resolve the
 # default config path + child cwd for the --manage action layer (Plan 24-02); the view itself still
@@ -117,6 +117,14 @@ GMJ_THEME = Theme(
         "status-failed": "#f85149",
         "status-pending": "#6e7681",
         "status-unknown": "#bc8cff",
+        # Concurrency-era per-offer status palette (CONC-04). Reuses the 5 hexes above verbatim —
+        # zero new colors — mapped by closest existing semantic match per 35-UI-SPEC.md's Color
+        # section: waiting~pending, in_flight~running, gate_exhausted~failed, error~unknown.
+        # status-delivered already exists above and is reused as-is.
+        "status-waiting": "#6e7681",
+        "status-in_flight": "#d29922",
+        "status-gate_exhausted": "#f85149",
+        "status-error": "#bc8cff",
         # Gate-verdict palette (VIEW-08). Keys are `gate-<verdict>` — NOT forbidden literals — so the
         # DAG strip colors a Gate A/B node by looking the projected verdict up at runtime via
         # get_css_variables().get(f"gate-{verdict}"); the "—" absent-sentinel resolves to no var.
@@ -1941,10 +1949,27 @@ class GmjDashboard(App):
             lines.append("No vacancies match filter")
         lines.append("")
         lines.append("batches:" if batches else "No batches")
+
+        # CONC-04: build a Rich Text object (instead of a plain string) so the per-offer-status
+        # breakdown segment appended below can be colored per-token via a runtime theme lookup
+        # (mirrors _status_cell()'s Text(status, style=color) pattern). The empty-state hints and
+        # the "batches:"/"No batches" header stay plain (no style) — unchanged from before.
+        text_obj = Text()
+        for line in lines:
+            text_obj.append(line + "\n")
         for b in batches:
             done = next((val for k, val in b.items() if k not in ("batch_id", "total", "status")), 0)
-            lines.append(f"  {b['batch_id']}  {done}/{b['total']}  {b['status']}")
-        self.query_one("#vac-batches", Static).update("\n".join(lines).strip())
+            text_obj.append(f"  {b['batch_id']}  {done}/{b['total']}  {b['status']}")
+            text_obj.append("   ")
+            status_counts = b.get("by_offer_status") or dict.fromkeys(OFFER_STATUS_TOKENS, 0)
+            for i, token in enumerate(OFFER_STATUS_TOKENS):
+                if i:
+                    text_obj.append(" ")
+                color = self.get_css_variables().get(f"status-{token}") or ""
+                text_obj.append(f"{token}:{status_counts.get(token, 0)}", style=color)
+            text_obj.append("\n")
+        text_obj.rstrip()
+        self.query_one("#vac-batches", Static).update(text_obj)
 
     # ── runs table (VIEW-03) — guard-safe status cell + targeted RowKey diff ──────────────────────
 

@@ -55,7 +55,7 @@ from textual.widgets import Button, DataTable, Digits, Footer, Header, Input, Ma
 # ZERO disk I/O itself; it only ever calls model.snapshot() / model.run_detail().
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gmj_dashboard_features import build_feature_prompt  # noqa: E402
-from gmj_dashboard_model import DashboardModel  # noqa: E402
+from gmj_dashboard_model import OFFER_STATUS_TOKENS, DashboardModel  # noqa: E402
 
 # scripts/dashboard/gmj_dashboard.py -> repo root is three parents up. Used only to resolve the
 # default config path + child cwd for the --manage action layer (Plan 24-02); the view itself still
@@ -1961,14 +1961,8 @@ class GmjDashboard(App):
             done = next((val for k, val in b.items() if k not in ("batch_id", "total", "status")), 0)
             text_obj.append(f"  {b['batch_id']}  {done}/{b['total']}  {b['status']}")
             text_obj.append("   ")
-            status_counts = b.get("by_offer_status") or {
-                "waiting": 0,
-                "in_flight": 0,
-                "delivered": 0,
-                "gate_exhausted": 0,
-                "error": 0,
-            }
-            for i, token in enumerate(("waiting", "in_flight", "delivered", "gate_exhausted", "error")):
+            status_counts = b.get("by_offer_status") or dict.fromkeys(OFFER_STATUS_TOKENS, 0)
+            for i, token in enumerate(OFFER_STATUS_TOKENS):
                 if i:
                     text_obj.append(" ")
                 color = self.get_css_variables().get(f"status-{token}") or ""

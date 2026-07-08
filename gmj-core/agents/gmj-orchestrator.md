@@ -60,6 +60,7 @@ passed, whether the retry cap is hit, or whether an artifact is deliverable. The
 | `gmj_check_cap.py` | `scripts/pipeline/gmj_check_cap.py` | Is `retry_count == retry_cap`? (below cap vs exhausted) |
 | `gmj_map_feedback.py` | `scripts/pipeline/gmj_map_feedback.py` | Pure `gate_result → gate_feedback` projection for the composer loop |
 | `gmj_check_delivery.py` | `scripts/pipeline/gmj_check_delivery.py` | Refuse delivery unless Gate A ∧ Gate B are recorded pass |
+| `gmj_dispatch_cap.py` | `scripts/pipeline/gmj_dispatch_cap.py` | Given the batch manifest, each offer's run states, and the frozen `max_parallel_offers` cap, decide which run_ids are dispatchable right now — never the model |
 
 ## Control loop (per offer, per artifact type)
 
@@ -218,6 +219,41 @@ For a **board-search** goal (discover the best offers across the configured boar
 
 Board assignment lives in the Task prompt as a per-worker hint; it never loosens or replaces
 the `sources.yaml` scope guard, which still bounds every worker globally.
+
+### Bounded concurrent-offer dispatch
+
+For a **batch** run (multiple offers, each running its own 3-artifact-type pipeline — see
+`/gmj-batch`), dispatch is bounded by the batch's frozen `max_parallel_offers` cap and driven
+by a greedy-refill loop, never by starting one offer's whole pipeline, waiting for it to fully
+finish, then starting the next:
+
+1. **Ask the cap script.** After a batch is `init`'d with a frozen `max_parallel_offers`, run
+   `scripts/pipeline/gmj_dispatch_cap.py --batch <batch_id>` via `Bash` to read back
+   `dispatchable`, `in_flight`, `cap`, and `waiting`. This script — never the model — decides
+   which run_ids may proceed right now.
+2. **Fan out up to the cap, in one turn.** Issue one `Task(<spoke for that run's next step>)`
+   call per dispatchable run_id that is ready for its next DAG step (per that run's own
+   `gmj_route.py` next-step decision, unchanged) — up to `cap - in_flight` newly-admitted
+   offers — **ALL in the SAME hub turn**, never sequentially waiting for one offer's whole
+   pipeline to finish before starting the next.
+3. **Mark terminal completions.** As each dispatched run reaches a terminal outcome (delivered
+   / gate_exhausted / error), run `scripts/pipeline/gmj_batch.py mark --batch <batch_id>
+   --run-id <run_id> --status <terminal-status>`.
+4. **Greedy refill.** Immediately re-run `gmj_dispatch_cap.py` — never wait for a whole
+   fixed-size wave to finish before topping back up to the cap — until every offer's 3
+   artifact-type runs each reach a terminal status.
+
+This is the **SAME** orchestrated task fan-out on Claude Code's single-threaded event loop —
+not OS threads — that already ranks N offers and composes the 3 artifact types elsewhere in
+this section; it is **never** a per-offer nested `Task(gmj-orchestrator)` call, which would
+remove `Task` from that nested context and stall every spoke beneath it.
+
+Gate A/B enforcement, per-(offer, artifact_type) state isolation, and the retry cap are
+completely unchanged by concurrency — each dispatched run still executes the existing per-run
+control loop (`gmj_route.py` -> `gmj_check_offer.py` -> `Task(<spoke>)` -> gates ->
+`gmj_check_delivery.py`) exactly as already documented earlier in this same file; this
+subsection only adds WHICH offers get dispatched and WHEN, never a new or shortcut execution
+path.
 
 ## Result
 

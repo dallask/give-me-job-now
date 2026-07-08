@@ -49,6 +49,7 @@ import yaml  # PyYAML — a pre-existing repo dep (scripts/cv/requirements.txt);
 # seam consumed by the Plan 20-02 metrics panel; _order_key/_run_row/_batch_rollup are used here.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "pipeline"))
 from gmj_runs import (  # noqa: E402
+    OFFER_STATUS_TOKENS,
     _batch_rollup,
     _gate_logs,
     _order_key,

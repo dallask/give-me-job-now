@@ -209,22 +209,68 @@ def _cmd_runs_list(args: argparse.Namespace) -> int:
     return 0
 
 
+# Single source of truth for the 5-value concurrency-era offer-status vocabulary (CONC-04).
+# Downstream consumers (gmj_dashboard_model.py -> gmj_dashboard.py) import this tuple rather than
+# re-declaring the literal strings, so the AST grep-guard (test_grep_guard_no_rederived_literals)
+# never has to see a bare "delivered"/"waiting"/etc. string constant outside this module.
+OFFER_STATUS_TOKENS: tuple[str, ...] = ("waiting", "in_flight", "delivered", "gate_exhausted", "error")
+
+
 def _batch_rollup(manifest: dict, fallback_id: str) -> dict:
-    """Roll a manifest up to {batch_id, delivered, total} counting per-artifact-type runs."""
+    """Roll a manifest up to {batch_id, delivered, total, by_offer_status}.
+
+    ``by_offer_status`` is a read-time-derived {status: count} projection over the 5-value
+    concurrency-era vocabulary (waiting/in_flight/delivered/gate_exhausted/error), computed PER
+    OFFER (not per run) as the worst-case status across that offer's artifact-type runs — never a
+    second persisted status field (mirrors ``project_status()``'s single-sourcing discipline).
+    """
     delivered = 0
     total = 0
+    by_offer_status = dict.fromkeys(OFFER_STATUS_TOKENS, 0)
     for offer in manifest.get("offers") or []:
         if not isinstance(offer, dict):
             continue
         runs = offer.get("runs")
         if not isinstance(runs, dict):
             continue
+        offer_has_run = False
+        offer_all_delivered = True
+        offer_has_error = False
+        offer_has_gate_exhausted = False
+        offer_has_active = False  # "in_flight" or any unrecognized/legacy status value
+        offer_has_waiting = False
         for run in runs.values():
             if not isinstance(run, dict):
                 continue
             total += 1
-            if run.get("status") == "delivered":
+            offer_has_run = True
+            status = run.get("status")
+            if status == "delivered":
                 delivered += 1
+            else:
+                offer_all_delivered = False
+            if status == "error":
+                offer_has_error = True
+            elif status == "gate_exhausted":
+                offer_has_gate_exhausted = True
+            elif status == "waiting":
+                offer_has_waiting = True
+            elif status != "delivered":
+                offer_has_active = True
+        if not offer_has_run:
+            continue  # malformed/empty offer: excluded from by_offer_status too (Rule: no bucket)
+        # Worst-case bucket, most urgent first: error > gate_exhausted > in_flight > waiting >
+        # delivered (delivered ONLY when every one of the offer's runs is "delivered").
+        if offer_has_error:
+            by_offer_status["error"] += 1
+        elif offer_has_gate_exhausted:
+            by_offer_status["gate_exhausted"] += 1
+        elif offer_has_active:
+            by_offer_status["in_flight"] += 1
+        elif offer_has_waiting:
+            by_offer_status["waiting"] += 1
+        elif offer_all_delivered:
+            by_offer_status["delivered"] += 1
     # Every batch row carries the SAME keys (incl. "status") so the JSON schema is uniform with
     # the degrade branch and symmetric with runs list — a consumer reading row["status"] to find
     # degraded batches never KeyErrors on a healthy row. "unknown" is reserved for the degrade path.
@@ -233,6 +279,7 @@ def _batch_rollup(manifest: dict, fallback_id: str) -> dict:
         "delivered": delivered,
         "total": total,
         "status": "ok",
+        "by_offer_status": by_offer_status,
     }
 
 

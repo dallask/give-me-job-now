@@ -209,6 +209,13 @@ def _cmd_runs_list(args: argparse.Namespace) -> int:
     return 0
 
 
+# Single source of truth for the 5-value concurrency-era offer-status vocabulary (CONC-04).
+# Downstream consumers (gmj_dashboard_model.py -> gmj_dashboard.py) import this tuple rather than
+# re-declaring the literal strings, so the AST grep-guard (test_grep_guard_no_rederived_literals)
+# never has to see a bare "delivered"/"waiting"/etc. string constant outside this module.
+OFFER_STATUS_TOKENS: tuple[str, ...] = ("waiting", "in_flight", "delivered", "gate_exhausted", "error")
+
+
 def _batch_rollup(manifest: dict, fallback_id: str) -> dict:
     """Roll a manifest up to {batch_id, delivered, total, by_offer_status}.
 
@@ -219,7 +226,7 @@ def _batch_rollup(manifest: dict, fallback_id: str) -> dict:
     """
     delivered = 0
     total = 0
-    by_offer_status = {"waiting": 0, "in_flight": 0, "delivered": 0, "gate_exhausted": 0, "error": 0}
+    by_offer_status = dict.fromkeys(OFFER_STATUS_TOKENS, 0)
     for offer in manifest.get("offers") or []:
         if not isinstance(offer, dict):
             continue
