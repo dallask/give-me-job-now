@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -458,6 +459,70 @@ def test_check6_payload_census_completeness() -> None:
                 assert key in manifest_keys, (
                     f"HTML template present in source but missing from payload manifest: {key}"
                 )
+
+
+# --- CHECK 11: shipped CLI scripts import cleanly in isolation (WR-04) -------
+
+def _payload_scripts_with_cli(target: Path) -> list[Path]:
+    """Every gmj_*.py under the installed target's scripts/ tree with an argparse CLI.
+
+    Restricted to files with both a ``__main__`` guard and ``add_argument``/
+    ``ArgumentParser`` so this smoke test only invokes scripts meant to be run
+    directly (never a library-only module with import-time side effects).
+    """
+    scripts_dir = target / "scripts"
+    out: list[Path] = []
+    if not scripts_dir.is_dir():
+        return out
+    for f in sorted(scripts_dir.rglob("gmj_*.py")):
+        text = f.read_text(encoding="utf-8")
+        if "__main__" in text and ("add_argument" in text or "ArgumentParser" in text):
+            out.append(f)
+    return out
+
+
+_MODULE_NOT_FOUND_RE = re.compile(r"ModuleNotFoundError: No module named '([\w.]+)'")
+
+
+def test_check11_payload_scripts_import_cleanly() -> None:
+    """Every shipped CLI script resolves its own gmj_* sibling imports in isolation (CR-02).
+
+    A script whose FIRST-PARTY sibling dependency was excluded from the payload (e.g. a
+    hard ``from gmj_remove_gsd import ...`` when ``gmj_remove_gsd.py`` is a
+    BUILD_TIME_TOOLS-excluded dev tool) previously only failed at install time on a
+    user's machine — CHECK 6's census-completeness check confirms "the right bytes are
+    present," not "the shipped program runs." Running ``--help`` for every shipped CLI
+    script against the installed target catches a missing *first-party* (``gmj_*``)
+    sibling import here instead.
+
+    Deliberately narrowed to ``gmj_*``-named ``ModuleNotFoundError`` failures: a
+    third-party optional dependency (e.g. ``reportlab``, ``fitz``, ``textual``) not being
+    installed in the CURRENT test environment is a separate concern (dependency
+    provisioning, covered by each subtree's ``requirements.txt``), not a payload-packaging
+    bug — and would otherwise make this smoke test flaky/environment-dependent.
+    """
+    if _node() is None:
+        print("SKIP check11: node unavailable — cannot exercise the installer", file=sys.stderr)
+        return
+    target, _ = _require_install()
+    scripts = _payload_scripts_with_cli(target)
+    assert scripts, "expected at least one CLI script under the installed target's scripts/ tree"
+    failures: list[str] = []
+    for script in scripts:
+        result = run([sys.executable, str(script), "--help"], cwd=target, timeout=30)
+        if result.returncode == 0:
+            continue
+        match = _MODULE_NOT_FOUND_RE.search(result.stderr)
+        missing_module = match.group(1) if match else None
+        if missing_module and missing_module.split(".")[0].startswith("gmj_"):
+            failures.append(
+                f"{script.relative_to(target)}: missing first-party sibling module "
+                f"'{missing_module}' (rc={result.returncode}): {result.stderr.strip()[:300]}"
+            )
+    assert not failures, (
+        "payload script(s) missing a first-party sibling import in isolation:\n"
+        + "\n".join(failures)
+    )
 
 
 # --- CHECK 10: non-object hooks is surfaced, not clobbered (WR-04) -----------
