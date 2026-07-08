@@ -351,6 +351,48 @@ def test_committed_cursor_agents_match_fresh_regeneration() -> None:
         )
 
 
+# --- Test 16: stale generated file is pruned when its source is removed/renamed (WR-01) ---
+
+def test_stale_generated_file_is_pruned_when_source_removed() -> None:
+    src = Path(tempfile.mkdtemp(prefix="gmj-cursor-prune-src-"))
+    dest = Path(tempfile.mkdtemp(prefix="gmj-cursor-prune-dest-"))
+    _write_fixture_agent(src, "gmj-fixture-a", "fixture a", "Read", "sonnet", "body a")
+    result = run(["node", str(ADAPTER), "generate", "--src", str(src), "--dest", str(dest)])
+    assert result.returncode == 0, f"generate must exit 0: {result.stderr.strip()[:400]}"
+    (src / "gmj-fixture-a.md").unlink()  # simulate spoke removal/rename
+    _write_fixture_agent(src, "gmj-fixture-b", "fixture b", "Read", "sonnet", "body b")
+    result = run(["node", str(ADAPTER), "generate", "--src", str(src), "--dest", str(dest)])
+    assert result.returncode == 0, f"generate must exit 0: {result.stderr.strip()[:400]}"
+    assert not (dest / "gmj-fixture-a.md").exists(), (
+        "renamed/removed source's stale generated output must be pruned"
+    )
+    assert (dest / "gmj-fixture-b.md").exists()
+    assert "removed stale" in result.stdout, "prune must be reported on stdout"
+
+
+# --- Test 17: a non-generated .md file in destDir is never deleted by prune (CR-01) ---
+
+def test_non_generated_file_in_dest_survives_prune() -> None:
+    src = Path(tempfile.mkdtemp(prefix="gmj-cursor-prune-src-"))
+    dest = Path(tempfile.mkdtemp(prefix="gmj-cursor-prune-dest-"))
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / "my-custom-cursor-agent.md").write_text(
+        "hand-authored, not ours\n", encoding="utf-8"
+    )
+    _write_fixture_agent(src, "gmj-fixture-a", "fixture a", "Read", "sonnet", "body a")
+    result = run(["node", str(ADAPTER), "generate", "--src", str(src), "--dest", str(dest)])
+    assert result.returncode == 0, f"generate must exit 0: {result.stderr.strip()[:400]}"
+    assert (dest / "my-custom-cursor-agent.md").exists(), (
+        "non-generated files (no GENERATED FILE marker) must never be deleted"
+    )
+    assert (dest / "my-custom-cursor-agent.md").read_text(encoding="utf-8") == (
+        "hand-authored, not ours\n"
+    ), "surviving non-generated file's content must be untouched"
+    assert "leaving non-generated file untouched" in result.stderr, (
+        "skipping a non-generated file must be logged, not silent"
+    )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
