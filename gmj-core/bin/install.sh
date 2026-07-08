@@ -51,6 +51,10 @@ if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   if git -C "$SCRIPT_DIR" rev-parse --show-toplevel >/dev/null 2>&1; then
     REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
+    if [ ! -f "$REPO_ROOT/scripts/contracts/requirements.txt" ] || [ ! -f "$REPO_ROOT/gmj-core/bin/gmj-tools.cjs" ]; then
+      echo "ERROR: $REPO_ROOT does not look like a give-me-job checkout (missing scripts/contracts/requirements.txt or gmj-core/bin/gmj-tools.cjs)." >&2
+      exit 1
+    fi
     MODE="run-in-place"
   fi
 fi
