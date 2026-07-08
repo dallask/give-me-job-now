@@ -103,19 +103,27 @@ Installer behavior:
 
 ## Python render dependencies
 
-The CV / cover-letter / interview-prep renderers require a Python 3 environment. Install all
-four dependency files from the repository root, in the same order `install.sh` uses:
+The CV / cover-letter / interview-prep renderers require a Python 3 environment.
+`install.sh` bootstraps and reuses a project-local `.venv` and installs every dependency
+file through `.venv/bin/python -m pip` — **never a bare system `pip`/`pip3`** — so installs
+stay tied to that venv's own interpreter rather than polluting the system Python. If you are
+installing manually instead of running `install.sh`, create and activate the same `.venv`
+first, then install through it (same order `install.sh` uses):
+
+```bash
+python3 -m venv .venv
+```
 
 Envelope validation requires `jsonschema`:
 
 ```bash
-pip install -r scripts/contracts/requirements.txt
+.venv/bin/python -m pip install -r scripts/contracts/requirements.txt
 ```
 
 The `gmj-dashboard` Textual TUI cockpit requires a pinned `textual`:
 
 ```bash
-pip install -r scripts/dashboard/requirements.txt
+.venv/bin/python -m pip install -r scripts/dashboard/requirements.txt
 ```
 
 This installs the render stack — notably **reportlab** (the built-in ReportLab CV layout
@@ -124,13 +132,13 @@ libraries (`python-docx`, `openpyxl`, `Pillow`, `PyMuPDF`). **WeasyPrint** ships
 file and stays optional (only needed for HTML-template rendering):
 
 ```bash
-pip install -r scripts/cv/requirements.txt
+.venv/bin/python -m pip install -r scripts/cv/requirements.txt
 ```
 
 The preferences validator (`gmj_validate_preferences.py`) requires `PyYAML` + `jsonschema`:
 
 ```bash
-pip install -r scripts/preferences/requirements.txt
+.venv/bin/python -m pip install -r scripts/preferences/requirements.txt
 ```
 
 ---
