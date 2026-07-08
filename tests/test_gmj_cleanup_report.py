@@ -84,12 +84,19 @@ def test_referenced_fixture_excluded_from_candidates() -> None:
 
 
 def test_comment_only_hit_tagged_review_recommended() -> None:
-    """A fixture whose only mention sits on a comment line is tier 'review', not 'high' or absent."""
+    """A fixture whose only mention sits on a comment line is tier 'review', not 'high' or absent.
+
+    Uses an HTML-style ``<!-- -->`` comment for the .md mention (WR-02): a leading ``#`` in
+    Markdown denotes a HEADING, not a comment, so it is NOT filtered as a comment line and
+    would instead count as a genuine (code-hit) reference — that asymmetry is exactly what
+    WR-02 fixed. An HTML comment is the one line-shape _code_hits() still treats as a
+    comment inside a .md file.
+    """
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         (root / "commented.py").write_text("VALUE = 3\n", encoding="utf-8")
         (root / "notes.md").write_text(
-            "# TODO: revisit commented.py later, low priority\n",
+            "<!-- TODO: revisit commented.py later, low priority -->\n",
             encoding="utf-8",
         )
         result = gmj_cleanup_report.classify(repo_root=root, framework_globs=[])
