@@ -174,6 +174,15 @@ async def pretooluse_scope_guard(
                 "permissionDecisionReason": _hook_deny_reason(proc),
             }
         }
+    if proc.returncode != 0:
+        # gmj-sources-scope-guard.sh documents exactly two exit codes (0 allow, 2 deny).
+        # Anything else is an indeterminate result (e.g. the script hitting an unguarded
+        # command failure, python3 unavailable, a permissions error) and MUST be surfaced
+        # rather than silently falling through to allow — this is "the hard DOMAIN gate".
+        raise RuntimeError(
+            f"gmj-sources-scope-guard.sh exited unexpectedly "
+            f"(rc={proc.returncode}): {proc.stderr or proc.stdout}"
+        )
     return {}
 
 
@@ -205,6 +214,14 @@ async def subagentstop_envelope_guard(input_data, tool_use_id, context) -> dict:
                 "permissionDecisionReason": _hook_deny_reason(proc),
             }
         }
+    if proc.returncode != 0:
+        # See the matching comment in pretooluse_scope_guard() above: only 0 (allow) and
+        # 2 (deny) are documented exit codes for this guard; anything else is indeterminate
+        # and must be surfaced rather than silently treated as allow.
+        raise RuntimeError(
+            f"gmj-validate-envelope.sh exited unexpectedly "
+            f"(rc={proc.returncode}): {proc.stderr or proc.stdout}"
+        )
     return {}
 
 
