@@ -9,16 +9,23 @@ hard-wired report: there is NO deletion/rename/move code path in this file at al
 safety guarantee is the ABSENCE of any mutation code path (mirroring
 ``scripts/gmj_remove_gsd.py``'s existing precedent), not a flag or environment toggle.
 This tool NEVER content-scans a file to decide ownership — that is the manifest's job
-(``load_framework_globs``/``is_framework_path``, imported verbatim below); this tool only
-content-scans to detect REFERENCES for the zero-hit classification.
+(``load_framework_globs``/``is_framework_path`` below); this tool only content-scans to
+detect REFERENCES for the zero-hit classification.
 
 Classification is two-source: (1) a candidate is excluded if it matches
-``config/ownership-manifest.yaml``'s ``framework_globs`` (manifest-driven exclusion,
-imported from ``scripts/gmj_remove_gsd.py`` — never a third reimplementation), and
+``config/ownership-manifest.yaml``'s ``framework_globs`` (manifest-driven exclusion), and
 (2) a candidate is excluded if any non-comment line elsewhere in the repo references its
 basename. A candidate with zero references anywhere (including comments/prose) is tier
 "high confidence"; a candidate with zero *code* hits but a comment/prose mention is tier
 "review recommended". A candidate with any non-comment reference is fully excluded.
+
+``load_framework_globs``/``is_framework_path`` are inlined here (verbatim logic from
+``scripts/gmj_remove_gsd.py``) rather than imported: ``scripts/gmj_build_payload.py``'s
+``BUILD_TIME_TOOLS`` deliberately excludes ``gmj_remove_gsd.py`` from the shipped
+``gmj-core/`` runtime payload (it is dev-only tooling), but this reporter IS a shipped
+runtime script, so it cannot have a hard import dependency on an excluded sibling module.
+This is a deliberate small duplication, not a new manifest-authority source — the two
+copies must stay in sync if ``gmj_remove_gsd.py``'s logic ever changes.
 
 CLI (mirrors ``scripts/gmj_remove_gsd.py``): ``python3 scripts/gmj_cleanup_report.py
 [--manifest config/ownership-manifest.yaml] [--repo-root .] [--output
@@ -30,17 +37,57 @@ closed — never degrades to "report everything").
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import os
 import re
 import sys
 from pathlib import Path
 
+import yaml
+
 REPO_ROOT = Path(__file__).resolve().parent.parent  # scripts/ -> repo root
 DEFAULT_MANIFEST = REPO_ROOT / "config" / "ownership-manifest.yaml"
 DEFAULT_OUTPUT = REPO_ROOT / "sources" / "analysis" / "cleanup-report.md"
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from gmj_remove_gsd import load_framework_globs, is_framework_path  # noqa: E402
+
+def load_framework_globs(manifest_path: Path) -> list[str]:
+    """The manifest's ``framework_globs`` deny-list (raises on missing / unparsable / non-list).
+
+    Inlined verbatim from ``scripts/gmj_remove_gsd.py`` (see module docstring for why this
+    is duplicated rather than imported). This is the single authority for what counts as a
+    framework trace. A missing or malformed manifest is a misconfiguration and raises — the
+    reporter must never degrade to "report everything".
+    """
+    resolved = manifest_path.expanduser().resolve()
+    if not resolved.is_file():
+        raise FileNotFoundError(f"ownership manifest not found: {resolved}")
+    data = yaml.safe_load(resolved.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"{resolved}: top-level YAML must be a mapping")
+    globs = data.get("framework_globs", [])
+    if not isinstance(globs, list):
+        raise ValueError("ownership manifest `framework_globs` must be a list")
+    return [str(g) for g in globs]
+
+
+def is_framework_path(path: Path, framework_globs: list[str]) -> bool:
+    """True if ``path`` matches any framework deny-glob (inlined verbatim from gmj_remove_gsd.py).
+
+    Each glob is matched case-sensitively against the repo-relative posix path, the basename,
+    the stem, and every path component, so both path-anchored globs (``**/gsd-core/**``,
+    ``.claude/hooks/lib/**``) and name/stem globs (``gsd-*``, ``ai-agents-architect``) are
+    enforced. This is a path allow-list check — never a content grep.
+    """
+    if not framework_globs:
+        return False
+    try:
+        rel = path.resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        rel = path.name
+    candidates = {rel, path.name, Path(path.name).stem}
+    candidates.update(Path(rel).parts)
+    return any(fnmatch.fnmatchcase(cand, glob) for glob in framework_globs for cand in candidates)
+
 
 # Directories pruned from every walk (volatile / generated / vendored / churn-heavy).
 # Extends gmj_remove_gsd.PRUNE_DIRS with ".planning" and "gmj-core" as HARD skips: never
