@@ -300,6 +300,96 @@ def test_install_sh_quotes_repo_url_and_install_dir_overrides() -> None:
     )
 
 
+# --- Test 10: CR-01 regression — GMJ_REPO_URL flag-injection into git clone ---
+
+def test_fresh_clone_rejects_option_like_repo_url() -> None:
+    """Regression for CR-01: a GMJ_REPO_URL value starting with '-' must never be
+    parsed by git as a flag (e.g. --upload-pack=<cmd> achieving command execution).
+    Uses a local marker-file technique — no real command execution against a real
+    remote, only a local marker path that must never be created."""
+    install_sh_src = REPO_ROOT / INSTALL_SH_REL
+
+    isolated_dir = Path(tempfile.mkdtemp(prefix="gmj-cr01-isolated-"))
+    check = subprocess.run(
+        ["git", "-C", str(isolated_dir), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+    )
+    if check.returncode == 0:
+        print(
+            "SKIP test_fresh_clone_rejects_option_like_repo_url: isolated temp dir "
+            "unexpectedly has a .git ancestor",
+            file=sys.stderr,
+        )
+        return
+
+    isolated_install_sh = isolated_dir / "install.sh"
+    isolated_install_sh.write_bytes(install_sh_src.read_bytes())
+    isolated_install_sh.chmod(isolated_install_sh.stat().st_mode | 0o111)
+
+    workdir = Path(tempfile.mkdtemp(prefix="gmj-cr01-workdir-"))
+    marker = workdir / "PWNED_marker"
+    payload = f"--upload-pack=touch {marker};"
+    env = dict(os.environ, GMJ_REPO_URL=payload, GMJ_INSTALL_DIR="cr01-target")
+    result = run(["bash", str(isolated_install_sh)], cwd=workdir, env=env, timeout=30)
+
+    assert not marker.exists(), (
+        "CR-01 regression: injected --upload-pack command executed and created "
+        f"{marker} — GMJ_REPO_URL flag-injection is not blocked"
+    )
+    assert result.returncode != 0, (
+        "a bare option-like GMJ_REPO_URL must fail as a literal (non-existent) repo "
+        f"URL, not succeed: rc={result.returncode}"
+    )
+
+
+# --- Test 11: CR-02 regression — pre-planted symlink at the install target -----
+
+def test_fresh_clone_refuses_preexisting_symlink_install_dir() -> None:
+    """Regression for CR-02: a pre-existing symlink at GMJ_INSTALL_DIR must be
+    rejected, not silently followed by git clone into wherever it points."""
+    install_sh_src = REPO_ROOT / INSTALL_SH_REL
+
+    isolated_dir = Path(tempfile.mkdtemp(prefix="gmj-cr02-isolated-"))
+    check = subprocess.run(
+        ["git", "-C", str(isolated_dir), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+    )
+    if check.returncode == 0:
+        print(
+            "SKIP test_fresh_clone_refuses_preexisting_symlink_install_dir: isolated "
+            "temp dir unexpectedly has a .git ancestor",
+            file=sys.stderr,
+        )
+        return
+
+    isolated_install_sh = isolated_dir / "install.sh"
+    isolated_install_sh.write_bytes(install_sh_src.read_bytes())
+    isolated_install_sh.chmod(isolated_install_sh.stat().st_mode | 0o111)
+
+    workdir = Path(tempfile.mkdtemp(prefix="gmj-cr02-workdir-"))
+    victim = Path(tempfile.mkdtemp(prefix="gmj-cr02-victim-"))
+    link_name = "cr02-target"
+    (workdir / link_name).symlink_to(victim, target_is_directory=True)
+
+    env = dict(os.environ, GMJ_REPO_URL=str(REPO_ROOT), GMJ_INSTALL_DIR=link_name)
+    result = run(["bash", str(isolated_install_sh)], cwd=workdir, env=env, timeout=30)
+
+    assert result.returncode != 0, (
+        "install.sh must refuse to clone into a pre-existing symlink install target, "
+        f"not silently follow it: rc={result.returncode} "
+        f"stderr={result.stderr.strip()[:400]}"
+    )
+    assert not any(victim.iterdir()), (
+        "CR-02 regression: install.sh wrote through the pre-planted symlink into "
+        f"{victim} instead of refusing"
+    )
+    assert (workdir / link_name).is_symlink(), (
+        "the pre-existing symlink must remain untouched after install.sh refuses"
+    )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
