@@ -1949,10 +1949,33 @@ class GmjDashboard(App):
             lines.append("No vacancies match filter")
         lines.append("")
         lines.append("batches:" if batches else "No batches")
+
+        # CONC-04: build a Rich Text object (instead of a plain string) so the per-offer-status
+        # breakdown segment appended below can be colored per-token via a runtime theme lookup
+        # (mirrors _status_cell()'s Text(status, style=color) pattern). The empty-state hints and
+        # the "batches:"/"No batches" header stay plain (no style) — unchanged from before.
+        text_obj = Text()
+        for line in lines:
+            text_obj.append(line + "\n")
         for b in batches:
             done = next((val for k, val in b.items() if k not in ("batch_id", "total", "status")), 0)
-            lines.append(f"  {b['batch_id']}  {done}/{b['total']}  {b['status']}")
-        self.query_one("#vac-batches", Static).update("\n".join(lines).strip())
+            text_obj.append(f"  {b['batch_id']}  {done}/{b['total']}  {b['status']}")
+            text_obj.append("   ")
+            status_counts = b.get("by_offer_status") or {
+                "waiting": 0,
+                "in_flight": 0,
+                "delivered": 0,
+                "gate_exhausted": 0,
+                "error": 0,
+            }
+            for i, token in enumerate(("waiting", "in_flight", "delivered", "gate_exhausted", "error")):
+                if i:
+                    text_obj.append(" ")
+                color = self.get_css_variables().get(f"status-{token}") or ""
+                text_obj.append(f"{token}:{status_counts.get(token, 0)}", style=color)
+            text_obj.append("\n")
+        text_obj.rstrip()
+        self.query_one("#vac-batches", Static).update(text_obj)
 
     # ── runs table (VIEW-03) — guard-safe status cell + targeted RowKey diff ──────────────────────
 
