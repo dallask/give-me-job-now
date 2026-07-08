@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "timestamp": "2026-07-08T08:56:41.499Z",
+  "timestamp": "2026-07-08T12:10:06.959Z",
   "mode": "full",
   "files": {
     "gmj-core/VERSION": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
@@ -105,6 +105,7 @@
     "gmj-core/scripts/pipeline/gmj_state_write.py": "b8b28074d4a73256cc82c0c6497b07ac2d5e5f236d59f155a281a24f9984b988",
     "gmj-core/scripts/preferences/gmj_validate_preferences.py": "e86471e9a93394dc1623b2491330dc8c0ad50c1dbbafa9049e7fa6c4b311ffed",
     "gmj-core/scripts/preferences/requirements.txt": "b63f70d9bf9032f05c1fc20787c9c2f4edbe9de9683ea7164775909883b029cf",
+    "gmj-core/scripts/runtime/gmj_sdk_runner.py": "03386a5acd8ba01d1f5e64c60901453ecc25a031839be7f8f29dfb0511e4230a",
     "gmj-core/scripts/testing/gmj_record_uat.py": "5212673c837a9752d143b84d35bc8b0e05dfa17afefa0aab783f09978bf7b7e1",
     "gmj-core/skills/gmj-agent-output-contract/SKILL.md": "df66d3d36618c726a97e25acea042d436bc55d9f29113c5ca796e9bf58ad7d6f",
     "gmj-core/skills/gmj-candidate-yaml-schema/SKILL.md": "ffa912aa3d862e2358e9077d34f2fa448ab1fbb03e186baeab506f3ee1731394",
