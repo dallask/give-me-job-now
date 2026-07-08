@@ -106,7 +106,16 @@ def validate_envelope(structured_output: dict) -> list[str]:
     Pattern 3) — this call is the actual trust boundary, identical to the dispatch
     .claude/hooks/gmj-validate-envelope.sh / gmj_validate_envelope.py --stdin exercise
     in production. Never a parallel, more-permissive check invented for this prototype.
+
+    A misbehaving model can return non-dict structured_output despite the output_format
+    hint (the hint is a generation-time constraint, not proof) — guard the type before
+    calling resolve_kind() so that case surfaces as a clean validation error instead of
+    an unhandled AttributeError propagating out of this function.
     """
+    if not isinstance(structured_output, dict):
+        return [
+            f"structured_output must be a JSON object, got {type(structured_output).__name__}"
+        ]
     try:
         kind = resolve_kind(None, structured_output)
     except ValueError as exc:
