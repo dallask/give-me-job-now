@@ -102,6 +102,11 @@ function renderCursorAgent(fields, body) {
   // Pattern 3 — translate the literal string "sonnet" to "inherit" (Cursor's own "use whatever
   // the parent/session is using" value); pass any other value through unchanged as a defensive
   // fallback, though all 9 current source files use `sonnet` uniformly.
+  if (model !== 'sonnet') {
+    process.stderr.write(
+      `gmj-cursor-adapter: warning: unexpected model "${model}" in ${name} — passed through unchanged, verify it is a valid Cursor model id\n`
+    );
+  }
   const cursorModel = model === 'sonnet' ? 'inherit' : model;
 
   const expBadge = `[EXPERIMENTAL — Cursor adapter, generated from .claude/agents/${name}.md — see gmj-core/bin/CURSOR-HOOK-PARITY.md]`;
