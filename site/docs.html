@@ -311,7 +311,7 @@
           <p class="mt-3 text-gray-300">Every hop below is a <strong class="text-gray-100">typed file artifact</strong> identified by its path — never a conversation
           transcript. This is the artifact-only handoff invariant (see §6): a spoke receives file
           paths and emits file paths, so no spoke inherits another spoke's context.</p>
-          <pre class="mt-4 rounded-lg border border-gray-800 bg-gray-900 p-4 text-xs text-gray-300"><code>                         config/sources.yaml  (board/geo/lang allow-list)
+          <div class="relative"><pre class="mt-4 rounded-lg border border-gray-800 bg-gray-900 p-4 text-xs text-gray-300"><code>                         config/sources.yaml  (board/geo/lang allow-list)
                                      │  (mandatory read before any web search)
                                      ▼
    offer (URL / pasted text) ──▶  gmj-offer-scout  ──▶  offer_spec  (frozen, hashed)   [Phase 3]
@@ -332,7 +332,7 @@
                                                   │   gate_result (Gate B/C)
                                           pass ◀──┘   fail ──▶ loop to composer (bounded retry)
                                                   ▼
-                                          gmj-cv-generator ──▶ output/cv/*.pdf   (via scripts/cv/gmj_render_cv.py)</code></pre>
+                                          gmj-cv-generator ──▶ output/cv/*.pdf   (via scripts/cv/gmj_render_cv.py)</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Every arrow is a typed file artifact path, not a transcript.</strong> Gate A (truth) must pass
           before Gate B/C (fit) runs; truthfulness is never bypassed in any execution mode.</p>
 
@@ -473,7 +473,7 @@
           else <code class="text-emerald-400">.pipeline</code> (the fallback, not the only path — see <code class="text-emerald-400">/gmj-pipeline-run</code>'s Parameters
           section and <code class="text-emerald-400">gmj-orchestrator.md</code>'s <code class="text-emerald-400">init_run</code>). The diagram below uses the generic <code class="text-emerald-400">&lt;root&gt;</code>
           token throughout; substitute the resolved root per the rule above.</p>
-          <pre class="mt-4 rounded-lg border border-gray-800 bg-gray-900 p-4 text-xs text-gray-300"><code> CLI: claude --dangerously-skip-permissions  →  /gmj-pipeline-run  (params: mode?, offer, run_id?, artifact-types?)
+          <div class="relative"><pre class="mt-4 rounded-lg border border-gray-800 bg-gray-900 p-4 text-xs text-gray-300"><code> CLI: claude --dangerously-skip-permissions  →  /gmj-pipeline-run  (params: mode?, offer, run_id?, artifact-types?)
                                      │
                                      ▼
    0. resolve + derive   gmj_pipeline_run.py --run-id &lt;run_id&gt; --artifact-types &lt;list&gt;
@@ -504,7 +504,7 @@
                     never a single collapsed boolean
                                      │
                                      ▼
-                output/cv/*.pdf (+ .html sibling, ARTF-02)  (gmj-cv-generator)</code></pre>
+                output/cv/*.pdf (+ .html sibling, ARTF-02)  (gmj-cv-generator)</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Mode gates only the pause, never the gate.</strong> <code class="text-emerald-400">execution_mode</code> (frozen at <code class="text-emerald-400">init_run</code>) is
           consulted at exactly ONE point: the <strong class="text-gray-100">post-PASS human-pause decision</strong>. In
           <code class="text-emerald-400">human_in_the_loop</code> the hub pauses for approval after a gate PASS; in <code class="text-emerald-400">autonomous</code> it
@@ -1104,7 +1104,7 @@
           trace back to. English base file. It is written only by <code class="text-emerald-400">gmj-candidate-configurator</code> or a human,
           never mutated mid-run. Top-level keys (all snake_case):</p>
 
-          <pre><code>name: "Your Name"
+          <div class="relative"><pre><code>name: "Your Name"
 photo: sources/candidate/photo.jpg        # optional; path relative to repo root (or contact.photo)
 title: "Lead Software Engineer &amp; AI-Augmented Tech Lead | …"
 summary: "Lead software engineer with 19+ years …"
@@ -1145,7 +1145,7 @@ independent_projects:                     # entries may be objects or strings
 education:
   - { institution: "…", program: "…", location: "…", duration: "…" }
 certifications:                           # optional; issuer-grouped
-  - { issuer: "…", year: "…", credentials: ["…", "…"] }</code></pre>
+  - { issuer: "…", year: "…", credentials: ["…", "…"] }</code></pre></div>
 
           <ul class="mt-3 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100">Schema / owner:</strong> the <a href="#skills" class="text-indigo-400 hover:text-indigo-300">gmj-candidate-yaml-schema</a>
@@ -1165,8 +1165,8 @@ certifications:                           # optional; issuer-grouped
           sections <strong class="text-gray-100">wholesale</strong>, so any list an overlay provides must be a complete translation mirroring
           the base structure exactly. <code class="text-emerald-400">candidate.ru.yaml</code> today carries just <code class="text-emerald-400">title</code> + <code class="text-emerald-400">summary</code>:</p>
 
-          <pre><code>title: 'Інженер …'      # translatable fields only
-summary: 'Інженер з практичним досвідом …'</code></pre>
+          <div class="relative"><pre><code>title: 'Інженер …'      # translatable fields only
+summary: 'Інженер з практичним досвідом …'</code></pre></div>
 
           <ul class="mt-3 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100">Schema / owner:</strong> same <a href="#skills" class="text-indigo-400 hover:text-indigo-300">gmj-candidate-yaml-schema</a>
@@ -1180,7 +1180,7 @@ summary: 'Інженер з практичним досвідом …'</code></p
           only boards, cities, and languages the offer-search spoke may touch — it can never be widened at
           runtime.</p>
 
-          <pre><code>sites:                    # allow-listed job-board URLs → derived allowed_domains
+          <div class="relative"><pre><code>sites:                    # allow-listed job-board URLs → derived allowed_domains
   - https://www.work.ua/
   - https://robota.ua/
 cities:                   # geo scope appended to every query
@@ -1192,7 +1192,7 @@ languages:                # search + result languages
 limits:
   max_vacancies: 10       # hard cap on vacancy files written this run
   max_search_queries: 6   # hard cap on WebSearch calls this run
-  max_fetches: 8          # hard cap on WebFetch calls this run</code></pre>
+  max_fetches: 8          # hard cap on WebFetch calls this run</code></pre></div>
 
           <ul class="mt-3 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100">Schema / owner:</strong> prose contract in <code class="text-emerald-400">rules/sources-scope.md</code>; the read-and-enforce protocol
@@ -1207,7 +1207,7 @@ limits:
           within <code class="text-emerald-400">sources.yaml</code>; its <code class="text-emerald-400">scope</code> block may only restrict the boards/geos/languages already
           declared there — never widen them.</p>
 
-          <pre><code>salary: { min: 3000, currency: USD, period: month }
+          <div class="relative"><pre><code>salary: { min: 3000, currency: USD, period: month }
 work_conditions: { mode: [remote, hybrid], relocation: false }
 preferences: ["fully remote", "async team"]
 search_keywords: [php, laravel, drupal]
@@ -1215,7 +1215,7 @@ ranking: { salary_weight: 0.4, remote_weight: 0.6 }
 scope:                          # each list must be a SUBSET of sources.yaml
   sites: [https://robota.ua/]
   cities: [Kyiv]
-  languages: [ua]</code></pre>
+  languages: [ua]</code></pre></div>
 
           <ul class="mt-3 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100">Schema / owner:</strong> <code class="text-emerald-400">schemas/preferences.schema.json</code> (<code class="text-emerald-400">additionalProperties: false</code> root +
@@ -1230,10 +1230,10 @@ scope:                          # each list must be a SUBSET of sources.yaml
           (profile pages, certificate / badge pages). It is <strong class="text-gray-100">separate</strong> from the job-board search scope in
           <code class="text-emerald-400">sources.yaml</code>: a host here is not thereby a permitted offer-search domain, and vice versa.</p>
 
-          <pre><code>credential_sites:
+          <div class="relative"><pre><code>credential_sites:
   - https://www.linkedin.com/
   - https://www.credly.com/
-  - https://coursera.org/</code></pre>
+  - https://coursera.org/</code></pre></div>
 
           <ul class="mt-3 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100">Schema / owner:</strong> inline header comment (no JSON Schema).</li>
@@ -1247,9 +1247,9 @@ scope:                          # each list must be a SUBSET of sources.yaml
           stored in the candidate YAML — they live here, keyed by language (<code class="text-emerald-400">en</code>, <code class="text-emerald-400">ua</code>, <code class="text-emerald-400">ru</code>). To add a
           label, add it to all three blocks.</p>
 
-          <pre><code>en: { summary: "Summary", experience: "Experience", education: "Education", … }
+          <div class="relative"><pre><code>en: { summary: "Summary", experience: "Experience", education: "Education", … }
 ua: { summary: "Резюме", experience: "Досвід роботи", … }
-ru: { summary: "Резюме", experience: "Опыт работы", … }</code></pre>
+ru: { summary: "Резюме", experience: "Опыт работы", … }</code></pre></div>
 
           <ul class="mt-3 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100">Schema / owner:</strong> no JSON Schema — three parallel language blocks with matching keys.</li>
@@ -1262,12 +1262,12 @@ ru: { summary: "Резюме", experience: "Опыт работы", … }</code>
           number, and is frozen before a run. The <code class="text-emerald-400">weights</code> block feeds only an optional advisory composite
           and never contributes to the coverage-only hard-block verdict.</p>
 
-          <pre><code>coverage_threshold: 0.7        # PRIMARY hard-block: covered_count / total_count &gt;= this
+          <div class="relative"><pre><code>coverage_threshold: 0.7        # PRIMARY hard-block: covered_count / total_count &gt;= this
 weights:                       # SECONDARY advisory only; sum to 1.0
   coverage: 0.70
   keyword_alignment: 0.15
   language_match: 0.10
-  seniority_scope_match: 0.05</code></pre>
+  seniority_scope_match: 0.05</code></pre></div>
 
           <ul class="mt-3 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100">Schema / owner:</strong> inline header; the derivation record and Gate C rubric live in the
@@ -1279,9 +1279,9 @@ weights:                       # SECONDARY advisory only; sum to 1.0
           <h3 class="mt-8 text-xl font-bold text-gray-100">config/pipeline.config.yaml</h3>
           <p class="mt-3 text-gray-300">Three <strong class="text-gray-100">operator-authored knobs</strong> (EXEC-01, GUARD-03, CONC-01) governing how a run executes.</p>
 
-          <pre><code>execution_mode: human_in_the_loop   # human_in_the_loop | autonomous
+          <div class="relative"><pre><code>execution_mode: human_in_the_loop   # human_in_the_loop | autonomous
 retry_cap: 2                        # max enhance/generate retry cycles per run
-max_parallel_offers: 3              # max offers' pipelines running concurrently in one batch</code></pre>
+max_parallel_offers: 3              # max offers' pipelines running concurrently in one batch</code></pre></div>
 
           <p class="mt-3 text-gray-300"><code class="text-emerald-400">execution_mode</code> gates only the post-PASS human pause (<code class="text-emerald-400">autonomous</code> removes the human pause,
           never the machine gate); <code class="text-emerald-400">retry_cap</code> bounds the enhance/generate loop; <code class="text-emerald-400">max_parallel_offers</code>
@@ -1312,7 +1312,7 @@ max_parallel_offers: 3              # max offers' pipelines running concurrently
           <p class="mt-3 text-gray-300">The <strong class="text-gray-100">fixed pipeline DAG</strong> for the deterministic router (ARCH-06). It maps each step to its
           successor; gate nodes branch on a <em>recorded verdict</em> in state, never on model reasoning.</p>
 
-          <pre><code>steps:
+          <div class="relative"><pre><code>steps:
   gmj-offer-scout:      { next: gmj-artifact-composer }
   gmj-artifact-composer: { next: gmj-truth-verifier }
   gmj-truth-verifier:                       # gate node
@@ -1323,7 +1323,7 @@ max_parallel_offers: 3              # max offers' pipelines running concurrently
     gate: true
     on_pass: gmj-cv-generator
     on_fail: gmj-artifact-composer
-  gmj-cv-generator:     { next: null }      # terminal node</code></pre>
+  gmj-cv-generator:     { next: null }      # terminal node</code></pre></div>
 
           <ul class="mt-3 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100">Schema / owner:</strong> inline header.</li>
@@ -1337,14 +1337,14 @@ max_parallel_offers: 3              # max offers' pipelines running concurrently
           agents/skills/commands/scripts/hooks, <code class="text-emerald-400">gmj-</code>/<code class="text-emerald-400">gmj_</code>-renamed). The <code class="text-emerald-400">app</code> map is the single source
           of truth consumed by the rename engine.</p>
 
-          <pre><code>version: 1
+          <div class="relative"><pre><code>version: 1
 framework_globs: ["gsd-*", "**/gsd-core/**", …]
 app:
   agents:   [{ old: &lt;legacy-agent-name&gt;,   new: gmj-orchestrator }, …]        # 8
   scripts:  [{ old: &lt;legacy-script-stem&gt;,  new: gmj_score_fit }, …]           # 23
   skills:   [{ old: &lt;legacy-skill-name&gt;,   new: gmj-fit-rubric }, …]          # 10
   commands: [{ old: &lt;legacy-command-group&gt;, new: gmj-pipeline }, …]           # 3 groups
-  hooks:    [{ old: &lt;legacy-hook-name&gt;,    new: gmj-sources-scope-guard }, …] # 6</code></pre>
+  hooks:    [{ old: &lt;legacy-hook-name&gt;,    new: gmj-sources-scope-guard }, …] # 6</code></pre></div>
 
           <ul class="mt-3 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100">Schema / owner:</strong> inline header; gated by <code class="text-emerald-400">tests/test_ownership_manifest.py</code>.</li>
@@ -1389,16 +1389,16 @@ app:
           <p class="mt-3 text-gray-300">From the repository root, the one-script installer covers everything the demo needs (render
           stack, dashboard stack, contracts + preferences validators):</p>
 
-          <pre><code>bash gmj-core/bin/install.sh</code></pre>
+          <div class="relative"><pre><code>bash gmj-core/bin/install.sh</code></pre></div>
 
           <p class="mt-3 text-gray-300">Or install the individual pieces the demo touches, through the same <code class="text-emerald-400">.venv</code>
           (see <a href="#installation" class="text-indigo-400 hover:text-indigo-300">Installation</a>):</p>
 
-          <pre><code># Render stack (reportlab / PyYAML / pypdf) — needed for the pipeline's PDF output
+          <div class="relative"><pre><code># Render stack (reportlab / PyYAML / pypdf) — needed for the pipeline's PDF output
 .venv/bin/python -m pip install -r scripts/cv/requirements.txt
 
 # Dashboard stack (textual) — needed for the cockpit beats
-.venv/bin/python -m pip install -r scripts/dashboard/requirements.txt</code></pre>
+.venv/bin/python -m pip install -r scripts/dashboard/requirements.txt</code></pre></div>
 
           <p class="mt-3 text-gray-300">Also:</p>
           <ul class="mt-2 list-disc list-inside space-y-1 text-gray-300">
@@ -1414,10 +1414,10 @@ app:
           <p class="mt-2 text-gray-300">The <strong class="text-gray-100">hub runs at top level</strong> in the session — <em>you are the <code class="text-emerald-400">gmj-orchestrator</code></em>. Never spawn the hub
           inside <code class="text-emerald-400">Task</code> (a nested hub loses <code class="text-emerald-400">Task</code> and breaks the pipeline).</p>
 
-          <pre><code>claude --dangerously-skip-permissions
+          <div class="relative"><pre><code>claude --dangerously-skip-permissions
 # then, in the session:
 /gmj-pipeline-run
-# state your: mode (human_in_the_loop | autonomous), offer (URL/text or offer-spec.json), run_id?</code></pre>
+# state your: mode (human_in_the_loop | autonomous), offer (URL/text or offer-spec.json), run_id?</code></pre></div>
 
           <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
             <p><strong class="text-gray-200">Narrate:</strong> "One command drives the whole offer→artifacts flow — dual-mode, gated, retry-capped.
@@ -1439,7 +1439,7 @@ app:
           <p class="mt-2 text-gray-300">Confirm what the run recorded. The valid <code class="text-emerald-400">gmj_runs.py</code> verb is <strong class="text-gray-100">inspect</strong> — there is no <code class="text-emerald-400">show</code>
           subcommand:</p>
 
-          <pre><code>python3 scripts/pipeline/gmj_runs.py run inspect &lt;run_id&gt; --pipeline-dir .pipeline</code></pre>
+          <div class="relative"><pre><code>python3 scripts/pipeline/gmj_runs.py run inspect &lt;run_id&gt; --pipeline-dir .pipeline</code></pre></div>
 
           <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
             <p><strong class="text-gray-200">Narrate:</strong> "Every verdict is an artifact. <code class="text-emerald-400">run inspect</code> reads <code class="text-emerald-400">.pipeline/runs/&lt;run_id&gt;/</code> — the
@@ -1449,7 +1449,7 @@ app:
           </blockquote>
 
           <h4 class="mt-6 text-lg font-semibold text-gray-100">Beat 4 — open the read-only cockpit</h4>
-          <pre><code>python3 scripts/dashboard/gmj_dashboard.py --pipeline-dir &lt;dir&gt;</code></pre>
+          <div class="relative"><pre><code>python3 scripts/dashboard/gmj_dashboard.py --pipeline-dir &lt;dir&gt;</code></pre></div>
 
           <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
             <p><strong class="text-gray-200">Narrate:</strong> "The btop-style Textual cockpit is <strong class="text-gray-100">read-only by default</strong> — it binds no mutating
@@ -1458,8 +1458,8 @@ app:
           </blockquote>
 
           <h4 class="mt-6 text-lg font-semibold text-gray-100">Beat 4b — manage mode (opt in — use a COPY)</h4>
-          <pre><code># Use a COPY of &lt;dir&gt; — --manage writes the real --config
-python3 scripts/dashboard/gmj_dashboard.py --manage --pipeline-dir &lt;dir&gt;</code></pre>
+          <div class="relative"><pre><code># Use a COPY of &lt;dir&gt; — --manage writes the real --config
+python3 scripts/dashboard/gmj_dashboard.py --manage --pipeline-dir &lt;dir&gt;</code></pre></div>
 
           <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
             <p><strong class="text-gray-200">Narrate:</strong> "<code class="text-emerald-400">--manage</code> opts into the <code class="text-emerald-400">r</code>/<code class="text-emerald-400">R</code>/<code class="text-emerald-400">b</code>/<code class="text-emerald-400">m</code>/<code class="text-emerald-400">c</code> action keys, routed through
@@ -1731,7 +1731,7 @@ python3 scripts/dashboard/gmj_dashboard.py --manage --pipeline-dir &lt;dir&gt;</
           retry-capped). This is the flow the RUNBOOK exercises end to end; see
           <a href="#runbook" class="text-indigo-400 hover:text-indigo-300">docs/RUNBOOK.md</a> §2.</p>
 
-          <pre><code>/gmj-pipeline-run  (params: mode?, offer, run_id?, artifact-types?)
+          <div class="relative"><pre><code>/gmj-pipeline-run  (params: mode?, offer, run_id?, artifact-types?)
    │
    ▼
 0. resolve+derive  gmj_pipeline_run.py --run-id &lt;run_id&gt; --artifact-types &lt;list&gt;
@@ -1764,7 +1764,7 @@ python3 scripts/dashboard/gmj_dashboard.py --manage --pipeline-dir &lt;dir&gt;</
    ▼
    output/cv/*.pdf + *.html sibling (ARTF-02)   rendered by gmj-cv-generator via gmj_render_cv.py
    (plus the cover-letter / interview-prep artifacts for the other requested types)
-</code></pre>
+</code></pre></div>
 
           <ol class="mt-4 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100">Resolve + derive.</strong> <code class="text-emerald-400">gmj_pipeline_run.py</code> validates <code class="text-emerald-400">--artifact-types</code> against the 3-item
@@ -1880,7 +1880,7 @@ python3 scripts/dashboard/gmj_dashboard.py --manage --pipeline-dir &lt;dir&gt;</
           <h3 class="mt-8 text-xl font-bold text-gray-100">Simple full-CV render</h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Entry:</strong> <code class="text-emerald-400">/gmj-collective</code> (or a direct script call) — the classic full-CV pipeline, no offer and
           no gates.</p>
-          <pre><code>config/candidate.yaml  →  gmj_render_cv.py [--lang ua|ru]  →  output/cv/*.pdf</code></pre>
+          <div class="relative"><pre><code>config/candidate.yaml  →  gmj_render_cv.py [--lang ua|ru]  →  output/cv/*.pdf</code></pre></div>
           <p class="mt-4 text-gray-300"><code class="text-emerald-400">gmj_render_cv.py</code> renders the canonical profile to PDF (ReportLab by default; an optional Jinja2
           HTML template via WeasyPrint), deep-merging a <code class="text-emerald-400">config/candidate.{lang}.yaml</code> prose overlay when a
           language is requested. The hub can drive an optional review/enhance loop on top, but the base render
@@ -1914,7 +1914,7 @@ python3 scripts/dashboard/gmj_dashboard.py --manage --pipeline-dir &lt;dir&gt;</
           docs MUST be refreshed and re-verified so no <code class="text-emerald-400">gmj-</code> entity token drifts from disk. The invariant is
           stated in <a href="#rules" class="text-indigo-400 hover:text-indigo-300">rules/docs-currency.md</a> (a Read-on-demand, frontmatter-scoped
           rule) and enforced by the gate:</p>
-          <pre><code>python3 tests/test_docs_current.py</code></pre>
+          <div class="relative"><pre><code>python3 tests/test_docs_current.py</code></pre></div>
           <p class="mt-4 text-gray-300">which asserts every <code class="text-emerald-400">gmj-</code> agent / <code class="text-emerald-400">/gmj-</code> command / <code class="text-emerald-400">gmj_*.py</code> script named in <code class="text-emerald-400">docs/*.md</code> +
           <code class="text-emerald-400">README.md</code> resolves to a real file, and that no superseded legacy-roster token is presented as
           current. Refresh the affected <code class="text-emerald-400">docs/</code> sections, then re-run the gate until it is green before closing
@@ -1946,7 +1946,7 @@ python3 scripts/dashboard/gmj_dashboard.py --manage --pipeline-dir &lt;dir&gt;</
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Legend:</strong> 🟢 deterministic (re-run for confidence) · 🧠 LLM-judgment UAT · 🔴 live end-to-end · 🧪 optional/experimental (not part of the default flow).</p>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Part 0 — Setup &amp; Prerequisites</h3>
-          <pre><code># 0.1 From the repo root
+          <div class="relative"><pre><code># 0.1 From the repo root
 
 # 0.2 Python deps — 4 requirements.txt files (contracts / dashboard / cv / preferences)
 pip install -r scripts/contracts/requirements.txt
@@ -1963,11 +1963,11 @@ ls scripts/cv/fonts/ | grep -i dejavu &amp;&amp; echo "fonts OK"
 
 # 0.5 Node (for gmj-core/bin/gmj-tools.cjs, install.sh, and gmj-cursor-adapter.cjs)
 node --version   # any recent Node works — zero npm deps required
-</code></pre>
+</code></pre></div>
           <ul class="mt-2 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100">Live agent tests</strong> run inside Claude Code at the <strong class="text-gray-100">top level</strong> (the hub <code class="text-emerald-400">gmj-orchestrator</code>
               must hold <code class="text-emerald-400">Task</code>; never nest it via a subagent). Launch with:
-              <pre><code>claude --dangerously-skip-permissions</code></pre>
+              <div class="relative"><pre><code>claude --dangerously-skip-permissions</code></pre></div>
             </li>
             <li><strong class="text-gray-100">Runbook:</strong> <code class="text-emerald-400">docs/RUNBOOK.md</code> is the operator reference for <code class="text-emerald-400">/gmj-pipeline-run</code>.</li>
             <li><strong class="text-gray-100">Outputs:</strong> artifacts land in <code class="text-emerald-400">output/cv/</code> (gitignored); run state + gate verdicts in
@@ -1979,7 +1979,7 @@ node --version   # any recent Node works — zero npm deps required
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Part 1 — Deterministic Regression Sanity 🟢 (~2 min)</h3>
           <p class="mt-3 text-gray-300">Fast confidence check before behavioral work.</p>
-          <pre><code># 1.1 Full unit suite
+          <div class="relative"><pre><code># 1.1 Full unit suite
 for t in tests/test_*.py; do python3 "$t" &gt;/dev/null 2&gt;&amp;1 &amp;&amp; echo "PASS $t" || echo "FAIL $t"; done
 
 # 1.2 Contract sample gate (schemas + envelope hook)
@@ -1990,7 +1990,7 @@ python3 tests/test_e2e_guards.py
 
 # 1.4 Docs currency (every doc token resolves on disk)
 python3 tests/test_docs_current.py
-</code></pre>
+</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> every test file <code class="text-emerald-400">PASS</code>; <code class="text-emerald-400">run_samples.sh</code> → <code class="text-emerald-400">RESULT: PASS</code>; <code class="text-emerald-400">test_e2e_guards.py</code>
           and <code class="text-emerald-400">test_docs_current.py</code> → all green.<br>
           <strong class="text-gray-100">PASS criteria:</strong> zero <code class="text-emerald-400">FAIL</code> lines.</p>
@@ -2002,11 +2002,11 @@ python3 tests/test_docs_current.py
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> INSTALL-01..04 — one script takes a fresh machine to a working, config-preserved install.<br>
           <strong class="text-gray-100">Why human:</strong> needs a real filesystem/clone target; can't be sandboxed identically to production.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps:</strong></p>
-          <pre><code># Run-in-place mode (safe on your existing checkout)
+          <div class="relative"><pre><code># Run-in-place mode (safe on your existing checkout)
 bash gmj-core/bin/install.sh
 # Re-run it a second time — must be idempotent
 bash gmj-core/bin/install.sh
-</code></pre>
+</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> exit 0 both times; prerequisite check reports git/python3/pip/node all found; a
           <code class="text-emerald-400">.venv</code> is created (or reused, unchanged, on run 2 — spot-check <code class="text-emerald-400">stat .venv</code> timestamp); all 4
           <code class="text-emerald-400">requirements.txt</code> files installed; <code class="text-emerald-400">config/*.yaml</code> byte-identical before/after both runs
@@ -2018,10 +2018,10 @@ bash gmj-core/bin/install.sh
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> the conversational entry point routes a free-form goal to the right spoke.<br>
           <strong class="text-gray-100">Why human:</strong> routing judgment + a live <code class="text-emerald-400">Task</code> dispatch.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live, top level):</strong></p>
-          <pre><code>claude --dangerously-skip-permissions
+          <div class="relative"><pre><code>claude --dangerously-skip-permissions
 /gmj-collective
 # then ask it something concrete, e.g.: "render my CV as a PDF"
-</code></pre>
+</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> the hub follows the routing schema (User Request → Routing Analysis → Agent
           Selection → Task Delegation → Quality Gate → Result), names which spoke it's delegating to
           before calling <code class="text-emerald-400">Task</code>, and returns a real result (e.g. a rendered PDF path).<br>
@@ -2031,10 +2031,10 @@ bash gmj-core/bin/install.sh
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> the interviewer asks only about real profile gaps, one at a time, and writes
           write-free into the canonical YAML (via the configurator, never directly).</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live):</strong></p>
-          <pre><code>/gmj-interview</code></pre>
+          <div class="relative"><pre><code>/gmj-interview</code></pre></div>
           <p class="mt-2 text-gray-300">Answer 2–3 questions, including at least one search-preference question.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (deterministic backstop):</strong></p>
-          <pre><code>python3 scripts/preferences/gmj_validate_preferences.py --file config/preferences.yaml</code></pre>
+          <div class="relative"><pre><code>python3 scripts/preferences/gmj_validate_preferences.py --file config/preferences.yaml</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> questions are one-at-a-time, target real gaps (not already-filled fields);
           <code class="text-emerald-400">config/preferences.yaml</code> is written and validated as a subset-narrowing of <code class="text-emerald-400">config/sources.yaml</code>
           (never widening scope); profile facts route through <code class="text-emerald-400">gmj-candidate-configurator</code> (check
@@ -2047,15 +2047,15 @@ bash gmj-core/bin/install.sh
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> INTAKE-01/03/04 — ranked shortlist within scope, and accurate single-offer fielding.<br>
           <strong class="text-gray-100">Why human:</strong> ranking quality and field extraction are LLM judgment.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live):</strong></p>
-          <pre><code>/gmj-pipeline/scout</code></pre>
+          <div class="relative"><pre><code>/gmj-pipeline/scout</code></pre></div>
           <p class="mt-2 text-gray-300">Try it once in board-search mode (a role description) and once pasting a real posting
           (URL or text).</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (deterministic backstop):</strong></p>
-          <pre><code>cat .claude/logs/sources-scope.log   # confirm sources.yaml read logged before any web search
+          <div class="relative"><pre><code>cat .claude/logs/sources-scope.log   # confirm sources.yaml read logged before any web search
 python3 scripts/offers/gmj_freeze_offer.py --file &lt;fielded-draft.json&gt;
 ls sources/offers/*.offer-spec.json
 python3 scripts/offers/gmj_check_offer.py --file &lt;the offer-spec.json&gt;   # exit 0
-</code></pre>
+</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> board-search shortlist entries are all within <code class="text-emerald-400">config/sources.yaml</code>'s
           boards/geos/languages, plausibly fit-ordered; single-offer fielding extracts
           <code class="text-emerald-400">must_haves[]</code>/<code class="text-emerald-400">nice_to_haves[]</code>/<code class="text-emerald-400">seniority</code>/<code class="text-emerald-400">language</code>/<code class="text-emerald-400">title</code>/<code class="text-emerald-400">company</code> faithfully (not
@@ -2071,13 +2071,13 @@ python3 scripts/offers/gmj_check_offer.py --file &lt;the offer-spec.json&gt;   #
             <code class="text-emerald-400">git checkout -- config/candidate.yaml config/candidate.provenance.json</code>.</p>
           </blockquote>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live):</strong></p>
-          <pre><code>cp tests/fixtures/candidate/* sources/candidate/</code></pre>
+          <div class="relative"><pre><code>cp tests/fixtures/candidate/* sources/candidate/</code></pre></div>
           <p class="mt-2 text-gray-300">Then run <code class="text-emerald-400">gmj-candidate-analyzer</code> (emits a coverage manifest + findings, must NOT write
           <code class="text-emerald-400">candidate.yaml</code>), then <code class="text-emerald-400">gmj-candidate-configurator</code> (deep-merges into <code class="text-emerald-400">candidate.yaml</code>).</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (deterministic backstop):</strong></p>
-          <pre><code>python3 -c "import yaml; yaml.safe_load(open('config/candidate.yaml')); print('yaml OK')"
+          <div class="relative"><pre><code>python3 -c "import yaml; yaml.safe_load(open('config/candidate.yaml')); print('yaml OK')"
 python3 -c "import json; json.load(open('config/candidate.provenance.json')); print('provenance OK')"
-</code></pre>
+</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> coverage manifest lists <strong class="text-gray-100">every</strong> dropped file with a status (<code class="text-emerald-400">.doc</code> →
           <code class="text-emerald-400">needs-conversion</code>, <code class="text-emerald-400">.jpg</code> → <code class="text-emerald-400">extracted-vision</code> with real diploma content in findings, not
           metadata-only); <code class="text-emerald-400">candidate.yaml</code> parses and is enriched; provenance sidecar keys resolve into it;
@@ -2091,7 +2091,7 @@ python3 -c "import json; json.load(open('config/candidate.provenance.json')); pr
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live):</strong> run <code class="text-emerald-400">gmj-artifact-composer</code> for <code class="text-emerald-400">cv</code>, <code class="text-emerald-400">cover_letter</code>, and <code class="text-emerald-400">interview_prep</code>
           against one frozen offer-spec + <code class="text-emerald-400">config/candidate.yaml</code>.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (deterministic backstop):</strong></p>
-          <pre><code>python3 scripts/artifacts/gmj_check_claims.py --file &lt;cv.draft.json&gt; --candidate config/candidate.yaml</code></pre>
+          <div class="relative"><pre><code>python3 scripts/artifacts/gmj_check_claims.py --file &lt;cv.draft.json&gt; --candidate config/candidate.yaml</code></pre></div>
           <p class="mt-2 text-gray-300">For the retry check: feed a payload shaped like <code class="text-emerald-400">tests/fixtures/gate_feedback.sample.json</code> back
           in as a retry and confirm <code class="text-emerald-400">.pipeline/state.json</code>'s <code class="text-emerald-400">retry_counts[&lt;offer&gt;][&lt;type&gt;]</code> incremented.</p>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> three separate drafts, each in the offer's language, each a structured claims array
@@ -2112,7 +2112,7 @@ python3 -c "import json; json.load(open('config/candidate.provenance.json')); pr
             <li><code class="text-emerald-400">tests/fixtures/truth/bad.cross_entry_merge.draft.json</code> → expect <strong class="text-gray-100">FAIL</strong> (R4)</li>
             <li><code class="text-emerald-400">tests/fixtures/truth/subtle.conflation.draft.json</code> → expect <strong class="text-gray-100">FAIL</strong> (subtle merge)</li>
           </ul>
-          <pre><code>python3 tests/eval_truth.py --verdicts &lt;your-verdicts.json&gt;</code></pre>
+          <div class="relative"><pre><code>python3 tests/eval_truth.py --verdicts &lt;your-verdicts.json&gt;</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> accuracy <strong class="text-gray-100">1.0</strong> — every case classified correctly, each FAIL naming the offending
           claim.<br>
           <strong class="text-gray-100">PASS criteria:</strong> perfect score on the adversarial set. A miss here is a real finding, file it
@@ -2121,12 +2121,12 @@ python3 -c "import json; json.load(open('config/candidate.provenance.json')); pr
           <h3 class="mt-8 text-xl font-bold text-gray-100">Test 8 — Gate B (fit) + Gate C (polish) 🧠</h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> accurate claim→must-have mapping; polish scoring is advisory-only, never gates.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps:</strong></p>
-          <pre><code>python3 scripts/artifacts/gmj_score_fit.py --file tests/fixtures/fit/pass.draft.json \
+          <div class="relative"><pre><code>python3 scripts/artifacts/gmj_score_fit.py --file tests/fixtures/fit/pass.draft.json \
   --offer tests/fixtures/fit/offer.python-mid.sample.json \
   --coverage-map &lt;your-map.json&gt; --thresholds config/fit_thresholds.yaml
 python3 tests/calibrate_fit.py                       # SEPARATION check
 python3 tests/calibrate_fit.py --verdicts &lt;your-map.json&gt;
-</code></pre>
+</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> <code class="text-emerald-400">coverage_map</code> matches labeled coverage (pass/borderline/fail fixtures verdict
           correctly); Gate C polish scores are reasonable but <strong class="text-gray-100">never</strong> flip a Gate B pass/fail.<br>
           <strong class="text-gray-100">PASS criteria:</strong> correct verdicts; polish confirmed advisory-only.</p>
@@ -2136,11 +2136,11 @@ python3 tests/calibrate_fit.py --verdicts &lt;your-map.json&gt;
           <strong class="text-gray-100">real <code class="text-emerald-400">config/candidate.yaml</code></strong>, with <strong class="text-gray-100">no <code class="text-emerald-400">--artifact-types</code> flag</strong> (exercising the v4.0
           default: all three artifact types, each independently gated).</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live, top level):</strong></p>
-          <pre><code>claude --dangerously-skip-permissions
+          <div class="relative"><pre><code>claude --dangerously-skip-permissions
 /gmj-pipeline-run    (mode=human_in_the_loop | autonomous, offer=&lt;url-or-text&gt;)
-</code></pre>
+</code></pre></div>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Verify:</strong></p>
-          <pre><code># 3.1 Three PDFs/docs exist
+          <div class="relative"><pre><code># 3.1 Three PDFs/docs exist
 ls -la output/cv/*.pdf output/cv/*.html      # CV: both PDF and HTML sibling by default
 ls output/*cover* output/*interview*prep* 2&gt;/dev/null
 
@@ -2151,7 +2151,7 @@ cat .pipeline/runs/&lt;run_id&gt;-cv/state.json .pipeline/runs/&lt;run_id&gt;-cl
 
 # 3.3 Per-type delivery breakdown reported (never a collapsed boolean)
 python3 scripts/pipeline/gmj_check_delivery.py --state .pipeline/runs/&lt;run_id&gt;-cv/state.json
-</code></pre>
+</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> all three artifact types dispatched via independent <code class="text-emerald-400">Task(gmj-artifact-composer)</code>
           fan-out (not sequential re-use of one draft); CV produces both a PDF and a first-class saved
           HTML sibling by default; each type's Gate A and Gate B independently recorded <code class="text-emerald-400">pass</code>; the run
@@ -2169,16 +2169,16 @@ python3 scripts/pipeline/gmj_check_delivery.py --state .pipeline/runs/&lt;run_id
           generated CV and trace each to a real entry in <code class="text-emerald-400">config/candidate.yaml</code>. Any line that can't be
           traced is a Gate-A miss — file it even though the gate passed.</p>
           <p class="mt-4 text-gray-300">Also exercise the narrowing flag once:</p>
-          <pre><code>/gmj-pipeline-run  (offer=..., artifact-types=cv,cover_letter)</code></pre>
+          <div class="relative"><pre><code>/gmj-pipeline-run  (offer=..., artifact-types=cv,cover_letter)</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> only 2 artifact types dispatched; <code class="text-emerald-400">interview_prep</code> not attempted.</p>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Part 4 — 🔴 E2E Acceptance Run 2: Batch + Bounded Concurrency (<code class="text-emerald-400">/gmj-batch</code>)</h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> SELECT-02/03/04 (multi-offer batch) + CONC-01..06 (bounded parallel fan-out).<br>
           <strong class="text-gray-100">Why human:</strong> live multi-agent concurrent dispatch can't be exercised non-interactively.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live):</strong></p>
-          <pre><code>/gmj-pipeline/scout    (board-search — get a shortlist of 3+ offers)
+          <div class="relative"><pre><code>/gmj-pipeline/scout    (board-search — get a shortlist of 3+ offers)
 /gmj-batch             (select 2-3 offers)
-</code></pre>
+</code></pre></div>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">During the run, observe:</strong></p>
           <ol class="mt-2 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100">Concurrent dispatch:</strong> with <code class="text-emerald-400">max_parallel_offers</code> ≥ 2, confirm more than one offer's
@@ -2190,9 +2190,9 @@ python3 scripts/pipeline/gmj_check_delivery.py --state .pipeline/runs/&lt;run_id
               already-delivered offers are <strong class="text-gray-100">not</strong> redone.</li>
           </ol>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Verify:</strong></p>
-          <pre><code>python3 scripts/pipeline/gmj_runs.py inspect --batch &lt;batch_id&gt;
+          <div class="relative"><pre><code>python3 scripts/pipeline/gmj_runs.py inspect --batch &lt;batch_id&gt;
 cat .pipeline/batches/&lt;batch_id&gt;/manifest.json   # per-offer status: waiting/in_flight/delivered/gate_exhausted/error
-</code></pre>
+</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> the manifest shows per-offer status individually (never a single aggregate); a
           failed offer doesn't stall or corrupt siblings; resume skips delivered offers; Gate A/Gate B
           still enforce per-offer per-artifact-type (no shared/aggregate shortcut).<br>
@@ -2202,7 +2202,7 @@ cat .pipeline/batches/&lt;batch_id&gt;/manifest.json   # per-offer status: waiti
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> ERGO-02 — terse, accurate run/batch timeline with a runnable (never auto-executed)
           resume command.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps:</strong></p>
-          <pre><code>/gmj-runs</code></pre>
+          <div class="relative"><pre><code>/gmj-runs</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> lists recent runs/batches with status; the printed resume command for an
           interrupted run is copy-paste-runnable and matches the actual resume mechanism; nothing is
           executed by the inspector itself.<br>
@@ -2211,7 +2211,7 @@ cat .pipeline/batches/&lt;batch_id&gt;/manifest.json   # per-offer status: waiti
           <h3 class="mt-8 text-xl font-bold text-gray-100">Test 10 — <code class="text-emerald-400">/gmj-dashboard</code>: read-only cockpit + docs tab 🧠</h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> VIEW-01..16, DOCTAB-01..03 — a live, accurate, write-free projection of pipeline state.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live, in a real terminal — not headless):</strong></p>
-          <pre><code>/gmj-dashboard</code></pre>
+          <div class="relative"><pre><code>/gmj-dashboard</code></pre></div>
           <ol class="mt-2 list-disc list-inside space-y-1 text-gray-300">
             <li>Confirm the counters/runs table/domain-metrics panels update within ~1.5s of real state
               changes (kick off a run in another session if possible).</li>
@@ -2220,7 +2220,7 @@ cat .pipeline/batches/&lt;batch_id&gt;/manifest.json   # per-offer status: waiti
               (headings bold, lists indented) — not raw <code class="text-emerald-400">#</code>/<code class="text-emerald-400">**</code> characters. Escape closes it.</li>
             <li>Confirm the <strong class="text-gray-100">vacancies/batch rollup</strong> panel shows per-offer status individually (Phase 35).</li>
             <li>Try <code class="text-emerald-400">--manage</code> mode:
-              <pre><code>/gmj-dashboard --manage</code></pre>
+              <div class="relative"><pre><code>/gmj-dashboard --manage</code></pre></div>
               Confirm the repo-default config warning banner appears once; try launching a run from the
               board (<code class="text-emerald-400">r</code>) and confirm it's the identical gated flow as the CLI (no shortcut).</li>
           </ol>
@@ -2238,12 +2238,12 @@ cat .pipeline/batches/&lt;batch_id&gt;/manifest.json   # per-offer status: waiti
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Test 12 — Project cleanup report (read-only) 🟢</h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> CLEANUP-01/02 — the unused-file scanner is genuinely non-mutating.</p>
-          <pre><code>git status --porcelain &gt; /tmp/before.txt
+          <div class="relative"><pre><code>git status --porcelain &gt; /tmp/before.txt
 python3 scripts/gmj_cleanup_report.py
 git status --porcelain &gt; /tmp/after.txt
 diff /tmp/before.txt /tmp/after.txt   # expect: only sources/analysis/cleanup-report.md added
 cat sources/analysis/cleanup-report.md
-</code></pre>
+</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> the only filesystem change is the report file itself; candidates are tiered
           ("high confidence" vs "review recommended"); nothing with an active reference (docs/code/tests/
           schemas/hooks/frontmatter) is listed.<br>
@@ -2256,9 +2256,9 @@ cat sources/analysis/cleanup-report.md
           if you want to evaluate the alternate-runtime work itself.</p>
 
           <h4 class="mt-6 text-lg font-semibold text-gray-100">Test 13 — Claude Agent SDK prototype 🧪</h4>
-          <pre><code>pip install -r scripts/runtime/requirements.txt   # installs claude-agent-sdk for real
+          <div class="relative"><pre><code>pip install -r scripts/runtime/requirements.txt   # installs claude-agent-sdk for real
 python3 scripts/runtime/gmj_sdk_runner.py --spoke gmj-offer-scout --input '{"...":"..."}'
-</code></pre>
+</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> dispatches one spoke through the SDK and returns an <code class="text-emerald-400">agent_result_v1</code>-shaped
           envelope, validated via the same <code class="text-emerald-400">gmj_validate_envelope.py</code> the CLI path uses. Read
           <code class="text-emerald-400">scripts/runtime/HOOK-PARITY.md</code> — confirm the <code class="text-emerald-400">PreToolUse</code> scope-guard item is genuinely
@@ -2270,7 +2270,7 @@ python3 scripts/runtime/gmj_sdk_runner.py --spoke gmj-offer-scout --input '{"...
           <h4 class="mt-6 text-lg font-semibold text-gray-100">Test 14 — Cursor adapter (DV-24) 🧪</h4>
           <p class="mt-2 text-gray-300">Requires a real, authenticated Cursor account/CLI — this is the one item this project's own CI
           sandbox could never verify.</p>
-          <pre><code>node gmj-core/bin/gmj-cursor-adapter.cjs generate   # regenerate .cursor/agents/*.md, confirm no drift</code></pre>
+          <div class="relative"><pre><code>node gmj-core/bin/gmj-cursor-adapter.cjs generate   # regenerate .cursor/agents/*.md, confirm no drift</code></pre></div>
           <p class="mt-4 text-gray-300">Then, with a real Cursor session against this repo (or a scratch copy), attempt an
           off-<code class="text-emerald-400">sources.yaml</code>-scope web action and confirm whether the existing <code class="text-emerald-400">.claude/settings.json</code>
           <code class="text-emerald-400">PreToolUse</code> hook registration fires with no new <code class="text-emerald-400">.cursor/hooks.json</code> present (per
@@ -2282,11 +2282,11 @@ python3 scripts/runtime/gmj_sdk_runner.py --spoke gmj-offer-scout --input '{"...
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Part 8 — Sign-Off</h3>
           <p class="mt-3 text-gray-300">Record results with the tracker (keeps <code class="text-emerald-400">.planning/UAT-RESULTS.md</code> and <code class="text-emerald-400">.planning/STATE.md</code> in sync):</p>
-          <pre><code>python3 scripts/testing/gmj_record_uat.py --list
+          <div class="relative"><pre><code>python3 scripts/testing/gmj_record_uat.py --list
 python3 scripts/testing/gmj_record_uat.py --id T7 --result pass --notes "eval_truth 1.0"
 python3 scripts/testing/gmj_record_uat.py --id E2E-RUN1 --result pass --notes "run_id=&lt;id&gt;, 3/3 gate-passing"
 # results: pass | fail | blocked | pending
-</code></pre>
+</code></pre></div>
 
           <div class="mt-4 overflow-x-auto">
             <table class="w-full text-sm border-collapse">
@@ -2364,13 +2364,13 @@ python3 scripts/testing/gmj_record_uat.py --id E2E-RUN1 --result pass --notes "r
           <h3 class="mt-8 text-xl font-bold text-gray-100">Quick install (recommended)</h3>
           <p class="mt-3 text-gray-300">The steps below (payload staging, hook merge, Python render dependencies) are automated by
           one script:</p>
-          <pre><code>bash gmj-core/bin/install.sh</code></pre>
+          <div class="relative"><pre><code>bash gmj-core/bin/install.sh</code></pre></div>
           <p class="mt-4 text-gray-300">It is safe to re-run — the script is idempotent (INSTALL-02).</p>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Fresh install (no local checkout)</h3>
           <p class="mt-3 text-gray-300"><code class="text-emerald-400">install.sh</code> also supports running with no existing checkout on disk — piped straight from
           a <code class="text-emerald-400">curl</code> fetch of the raw script:</p>
-          <pre><code>curl -fsSL &lt;raw-url&gt;/install.sh | bash</code></pre>
+          <div class="relative"><pre><code>curl -fsSL &lt;raw-url&gt;/install.sh | bash</code></pre></div>
           <p class="mt-4 text-gray-300">In this mode the script clones the repository into a new directory (<code class="text-emerald-400">give-me-job</code> by
           default) before continuing the same install flow (<code class="text-emerald-400">.venv</code> bootstrap, Python dependency
           install, payload/config staging).</p>
@@ -2387,9 +2387,9 @@ python3 scripts/testing/gmj_record_uat.py --id E2E-RUN1 --result pass --notes "r
               and <code class="text-emerald-400">..</code> segments are rejected — and the script refuses to clone into a path that already
               exists (file, directory, or symlink).</li>
           </ul>
-          <pre><code>GMJ_REPO_URL=https://github.com/dallask/give-me-job.git \
+          <div class="relative"><pre><code>GMJ_REPO_URL=https://github.com/dallask/give-me-job.git \
 GMJ_INSTALL_DIR=my-give-me-job \
-  bash -c "curl -fsSL &lt;raw-url&gt;/install.sh | bash"</code></pre>
+  bash -c "curl -fsSL &lt;raw-url&gt;/install.sh | bash"</code></pre></div>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">What gets installed</h3>
 
@@ -2410,7 +2410,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
           dependencies (supply-chain hardening). It stages the payload into a caller-supplied target
           directory and then idempotently <strong class="text-gray-100">merges</strong> the target's <code class="text-emerald-400">.claude/settings.json</code>.</p>
           <p class="mt-4 text-gray-300">Invoke it from the source root:</p>
-          <pre><code>node gmj-core/bin/gmj-tools.cjs install &lt;target-dir&gt;</code></pre>
+          <div class="relative"><pre><code>node gmj-core/bin/gmj-tools.cjs install &lt;target-dir&gt;</code></pre></div>
           <p class="mt-4 text-gray-300">Installer behavior:</p>
           <ul class="mt-2 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100">Path containment.</strong> The target dir and every manifest path are resolved absolute and
@@ -2432,18 +2432,18 @@ GMJ_INSTALL_DIR=my-give-me-job \
           stay tied to that venv's own interpreter rather than polluting the system Python. If you are
           installing manually instead of running <code class="text-emerald-400">install.sh</code>, create and activate the same <code class="text-emerald-400">.venv</code>
           first, then install through it (same order <code class="text-emerald-400">install.sh</code> uses):</p>
-          <pre><code>python3 -m venv .venv</code></pre>
+          <div class="relative"><pre><code>python3 -m venv .venv</code></pre></div>
           <p class="mt-4 text-gray-300">Envelope validation requires <code class="text-emerald-400">jsonschema</code>:</p>
-          <pre><code>.venv/bin/python -m pip install -r scripts/contracts/requirements.txt</code></pre>
+          <div class="relative"><pre><code>.venv/bin/python -m pip install -r scripts/contracts/requirements.txt</code></pre></div>
           <p class="mt-4 text-gray-300">The <code class="text-emerald-400">gmj-dashboard</code> Textual TUI cockpit requires a pinned <code class="text-emerald-400">textual</code>:</p>
-          <pre><code>.venv/bin/python -m pip install -r scripts/dashboard/requirements.txt</code></pre>
+          <div class="relative"><pre><code>.venv/bin/python -m pip install -r scripts/dashboard/requirements.txt</code></pre></div>
           <p class="mt-4 text-gray-300">This installs the render stack — notably <strong class="text-gray-100">reportlab</strong> (the built-in ReportLab CV layout
           engine), <strong class="text-gray-100">PyYAML</strong>, <strong class="text-gray-100">Jinja2</strong>, and <strong class="text-gray-100">pypdf</strong> — plus the document-extraction support
           libraries (<code class="text-emerald-400">python-docx</code>, <code class="text-emerald-400">openpyxl</code>, <code class="text-emerald-400">Pillow</code>, <code class="text-emerald-400">PyMuPDF</code>). <strong class="text-gray-100">WeasyPrint</strong> ships in the same
           file and stays optional (only needed for HTML-template rendering):</p>
-          <pre><code>.venv/bin/python -m pip install -r scripts/cv/requirements.txt</code></pre>
+          <div class="relative"><pre><code>.venv/bin/python -m pip install -r scripts/cv/requirements.txt</code></pre></div>
           <p class="mt-4 text-gray-300">The preferences validator (<code class="text-emerald-400">gmj_validate_preferences.py</code>) requires <code class="text-emerald-400">PyYAML</code> + <code class="text-emerald-400">jsonschema</code>:</p>
-          <pre><code>.venv/bin/python -m pip install -r scripts/preferences/requirements.txt</code></pre>
+          <div class="relative"><pre><code>.venv/bin/python -m pip install -r scripts/preferences/requirements.txt</code></pre></div>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Cyrillic fonts (ua / ru)</h3>
           <p class="mt-3 text-gray-300">Rendering <strong class="text-gray-100">ua / ru Cyrillic</strong> CVs needs a Unicode font. The <strong class="text-gray-100">bundled DejaVu fonts</strong> under
@@ -2502,7 +2502,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
           Per-kind schemas <code class="text-emerald-400">$ref</code> this base rather than redefining it, so existing emitters stay
           valid (the contract is back-compat locked).</p>
           <p class="mt-4 text-gray-300">Envelope fields:</p>
-          <pre><code>{
+          <div class="relative"><pre><code>{
   "schema": "agent_result_v1",
   "schema_version": "1.0.0",
   "agent": "gmj-offer-scout",
@@ -2516,7 +2516,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
   "next_action": "none",
   "handoff_target": null,
   "notes": "One-line key outcome, counts, or handoff reason."
-}</code></pre>
+}</code></pre></div>
           <ul class="mt-2 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100"><code class="text-emerald-400">schema</code></strong> — always the literal string <code class="text-emerald-400">"agent_result_v1"</code>. <strong class="text-gray-100">Required.</strong></li>
             <li><strong class="text-gray-100"><code class="text-emerald-400">status</code></strong> — one of <code class="text-emerald-400">success</code>, <code class="text-emerald-400">fail</code>, <code class="text-emerald-400">gap_report_ready</code>, <code class="text-emerald-400">handoff</code>. <strong class="text-gray-100">Required.</strong></li>
@@ -2571,7 +2571,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
           <p class="mt-2 text-gray-300">A draft artifact emitted by <code class="text-emerald-400">gmj-artifact-composer</code>, pinning <code class="text-emerald-400">kind: "artifact_draft"</code> and
           <code class="text-emerald-400">schema_version: "1.0"</code>. Its <code class="text-emerald-400">content</code> carries a provenance-tagged <code class="text-emerald-400">claims</code> array,
           discriminated by <code class="text-emerald-400">artifact_type</code>:</p>
-          <pre><code>{
+          <div class="relative"><pre><code>{
   "artifact_type": "cv",
   "language": "en",
   "claims": [
@@ -2582,7 +2582,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
       "reframing_note": "emphasis only — no new scope"
     }
   ]
-}</code></pre>
+}</code></pre></div>
           <ul class="mt-2 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100"><code class="text-emerald-400">artifact_type</code></strong> — one of <code class="text-emerald-400">cv</code>, <code class="text-emerald-400">cover_letter</code>, <code class="text-emerald-400">interview_prep</code>.</li>
             <li><strong class="text-gray-100"><code class="text-emerald-400">language</code></strong> — one of <code class="text-emerald-400">ua</code>, <code class="text-emerald-400">ru</code>, <code class="text-emerald-400">en</code> (the offer's single target language).</li>
@@ -2610,13 +2610,13 @@ GMJ_INSTALL_DIR=my-give-me-job \
           <p class="mt-2 text-gray-300">The structured-only retry feedback projected from a <code class="text-emerald-400">gate_result</code> by
           <code class="text-emerald-400">gmj_map_feedback.py</code>. It is <code class="text-emerald-400">additionalProperties: false</code> so no evaluator prose, transcript,
           or gate stdout can leak back into a re-compose:</p>
-          <pre><code>{
+          <div class="relative"><pre><code>{
   "gate": "A",
   "missing_must_haves": [],
   "fabricated_claims": [
     { "claims_index": 3, "source_span": "skills[7]", "reason": "no matching source span" }
   ]
-}</code></pre>
+}</code></pre></div>
           <ul class="mt-2 list-disc list-inside space-y-1 text-gray-300">
             <li><strong class="text-gray-100"><code class="text-emerald-400">gate</code></strong> — <code class="text-emerald-400">A</code> or <code class="text-emerald-400">B</code>.</li>
             <li><strong class="text-gray-100"><code class="text-emerald-400">missing_must_haves</code></strong> — plain string array (Gate B coverage gaps).</li>
@@ -2875,17 +2875,17 @@ GMJ_INSTALL_DIR=my-give-me-job \
           and installs all four dependency files (<code class="text-emerald-400">scripts/contracts/</code>, <code class="text-emerald-400">scripts/dashboard/</code>,
           <code class="text-emerald-400">scripts/cv/</code>, <code class="text-emerald-400">scripts/preferences/</code>) plus stages config/hooks:</p>
 
-          <pre><code>bash gmj-core/bin/install.sh</code></pre>
+          <div class="relative"><pre><code>bash gmj-core/bin/install.sh</code></pre></div>
 
           <p class="mt-4 text-gray-300">If installing manually instead, from the repository root, install each requirements file
           through the same <code class="text-emerald-400">.venv</code> (see <a href="#installation" class="text-indigo-400 hover:text-indigo-300">Installation</a> for the full
           reference):</p>
 
-          <pre><code>python3 -m venv .venv
+          <div class="relative"><pre><code>python3 -m venv .venv
 .venv/bin/python -m pip install -r scripts/contracts/requirements.txt
 .venv/bin/python -m pip install -r scripts/dashboard/requirements.txt
 .venv/bin/python -m pip install -r scripts/cv/requirements.txt
-.venv/bin/python -m pip install -r scripts/preferences/requirements.txt</code></pre>
+.venv/bin/python -m pip install -r scripts/preferences/requirements.txt</code></pre></div>
 
           <p class="mt-4 text-gray-300">The <code class="text-emerald-400">scripts/cv/requirements.txt</code> install brings in the render stack — notably
           <strong class="text-gray-100">reportlab</strong> (the built-in ReportLab CV layout engine) and <strong class="text-gray-100">PyYAML</strong> / <strong class="text-gray-100">pypdf</strong>. The
@@ -2898,10 +2898,10 @@ GMJ_INSTALL_DIR=my-give-me-job \
           <code class="text-emerald-400">config/candidate.yaml</code> (the single source of truth — every artifact claim must trace back
           to it):</p>
 
-          <pre><code>claude --dangerously-skip-permissions
+          <div class="relative"><pre><code>claude --dangerously-skip-permissions
 # then, in the session:
 /gmj-pipeline-run
-# state your: mode (human_in_the_loop | autonomous), offer (URL/text or offer-spec.json), run_id?</code></pre>
+# state your: mode (human_in_the_loop | autonomous), offer (URL/text or offer-spec.json), run_id?</code></pre></div>
 
           <h4 class="mt-6 text-lg font-semibold text-gray-100">Default artifact set — all three, independently gated</h4>
           <p class="mt-2 text-gray-300"><code class="text-emerald-400">/gmj-pipeline-run</code> produces <strong class="text-gray-100">all three artifact types by default</strong> — CV, cover letter,
@@ -3020,19 +3020,19 @@ GMJ_INSTALL_DIR=my-give-me-job \
           <p class="mt-3 text-gray-300">Take one concrete offer to make the guarantees fire. The candidate's <code class="text-emerald-400">config/candidate.yaml</code>
           contains (abbreviated):</p>
 
-          <pre><code>professional_experience:
+          <div class="relative"><pre><code>professional_experience:
   - title: "Sample Backend Engineer"
     achievements:
-      - "Led AI-assisted engineering adoption across the 20-person delivery team in 2025&ndash;2026"</code></pre>
+      - "Led AI-assisted engineering adoption across the 20-person delivery team in 2025&ndash;2026"</code></pre></div>
 
           <p class="mt-4 text-gray-300">The offer is a <strong class="text-gray-100">Senior Backend Engineer</strong> posting whose frozen <code class="text-emerald-400">offer_spec</code> carries these
           <code class="text-emerald-400">must_haves</code> (5 required):</p>
 
-          <pre><code>MH-1  Python backend services
+          <div class="relative"><pre><code>MH-1  Python backend services
 MH-2  REST / HTTP API design
 MH-3  PostgreSQL / relational data
 MH-4  Team leadership
-MH-5  CI/CD delivery pipelines</code></pre>
+MH-5  CI/CD delivery pipelines</code></pre></div>
 
           <p class="mt-4 text-gray-300">The flow:</p>
           <ol class="mt-2 list-disc list-inside space-y-1 text-gray-300">
@@ -3057,9 +3057,9 @@ MH-5  CI/CD delivery pipelines</code></pre>
 
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">A truthful reframe — ALLOWED (PASS).</strong> The composer foregrounds a real fact in different words:</p>
 
-          <pre><code>span   professional_experience[0].achievements[0]:
+          <div class="relative"><pre><code>span   professional_experience[0].achievements[0]:
        "Led AI-assisted engineering adoption across the 20-person delivery team in 2025&ndash;2026"
-claim  "Led a 20-person delivery team"          &rarr; PASS</code></pre>
+claim  "Led a 20-person delivery team"          &rarr; PASS</code></pre></div>
 
           <p class="mt-4 text-gray-300">The digit <code class="text-emerald-400">20</code> is literally present in the cited span, so surfacing "20-person delivery team" is an
           emphasis reframe, not an invention. This is exactly the kind of offer-optimization the collective is
@@ -3067,8 +3067,8 @@ claim  "Led a 20-person delivery team"          &rarr; PASS</code></pre>
 
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">A fabrication — HARD-BLOCKED (FAIL, loops back).</strong> Suppose an over-eager draft line reads:</p>
 
-          <pre><code>span   professional_experience[0].achievements[0]:  (contains no percentage)
-claim  "Cut delivery time by 40%"                &rarr; FAIL  (numeric_invention)</code></pre>
+          <div class="relative"><pre><code>span   professional_experience[0].achievements[0]:  (contains no percentage)
+claim  "Cut delivery time by 40%"                &rarr; FAIL  (numeric_invention)</code></pre></div>
 
           <p class="mt-4 text-gray-300">The digit <code class="text-emerald-400">40</code> is absent from the cited span. Gate A hard-blocks, names the offending line back to
           <code class="text-emerald-400">gmj-artifact-composer</code>, and the draft loops for a re-compose. <strong class="text-gray-100">Gate A is non-bypassable in any
@@ -3087,13 +3087,13 @@ claim  "Cut delivery time by 40%"                &rarr; FAIL  (numeric_invention
 
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">A below-threshold draft — LOOPS BACK.</strong> The first composed CV covers only 3 of the 5 must-haves:</p>
 
-          <pre><code>MH-1  Python backend services      &check;
+          <div class="relative"><pre><code>MH-1  Python backend services      &check;
 MH-2  REST / HTTP API design        &check;
 MH-4  Team leadership               &check;   (the truthful "20-person delivery team" reframe)
 MH-3  PostgreSQL / relational data  &cross;
 MH-5  CI/CD delivery pipelines      &cross;
 
-coverage = 3/5 = 0.60   &lt;   0.70 threshold   &rarr; Gate B FAIL</code></pre>
+coverage = 3/5 = 0.60   &lt;   0.70 threshold   &rarr; Gate B FAIL</code></pre></div>
 
           <p class="mt-4 text-gray-300">Gate B hard-blocks and loops back to <code class="text-emerald-400">gmj-artifact-composer</code> with structured feedback
           <code class="text-emerald-400">{missing_must_haves: [MH-3, MH-5]}</code>, bounded by the retry cap. The secondary signals
@@ -3103,7 +3103,7 @@ coverage = 3/5 = 0.60   &lt;   0.70 threshold   &rarr; Gate B FAIL</code></pre>
           <p class="mt-4 text-gray-300">The composer re-drafts, surfacing the candidate's <em>real</em> PostgreSQL and CI/CD experience from
           <code class="text-emerald-400">config/candidate.yaml</code> (both must still pass Gate A):</p>
 
-          <pre><code>coverage = 5/5 = 1.00   &gt;=   0.70 threshold   &rarr; Gate B PASS</code></pre>
+          <div class="relative"><pre><code>coverage = 5/5 = 1.00   &gt;=   0.70 threshold   &rarr; Gate B PASS</code></pre></div>
 
           <p class="mt-4 text-gray-300">Gate C then scores advisory polish (five dimensions) and reports it in the <code class="text-emerald-400">why</code> — it never blocks
           delivery. Both hard gates are now green.</p>

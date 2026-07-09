@@ -114,3 +114,59 @@ document.addEventListener('DOMContentLoaded', function () {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 });
+
+// Copy-to-clipboard buttons for fenced code blocks — guarded no-op on pages with
+// zero <pre><code> blocks (contact.html, index.html, about.html).
+document.addEventListener('DOMContentLoaded', function () {
+  var codeBlocks = document.querySelectorAll('pre code');
+
+  if (!codeBlocks || codeBlocks.length === 0) {
+    return;
+  }
+
+  var CLIPBOARD_ICON =
+    '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+  var CHECK_ICON =
+    '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+  for (var i = 0; i < codeBlocks.length; i++) {
+    (function (codeEl) {
+      var preEl = codeEl.parentElement;
+      if (!preEl) {
+        return;
+      }
+
+      var wrapper = preEl.parentElement;
+      if (!wrapper || !wrapper.classList.contains('relative')) {
+        return;
+      }
+
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className =
+        'absolute top-2 right-2 inline-flex items-center justify-center rounded-md border border-gray-700 bg-gray-800 p-1.5 text-gray-300 hover:bg-gray-700 hover:text-gray-100 transition-colors';
+      button.setAttribute('aria-label', 'Copy code to clipboard');
+      button.innerHTML = CLIPBOARD_ICON;
+
+      var resetTimer = null;
+
+      button.addEventListener('click', function () {
+        navigator.clipboard.writeText(codeEl.textContent)
+          .then(function () {
+            button.innerHTML = CHECK_ICON;
+            if (resetTimer) {
+              clearTimeout(resetTimer);
+            }
+            resetTimer = setTimeout(function () {
+              button.innerHTML = CLIPBOARD_ICON;
+            }, 1500);
+          })
+          .catch(function () {
+            // Clipboard permission denied or unavailable — leave the default icon, no throw.
+          });
+      });
+
+      wrapper.appendChild(button);
+    })(codeBlocks[i]);
+  }
+});
