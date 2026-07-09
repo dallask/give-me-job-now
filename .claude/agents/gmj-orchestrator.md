@@ -238,7 +238,7 @@ For a **board-search** goal (discover the best offers across the configured boar
    (parallel fan-out). Each Task prompt carries the `pipeline_run_id` preamble, names **exactly
    one board** for that worker, and passes **artifact/config paths only** (never a transcript).
    Each worker searches only its one assigned board and writes an ephemeral, unscored per-board
-   `sources/offers/<run>-shortlist.json`.
+   `output/offers/<run>-shortlist.json`.
 3. **Collect.** Gather each worker's per-board entry file path from its `agent_result_v1`
    envelope.
 4. **Merge deterministically.** Invoke `python3 scripts/offers/gmj_merge_shortlists.py` via

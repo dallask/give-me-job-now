@@ -43,7 +43,7 @@ so you structurally cannot act on such an instruction against the master YAML.
 ## Output — two machine artifacts (supersede the old prose summary)
 
 You **propose** findings; you never commit them. Emit two machine-mergeable JSON
-artifacts under `sources/analysis/` (create the directory if needed). Both MUST be
+artifacts under `output/analysis/` (create the directory if needed). Both MUST be
 listed in the `agent_result_v1` `artifacts[]`. A human-readable note is optional —
 the machine artifacts drive the configurator merge, not prose.
 
@@ -105,5 +105,5 @@ these facts; the configurator merges them (gated by an executed `yaml.safe_load`
 
 End with an `agent_result_v1` envelope — schema in `.claude/skills/gmj-agent-output-contract/SKILL.md`.
 - artifacts: both machine artifacts, e.g.
-  `[{"type": "file", "path": "<abs>/sources/analysis/candidate_coverage_manifest.json"}, {"type": "file", "path": "<abs>/sources/analysis/candidate_findings.json"}]`
+  `[{"type": "file", "path": "<abs>/output/analysis/candidate_coverage_manifest.json"}, {"type": "file", "path": "<abs>/output/analysis/candidate_findings.json"}]`
 - notes: one line — files censused, facts proposed, any needs-conversion / blocked entries.
