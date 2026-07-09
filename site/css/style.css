@@ -78,6 +78,14 @@ code {
   word-break: break-word;
 }
 
+/* Table cells are the exception: commands/filenames (emerald `<code>`) inside docs tables
+   read poorly when broken mid-word (e.g. "gmj-orchestrator" splitting across several lines).
+   Tables already have their own `overflow-x-auto` wrapper, so keeping this text unbreakable
+   here just scrolls within the table itself instead of affecting the page. */
+table code {
+  white-space: nowrap;
+}
+
 /* Smooth expand/collapse for the header hamburger menu + docs-sidebar mobile dropdown.
    CSS cannot transition to/from display:none, so `hidden` (Tailwind's display:none) stays
    the true closed/at-rest state, and JS toggles this `.menu-open` class alongside it —
