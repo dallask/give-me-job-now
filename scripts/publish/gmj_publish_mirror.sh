@@ -230,8 +230,11 @@ echo "  denylist git grep: 0 hits across all history."
 step "VERIFICATION GATE (hard-when-present) — gitleaks"
 if [ "$GITLEAKS_PRESENT" -eq 1 ]; then
   GITLEAKS_CONFIG_ARGS=()
-  if [ -f "$TMPDIR_CLONE/.gitleaks.toml" ]; then
-    GITLEAKS_CONFIG_ARGS=(--config "$TMPDIR_CLONE/.gitleaks.toml")
+  # Read from REPO_ROOT (the private repo), not the filtered clone — .gitleaks.toml
+  # is excluded from the mirror (paths-to-remove.txt) so it never ships publicly,
+  # same pattern as public-assets/'s README/LICENSE injection above.
+  if [ -f "$REPO_ROOT/.gitleaks.toml" ]; then
+    GITLEAKS_CONFIG_ARGS=(--config "$REPO_ROOT/.gitleaks.toml")
   fi
   if ! gitleaks detect --source "$TMPDIR_CLONE" --no-banner "${GITLEAKS_CONFIG_ARGS[@]}"; then
     fail "gitleaks detected findings in the filtered mirror. Aborting before any push."

@@ -54,3 +54,9 @@ TUI/
 # Internal presentation prep material (prompts, speaker notes, review drafts)
 # — not part of the public project.
 Presentation/
+
+# Internal gitleaks scan config (this repo's own manifest-hash false-positive
+# allowlist) — not relevant to the public repo. Safe to strip: the publisher's
+# gitleaks step now reads .gitleaks.toml from $REPO_ROOT directly (same
+# pattern as public-assets/'s README/LICENSE injection), not from this mirror.
+.gitleaks.toml
