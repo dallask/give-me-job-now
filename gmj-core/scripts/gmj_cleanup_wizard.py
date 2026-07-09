@@ -241,15 +241,41 @@ def main(argv: list[str] | None = None) -> int:
         print("Deletion declined, exiting.")
         return 0
 
-    for label in selected:
+    # Track per-category outcomes rather than aborting on the first failure: this is a
+    # destructive, "cannot be undone" operation, so a failure partway through the
+    # `selected` list must leave the operator with an unambiguous summary of what was
+    # already deleted, what failed, and what was never attempted — never just the one
+    # FAIL line for whichever category broke.
+    succeeded: list[str] = []
+    failed: list[tuple[str, Exception]] = []
+    not_attempted: list[str] = []
+    for index, label in enumerate(selected):
         category_path = _category_path(repo_root, label, CATEGORIES[label])
 
         try:
             resolved = resolve_category_path(repo_root, category_path)
             delete_category(resolved, label)
+            succeeded.append(label)
         except Exception as exc:  # noqa: BLE001  fail-closed: report, never silently skip
             print(f"FAIL: could not delete {label} ({category_path}): {exc}", file=sys.stderr)
-            return 1
+            failed.append((label, exc))
+            not_attempted.extend(selected[index + 1:])
+            break
+
+    if succeeded:
+        print(f"Deleted: {', '.join(succeeded)}")
+    if failed:
+        print(
+            f"NOT deleted (failed): {', '.join(label for label, _ in failed)}",
+            file=sys.stderr,
+        )
+    if not_attempted:
+        print(
+            f"NOT deleted (not attempted after earlier failure): {', '.join(not_attempted)}",
+            file=sys.stderr,
+        )
+    if failed:
+        return 1
 
     print("Done.")
     return 0
