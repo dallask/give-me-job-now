@@ -168,7 +168,7 @@ checkout on disk. See [installation.md](installation.md).
 
 `scripts/gmj_cleanup_report.py` is a read-only, report-only unused-file/folder scanner gated by
 the same ownership manifest that scopes the `gmj-` rebrand — it proposes candidates for human
-review under `sources/analysis/cleanup-report.md` and contains no deletion/rename/move code
+review under `output/analysis/cleanup-report.md` and contains no deletion/rename/move code
 path.
 
 ### Operator ergonomics

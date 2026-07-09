@@ -31,12 +31,12 @@ This repository is a **hub-and-spoke job/CV collective**: given a real job offer
 | Language overlays | `config/candidate.ua.yaml`, `config/candidate.ru.yaml` |
 | i18n section labels | `config/i18n/labels.yaml` |
 | Raw materials & notes | `sources/` |
-| Market briefs | `sources/research/[skill]-market-brief.md` |
-| CV gap reports | `sources/analysis/cv-[skill]-[lang]-gaps.md` |
-| Normalized vacancies | `sources/vacancies/` |
-| Analyzer / review artifacts | `sources/analysis/` |
+| Market briefs | `output/research/[skill]-market-brief.md` |
+| CV gap reports | `output/analysis/cv-[skill]-[lang]-gaps.md` |
+| Normalized vacancies | `output/vacancies/` |
+| Analyzer / review artifacts | `output/analysis/` |
 | Cleanup report tool | `scripts/gmj_cleanup_report.py` |
-| Cleanup report output | `sources/analysis/cleanup-report.md` |
+| Cleanup report output | `output/analysis/cleanup-report.md` |
 | CV PDFs | `output/cv/` |
 | Extract & render CLI | `scripts/cv/gmj_extract.py`, `scripts/cv/gmj_render_cv.py` |
 | Optional HTML PDF template | `templates/cv/default.html` (requires WeasyPrint) |

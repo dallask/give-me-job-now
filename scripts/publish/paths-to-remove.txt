@@ -20,7 +20,9 @@
 .planning/
 
 # Real per-offer generated artifact drafts (CV/cover-letter/interview-prep JSON).
-sources/artifacts/
+# Belt-and-suspenders: output/artifacts/* is independently git-ignored (Plan 42-01),
+# so this glob is defense-in-depth, not the sole control.
+output/artifacts/
 
 # Real generated interview-prep markdown docs.
 glob:output/interview-prep-*.md
