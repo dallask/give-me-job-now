@@ -1,0 +1,12 @@
+[project]
+name = "give-me-job"
+version = "4.0.0"
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+commit_parser = "conventional"
+tag_format = "v{version}"
+build_command = ""
+
+[tool.semantic_release.branches.main]
+match = "main"
