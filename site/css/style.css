@@ -5,6 +5,12 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Safety net: nothing should be able to force horizontal scroll on the page itself
+   (long inline code/paths are wrapped instead, per the `code` rule below). */
+body {
+  overflow-x: hidden;
+}
+
 /* Sticky sidebar-nav offset used on docs.html so anchor jumps land below the sticky header. */
 .docs-anchor-target {
   scroll-margin-top: 5rem;
@@ -38,4 +44,12 @@ pre code {
   display: block;
   overflow-x: auto;
   white-space: pre;
+  word-break: normal;
+}
+
+/* Inline `code` (not in a <pre> block) can contain long unbroken paths/strings — wrap them
+   instead of letting them force horizontal scroll on the whole page on mobile. */
+code {
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
