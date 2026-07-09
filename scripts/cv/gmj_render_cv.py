@@ -21,6 +21,7 @@ from xml.sax.saxutils import escape
 # Same import idiom as scripts/cv/gmj_draft_to_cv_yaml.py (scripts/artifacts on sys.path).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "artifacts"))
 from gmj_schema_fields import CONTACT, WEBSITE_GROUPS  # noqa: E402  (both must be USED, not just imported)
+from gmj_format_fields import contact_lines  # noqa: E402  (single-owner shared formatter, PIPE-02)
 
 LANGS = ("en", "ua", "ru")
 DEFAULT_LANG = "en"
@@ -168,54 +169,27 @@ def candidate_with_embedded_photo(candidate: dict, repo_root: Path) -> dict:
     return out
 
 
-def _contact_lines(contact: dict) -> list[str]:
-    """Build contact strings by SHAPE — never by string-formatting a bare container.
+def _warn_unknown_contact_keys(contact: dict) -> None:
+    """Warn (never raise) on contact/website keys outside the schema registry (SCHEMA-06).
 
-    Consumes the nested v2.0 ``contact`` schema (email is a list, ``website`` is a mapping
-    of ``personal``/``company``/``portfolio`` URL lists plus a ``media`` label→url dict, and
-    ``messengers`` is a label→handle dict). Every access is guarded with ``or []`` / ``or {}``
-    and every appended line is a plain string, so no ``[`` or ``{`` container-repr can ever
-    leak into the rendered PDF (SCHEMA-02). Group names come from the ``WEBSITE_GROUPS``
-    registry (SCHEMA-06) rather than being re-declared here.
+    A real, non-hollow use of the CONTACT/WEBSITE_GROUPS registry in the renderer itself:
+    catches schema drift (a new field added to candidate.yaml's contact block that the
+    registry — and therefore contact_lines() — does not yet know about) without blocking
+    the render.
     """
-    # Field names come from the CONTACT registry (SCHEMA-06) — never re-declared as
-    # bare literals here, so a rename of the schema owner cannot silently drift.
-    phone_key, email_key, address_key, website_key, messengers_key = CONTACT
-    lines: list[str] = []
     if not isinstance(contact, dict):
-        return lines
-    if contact.get(phone_key):
-        lines.append(f"Phone: {contact[phone_key]}")
-    emails = contact.get(email_key) or []
-    if emails:
-        if isinstance(emails, (list, tuple)):
-            joined = ", ".join(str(e) for e in emails)
-        else:
-            joined = str(emails)
-        if joined:
-            lines.append(f"Email: {joined}")
-    if contact.get(address_key):
-        lines.append(str(contact[address_key]))
-    web = contact.get(website_key) or {}
+        return
+    unknown = sorted(set(contact) - set(CONTACT) - {"photo"})
+    if unknown:
+        print(f"Warning: unrecognized contact key(s) not in schema registry: {unknown}", file=sys.stderr)
+    web = contact.get("website")
     if isinstance(web, dict):
-        # URL-list groups (every WEBSITE_GROUPS entry except the "media" label→url dict).
-        for group in WEBSITE_GROUPS:
-            if group == "media":
-                continue
-            for url in web.get(group) or []:
-                if url:
-                    lines.append(str(url))
-        media = web.get("media")
-        media = media if isinstance(media, dict) else {}
-        for label, url in media.items():
-            if url:
-                lines.append(f"{str(label).capitalize()}: {url}")
-    messengers = contact.get(messengers_key)
-    messengers = messengers if isinstance(messengers, dict) else {}
-    for label, handle in messengers.items():
-        if handle:
-            lines.append(f"{str(label).capitalize()}: {handle}")
-    return lines
+        unknown_groups = sorted(set(web) - set(WEBSITE_GROUPS))
+        if unknown_groups:
+            print(
+                f"Warning: unrecognized contact.website key(s) not in schema registry: {unknown_groups}",
+                file=sys.stderr,
+            )
 
 
 def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels: dict) -> None:
@@ -282,7 +256,8 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
 
     photo_path = photo_path_for(candidate, repo_root)
     contact = candidate.get("contact") or {}
-    contact_bits = _contact_lines(contact)
+    _warn_unknown_contact_keys(contact)
+    contact_bits = contact_lines(contact)
     contact_html = "<br/>".join(escape(b) for b in contact_bits)
 
     left_cell: list = [
@@ -453,6 +428,7 @@ def render_weasyprint_html(
         loader=FileSystemLoader(str(template_path.parent)),
         autoescape=select_autoescape(["html", "xml"]),
     )
+    env.filters["contact_lines"] = contact_lines
     tpl = env.get_template(template_path.name)
     br = repo_root.resolve()
     base_uri = br.as_uri()
