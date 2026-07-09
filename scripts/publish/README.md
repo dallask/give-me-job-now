@@ -6,8 +6,15 @@ confirmation — pushes it to a separate public GitHub repo:
 **https://github.com/dallask/give-me-job-now** (MIT license).
 
 This publishes a **snapshot mirror**, not a synced fork: the private repo keeps real candidate
-data for daily use; the public repo ships the same code/docs with all PII stripped and
+data for daily use; the destination repo ships the same code/docs with all PII stripped and
 `config/*.yaml` swapped for the `gmj-core/config/*.sample` synthetic payloads.
+
+> **Destination visibility.** The script is **visibility-agnostic**: it never checks or requires
+> the destination repo's GitHub visibility (private vs. public) before pushing. During setup and
+> testing the destination repo (`give-me-job-now`) may be **private**; the operator flips it to
+> public manually, on GitHub, only once satisfied with the mirrored result. The PII-safety gates
+> (denylist `git grep` + gitleaks) are HARD regardless of destination visibility — that guarantee
+> does not depend on, or change with, whether the repo happens to be public yet.
 
 ## Prerequisites
 
