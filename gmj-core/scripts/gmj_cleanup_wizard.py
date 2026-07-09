@@ -71,6 +71,30 @@ def compute_category_stats(path: Path) -> tuple[int, int]:
     return count, size
 
 
+def validate_repo_root(repo_root: Path) -> Path:
+    """Resolve ``repo_root`` and reject it if it does not look like this repo's root.
+
+    Guards against the wider blast radius an unauthenticated ``--repo-root`` override
+    would otherwise have: ``resolve_category_path()`` only checks that a category path
+    is contained *within* whatever ``repo_root`` it is given — it has no way to know
+    whether that root is actually this repository. Without this check, ``--repo-root /``
+    (or any other arbitrary tree) would cause every category to "legitimately" resolve
+    inside that root and pass containment trivially, and a subsequent confirmed delete
+    would ``shutil.rmtree()`` real paths far outside this project. Requiring a ``.git``
+    directory at the resolved root is a cheap, effective sentinel check — this tool is
+    only ever meant to run against a git checkout of this repo (or a test fixture that
+    deliberately sets up its own ``.git`` marker). Raises ``ValueError`` naming the
+    offending root if the sentinel is missing.
+    """
+    resolved_root = repo_root.resolve()
+    if not (resolved_root / ".git").exists():
+        raise ValueError(
+            f"--repo-root {resolved_root} does not look like a git repo root (no "
+            f".git entry found) — refusing to treat it as a deletion boundary"
+        )
+    return resolved_root
+
+
 def resolve_category_path(repo_root: Path, category_path: Path) -> Path:
     """Resolve ``category_path`` and reject any resolution that escapes ``repo_root``'s tree.
 
@@ -78,7 +102,9 @@ def resolve_category_path(repo_root: Path, category_path: Path) -> Path:
     is (or contains) a symlink pointing outside the active repo_root must never be
     treated as a valid deletion target. Uses ``Path.resolve()`` (which follows symlinks)
     and verifies containment via ``is_relative_to()`` before any deletion proceeds.
-    Raises ``ValueError`` naming the offending path if containment fails.
+    Raises ``ValueError`` naming the offending path if containment fails. Does NOT
+    itself validate that ``repo_root`` is this repository — see ``validate_repo_root()``,
+    called once in ``main()`` before this function is ever reached, for that check.
     """
     resolved_root = repo_root.resolve()
     resolved_category = category_path.resolve()
@@ -146,7 +172,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
-    repo_root: Path = args.repo_root
+
+    try:
+        repo_root: Path = validate_repo_root(args.repo_root)
+    except ValueError as exc:
+        print(f"FAIL: {exc}", file=sys.stderr)
+        return 1
 
     stats: dict[str, tuple[int, int]] = {}
     choices: list[questionary.Choice] = []
