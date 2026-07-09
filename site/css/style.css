@@ -6,8 +6,10 @@ html {
 }
 
 /* Safety net: nothing should be able to force horizontal scroll on the page itself
-   (long inline code/paths are wrapped instead, per the `code` rule below). */
-html,
+   (long inline code/paths are wrapped instead, per the `code` rule below). Scoped to
+   `body` only, not `html` — setting overflow-x on `html` forces the UA to compute
+   overflow-y as `auto` too (a CSS quirk), which can change the scrolling container used
+   to resolve `position: sticky` and break the docs-mobile-nav / header sticky behavior. */
 body {
   overflow-x: hidden;
 }
