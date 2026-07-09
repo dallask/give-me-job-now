@@ -71,6 +71,10 @@ def test_missing_counter_treated_as_zero_continues() -> None:
 
 
 def test_at_cap_emits_exhausted_report() -> None:
+    # At cap WITH --raised (this offer/type already used its one bounded
+    # raise) → the final EXHAUSTED report, not propose_raise. The bare
+    # first-time-at-cap case (no --raised) is covered separately by
+    # test_first_exhaustion_emits_propose_raise_not_final_report.
     state_path = _seed_state(
         {"retry_cap": 2, "retry_counts": {"acme": {"cv": 2}}}
     )
@@ -79,6 +83,7 @@ def test_at_cap_emits_exhausted_report() -> None:
         "--offer-slug", "acme",
         "--artifact-type", "cv",
         "--reason", "truth gate failed on claim X",
+        "--raised",
     )
     assert result.returncode != 0, "at-cap must exit nonzero (hard stop)"
     report = json.loads(result.stdout)
