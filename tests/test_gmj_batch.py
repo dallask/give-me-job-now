@@ -520,7 +520,7 @@ def test_record_spec_writes_hash() -> None:
         cwd = Path(tmp)
         assert _init(cwd, "1,2").returncode == 0
         before = _load_manifest(cwd)
-        spec_path = "sources/offers/softpeak.offer-spec.json"
+        spec_path = "output/offers/softpeak.offer-spec.json"
         spec_hash = "a" * 64
         r = _record_spec(cwd, 0, spec_path, spec_hash)
         assert r.returncode == 0, f"record-spec must exit 0: {r.stderr}"

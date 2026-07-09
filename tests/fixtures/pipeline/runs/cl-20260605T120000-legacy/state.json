@@ -5,7 +5,7 @@
     "gmj-truth-verifier": "pass"
   },
   "offer_spec_hash": "eeee000000000000000000000000000000000000000000000000000000legacy",
-  "offer_spec_path": "sources/offers/beta-cover-letter.offer-spec.json",
+  "offer_spec_path": "output/offers/beta-cover-letter.offer-spec.json",
   "retry_cap": 3,
   "retry_counts": {
     "beta": {

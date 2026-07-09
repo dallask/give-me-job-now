@@ -28,7 +28,7 @@ WRITER = REPO_ROOT / "scripts" / "pipeline" / "gmj_state_write.py"
 SAMPLE_STATE = REPO_ROOT / "schemas" / "samples" / "state.sample.json"
 
 _HASH = "a" * 64
-_OFFER_PATH = "sources/offers/acme-senior-python.offer-spec.json"
+_OFFER_PATH = "output/offers/acme-senior-python.offer-spec.json"
 
 
 def _run(state: Path, offer_path: str = _OFFER_PATH, offer_hash: str = _HASH):

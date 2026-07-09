@@ -3,7 +3,7 @@
   "execution_mode": "human_in_the_loop",
   "gate_results": {},
   "offer_spec_hash": "dddd00000000000000000000000000000000000000000000000000000000pend",
-  "offer_spec_path": "/Users/example/give-me-job/sources/offers/pend.offer-spec.json",
+  "offer_spec_path": "/Users/example/give-me-job/output/offers/pend.offer-spec.json",
   "retry_cap": 2,
   "run_id": "20260604T120000-pend"
 }

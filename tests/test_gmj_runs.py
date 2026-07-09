@@ -289,7 +289,7 @@ def test_inspect_verdicts_artifacts_attempts() -> None:
     assert legacy is not None
     for fn in ("cover_letter.gateA.json", "cover_letter.gateB.json"):
         assert fn in legacy["attempts"], f"legacy attempt {fn} must be listed: {legacy['attempts']}"
-    assert legacy["offer_spec_path"] == "sources/offers/beta-cover-letter.offer-spec.json", (
+    assert legacy["offer_spec_path"] == "output/offers/beta-cover-letter.offer-spec.json", (
         f"the relative offer_spec_path must be surfaced verbatim (unresolved): {legacy}"
     )
 

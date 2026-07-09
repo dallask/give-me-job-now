@@ -5,7 +5,7 @@
     "gmj-truth-verifier": "fail"
   },
   "offer_spec_hash": "cccc00000000000000000000000000000000000000000000000000000000fail",
-  "offer_spec_path": "/Users/example/give-me-job/sources/offers/acme.offer-spec.json",
+  "offer_spec_path": "/Users/example/give-me-job/output/offers/acme.offer-spec.json",
   "retry_cap": 2,
   "retry_counts": {
     "acme": {
