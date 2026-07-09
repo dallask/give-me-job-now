@@ -1,0 +1,41 @@
+/* give-me-job static site — small custom rules Tailwind's CDN utility classes can't express.
+   Keep this file small: Tailwind CDN (loaded via <script> in every page) covers most styling. */
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Sticky sidebar-nav offset used on docs.html so anchor jumps land below the sticky header. */
+.docs-anchor-target {
+  scroll-margin-top: 5rem;
+}
+
+.docs-sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 #111827;
+}
+
+.docs-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.docs-sidebar::-webkit-scrollbar-track {
+  background: #111827;
+}
+
+.docs-sidebar::-webkit-scrollbar-thumb {
+  background-color: #4b5563;
+  border-radius: 9999px;
+}
+
+::selection {
+  background-color: #4f46e5;
+  color: #f9fafb;
+}
+
+/* Code blocks converted from fenced markdown — horizontal scroll instead of overflow/wrap. */
+pre code {
+  display: block;
+  overflow-x: auto;
+  white-space: pre;
+}

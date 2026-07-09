@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact — give-me-job</title>
+  <meta name="description" content="Contact Ievgen Kyvgyla, the author of give-me-job." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-gray-950 text-gray-100 antialiased">
+
+  <!-- Header (identical markup on every page) -->
+  <header class="sticky top-0 z-50 bg-gray-900 border-b border-gray-800">
+    <div class="container mx-auto px-4">
+      <div class="flex items-center justify-between h-16">
+        <a href="index.html" class="text-lg font-bold tracking-tight text-gray-100">give-me-job</a>
+
+        <!-- Desktop nav -->
+        <nav class="hidden md:flex items-center gap-8">
+          <a href="index.html" class="text-sm font-medium text-gray-300 hover:text-indigo-400">Home</a>
+          <a href="docs.html" class="text-sm font-medium text-gray-300 hover:text-indigo-400">Docs</a>
+          <a href="about.html" class="text-sm font-medium text-gray-300 hover:text-indigo-400">About</a>
+          <a href="contact.html" class="text-sm font-medium text-indigo-400">Contact</a>
+        </nav>
+
+        <!-- Hamburger (mobile only) -->
+        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-menu" aria-label="Toggle navigation menu" class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-300 hover:text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Mobile menu -->
+      <nav id="nav-menu" class="hidden md:hidden pb-4">
+        <div class="flex flex-col gap-1">
+          <a href="index.html" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-indigo-400 hover:bg-gray-800">Home</a>
+          <a href="docs.html" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-indigo-400 hover:bg-gray-800">Docs</a>
+          <a href="about.html" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-indigo-400 hover:bg-gray-800">About</a>
+          <a href="contact.html" class="px-3 py-2 rounded-md text-sm font-medium text-indigo-400 bg-gray-800">Contact</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="container mx-auto px-4 py-16 sm:py-24">
+      <div class="max-w-xl">
+        <h1 class="text-4xl font-extrabold tracking-tight text-gray-50">Contact</h1>
+        <p class="mt-4 text-gray-300">Get in touch with Ievgen Kyvgyla, the author of give-me-job.</p>
+
+        <div class="mt-10 space-y-4">
+          <!-- Website -->
+          <div class="flex items-center gap-4 rounded-lg border border-gray-800 bg-gray-900 p-5">
+            <svg class="h-6 w-6 shrink-0 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 010 18 15 15 0 010-18z" />
+            </svg>
+            <div>
+              <p class="text-sm text-gray-400">Website</p>
+              <a href="https://example.com" target="_blank" rel="noopener" class="text-lg font-semibold text-gray-100 hover:text-indigo-400">example.com</a>
+            </div>
+          </div>
+
+          <!-- Email -->
+          <div class="flex items-center gap-4 rounded-lg border border-gray-800 bg-gray-900 p-5">
+            <svg class="h-6 w-6 shrink-0 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.007 1.872l-7.5 5.25a2.25 2.25 0 01-2.486 0l-7.5-5.25A2.25 2.25 0 012.25 6.993V6.75" />
+            </svg>
+            <div>
+              <p class="text-sm text-gray-400">Email</p>
+              <a href="mailto:you@example.com" class="text-lg font-semibold text-gray-100 hover:text-indigo-400">you@example.com</a>
+            </div>
+          </div>
+
+          <!-- Telegram -->
+          <div class="flex items-center gap-4 rounded-lg border border-gray-800 bg-gray-900 p-5">
+            <svg class="h-6 w-6 shrink-0 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 5.25L2.25 12l6.75 2.25m12.75-9l-3.75 15-9-6.75m12.75-8.25L9 14.25" />
+            </svg>
+            <div>
+              <p class="text-sm text-gray-400">Telegram</p>
+              <a href="https://t.me/ievgenky" target="_blank" rel="noopener" class="text-lg font-semibold text-gray-100 hover:text-indigo-400">@yourhandle</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer (identical markup on every page) -->
+  <footer class="border-t border-gray-800 bg-gray-900">
+    <div class="container mx-auto px-4 py-10">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-400">
+        <p>&copy; 2026 Ievgen Kyvgyla</p>
+        <p>
+          Licensed under the
+          <a href="https://github.com/dallask/give-me-job-now/blob/main/LICENSE" target="_blank" rel="noopener" class="text-indigo-400 hover:text-indigo-300">MIT License</a>
+        </p>
+        <p>
+          Built by
+          <a href="https://example.com" target="_blank" rel="noopener" class="text-indigo-400 hover:text-indigo-300">Ievgen Kyvgyla</a>
+        </p>
+      </div>
+    </div>
+  </footer>
+
+  <script defer src="js/nav.js"></script>
+</body>
+</html>
