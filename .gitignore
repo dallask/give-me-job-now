@@ -66,3 +66,14 @@ sources/vacancies/*
 # real values from config/candidate.yaml; only the .sample templates ship.
 scripts/publish/replacements.txt
 scripts/publish/pii-denylist.txt
+
+# Next.js (web/) build surface — Phase 46 introduces the repo's first Node
+# build step outside .claude/'s own tooling. web/node_modules/ can be
+# hundreds of MB; web/.next/ and web/out/ (the static-export output, the
+# direct publish source per Phase 46's Resolved Discretion Call #1) are
+# fully regenerable from source. Do NOT add web/package-lock.json here — it
+# must stay committed so CI's `npm ci` has a pinned lockfile.
+web/node_modules/
+web/.next/
+web/out/
+web/.env*.local
