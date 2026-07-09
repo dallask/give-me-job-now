@@ -26,6 +26,16 @@ body {
   min-width: 0;
 }
 
+/* DaisyUI's tooltip bubble (`.tooltip:before`) is `position: absolute; width: max-content;
+   max-width: 20rem` — even at rest (opacity: 0, not hovered) that box is still laid out, and
+   an absolutely-positioned box can extend past a narrow viewport and inflate the page's
+   scrollable width without ever being visible. With many in-body icons carrying tooltips
+   throughout docs.html, this becomes a real (if invisible) horizontal-scroll source on mobile.
+   Cap the bubble to the viewport width so it can never contribute overflow. */
+.tooltip:before {
+  max-width: min(20rem, calc(100vw - 2rem));
+}
+
 /* Sticky sidebar-nav offset used on docs.html so anchor jumps land below the sticky header. */
 .docs-anchor-target {
   scroll-margin-top: 5rem;
