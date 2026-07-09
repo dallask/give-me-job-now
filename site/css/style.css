@@ -7,8 +7,21 @@ html {
 
 /* Safety net: nothing should be able to force horizontal scroll on the page itself
    (long inline code/paths are wrapped instead, per the `code` rule below). */
+html,
 body {
   overflow-x: hidden;
+}
+
+/* DaisyUI's .alert uses `grid-template-columns: auto minmax(auto, 1fr)` — the `auto` minimum
+   on that second track means it won't shrink below its content's intrinsic (max-content)
+   width, so a long paragraph inside an alert can blow out past the viewport on mobile instead
+   of wrapping. Force the content column down to `minmax(0, 1fr)` so text wraps normally. */
+.alert {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.alert > * {
+  min-width: 0;
 }
 
 /* Sticky sidebar-nav offset used on docs.html so anchor jumps land below the sticky header. */
