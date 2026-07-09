@@ -99,19 +99,27 @@ scripted/CI use — see the GitHub Action below).
    (gitignored) real PII map/denylist themselves, from every commit.
 6. Runs `git filter-repo --replace-text scripts/publish/replacements.txt` to redact every real PII
    token to its sample-equivalent placeholder, across all history.
-7. Overwrites `config/candidate.yaml` (+ `.ua`/`.ru` overlays), `config/credentials.yaml`, and
+7. **Verification gate (hard)** — PII-denylist: `git grep`s every line of the real denylist across
+   **all** history refs in the filtered clone, at this point (redacted, but *before* the public
+   docs injection below) — any hit aborts (naming only the fact of a hit + ref, never printing the
+   token value). This ordering is deliberate: `public-assets/README.public.md`/`LICENSE` are
+   human-authored, human-reviewed public content (e.g. an intentional author name/site credit) that
+   would otherwise false-positive against the same tokens used to catch *accidental* leaks in the
+   bulk historical commit corpus. The gate protects the historical data; it does not re-scan
+   curated public-facing content added after it.
+8. Overwrites `config/candidate.yaml` (+ `.ua`/`.ru` overlays), `config/credentials.yaml`, and
    `config/preferences.yaml` in the temp clone with the `gmj-core/config/*.sample` payloads, then
    injects `public-assets/README.public.md` → `README.md` and `public-assets/LICENSE` → `LICENSE`,
    committing all of it as one swap commit (the real commit author identity is **preserved**, not
    rewritten — only this one swap commit is added as the new HEAD).
-8. **Verification gate (hard)**: `git grep`s every line of the real denylist across **all**
-   history refs in the filtered clone — any hit aborts (naming only the fact of a hit + ref, never
-   printing the token value). Then, if `gitleaks` is present, runs `gitleaks detect` over the
-   filtered clone as a second hard gate; if absent, prints a warning and continues (the denylist
-   grep alone still gates).
-9. **Push stage**: in `--dry-run` mode, prints the would-be push target and stops — no remote
-   contact. Otherwise, prompts for confirmation (unless `--yes`), then
-   `git push --force public HEAD:$PUBLIC_BRANCH`.
+9. **Verification gate (hard-when-present)** — gitleaks: if `gitleaks` is present, runs
+   `gitleaks detect` over the **full final state** (including the just-injected docs) as a second
+   hard gate — a different class of check (secret patterns, not name-matching), so it's safe to run
+   after injection too. If absent, prints a warning and continues (the denylist grep above still
+   gates regardless).
+10. **Push stage**: in `--dry-run` mode, prints the would-be push target and stops — no remote
+    contact. Otherwise, prompts for confirmation (unless `--yes`), then
+    `git push --force public HEAD:$PUBLIC_BRANCH`.
 
 ## Safety model
 

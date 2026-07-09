@@ -176,6 +176,31 @@ git -C "$TMPDIR_CLONE" filter-repo --force --invert-paths --paths-from-file "$PA
 step "filter-repo: content redaction (--replace-text)"
 git -C "$TMPDIR_CLONE" filter-repo --force --replace-text "$REAL_REPLACEMENTS"
 
+step "VERIFICATION GATE (hard) — PII-denylist git grep across redacted history"
+# Runs HERE — after redaction, BEFORE the config-swap + public-docs injection below —
+# deliberately. The injected README/LICENSE are human-authored, human-reviewed public
+# content (e.g. intentional author name/site credit) that would otherwise false-positive
+# against the same denylist tokens used to catch ACCIDENTAL leaks in the bulk historical
+# commit corpus. This gate protects the historical data; it does not re-scan curated
+# public-facing content added after it. gitleaks (below, after injection) still covers
+# the full final state for a different class of check (secret patterns, not name-matching).
+DENYLIST_HIT=0
+while IFS= read -r token || [ -n "$token" ]; do
+  # Skip blank lines and comment lines.
+  case "$token" in
+    ''|'#'*) continue ;;
+  esac
+  # Grep across all refs/history in the filtered clone. Never print the value —
+  # only report that a hit occurred (offending ref, not the token content).
+  if git -C "$TMPDIR_CLONE" grep -q -F -- "$token" $(git -C "$TMPDIR_CLONE" rev-list --all) -- 2>/dev/null; then
+    echo "DENYLIST HIT: a denylisted token was found in history (token withheld from output)." >&2
+    DENYLIST_HIT=1
+  fi
+done < "$REAL_DENYLIST"
+
+[ "$DENYLIST_HIT" -eq 0 ] || fail "PII-denylist verification FAILED: at least one denylisted token is present in the filtered mirror's history. Aborting before any push."
+echo "  denylist git grep: 0 hits across redacted history."
+
 step "Config swap: gmj-core sample payloads"
 SAMPLE_DIR="$REPO_ROOT/gmj-core/config"
 
@@ -208,24 +233,6 @@ if git -C "$TMPDIR_CLONE" diff --cached --quiet; then
 else
   git -C "$TMPDIR_CLONE" commit -m "chore(publish): swap in gmj-core sample config + public README/LICENSE for public mirror"
 fi
-
-step "VERIFICATION GATE (hard) — PII-denylist git grep across all history"
-DENYLIST_HIT=0
-while IFS= read -r token || [ -n "$token" ]; do
-  # Skip blank lines and comment lines.
-  case "$token" in
-    ''|'#'*) continue ;;
-  esac
-  # Grep across all refs/history in the filtered clone. Never print the value —
-  # only report that a hit occurred (offending ref, not the token content).
-  if git -C "$TMPDIR_CLONE" grep -q -F -- "$token" $(git -C "$TMPDIR_CLONE" rev-list --all) -- 2>/dev/null; then
-    echo "DENYLIST HIT: a denylisted token was found in history (token withheld from output)." >&2
-    DENYLIST_HIT=1
-  fi
-done < "$REAL_DENYLIST"
-
-[ "$DENYLIST_HIT" -eq 0 ] || fail "PII-denylist verification FAILED: at least one denylisted token is present in the filtered mirror's history. Aborting before any push."
-echo "  denylist git grep: 0 hits across all history."
 
 step "VERIFICATION GATE (hard-when-present) — gitleaks"
 if [ "$GITLEAKS_PRESENT" -eq 1 ]; then
