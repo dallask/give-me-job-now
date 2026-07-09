@@ -43,11 +43,24 @@ output/vacancies/*
 output/logs/*
 !output/logs/.gitkeep
 
-# sources/artifacts/ is intake-only in name but has historically leaked live
-# per-offer pipeline-draft output (STRUCT-01 floor); keep this ignore block
-# standing on its own even if output/artifacts/* above were ever removed.
+# sources/{artifacts,offers,analysis,research,vacancies}/ are intake-only in
+# name but have historically leaked live pipeline-generated output (STRUCT-01
+# floor per ROADMAP success criterion 1); keep these ignore blocks standing on
+# their own even if the corresponding output/* block above were ever removed.
 sources/artifacts/*
 !sources/artifacts/.gitkeep
+
+sources/offers/*
+!sources/offers/.gitkeep
+
+sources/analysis/*
+!sources/analysis/.gitkeep
+
+sources/research/*
+!sources/research/.gitkeep
+
+sources/vacancies/*
+!sources/vacancies/.gitkeep
 
 # Real PII map + denylist for scripts/publish/gmj_publish_mirror.sh — hold the
 # real values from config/candidate.yaml; only the .sample templates ship.
