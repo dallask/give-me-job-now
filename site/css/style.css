@@ -25,7 +25,7 @@ body {
    existing current-page active-link visual language (text-indigo-400 bg-gray-800) so the
    scroll-spy highlight matches an established convention. Color/background only so it
    composes cleanly with each link's existing `block px-2 py-1 rounded ...` classes. */
-.docs-nav-active {
+.menu-active {
   color: #818cf8 !important; /* indigo-400 */
   background-color: #1f2937 !important; /* gray-800 */
 }

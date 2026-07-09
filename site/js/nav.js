@@ -362,13 +362,13 @@ document.addEventListener('DOMContentLoaded', function () {
     if (desktopSidebar) {
       var allDesktopLinks = desktopSidebar.querySelectorAll('a');
       for (var d = 0; d < allDesktopLinks.length; d++) {
-        allDesktopLinks[d].classList.remove('docs-nav-active');
+        allDesktopLinks[d].classList.remove('menu-active');
       }
     }
 
     var entry = sectionMap[id];
     if (entry.desktopLink) {
-      entry.desktopLink.classList.add('docs-nav-active');
+      entry.desktopLink.classList.add('menu-active');
     }
 
     // Scroll-spy only updates the label text — it must not force the mobile panel open.

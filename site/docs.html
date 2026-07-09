@@ -15,33 +15,39 @@
   <!-- Header (identical markup on every page) -->
   <header class="sticky top-0 z-50 bg-gray-900 border-b border-gray-800">
     <div class="container mx-auto px-4">
-      <div class="flex items-center justify-between h-16">
-        <a href="index.html" class="text-lg font-bold tracking-tight text-gray-100"><span class="text-red-500">Give</span> Me Job NOW!</a>
+      <div class="navbar p-0 min-h-0 h-16">
+        <div class="navbar-start">
+                <a href="index.html" class="text-lg font-bold tracking-tight text-gray-100"><span class="text-red-500">Give</span> Me Job NOW!</a>
+        </div>
 
         <!-- Desktop nav -->
+        <div class="navbar-center hidden md:flex">
         <nav class="hidden md:flex items-center gap-8">
           <a href="index.html" class="text-sm font-medium text-gray-300 hover:text-indigo-400"><svg class="inline-block h-4 w-4 mr-1.5 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7m-9-9v9m0 0h6m-6 0H5m0 0v8a1 1 0 001 1h3m8-9l2 2m-2-2v9a1 1 0 01-1 1h-3m0 0v-5a1 1 0 00-1-1h-2a1 1 0 00-1 1v5m4 0h-4" /></svg>Home</a>
           <a href="docs.html" class="text-sm font-medium text-indigo-400"><svg class="inline-block h-4 w-4 mr-1.5 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>Docs</a>
           <a href="about.html" class="text-sm font-medium text-gray-300 hover:text-indigo-400"><svg class="inline-block h-4 w-4 mr-1.5 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>About</a>
           <a href="contact.html" class="text-sm font-medium text-gray-300 hover:text-indigo-400"><svg class="inline-block h-4 w-4 mr-1.5 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.007 1.872l-7.5 5.25a2.25 2.25 0 01-2.486 0l-7.5-5.25A2.25 2.25 0 012.25 6.993V6.75" /></svg>Contact</a>
         </nav>
+        </div>
 
         <!-- Hamburger (mobile only) -->
-        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-menu" aria-label="Toggle navigation menu" title="Menu" data-tooltip="Menu" class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-300 hover:text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        <div class="navbar-end">
+                <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-menu" aria-label="Toggle navigation menu" title="Menu" data-tooltip="Menu" class="btn btn-ghost btn-square md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-300 hover:text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400">
           <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
+        </div>
       </div>
 
       <!-- Mobile menu -->
       <nav id="nav-menu" class="hidden md:hidden pb-4">
-        <div class="flex flex-col gap-1">
-          <a href="index.html" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-indigo-400 hover:bg-gray-800"><svg class="inline-block h-4 w-4 mr-1.5 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7m-9-9v9m0 0h6m-6 0H5m0 0v8a1 1 0 001 1h3m8-9l2 2m-2-2v9a1 1 0 01-1 1h-3m0 0v-5a1 1 0 00-1-1h-2a1 1 0 00-1 1v5m4 0h-4" /></svg>Home</a>
-          <a href="docs.html" class="px-3 py-2 rounded-md text-sm font-medium text-indigo-400 bg-gray-800"><svg class="inline-block h-4 w-4 mr-1.5 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>Docs</a>
-          <a href="about.html" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-indigo-400 hover:bg-gray-800"><svg class="inline-block h-4 w-4 mr-1.5 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>About</a>
-          <a href="contact.html" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-indigo-400 hover:bg-gray-800"><svg class="inline-block h-4 w-4 mr-1.5 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.007 1.872l-7.5 5.25a2.25 2.25 0 01-2.486 0l-7.5-5.25A2.25 2.25 0 012.25 6.993V6.75" /></svg>Contact</a>
-        </div>
+        <ul class="menu menu-vertical w-full">
+          <li><a href="index.html" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-indigo-400 hover:bg-gray-800"><svg class="inline-block h-4 w-4 mr-1.5 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7m-9-9v9m0 0h6m-6 0H5m0 0v8a1 1 0 001 1h3m8-9l2 2m-2-2v9a1 1 0 01-1 1h-3m0 0v-5a1 1 0 00-1-1h-2a1 1 0 00-1 1v5m4 0h-4" /></svg>Home</a></li>
+          <li><a href="docs.html" class="px-3 py-2 rounded-md text-sm font-medium text-indigo-400 bg-gray-800"><svg class="inline-block h-4 w-4 mr-1.5 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>Docs</a></li>
+          <li><a href="about.html" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-indigo-400 hover:bg-gray-800"><svg class="inline-block h-4 w-4 mr-1.5 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>About</a></li>
+          <li><a href="contact.html" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-indigo-400 hover:bg-gray-800"><svg class="inline-block h-4 w-4 mr-1.5 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.007 1.872l-7.5 5.25a2.25 2.25 0 01-2.486 0l-7.5-5.25A2.25 2.25 0 012.25 6.993V6.75" /></svg>Contact</a></li>
+        </ul>
       </nav>
     </div>
   </header>
@@ -53,8 +59,8 @@
 
       <!-- Desktop sidebar (lg: and above) — unchanged content, gated hidden lg:block -->
       <nav aria-label="Docs sections" class="docs-sidebar mb-10 lg:mb-0 hidden lg:block lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto rounded-lg border border-gray-800 bg-gray-900 p-4">
-        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">All 15 docs</h2>
-        <ol class="space-y-1 text-sm">
+        <ul class="menu menu-sm">
+          <li class="menu-title"><span>All 15 docs</span></li>
           <li><a href="#agents" class="block px-2 py-1 rounded hover:bg-gray-800 hover:text-indigo-400 text-gray-300">Agents</a></li>
           <li><a href="#architecture" class="block px-2 py-1 rounded hover:bg-gray-800 hover:text-indigo-400 text-gray-300">Architecture</a></li>
           <li><a href="#cli-tools" class="block px-2 py-1 rounded hover:bg-gray-800 hover:text-indigo-400 text-gray-300">CLI tools</a></li>
@@ -71,7 +77,7 @@
           <li><a href="#runbook" class="block px-2 py-1 rounded hover:bg-gray-800 hover:text-indigo-400 text-gray-300">Runbook</a></li>
           <li><a href="#showcase" class="block px-2 py-1 rounded hover:bg-gray-800 hover:text-indigo-400 text-gray-300">Showcase</a></li>
           <li><a href="#skills" class="block px-2 py-1 rounded hover:bg-gray-800 hover:text-indigo-400 text-gray-300">Skills</a></li>
-        </ol>
+        </ul>
       </nav>
 
       <!-- Mobile collapsible sidebar (below lg:) — collapsed sticky strip by default, expands to dropdown on tap -->
@@ -84,7 +90,7 @@
             </svg>
           </button>
           <div id="docs-mobile-panel" class="hidden max-h-[60vh] overflow-y-auto rounded-lg border border-gray-800 bg-gray-900 p-4 shadow-lg">
-            <ol class="space-y-1 text-sm">
+            <ul class="menu menu-sm">
               <li><a href="#agents" class="block px-2 py-1 rounded hover:bg-gray-800 hover:text-indigo-400 text-gray-300">Agents</a></li>
               <li><a href="#architecture" class="block px-2 py-1 rounded hover:bg-gray-800 hover:text-indigo-400 text-gray-300">Architecture</a></li>
               <li><a href="#cli-tools" class="block px-2 py-1 rounded hover:bg-gray-800 hover:text-indigo-400 text-gray-300">CLI tools</a></li>
@@ -101,7 +107,7 @@
               <li><a href="#runbook" class="block px-2 py-1 rounded hover:bg-gray-800 hover:text-indigo-400 text-gray-300">Runbook</a></li>
               <li><a href="#showcase" class="block px-2 py-1 rounded hover:bg-gray-800 hover:text-indigo-400 text-gray-300">Showcase</a></li>
               <li><a href="#skills" class="block px-2 py-1 rounded hover:bg-gray-800 hover:text-indigo-400 text-gray-300">Skills</a></li>
-            </ol>
+            </ul>
           </div>
         </div>
       </nav>
@@ -3326,7 +3332,7 @@ coverage = 3/5 = 0.60   &lt;   0.70 threshold   &rarr; Gate B FAIL</code></pre><
   <!-- Footer (identical markup on every page) -->
   <footer class="border-t border-gray-800 bg-gray-900 mt-10">
     <div class="container mx-auto px-4 py-10">
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-400">
+      <div class="footer footer-center sm:footer-horizontal text-sm text-gray-400">
         <p>&copy; 2026 All rights reserved. All wrongs regretted.</p>
         <p>
           Licensed under the
@@ -3340,7 +3346,7 @@ coverage = 3/5 = 0.60   &lt;   0.70 threshold   &rarr; Gate B FAIL</code></pre><
     </div>
   </footer>
 
-  <button id="back-to-top" type="button" aria-label="Back to top" title="Back to top" data-tooltip="Back to top" class="fixed bottom-6 right-6 z-50 inline-flex h-11 w-11 items-center justify-center rounded-full bg-indigo-500 text-white opacity-0 pointer-events-none translate-y-2 shadow-lg transition-all duration-200 hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+  <button id="back-to-top" type="button" aria-label="Back to top" title="Back to top" data-tooltip="Back to top" class="btn btn-circle btn-primary fixed bottom-6 right-6 z-50 inline-flex h-11 w-11 items-center justify-center rounded-full bg-indigo-500 text-white opacity-0 pointer-events-none translate-y-2 shadow-lg transition-all duration-200 hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300">
     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
     </svg>
