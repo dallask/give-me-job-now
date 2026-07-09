@@ -70,7 +70,7 @@ def test_invented_number_fails_as_numeric_invention() -> None:
         {
             "claim_index": 1,
             "rule_violated": "numeric_invention",
-            "offending_span": "professional_experience[1].achievements[3]",
+            "offending_span": "professional_experience[1].achievements[1]",
         }
     ], (
         "expected ONLY claim 1 to fail as numeric_invention (implicitly proving "
