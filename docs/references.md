@@ -180,7 +180,11 @@ The per-offer batch manifest (`kind: "batch_manifest"`) written by `gmj_batch.py
 offer-centric: each `offers[]` entry groups its per-`(offer, artifact_type)` runs under
 `runs` (`cv`, `cover_letter`, `interview_prep`), each with its own `run_id` and `status`
 (`pending`, `running`, `delivered`, `failed`), so Gate A ∧ Gate B are recorded independently
-and never clobber across artifact types.
+and never clobber across artifact types. An optional root `max_parallel_offers` integer
+(minimum `1`) freezes the batch-wide bounded-concurrency cap at `init` time (CONC-01);
+manifests written before this field existed remain valid since it is not `required`.
+`scripts/pipeline/gmj_dispatch_cap.py` reads this frozen cap to decide which run_ids are
+dispatchable right now (CONC-02).
 
 Sample instances for these schemas live under `schemas/samples/`.
 

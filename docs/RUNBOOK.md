@@ -17,17 +17,31 @@ CV + cover, no manual authoring) is covered by the bridge + renderers named belo
 
 ## 1. Setup (dependencies)
 
-From the repository root:
+The recommended path is the one-script installer — it bootstraps a project-local `.venv`
+and installs all four dependency files (`scripts/contracts/`, `scripts/dashboard/`,
+`scripts/cv/`, `scripts/preferences/`) plus stages config/hooks:
 
 ```bash
-pip install -r scripts/cv/requirements.txt
+bash gmj-core/bin/install.sh
 ```
 
-This installs the render stack — notably **reportlab** (the built-in ReportLab CV layout
-engine) and **PyYAML** / **pypdf**. The **bundled DejaVu fonts** under `scripts/cv/fonts/`
-(`DejaVuSans.ttf`, `DejaVuSans-Bold.ttf`) cover **ua/ru Cyrillic** rendering, so no system
-font install is required. **All deps are already declared — no new package installs are
-needed for this phase.** WeasyPrint (HTML templates) stays optional.
+If installing manually instead, from the repository root, install each requirements file
+through the same `.venv` (see [docs/installation.md](installation.md) for the full
+reference):
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r scripts/contracts/requirements.txt
+.venv/bin/python -m pip install -r scripts/dashboard/requirements.txt
+.venv/bin/python -m pip install -r scripts/cv/requirements.txt
+.venv/bin/python -m pip install -r scripts/preferences/requirements.txt
+```
+
+The `scripts/cv/requirements.txt` install brings in the render stack — notably
+**reportlab** (the built-in ReportLab CV layout engine) and **PyYAML** / **pypdf**. The
+**bundled DejaVu fonts** under `scripts/cv/fonts/` (`DejaVuSans.ttf`, `DejaVuSans-Bold.ttf`)
+cover **ua/ru Cyrillic** rendering, so no system font install is required. **WeasyPrint**
+(HTML template rendering) ships in the same file and stays optional.
 
 ---
 
@@ -43,6 +57,15 @@ claude --dangerously-skip-permissions
 /gmj-pipeline-run
 # state your: mode (human_in_the_loop | autonomous), offer (URL/text or offer-spec.json), run_id?
 ```
+
+### Default artifact set — all three, independently gated
+
+`/gmj-pipeline-run` produces **all three artifact types by default** — CV, cover letter,
+interview-prep — each derives its own `run_id` (`<run_id>-cv` / `-cl` / `-ip`) and passes
+through **Gate A ∧ Gate B independently**; a PASS on one artifact type never satisfies
+delivery for another. Pass `--artifact-types` with a comma-list to narrow the default set,
+e.g. `--artifact-types=cv,cover_letter`; an unknown/typo'd value hard-fails before any
+dispatch, naming the invalid value and the valid set (`cv,cover_letter,interview_prep`).
 
 ### Hub-at-top-level rule (Pitfall 6 / T-08-12)
 
@@ -78,8 +101,8 @@ approval after a PASS; autonomous proceeds automatically. Truth (Gate A) and tar
 Each delivered artifact passes **Gate A (truth)** and **Gate B (target-fit)** before it
 ships:
 
-- **CV** — PDF under `output/cv/` (draft → `gmj_draft_to_cv_yaml.py` bridge →
-  `gmj_render_cv.py --lang <lang>`).
+- **CV** — PDF **and** HTML under `output/cv/` (draft → `gmj_draft_to_cv_yaml.py` bridge →
+  `gmj_render_cv.py --lang <lang>`, template mode by default).
 - **Cover letter** — PDF under `output/cv/` (`gmj_render_cover_letter.py`).
 - **Interview-prep** — markdown document (`gmj_render_interview_prep.py`).
 

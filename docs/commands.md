@@ -40,22 +40,33 @@ These seven are invoked directly by a user in a Claude Code session.
 
 - **Purpose:** Run the full **offer → artifacts** pipeline end to end: dual-mode (human-in-the-loop
   or autonomous), non-bypassable hard gates (Gate A truth, Gate B fit), and a frozen retry cap.
+  **Defaults to all three artifact types** (`cv, cover_letter, interview_prep`) — one derived
+  `run_id` per type (`<run_id>-cv`/`-cl`/`-ip`), each with its own `state.json` and gate history;
+  the `--artifact-types` flag narrows that default set (e.g. `--artifact-types=cv,cover_letter`)
+  and hard-fails before any dispatch on an unknown/typo'd type.
 - **File:** `.claude/commands/gmj-pipeline-run.md`
-- **Drives:** the runtime control loop — `gmj_state_write.py` init_run, then a
-  `gmj_route.py` → `gmj_check_offer.py` → `Task(spoke)` loop across scout, freeze, compose, Gate A,
-  Gate B, and deliver.
-- **When to use:** One offer, whole flow, in a single command. See the
-  [single-offer pipeline flow](flows.md#single-offer-pipeline).
+- **Drives:** the runtime control loop — `gmj_pipeline_run.py` resolves the artifact-type subset,
+  then `gmj_state_write.py` init_run per type, then a `gmj_route.py` → `gmj_check_offer.py` →
+  `Task(spoke)` loop across scout, freeze, compose, Gate A, Gate B, and deliver — aggregated into
+  a per-type delivery breakdown, never a single collapsed boolean.
+- **When to use:** One offer, whole flow (one, two, or all three artifact types), in a single
+  command. See the [single-offer pipeline flow](flows.md#single-offer-pipeline).
 
 ### gmj-batch
 
 - **Purpose:** Select several shortlisted offers and freeze + run each as its own gated pipeline under
-  a single resumable **batch manifest**, with isolated per-offer retry counters.
+  a single resumable **batch manifest**, with isolated per-offer, per-artifact-type retry counters.
+  Offers run under **bounded concurrency**: `gmj_dispatch_cap.py` reads the batch's frozen
+  `max_parallel_offers` (default 3, from `config/pipeline.config.yaml`, overridable via
+  `--max-parallel-offers` at `init`) and a greedy-refill loop dispatches up to that many offers'
+  next pipeline steps as parallel `Task` calls, topping back up as each offer's runs reach a
+  terminal status.
 - **File:** `.claude/commands/gmj-batch.md`
-- **Drives:** `gmj_batch.py` (the deterministic batch control plane) which runs the existing
-  single-offer loop once per selected offer.
-- **When to use:** Producing artifacts for a shortlist of offers in one resumable run. See the
-  [batch flow](flows.md#batch-multi-offer).
+- **Drives:** `gmj_batch.py` (the deterministic batch control plane, init/manifest/resume) plus
+  `gmj_dispatch_cap.py` (the concurrency gate), which together run the existing single-offer loop
+  — once per artifact type — across the bounded set of in-flight offers.
+- **When to use:** Producing artifacts for a shortlist of offers in one resumable, concurrency-bounded
+  run. See the [batch flow](flows.md#batch-multi-offer).
 
 ### gmj-interview
 
@@ -83,7 +94,11 @@ These seven are invoked directly by a user in a Claude Code session.
 - **Purpose:** Launch the live **btop-style pipeline cockpit** — a read-only Textual timeline of
   pipeline run/batch state by default, with an explicit `--manage` flag that opts into the mutating
   action layer (`r`/`R`/`b`/`m`/`c` keys). As a read-only inspector persona it holds no `Task` and
-  never spawns a spoke.
+  never spawns a spoke. Its batch rollup counters are **bounded-concurrency-aware** — reflecting
+  the same `max_parallel_offers` cap `/gmj-batch` dispatches under, not just a raw delivered/total
+  count. The diagnostics tab bar includes a **docs** pane (alongside errors, debug, activity,
+  commands, metrics, pipeline stages, and throughput/gates) that lists top-level `docs/*.md` files
+  for in-board browsing.
 - **File:** `.claude/commands/gmj-dashboard.md`
 - **Drives:** `python3 scripts/dashboard/gmj_dashboard.py` (read-only default; `--manage` opt-in).
 - **When to use:** Live, at-a-glance inspection of pipeline run/batch state; add `--manage` when you

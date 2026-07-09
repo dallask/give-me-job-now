@@ -163,10 +163,11 @@ delivery. Both hard gates are now green.
 ## Render
 
 A draft that passes **Gate A ∧ Gate B** reaches `gmj-cv-generator`, which renders it to a real PDF
-under `output/cv/` via `scripts/cv/gmj_render_cv.py`. The companion renderers produce the cover
-letter and interview-prep document. Before anything ships, the deterministic `gmj_check_delivery.py`
-guard refuses to deliver any artifact lacking a **recorded** Gate A ∧ Gate B pass — so even a loop
-bug cannot ship a failed draft.
+**and HTML** under `output/cv/` via `scripts/cv/gmj_render_cv.py` (template mode by default). The
+companion renderers produce the cover letter and interview-prep document. All three artifact types
+are produced by default per run, each independently gated. Before anything ships, the
+deterministic `gmj_check_delivery.py` guard refuses to deliver any artifact lacking a **recorded**
+Gate A ∧ Gate B pass — so even a loop bug cannot ship a failed draft.
 
 Run state and every `gate_result` verdict are logged under `.pipeline/runs/<run_id>/`, the audit
 trail proving which verdicts passed for each delivered artifact.
@@ -179,7 +180,8 @@ The operator watches all of this from the btop-style Textual dashboard,
 `scripts/dashboard/gmj_dashboard.py`. It is **read-only by default**; `--manage` opts into the action
 keys, and `--pipeline-dir <dir>` threads the operator's run directory to any launched children.
 Internally it splits into three modules: `gmj_dashboard_model.py` (read), `gmj_dashboard.py` (UI),
-and `gmj_dashboard_actions.py` (mutate).
+and `gmj_dashboard_actions.py` (mutate). Its diagnostics tabs include a **docs** pane — a browser
+over the top-level `docs/*.md` files, opened straight from the cockpit.
 
 Real dashboard screenshots are a **deferred manual capture** (headless environment) — capture them
 yourself and drop them in:

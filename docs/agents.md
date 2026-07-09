@@ -63,9 +63,10 @@ boundary — a spoke's narrow structured input is a hard ceiling, not a suggesti
 
 ### gmj-artifact-composer
 
-- **Role:** From canonical `candidate.yaml` + the frozen offer-spec, compose all three artifact
-  types (CV, cover letter, interview-prep); owns the gap-report pass and the bounded enhance
-  loop.
+- **Role:** From canonical `candidate.yaml` + the frozen offer-spec, draft **one artifact per
+  invocation** (`cv` | `cover_letter` | `interview_prep`); the hub fans out three isolated calls
+  (one per type) to cover the default artifact set, and this spoke owns the gap-report pass and
+  the bounded enhance loop for whichever type it was invoked with.
 - **Receives:** `config/candidate.yaml` (read-only), the frozen `offer_spec`, and gate feedback
   (`gate_result` files) when looping.
 - **Must NEVER receive:** raw web/offer-board access (the offer-spec is already frozen); write
@@ -98,13 +99,18 @@ boundary — a spoke's narrow structured input is a hard ceiling, not a suggesti
 
 ### gmj-cv-generator
 
-- **Role:** Render the approved artifact(s) to PDF via Python (`scripts/cv/gmj_render_cv.py`);
-  deterministic, no content authoring. Uses an optional Jinja HTML template with WeasyPrint if
-  installed, otherwise the ReportLab built-in layout.
-- **Receives:** a gate-passed `artifact_draft` / the CV YAML path to render.
+- **Role:** Render the approved artifact(s) via Python, branching on `content.artifact_type`:
+  `cv` → `scripts/cv/gmj_render_cv.py` (PDF; optional Jinja HTML template with WeasyPrint if
+  installed, otherwise the ReportLab built-in layout), `cover_letter` →
+  `scripts/cv/gmj_render_cover_letter.py` (PDF), `interview_prep` →
+  `scripts/cv/gmj_render_interview_prep.py` (a **markdown** document, not a PDF). Deterministic,
+  no content authoring in any branch.
+- **Receives:** a gate-passed `artifact_draft` (Gate A ∧ Gate B recorded pass) plus its
+  `content.artifact_type` / `content.language`, or (legacy mode) the CV YAML path to render.
 - **Must NEVER receive:** freedom to alter artifact content — rendering is render-only; content
   is fixed upstream. See [rules.md](rules.md#python-render-only).
-- **Emits:** `agent_result_v1` with a rendered `file` artifact (`output/cv/*.pdf`).
+- **Emits:** `agent_result_v1` with a rendered `file` artifact — `output/cv/*.pdf` for `cv` and
+  `cover_letter`, `output/interview-prep-*.md` for `interview_prep`.
 - **Tools:** `Read, Bash, Glob, LS`.
 
 ### gmj-candidate-analyzer

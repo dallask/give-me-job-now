@@ -5,33 +5,35 @@
 > `gmj_*.py` token drifts from disk. This page is the reader-facing catalog of *what each script
 > does* (purpose = the script's own module docstring, line 1) and *how the scripts group together*.
 
-The collective is a **two-layer control plane**. The lower layer is a set of **36 small,
+The collective is a **two-layer control plane**. The lower layer is a set of **40 small,
 single-purpose Python CLI tools** (`scripts/**/gmj_*.py`): each is deterministic, makes exactly one
-decision, exits `0` on success / `1` on failure, and touches **no LLM and no network**. The upper
-layer — the LLM hub [`gmj-orchestrator`](agents.md) — never decides whether a gate passed, whether
-the retry cap is hit, or whether an artifact is deliverable; it shells out to these scripts via
-`Bash` and obeys their exit codes. Every safety decision in the pipeline is one of the scripts below.
+decision, exits `0` on success / `1` on failure, and touches **no LLM and no network** (the one
+EXPERIMENTAL exception, `gmj_sdk_runner.py`, is called out below). The upper layer — the LLM hub
+[`gmj-orchestrator`](agents.md) — never decides whether a gate passed, whether the retry cap is
+hit, or whether an artifact is deliverable; it shells out to these scripts via `Bash` and obeys
+their exit codes. Every safety decision in the pipeline is one of the scripts below.
 
-> **Count discipline.** This catalog enumerates the **disk set of 36** (`scripts/**/gmj_*.py`),
+> **Count discipline.** This catalog enumerates the **disk set of 40** (`scripts/**/gmj_*.py`),
 > not the `config/ownership-manifest.yaml` rename map (which lists the 23 scripts that were
-> renamed during the rebrand — including `check_claims` → `gmj_check_claims.py`). Thirteen scripts
-> — `gmj_build_payload.py`, `gmj_rebrand.py`, `gmj_remove_gsd.py`, `gmj_batch.py`, `gmj_runs.py`,
-> `gmj_merge_shortlists.py`, `gmj_dashboard.py`, `gmj_dashboard_model.py`,
-> `gmj_dashboard_actions.py`, `gmj_dashboard_features.py`, `gmj_template_lint.py`,
-> `gmj_visual_diff.py`, `gmj_pipeline_paths.py` — were authored natively `gmj_`-prefixed and are
-> not part of that rename map (23 renamed + 13 native = 36).
+> renamed during the rebrand — including `check_claims` → `gmj_check_claims.py`). Seventeen
+> scripts — `gmj_build_payload.py`, `gmj_rebrand.py`, `gmj_remove_gsd.py`, `gmj_cleanup_report.py`,
+> `gmj_batch.py`, `gmj_runs.py`, `gmj_merge_shortlists.py`, `gmj_dashboard.py`,
+> `gmj_dashboard_model.py`, `gmj_dashboard_actions.py`, `gmj_dashboard_features.py`,
+> `gmj_template_lint.py`, `gmj_visual_diff.py`, `gmj_pipeline_paths.py`, `gmj_dispatch_cap.py`,
+> `gmj_pipeline_run.py`, `gmj_sdk_runner.py` — were authored natively `gmj_`-prefixed and are not
+> part of that rename map (23 renamed + 17 native = 40).
 
 See [flows.md](flows.md) for the end-to-end sequences these scripts drive,
 [references.md](references.md) for the JSON envelope schemas they read and emit, and
 [commands.md](commands.md) for the slash commands that shell out to them.
 
-The **33 runtime tools** below are grouped by directory; the **3 build/packaging tools** live in a
+The **36 runtime tools** below are grouped by directory; the **4 build/packaging tools** live in a
 separate [Packaging & maintenance](#packaging--maintenance) section at the end because they are
 one-off maintenance utilities, not steps a user runs during a pipeline.
 
 ---
 
-## Runtime CLI tools (33)
+## Runtime CLI tools (36)
 
 ### `scripts/artifacts/` (6)
 
@@ -90,21 +92,32 @@ Freeze, tamper-check, and deterministically merge the offers discovered by the s
 | `gmj_freeze_offer.py` | Freeze a fielded offer draft into an immutable `offer-spec.json` (INTAKE-01, INTAKE-03). |
 | `gmj_merge_shortlists.py` | Deterministic, LLM-free merge authority for parallel multi-board [`gmj-offer-scout`](agents.md) (SCOUT-02/04). |
 
-### `scripts/pipeline/` (9)
+### `scripts/pipeline/` (11)
 
-The routing, gate-recording, cap, feedback, delivery-guard, and run-state control plane.
+The routing, gate-recording, cap, dispatch, feedback, delivery-guard, and run-state control plane.
 
 | Script | Purpose |
 |--------|---------|
 | `gmj_batch.py` | Deterministic per-offer batch control-plane CLI (SELECT-01, SELECT-02, SELECT-03). |
 | `gmj_check_cap.py` | Honest hard-stop at the FROZEN retry cap (EXEC-03). |
 | `gmj_check_delivery.py` | Gated delivery precondition — Gate A ∧ Gate B recorded pass (GUARD-03). |
+| `gmj_dispatch_cap.py` | Deterministic offer-level dispatch-cap decision query: which run_ids are dispatchable right now against the frozen `max_parallel_offers` cap (CONC-02). |
 | `gmj_map_feedback.py` | Pure `gate_result` → `gate_feedback` projection (GUARD-04). |
 | `gmj_pipeline_paths.py` | Single source of the dashboard/child pipeline-root resolution: explicit arg > `GMJ_PIPELINE_DIR` > `.pipeline` (HON-01). |
+| `gmj_pipeline_run.py` | Validate a single-offer `--artifact-types` narrowing flag against the canonical 3-item enum and derive the per-artifact-type run_ids (ARTF-03). |
 | `gmj_record_gate.py` | Record a gate's verdict as BOTH an audit artifact and routing state (GUARD-03). |
 | `gmj_route.py` | Deterministic pipeline router (ARCH-06). |
 | `gmj_runs.py` | Read-only run/batch inspector — the mirror image of the writer `gmj_batch.py` (ERGO-01..04). |
 | `gmj_state_write.py` | Record frozen run facts into the pipeline state file (INTAKE-02, EXEC-01, GUARD-03). |
+
+### `scripts/runtime/` (1)
+
+> **EXPERIMENTAL — not part of the default CLI-driven path.** Unsupported for autonomous runs
+> until parity with the working `claude` CLI path is verified (see `scripts/runtime/HOOK-PARITY.md`).
+
+| Script | Purpose |
+|--------|---------|
+| `gmj_sdk_runner.py` | Dispatches one spoke through `claude-agent-sdk`'s `query()` as an alternate Python-orchestrated harness around the CLI; every returned envelope is re-validated through `gmj_validate_envelope.py` before being trusted (SDK-01, SDK-02). |
 
 ### `scripts/preferences/` (1)
 
@@ -126,19 +139,22 @@ Feeds human UAT results back into the planning docs.
 
 ## Packaging & maintenance
 
-> **Not runtime steps.** These three tools build and maintain the standalone distribution. A user
-> running the offer→artifacts pipeline never invokes them; they are enumerated here only so the
-> catalog covers the full on-disk `scripts/**/gmj_*.py` set (and so the doc-test resolves them).
+> **Not runtime steps.** These four tools build and maintain the standalone distribution and
+> repo hygiene. A user running the offer→artifacts pipeline never invokes them; they are
+> enumerated here only so the catalog covers the full on-disk `scripts/**/gmj_*.py` set (and so
+> the doc-test resolves them).
 
-### `scripts/` root (3)
+### `scripts/` root (4)
 
 | Script | Purpose |
 |--------|---------|
 | `gmj_build_payload.py` | Build the standalone `gmj-core/` install payload (PACKAGE-01). |
+| `gmj_cleanup_report.py` | Read-only, report-ONLY unused-file/folder proposal reporter — no deletion/rename/move code path exists in this file (CLEANUP-01, CLEANUP-02). |
 | `gmj_rebrand.py` | Manifest-gated dry-run/apply rename+rewrite engine for the gmj rebrand (REBRAND-01/02/03). |
 | `gmj_remove_gsd.py` | Dry-run / report-only GSD-framework-trace reporter (PACKAGE-03 + PACKAGE-04). |
 
 The rebrand and GSD-removal tools are gated by `config/ownership-manifest.yaml` (the
 framework-vs-app allow-list) and never operate outside it; `gmj_remove_gsd.py` is report-only and is
-not executed during this milestone. See [requirements.md](requirements.md) for the REBRAND and
-PACKAGE requirement families these tools realize.
+not executed during this milestone. `gmj_cleanup_report.py` is likewise report-only and is gated by
+the same manifest's `framework_globs` for exclusion. See [requirements.md](requirements.md) for the
+REBRAND, PACKAGE, and CLEANUP requirement families these tools realize.

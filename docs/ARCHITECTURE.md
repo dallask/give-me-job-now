@@ -1,6 +1,6 @@
 # give-me-job — Architecture
 
-**Status:** Source of truth for the redesigned collective (Milestone v1.0, Phase 1).
+**Status:** Source of truth for the collective's architecture, current through v4.0 (Phase 39).
 **Scope of authority:** This is the single authoritative architecture document. The two
 `CLAUDE.md` files (`./CLAUDE.md`, `./.claude/CLAUDE.md`) point here rather than duplicating
 the roster or the data flow. When those files and this document disagree, **this document
@@ -287,6 +287,54 @@ The CLI entry points for this loop are `.claude/commands/gmj-pipeline-run.md` (w
 `.claude/commands/gmj-pipeline/{scout,freeze,compose,verify,evaluate,generate}.md` (per step);
 each per-step command is a thin wrapper naming the exact script/Task above, with no control
 logic duplicated.
+
+### Bounded concurrent-offer dispatch (Phase 35, CONC-01..06)
+
+`/gmj-batch` extends the same fan-out idiom across **offers**, not just artifact types. A batch's
+`max_parallel_offers` (default 3, `config/pipeline.config.yaml`) is frozen into the batch manifest
+at `gmj_batch.py init` — the same freeze-once pattern as `execution_mode`/`retry_cap`. The
+deterministic decision of *which offers may dispatch right now* belongs entirely to
+`scripts/pipeline/gmj_dispatch_cap.py` (never the model): given the manifest, each offer's 3
+per-(offer, artifact_type) run states, and the frozen cap, it classifies every offer as
+TERMINAL / FRESH / ACTIVE and returns the dispatchable run_ids plus free capacity. The hub loop is
+**ask cap script → dispatch up to that many offers' next steps as parallel `Task` calls in one hub
+turn → mark each terminal completion (`gmj_batch.py mark`, concurrent-safe `batch_manifest.json`
+writes) → immediately re-ask the cap script (greedy refill)** — repeated until every offer's 3 runs
+reach a terminal status. Each offer still runs the unmodified single-offer loop above, per
+artifact type, with its own isolated `retry_counts[offer][type]` slot; Gate A/Gate B remain
+non-bypassable per-offer-per-type, so concurrency introduces no shared/aggregate gate shortcut.
+One offer's pipeline failure (gate exhaustion, error) is isolated — it never stalls or corrupts a
+sibling offer's run in the same wave. Concurrency is implemented purely as multiple `Task` calls
+issued in one hub turn, **never** as a per-offer nested sub-orchestrator, which would violate the
+hub-and-spoke single-`Task`-holder invariant (§2, §6).
+
+---
+
+## 5.2 Experimental Runtime & Provider Prototypes (Phases 38–39, additive-only)
+
+Two Phase-38/39 spikes explored running this collective outside the default Claude Code CLI path.
+Both are **additive, experimental prototypes that sit alongside — and never replace — the working
+Claude Code CLI path** described in §5/§5.1; neither changes any file under `.claude/agents/`,
+`.claude/commands/`, or `.claude/settings.json`, confirmed by direct `git log`/`git status`/grep
+checks against those paths across both phases.
+
+- **Claude Agent SDK runtime (SDK-01..03).** `scripts/runtime/gmj_sdk_runner.py` is a scoped,
+  isolated prototype (own directory, own `requirements.txt`) that dispatches a single spoke through
+  the `claude-agent-sdk` Python SDK instead of the CLI, preserving the `agent_result_v1` contract.
+  It ships with an explicit hook-parity checklist (`scripts/runtime/HOOK-PARITY.md`) and is labeled
+  experimental/unsupported for autonomous runs until PreToolUse scope-guard and SubagentStop
+  envelope-validation parity are independently verified.
+- **Cursor provider adapter (PROVIDER-01..03).** `gmj-core/bin/gmj-cursor-adapter.cjs` is a pure
+  file-transform generator — not a Cursor runtime, not a pipeline execution path — that translates
+  the 9 `.claude/agents/*.md` files into Cursor's `.cursor/agents/*.md` subagent format. It is
+  documented (`gmj-core/bin/CURSOR-HOOK-PARITY.md`) with known enforcement gaps relative to Claude
+  Code: no confirmed PreToolUse-hook parity end-to-end, and no confirmed equivalent to the
+  Task-nesting restriction — both explicitly labeled experimental until closed or independently
+  verified against a real Cursor session.
+
+Neither prototype introduces a new roster member (§3) or alters the §5 data flow; both are
+reachable only by explicitly invoking their own script/generator, never by the default
+`/gmj-pipeline-run` / `/gmj-batch` / `/gmj-collective` entry points.
 
 ---
 

@@ -56,6 +56,8 @@ must actually target the offer.
 - pypdf 4.0.0+ - PDF text extraction and analysis
 - Pillow 10.0.0+ - Image metadata extraction and processing
 - Playwright MCP (@playwright/mcp) - Registered in `.mcp.json` for pixel-perfect CV template testing and screenshots
+- Textual 6.1+ (`<7`) - Read-only, opt-in `--manage` btop-style TUI cockpit (`scripts/dashboard/gmj_dashboard.py`)
+- claude-agent-sdk (EXPERIMENTAL) - `scripts/runtime/gmj_sdk_runner.py`, an additive, unsupported-for-autonomous-runs alternate runtime prototype dispatching one spoke through the SDK instead of the CLI
 - None detected
 - Bash scripting via `.claude/hooks/` for session lifecycle and pre-tool checks
 
@@ -65,13 +67,14 @@ must actually target the offer.
 - ReportLab - Core PDF rendering engine for built-in CV template (ReportLab-only mode)
 - Jinja2 - Required for HTML CV template rendering before WeasyPrint
 - python-docx, openpyxl, pypdf, Pillow - Support document extraction tools; not required for core CV generation but enable `scripts/cv/gmj_extract.py` to ingest candidate source files (Word, Excel, PDF)
+- Textual - Required for the `gmj-dashboard` operator cockpit (`scripts/dashboard/gmj_dashboard.py`); not required for the core offer→artifacts pipeline
 
 ## Configuration
 
 - No `.env` file in repository (configuration is YAML-based and checked in)
 - Path-based configuration: agent tools reference `config/sources.yaml` for job board allowlist and search geo/lang limits
 - `.mcp.json` - MCP server configuration for Playwright browser automation
-- `requirements.txt` at `scripts/cv/requirements.txt` - Pinned dependency versions for CV generation pipeline
+- Multiple pinned `requirements.txt` files per script family: `scripts/cv/requirements.txt` (CV render/extract), `scripts/dashboard/requirements.txt` (Textual dashboard), `scripts/contracts/requirements.txt`, `scripts/preferences/requirements.txt`, and `scripts/runtime/requirements.txt` (EXPERIMENTAL Claude Agent SDK runtime)
 - `.claude/package.json` - Minimal Node.js config for MCP (no npm packages installed, only MCP server declaration)
 
 ## Platform Requirements
@@ -238,10 +241,12 @@ whether a gate passed, whether the retry cap is hit, or whether an artifact is d
 - **Parallel fan-out, sequential gates.** Independent work — ranking N offers and composing the 3 artifact types — is dispatched as parallel `Task` calls in one hub turn (orchestrated fan-out on Claude Code's single-threaded loop). Gated steps run sequentially per artifact.
 - **Run-scoped state.** Resumable state + gate-log audit artifacts live under `.pipeline/runs/<run_id>/` (git-ignored); `run_id` is sanitized before it becomes a directory name.
 
-CLI entry points: `/gmj-collective` (interactive hub), `/gmj-pipeline-run` (whole flow),
-`/gmj-pipeline/{scout,freeze,compose,verify,evaluate,generate}` (per-step), `/gmj-batch`
-(multi-offer batch), `/gmj-interview` (gap-filling interviewer + preferences), `/gmj-template`
-(screenshot → branded template), `/gmj-runs` (read-only run inspector).
+CLI entry points: `/gmj-collective` (interactive hub), `/gmj-pipeline-run` (whole flow,
+generating the full default artifact set unless narrowed), `/gmj-pipeline/{scout,freeze,compose,
+verify,evaluate,generate}` (per-step), `/gmj-batch` (bounded-concurrency multi-offer batch),
+`/gmj-interview` (gap-filling interviewer + preferences), `/gmj-template` (screenshot → branded
+template), `/gmj-runs` (read-only run inspector), `/gmj-dashboard` (live btop-style pipeline
+cockpit, read-only by default with an opt-in `--manage` action layer).
 
 ## Contracts, Schemas & Structure
 
@@ -252,9 +257,11 @@ Every spoke emits `agent_result_v1`. The migrated candidate/CV YAML schema + edi
 
 Final structure: `config/` (canonical YAML, overlays, i18n, pipeline/fit config, `sources.yaml`),
 `config/cv/` (derived skill CV YAML), `schemas/` (envelope contracts), `scripts/`
-(`cv/`, `offers/`, `artifacts/`, `contracts/`, `pipeline/`, `preferences/`), `.claude/` (settings,
-agents, hooks, skills, commands), `rules/` (Read-on-demand invariants), and `gmj-core/` (packaged
-standalone payload + installer `gmj-core/bin/gmj-tools.cjs`).
+(`cv/`, `offers/`, `artifacts/`, `contracts/`, `pipeline/`, `preferences/`, `dashboard/` for the
+`gmj-dashboard` cockpit, `runtime/` for the EXPERIMENTAL Claude Agent SDK runtime prototype),
+`.claude/` (settings, agents, hooks, skills, commands), `rules/` (Read-on-demand invariants), and
+`gmj-core/` (packaged standalone payload + installers `gmj-core/bin/install.sh` and
+`gmj-core/bin/gmj-tools.cjs`, plus the EXPERIMENTAL `gmj-core/bin/gmj-cursor-adapter.cjs`).
 
 ## Anti-Patterns
 
@@ -292,9 +299,11 @@ table; `tests/test_rules_scope.py` keeps the index complete. Core invariants: `t
 | gmj-candidate-yaml-schema | Schema and editing rules for config/candidate.yaml and config/cv/cv.[skill].[lang].yaml in give-me-job. | `.claude/skills/gmj-candidate-yaml-schema/SKILL.md` |
 | gmj-cv-pdf-python | Python commands to extract text and render CV PDFs for give-me-job. | `.claude/skills/gmj-cv-pdf-python/SKILL.md` |
 | gmj-cv-review-rubric | Scoring dimensions for CV vs vacancy and market alignment. | `.claude/skills/gmj-cv-review-rubric/SKILL.md` |
+| gmj-fit-rubric | Gate B must-have coverage weights + calibrated threshold derivation, and Gate C 5-dimension polish rubric (advisory). | `.claude/skills/gmj-fit-rubric/SKILL.md` |
 | gmj-orchestrator-pipelines | Skill-CV pipeline steps and pre-flight checks for gmj-orchestrator. Loaded dynamically via Read tool when goal matches — NOT statically included. | `.claude/skills/gmj-orchestrator-pipelines/SKILL.md` |
 | gmj-sources-config-enforcement | Mandatory sources.yaml read-and-enforce protocol for the web-search spoke (gmj-offer-scout). | `.claude/skills/gmj-sources-config-enforcement/SKILL.md` |
 | gmj-sources-ingestion | Conventions for placing candidate and vacancy materials under sources/. | `.claude/skills/gmj-sources-ingestion/SKILL.md` |
+| gmj-truth-rubric | Reframe/fabrication boundary (4 rules) for gmj-truth-verifier Gate A per-claim verdicts. | `.claude/skills/gmj-truth-rubric/SKILL.md` |
 | gmj-vacancy-research-rubric | Rubric for web vacancy search and market-aligned research outputs. | `.claude/skills/gmj-vacancy-research-rubric/SKILL.md` |
 <!-- GSD:skills-end -->
 

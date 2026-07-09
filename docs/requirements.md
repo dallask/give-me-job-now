@@ -1,17 +1,20 @@
-# Requirements — the v2.0 milestone inventory
+# Requirements — the milestone inventory
 
-> **Canonical source: [`.planning/REQUIREMENTS.md`](../.planning/REQUIREMENTS.md).**
-> That file holds the authoritative requirement text, per-item checkboxes, and the phase
-> traceability table (52/52 mapped, Phases 9–19). This page is the reader-facing summary: it
-> groups the milestone's requirements into families, gives each a one-line description, and names
-> **where each is realized** (agent / script / schema / config). When this page disagrees with
-> `.planning/REQUIREMENTS.md`, that file wins.
+> **Canonical source: each shipped milestone's archived requirements file under
+> [`.planning/milestones/`](../.planning/milestones/)** (e.g.
+> [`v4.0-REQUIREMENTS.md`](../.planning/milestones/v4.0-REQUIREMENTS.md) for the current
+> milestone). Each archived file holds that milestone's authoritative requirement text,
+> per-item checkboxes, and phase traceability table. This page is the reader-facing summary: it
+> groups requirements into families, gives each a one-line description, and names **where each is
+> realized** (agent / script / schema / config). When this page disagrees with an archived
+> `.planning/milestones/*-REQUIREMENTS.md` file, that file wins.
 
-Milestone **v2.0 — "Standalone gmj Collective"** hardens the collective against the classic
+Milestone **v2.0 — "Standalone gmj Collective"** hardened the collective against the classic
 multi-agent failure modes (fabricated facts, off-target drift, context bloat, silent quality decay)
-and packages it as a standalone, installable distribution. Its **core value**: given a real job
+and packaged it as a standalone, installable distribution. Its **core value**: given a real job
 offer, the system produces truthful, offer-optimized application artifacts that provably trace back
-to the candidate's real profile and pass mandatory quality gates.
+to the candidate's real profile and pass mandatory quality gates. That core value is unchanged by
+every later milestone.
 
 Requirements are organized into **12 families** (52 requirements total). Each family maps to exactly
 one roadmap phase. All families are **Complete** except `DOCS-02` (the root `README.md`), which is
@@ -40,8 +43,33 @@ authoritative [architecture](ARCHITECTURE.md) for how the roster realizes them, 
 | **STRUCT** (×3) | The project structure is clarified, a frontmatter-scoped `rules/` folder keeps agent context lean, and `CLAUDE.md` is refreshed with no stale references. | `rules/`; `.claude/CLAUDE.md` | Complete |
 | **DOCS** (×4) | A cross-linked, English-only `docs/` set + a root `README.md` describe the system, verified against the codebase, with a documented refresh-at-finalization convention. | `docs/`; `README.md`; `tests/test_docs_current.py`; [`docs-currency`](rules.md) rule | DOCS-02 pending; rest Complete |
 
-Full per-requirement text and the phase-by-phase traceability table live in
-[`.planning/REQUIREMENTS.md`](../.planning/REQUIREMENTS.md).
+Full v2.0 per-requirement text and its phase-by-phase traceability table live in
+[`.planning/milestones/v2.0-REQUIREMENTS.md`](../.planning/milestones/v2.0-REQUIREMENTS.md).
+Milestones **v3.0** ("Skill-CV Depth") and **v3.1** hardened and extended the artifact/fit
+pipeline between v2.0 and v4.0; their requirement text lives in
+[`v3.0-REQUIREMENTS.md`](../.planning/milestones/v3.0-REQUIREMENTS.md) and
+[`v3.1-REQUIREMENTS.md`](../.planning/milestones/v3.1-REQUIREMENTS.md).
+
+---
+
+## v4.0 requirements — "Multi-Runtime & Parallel Throughput"
+
+Milestone **v4.0** diversified the collective's runtime/provider surface, sped up multi-offer
+processing via bounded parallel fan-out, and broadened default deliverables — while keeping the
+existing Claude Code CLI path and the truth/fit gates untouched. **29 requirements** across **8
+families**, all **Complete**; full text and the phase traceability table (Phases 32–39) live in
+[`v4.0-REQUIREMENTS.md`](../.planning/milestones/v4.0-REQUIREMENTS.md).
+
+| Family | What it guarantees | Primarily realized in | Disposition |
+|--------|--------------------|-----------------------|-------------|
+| **ARTF** (×4) | `/gmj-pipeline-run` generates all three artifact types by default, each independently composed and gated under its own derived `run_id` (no shared verdict); CV render always produces a saved PDF **and** a first-class `.html` sibling; `--artifact-types` narrows the set. | `scripts/pipeline/gmj_pipeline_run.py`; `scripts/cv/gmj_render_cv.py`; `scripts/pipeline/gmj_check_delivery.py`; [architecture](ARCHITECTURE.md) §5.1 | Complete |
+| **DOCTAB** (×3) | `gmj-dashboard` gains a read-only "docs" tab listing `docs/*.md` in a `DataTable`, opening a dismissible Markdown modal re-read fresh from disk on each open. | `scripts/dashboard/gmj_dashboard.py`, `gmj_dashboard_model.py` | Complete |
+| **SEARCH** (×4) | A Playwright MCP viability spike for bot-protected boards, evaluated honestly; the spike returned **NO-GO**, so `gmj-offer-scout`, the scope-guard hook, and schemas remain byte-identical (SEARCH-02..04 vacuously satisfied). | `.planning/phases/34-*/34-RESEARCH.md`; `gmj-offer-scout` (unchanged) | Complete (NO-GO) |
+| **CONC** (×6) | A frozen `max_parallel_offers` cap bounds concurrent offer pipelines; a deterministic dispatch-cap script (never the model) decides what's dispatchable; concurrent-safe manifest writes; per-offer failure isolation; Gate A/B still enforced per-offer-per-type; expressed as parallel `Task` calls in one hub turn, never a nested sub-orchestrator. | `scripts/pipeline/gmj_dispatch_cap.py`, `gmj_batch.py`; [architecture](ARCHITECTURE.md) §5.1 | Complete |
+| **CLEANUP** (×2) | A proposal-only report enumerates unused-file candidates with evidence, excluding anything with an active reference; zero deletions executed. | `scripts/gmj_cleanup_report.py`; `sources/analysis/cleanup-report.md` | Complete |
+| **INSTALL** (×4) | A `.sh` installer clones/installs all 4 `requirements.txt` files plus Node/MCP deps, is idempotent, checks prerequisites, and delegates config/hook staging to the existing `gmj-tools.cjs` installer. | `gmj-core/bin/install.sh`, `gmj-tools.cjs` | Complete |
+| **SDK** (×3) | An experimental, additive-only Claude Agent SDK runtime prototype dispatches one spoke via `claude-agent-sdk`, alongside — never replacing — the Claude Code CLI path; ships a hook-parity checklist, labeled unsupported for autonomous runs until parity is verified. | `scripts/runtime/gmj_sdk_runner.py`, `HOOK-PARITY.md`; [architecture](ARCHITECTURE.md) §5.2 | Complete |
+| **PROVIDER** (×3) | An experimental, additive-only Cursor adapter generator translates `.claude/agents/*.md` into `.cursor/agents/*.md`, never wired into the default flow; documented enforcement gaps (no confirmed PreToolUse-hook parity, no confirmed Task-nesting restriction). | `gmj-core/bin/gmj-cursor-adapter.cjs`, `CURSOR-HOOK-PARITY.md`; [architecture](ARCHITECTURE.md) §5.2 | Complete |
 
 ---
 

@@ -75,7 +75,7 @@ ENTITY_STEMS = AGENTS | SKILLS | HOOKS | COMMAND_STEMS
 # payload dir (gmj-core), the installer bin stem (gmj-tools), the command GROUP dir whose leaves
 # are bare (gmj-pipeline), and the naming rule file (gmj-naming). A token in this set is skipped,
 # never a failure; a typo'd agent/skill/hook/command name still fails.
-ALLOWED_NONENTITY = {"gmj-core", "gmj-tools", "gmj-pipeline", "gmj-naming"}
+ALLOWED_NONENTITY = {"gmj-core", "gmj-tools", "gmj-pipeline", "gmj-naming", "gmj-cursor-adapter"}
 
 # ---------------------------------------------------------------------------
 # File scopes.

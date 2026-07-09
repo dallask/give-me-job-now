@@ -203,22 +203,36 @@ weights:                       # SECONDARY advisory only; sum to 1.0
 
 ### config/pipeline.config.yaml
 
-Two **operator-authored knobs** (EXEC-01, GUARD-03) governing how a run executes.
+Three **operator-authored knobs** (EXEC-01, GUARD-03, CONC-01) governing how a run executes.
 
 ```yaml
 execution_mode: human_in_the_loop   # human_in_the_loop | autonomous
 retry_cap: 2                        # max enhance/generate retry cycles per run
+max_parallel_offers: 3              # max offers' pipelines running concurrently in one batch
 ```
 
 `execution_mode` gates only the post-PASS human pause (`autonomous` removes the human pause,
-never the machine gate); `retry_cap` bounds the enhance/generate loop. **Freeze contract:** at run
-start these values are copied into `.pipeline/runs/<run_id>/state.json`, and every downstream
-control decision reads that frozen copy — a mid-run edit to this file cannot change an in-flight
-run.
+never the machine gate); `retry_cap` bounds the enhance/generate loop; `max_parallel_offers`
+bounds the batch-wide dispatch concurrency (CONC-01) — default `3`, a small, safe default
+mirroring the conservative `retry_cap: 2` precedent. **Freeze contract:** at run/batch start
+these values are copied into `.pipeline/runs/<run_id>/state.json` (`execution_mode`,
+`retry_cap`) or the batch manifest (`max_parallel_offers`, frozen at `gmj_batch.py init`), and
+every downstream control decision reads that frozen copy — a mid-run edit to this file cannot
+change an in-flight run or batch.
 
 - **Schema / owner:** inline header; loaded via `yaml.safe_load` with an `isinstance` guard
   (`retry_cap` validated as an int excluding bool).
-- **Consumer:** `scripts/pipeline/gmj_state_write.py` freezes the values into run state.
+- **Consumer:** `scripts/pipeline/gmj_state_write.py` freezes `execution_mode`/`retry_cap` into
+  run state; `gmj_batch.py init` freezes `max_parallel_offers` into the batch manifest; and
+  `scripts/pipeline/gmj_dispatch_cap.py` reads the frozen cap to decide which run_ids are
+  dispatchable right now (CONC-02).
+
+**Related CLI narrowing (not a config file):** `/gmj-pipeline-run` accepts an optional
+`--artifact-types` flag (e.g. `--artifact-types=cv,cover_letter`) that narrows the default
+3-artifact-type run (`cv`, `cover_letter`, `interview_prep`) to a subset. It is validated
+deterministically — never by model reasoning — by `scripts/pipeline/gmj_pipeline_run.py`, which
+hard-fails (exit 1, no partial output) before any dispatch on an unknown/typo'd type, naming the
+invalid value and the valid set (ARTF-03).
 
 ### config/pipeline.dag.yaml
 

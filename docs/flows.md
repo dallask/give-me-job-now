@@ -34,45 +34,67 @@ retry-capped). This is the flow the RUNBOOK exercises end to end; see
 [docs/RUNBOOK.md](RUNBOOK.md) §2.
 
 ```
-/gmj-pipeline-run  (params: mode?, offer, run_id?)
+/gmj-pipeline-run  (params: mode?, offer, run_id?, artifact-types?)
+   │
+   ▼
+0. resolve+derive  gmj_pipeline_run.py --run-id <run_id> --artifact-types <list>
+                    validates the 3-item enum (cv / cover_letter / interview_prep), hard-fails
+                    BEFORE any dispatch on an unknown/typo'd type, and derives ONE run_id PER
+                    type: <run_id>-cv / <run_id>-cl / <run_id>-ip  (defaults to all three)
    │
    ▼
 1. init_run     gmj_state_write.py    freeze execution_mode + retry_cap + run_id
-                                      into .pipeline/runs/<run_id>/state.json
-2. loop:
-   a. gmj_route.py        --state runs/<run_id>/state.json  → next_step   (pure (state, dag) → step)
+                                      into .pipeline/runs/<run_id>-{cv,cl,ip}/state.json — ITS
+                                      OWN file per derived type, never one shared file
+2. loop (per artifact type; parallel Task fan-out for the default 3 types in one hub turn):
+   a. gmj_route.py        --state runs/<run_id>-{cv,cl,ip}/state.json  → next_step   (pure (state, dag) → step)
    b. gmj_check_offer.py  --file offer-spec.json            (before each dispatch; STALE ⇒ abort)
    c. Task(spoke for next_step):
-        scout    → gmj-offer-scout           (rank offers within sources.yaml scope)
+        scout    → gmj-offer-scout           (rank offers within sources.yaml scope; once, shared offer-spec)
         freeze   → gmj_freeze_offer.py        (immutable offer-spec)
-        compose  → gmj-artifact-composer ×3   (cv / cover_letter / interview_prep; gmj_record_retry.py)
-   d. GATE node?
+        compose  → gmj-artifact-composer      (one Task per type; gmj_record_retry.py)
+   d. GATE node?  (recorded independently per type — never a shared/collapsed verdict)
         Gate A (truth):  gmj_check_truth.py → gmj_record_gate.py       exit 0/1 — NO bypass
         Gate B (fit):    gmj_score_fit.py   → gmj_record_gate.py       exit 0/1 — NO bypass
         FAIL ⇒ gmj_record_retry.py --increment → gmj_check_cap.py
-                 ├ below cap ⇒ gmj_map_feedback.py → Task(gmj-artifact-composer) ↺
+                 ├ below cap ⇒ gmj_map_feedback.py → Task(gmj-artifact-composer) ↺ (this type only)
                  └ at cap    ⇒ HARD STOP report (names failing artifact + reason)
         PASS ⇒ (human_in_the_loop: pause for approval) → route advances
-3. deliver:     gmj_check_delivery.py   (Gate A ∧ Gate B recorded pass?)  else blocked
+3. deliver:     gmj_check_delivery.py   (per type: Gate A ∧ Gate B recorded pass?)  else blocked
+                 — runs once per derived run_id, reported as a per-type breakdown, never a
+                   single collapsed boolean
    │
    ▼
-   output/cv/*.pdf   rendered by gmj-cv-generator via gmj_render_cv.py
+   output/cv/*.pdf + *.html sibling (ARTF-02)   rendered by gmj-cv-generator via gmj_render_cv.py
+   (plus the cover-letter / interview-prep artifacts for the other requested types)
 ```
 
-1. **init_run.** `gmj_state_write.py` freezes `execution_mode`, `retry_cap`, and `run_id` into
-   `.pipeline/runs/<run_id>/state.json`.
-2. **Route + guard.** `gmj_route.py` returns the next step as a pure `(state, dag) → step` replay;
+1. **Resolve + derive.** `gmj_pipeline_run.py` validates `--artifact-types` against the 3-item
+   enum and derives one run_id per requested type (`<run_id>-cv` / `-cl` / `-ip`), defaulting to
+   all three (ARTF-01/03).
+2. **init_run.** `gmj_state_write.py` freezes `execution_mode`, `retry_cap`, and `run_id` into
+   each type's OWN `.pipeline/runs/<run_id>-{cv,cl,ip}/state.json` — never one shared file,
+   because `gate_results` is keyed flatly by DAG node with no artifact-type dimension.
+3. **Route + guard.** `gmj_route.py` returns the next step as a pure `(state, dag) → step` replay;
    `gmj_check_offer.py` re-checks the frozen offer-spec for tampering before each dispatch (STALE ⇒
    abort).
-3. **Scout + freeze.** `gmj-offer-scout` ranks offers within `config/sources.yaml` scope, then
-   `gmj_freeze_offer.py` freezes the chosen one into an immutable offer-spec.
-4. **Compose.** `gmj-artifact-composer` composes the three artifact types; `gmj_record_retry.py`
-   holds each type's isolated retry counter.
-5. **Gate A → Gate B.** `gmj_check_truth.py` (truth) then `gmj_score_fit.py` (fit), each recorded by
-   `gmj_record_gate.py`. On failure, `gmj_map_feedback.py` projects a structured feedback packet back
-   to the composer, bounded by `gmj_check_cap.py`.
-6. **Deliver.** `gmj_check_delivery.py` refuses delivery unless both gates recorded a PASS; a passing
-   draft reaches `gmj-cv-generator`, which renders `output/cv/*.pdf` via `gmj_render_cv.py`.
+4. **Scout + freeze.** `gmj-offer-scout` ranks offers within `config/sources.yaml` scope, then
+   `gmj_freeze_offer.py` freezes the chosen one into an immutable offer-spec shared by all
+   requested types.
+5. **Compose.** `gmj-artifact-composer` composes each requested type as its own `Task`, dispatched
+   in parallel in one hub turn; `gmj_record_retry.py` holds each type's isolated retry counter.
+6. **Gate A → Gate B, per type.** `gmj_check_truth.py` (truth) then `gmj_score_fit.py` (fit), each
+   recorded independently per type by `gmj_record_gate.py` — one type's PASS never satisfies
+   another's delivery. On failure, `gmj_map_feedback.py` projects a structured feedback packet back
+   to the composer for that type only, bounded by `gmj_check_cap.py`.
+7. **Deliver.** `gmj_check_delivery.py` runs once per derived run_id and refuses delivery for any
+   type lacking its own recorded Gate A ∧ Gate B PASS, reported as a per-type breakdown. A passing
+   CV draft reaches `gmj-cv-generator`, which renders `output/cv/*.pdf` **and** a first-class
+   `.html` sibling by default (ARTF-02) via `gmj_render_cv.py`; cover-letter and interview-prep
+   drafts render via `gmj_render_cover_letter.py` / `gmj_render_interview_prep.py`.
+
+Narrow the default set with `--artifact-types=cv,cover_letter` (ARTF-03); an unknown/typo'd type
+hard-fails before any dispatch.
 
 ---
 
@@ -99,16 +121,31 @@ the last one left off.
 
 ## Batch (multi-offer)
 
-**Entry:** `/gmj-batch` — freeze + run several shortlisted offers, each as its own gated pipeline,
-under one resumable manifest.
+**Entry:** `/gmj-batch` — freeze + run several shortlisted offers **concurrently**, each as its own
+gated pipeline, under one resumable manifest, bounded by a frozen `max_parallel_offers` cap
+(CONC-01..06).
 
-1. `gmj_batch.py` writes a resumable **batch manifest** grouping the selected offers by `run_id`.
-2. It runs the **existing single-offer loop once per offer** — same Gate A → Gate B → deliver
-   ordering — each with an isolated `retry_counts[offer][type]` slot.
-3. `/gmj-runs` (see [runs inspection](#runs-inspection)) surfaces the batch timeline and the resume
+1. `gmj_batch.py init` writes a resumable **batch manifest** grouping the selected offers by
+   `run_id`, freezing `max_parallel_offers` (default 3, `config/pipeline.config.yaml`) into the
+   manifest at init time — the same freeze-once pattern as `execution_mode`/`retry_cap`.
+2. **Bounded concurrent dispatch.** `gmj_dispatch_cap.py --batch <batch_id>` is the sole
+   deterministic decider of which offers' runs are dispatchable right now (never the model); the
+   hub dispatches up to that many offers' next steps as **parallel `Task` calls in one hub turn**.
+   Each offer still runs the **existing single-offer loop, per artifact type** — same Gate A →
+   Gate B → deliver ordering — each with its own isolated `retry_counts[offer][type]` slot; Gate
+   A/B are still enforced non-bypassably per-offer-per-type, with no shared/aggregate gate
+   shortcut introduced by concurrency.
+3. **Mark + greedy refill.** `gmj_batch.py mark` records each terminal per-(offer, type) completion
+   into the concurrent-safe `batch_manifest.json` (serialized writes — no lost updates when two or
+   more offers finish in the same wave); the hub immediately re-asks `gmj_dispatch_cap.py` to top
+   back up to the cap until every offer's 3 runs reach a terminal status. One offer's gate
+   exhaustion or error is isolated — it never stalls or corrupts a sibling offer's run.
+4. `/gmj-runs` (see [runs inspection](#runs-inspection)) surfaces the batch timeline and the resume
    command for any interrupted offer.
 
-No new control logic: the batch layer is a deterministic control plane over the same per-offer flow.
+No nested sub-orchestrator: concurrency is expressed as multiple `Task` calls issued in one hub
+turn (extending the existing 3-artifact-type fan-out idiom), never a per-offer nested hub — the
+batch layer is a deterministic control plane over the same per-offer flow.
 
 ---
 
@@ -183,6 +220,11 @@ nothing new. Two facts define the flow:
 - **`--manage` is an explicit opt-in.** Passing `python3 scripts/dashboard/gmj_dashboard.py --manage`
   binds the live action layer (`r`/`R`/`b`/`m`/`c`) that can drive runs/batches and edit config from
   the board. Without it those keys are not even bound.
+
+An eighth **docs** tab (DOCTAB-01..03) lists every `docs/*.md` file by name in a `DataTable`;
+selecting one opens a wide, dismissible `ModalScreen` rendering that file's full content via a
+read-only Textual `Markdown` widget, re-read fresh from disk on each open (no stale caching, no
+new write path) — the same pure-projection discipline as the rest of the board.
 
 The board is a pure inspector — it holds no `Task` and never spawns a spoke; every action it can take
 under `--manage` shells to the same deterministic scripts the pipeline already uses.
