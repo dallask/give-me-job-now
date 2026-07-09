@@ -57,7 +57,7 @@ passed, whether the retry cap is hit, or whether an artifact is deliverable. The
 | `gmj_score_fit.py` | `scripts/artifacts/gmj_score_fit.py` | Gate B (target-fit) verdict — exit 0/1, **no mode argument** |
 | `gmj_record_gate.py` | `scripts/pipeline/gmj_record_gate.py` | Write the normalized `gate_result` artifact under `<root>/runs/<run_id>/` AND set `state.gate_results[<node>]` |
 | `gmj_record_retry.py` | `scripts/artifacts/gmj_record_retry.py` | Increment `state.retry_counts[...]` on a gate FAIL |
-| `gmj_check_cap.py` | `scripts/pipeline/gmj_check_cap.py` | Is `retry_count == retry_cap`? (below cap vs exhausted) |
+| `gmj_check_cap.py` | `scripts/pipeline/gmj_check_cap.py` | 3-way: below cap (continue) / at cap first-time (propose_raise, exit 2) / exhausted-final (exit 1, with `failure_class`) |
 | `gmj_map_feedback.py` | `scripts/pipeline/gmj_map_feedback.py` | Pure `gate_result → gate_feedback` projection for the composer loop |
 | `gmj_check_delivery.py` | `scripts/pipeline/gmj_check_delivery.py` | Refuse delivery unless Gate A ∧ Gate B are recorded pass |
 | `gmj_dispatch_cap.py` | `scripts/pipeline/gmj_dispatch_cap.py` | Given the batch manifest, each offer's run states, and the frozen `max_parallel_offers` cap, decide which run_ids are dispatchable right now — never the model |
@@ -87,6 +87,25 @@ DAG node name with no artifact-type dimension (`gmj_record_gate.py`), so isolati
 via separate state files, not a nested key shape. Passing an existing derived `run_id` resumes
 that type's run; a fresh one starts a new one. Every `run_id` (base and derived) is sanitized to
 a safe charset before it becomes a directory name.
+
+**`current_step` seeding (two DIFFERENT, both-correct conventions — PIPE-05).**
+`gmj_state_write.py`'s `_freeze_run_config` does **NOT** set `current_step` — verified: it only
+freezes `execution_mode`/`retry_cap`/`run_id`/optionally `offer_spec_path`/`offer_spec_hash`.
+Which value seeds `current_step`, and who seeds it, depends on which context you are in: (a)
+for a **FRESH single-offer run** (this hub's own `/gmj-pipeline-run` / `/gmj-pipeline/scout`
+flow), `current_step` is implicitly the DAG's first node, `gmj-offer-scout`, per
+`config/pipeline.dag.yaml`'s `steps:` ordering (`gmj-offer-scout` has no incoming edge — it is
+the DAG-first node) — **the hub itself is responsible** for seeding `state.json`'s
+`current_step: "gmj-offer-scout"` before the first `gmj_route.py` call for a fresh run; treat
+this as an explicit hub responsibility, not an implicit assumption `gmj_route.py` or
+`gmj_state_write.py` will handle for you. (b) for a **BATCH-RESUME run** (`/gmj-batch`),
+`scripts/pipeline/gmj_batch.py`'s `_seed_state()` already seeds `current_step:
+"gmj-artifact-composer"` directly, in the SAME atomic write as the frozen run-config fields
+(because batch entries arrive already-scouted/frozen via the shortlist merge flow) — this is the
+existing, correct, DIFFERENT convention for that context; **never** re-seed or overwrite
+`current_step` for an already-initialized batch-derived `run_id`. Both conventions are correct
+in their own context — the hub must distinguish which context it is in (fresh single-offer vs.
+batch-resume) rather than assume one universal seed value.
 
 ### 2. loop
 
@@ -125,8 +144,9 @@ Repeat until `gmj_route.py` signals `status: done` or a hard stop fires:
   3. **On PASS:** consult `execution_mode` ONLY here (see the human-pause rule below), then
      let `gmj_route.py` advance.
   4. **On FAIL:** run `scripts/artifacts/gmj_record_retry.py --increment`, then
-     `scripts/pipeline/gmj_check_cap.py`:
-     - **Below cap →** run `scripts/pipeline/gmj_map_feedback.py --file <gate_result artifact>`
+     `scripts/pipeline/gmj_check_cap.py` — consult its **3-way exit code contract**
+     (`0` = continue, `2` = propose_raise, `1` = exhausted-final; PIPE-07/PIPE-08):
+     - **Exit 0 (`continue`) →** run `scripts/pipeline/gmj_map_feedback.py --file <gate_result artifact>`
        where `--file` points at the **`record_gate`-normalized `gate_result` artifact under
        `<root>/runs/<run_id>/`** — **NOT** raw `gmj_score_fit.py` stdout (that stdout is a
        `{gate_b, gate_c}` wrapper with no top-level `.content` and would break the
@@ -137,8 +157,22 @@ Repeat until `gmj_route.py` signals `status: done` or a hard stop fires:
        `cover_letter_tone` param string (see
        [Cover-letter tone hint](#cover-letter-tone-hint-hub-param)) so the tone survives the
        retry — still a param, never a composer-read file.
-     - **At cap →** **HARD STOP.** Emit a report naming the failing artifact + the last
-       gate's reason. Never ship the last attempt.
+     - **Exit 2 (`propose_raise`, NEW) →** this offer/type just reached its FROZEN
+       `retry_cap` for the FIRST time this retry sequence. In `human_in_the_loop` mode,
+       present the proposed `current_cap`→`proposed_cap` raise (+1, fixed) to the operator as
+       an explicit **approval prompt** — never auto-apply without asking. In `autonomous`
+       mode, apply the raise automatically and **LOG it** (never silent). Either way, once the
+       raise is approved/applied, re-invoke `gmj_check_cap.py` with `--raised` for this
+       offer/type going forward within the SAME retry sequence, then continue the SAME
+       recompose→Gate A/B path as the `continue` branch above (`gmj_map_feedback.py` →
+       `Task(gmj-artifact-composer)`). A raised-cap recompose is **NOT** exempt from Gate A/B:
+       it must still pass both gates via the unchanged, non-bypassable gate mechanism, and if
+       it fails again the loop simply continues toward the (now raised) cap.
+     - **Exit 1 (`exhausted`, final) →** **HARD STOP.** Emit a report naming the failing
+       artifact, the last gate's reason, AND the new `failure_class`
+       (`systemic`/`narrow`) field from the report, so the operator can see at a glance
+       whether a further MANUAL cap raise is likely worth attempting, without re-reading the
+       full gate audit trail. Never ship the last attempt.
 
 ### 3. deliver
 
