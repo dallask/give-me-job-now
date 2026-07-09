@@ -8,11 +8,11 @@
 #
 # KEEP fixtures (deliberately NOT matched by any glob below — verified by listing
 # them explicitly here, not via an exclude directive):
-#   sources/offers/sample-offer.txt
-#   sources/offers/sample-offer-draft.json
+#   tests/fixtures/offers/sample-offer.txt
+#   tests/fixtures/offers/sample-offer-draft.json
 #   sources/README.md
 #   sources/candidate/README.md
-#   .gitkeep files (e.g. output/cv/.gitkeep, sources/analysis/.gitkeep, ...)
+#   .gitkeep files (e.g. output/cv/.gitkeep, output/analysis/.gitkeep, ...)
 #
 # No real PII value appears in this file — only paths and globs.
 
