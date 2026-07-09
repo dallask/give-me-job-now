@@ -159,6 +159,29 @@ def test_tie_break_is_canonical_key_asc() -> None:  # SCOUT-04 tie-break
         assert got == sorted(got), f"equal-score entries must order by canonical_key asc: {got}"
 
 
+def test_same_key_different_score_keeps_higher_scoring_entry() -> None:  # CR-01 regression
+    # Two cross-posted entries sharing a canonical_key but with DIFFERENT scores (different
+    # salary/mode) must retain the higher-scoring representative, not the lower-scoring one.
+    entries = [
+        _entry("SoftPeak", "Lead PHP Engineer", "https://www.work.ua/", "https://www.work.ua/j/1",
+               salary=1000, mode="onsite"),
+        _entry("SoftPeak", "Lead PHP Engineer", "https://robota.ua/", "https://robota.ua/j/1",
+               salary=9000, mode="remote"),
+    ]
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        result, out = _run_merge(cwd, entries, _PREFS, _SOURCES, out_name="tiescore.json")
+        assert result.returncode == 0, f"CLI must exit 0: {result.stderr}"
+        shortlist = json.loads(out.read_text())["shortlist"]
+        assert len(shortlist) == 1, f"same canonical_key must collapse to one entry: {shortlist}"
+        kept = shortlist[0]
+        assert kept["board"] == "https://robota.ua/", (
+            f"the higher-scoring entry (salary=9000, mode=remote) must survive, "
+            f"not the lower-scoring one: kept board={kept['board']}"
+        )
+        assert kept["salary"] == 9000, f"the higher-scoring entry's fields must be kept: {kept}"
+
+
 def test_out_of_scope_entry_hard_filtered() -> None:  # SCOUT-02
     with tempfile.TemporaryDirectory() as tmp:
         cwd = Path(tmp)

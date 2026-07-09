@@ -232,9 +232,9 @@ def merge(board_entries: list[dict], prefs: dict, sources: dict) -> list[dict]:
         key = canonical_key(entry)
         scored = {**entry, "canonical_key": key, "score": score_entry(entry, prefs)}
         cur = groups.get(key)
-        if cur is None or (scored["score"], cur.get("board", "")) > (
+        if cur is None or (scored["score"], scored.get("board", "")) > (
             cur["score"],
-            scored.get("board", ""),
+            cur.get("board", ""),
         ):
             groups[key] = scored
 
