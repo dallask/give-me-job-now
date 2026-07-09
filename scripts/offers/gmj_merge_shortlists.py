@@ -184,7 +184,10 @@ def score_entry(entry: dict, prefs: dict) -> float:
     salary_weight = _num(ranking.get("salary_weight")) or 0.0
     remote_weight = _num(ranking.get("remote_weight")) or 0.0
 
-    # salary-fit sub-score (0..1).
+    # salary-fit sub-score (0..1). Deliberately min-threshold-not-maximization: this
+    # measures fit against preferences.salary.min and clamps to 1.0 once the entry clears
+    # it, so it cannot discriminate "$4000" from "$40000" once both clear the threshold
+    # (WR-04) — that is intentional (fit vs. min, not "richest wins"), not a precision bug.
     salary_cfg = prefs.get("salary") if isinstance(prefs.get("salary"), dict) else {}
     salary_min = _num(salary_cfg.get("min"))
     entry_salary = _entry_salary(entry)
