@@ -62,14 +62,14 @@ def test_persona_write_scoped_excludes_candidate_yaml() -> None:
 
     A top-level persona structurally holds Write, so containment cannot rely on prose
     alone: the frontmatter must scope Write to the declared surface
-    (``config/preferences.yaml`` + ``sources/analysis/*``) and must NOT grant a path that
+    (``config/preferences.yaml`` + ``output/analysis/*``) and must NOT grant a path that
     reaches the master profile. An unrestricted ``Bash(*)`` is equally disqualifying — a
     stray shell can open ``config/candidate.yaml`` for writing.
     """
     fm = _frontmatter()
     assert "Write(*)" not in fm, (
         "frontmatter must NOT grant unrestricted Write(*) — scope it to "
-        "Write(config/preferences.yaml) + Write(sources/analysis/*)"
+        "Write(config/preferences.yaml) + Write(output/analysis/*)"
     )
     assert "Bash(*)" not in fm, (
         "frontmatter must NOT grant unrestricted Bash(*) — an unscoped shell can write "
@@ -78,8 +78,8 @@ def test_persona_write_scoped_excludes_candidate_yaml() -> None:
     assert "Write(config/preferences.yaml)" in fm, (
         "frontmatter must scope Write to config/preferences.yaml"
     )
-    assert "Write(sources/analysis/*)" in fm, (
-        "frontmatter must scope Write to sources/analysis/*"
+    assert "Write(output/analysis/*)" in fm, (
+        "frontmatter must scope Write to output/analysis/*"
     )
     # No granted Write path may resolve to the master profile or its language overlays.
     assert "Write(config/candidate.yaml)" not in fm, "must never grant Write to candidate.yaml"
