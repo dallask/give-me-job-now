@@ -95,3 +95,44 @@ table tbody tr:nth-child(even) {
   border-top-color: #374151;
   border-bottom-color: #374151;
 }
+
+/* Smooth expand/collapse for the header hamburger menu + docs-sidebar mobile dropdown.
+   CSS cannot transition to/from display:none, so `hidden` (Tailwind's display:none) stays
+   the true closed/at-rest state, and JS toggles this `.menu-open` class alongside it —
+   removing `hidden` + adding `.menu-open` to open, removing `.menu-open` then (after the
+   transition duration) re-adding `hidden` to close. 32rem generously exceeds both menus'
+   natural rendered height so content is never clipped mid-transition. */
+#nav-menu,
+#docs-mobile-panel {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 250ms ease, opacity 200ms ease;
+}
+
+#nav-menu.menu-open,
+#docs-mobile-panel.menu-open {
+  max-height: 32rem;
+  opacity: 1;
+}
+
+/* Copy-to-clipboard icon<->checkmark swap — brief soft cross-fade instead of an instant pop. */
+.icon-swap-fade {
+  transition: opacity 150ms ease;
+}
+
+/* Header scroll-direction hide/show — sticky positioning supports transform (transform does
+   not remove sticky elements from the sticky-computed flow the way position:fixed would). */
+header {
+  transition: transform 300ms ease;
+}
+
+header.-translate-y-full {
+  transform: translateY(-100%);
+}
+
+/* docs.html mobile sidebar-strip offset sync — overrides the Tailwind top-16 utility only
+   while the header is hidden, so the strip docks flush with the very top of the viewport. */
+.docs-strip-header-hidden {
+  top: 0 !important;
+}
