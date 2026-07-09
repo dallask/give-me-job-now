@@ -20,8 +20,11 @@
 .planning/
 
 # Real per-offer generated artifact drafts (CV/cover-letter/interview-prep JSON).
-# Belt-and-suspenders: output/artifacts/* is independently git-ignored (Plan 42-01),
-# so this glob is defense-in-depth, not the sole control.
+# NOTE: output/artifacts/* is git-ignored (Plan 42-01) for FUTURE additions only —
+# it does NOT retroactively untrack the pre-existing softpeak-lead-backend-php-engineer-laravel
+# draft files that were already committed (via git mv from sources/artifacts/) before that
+# ignore rule existed. `git check-ignore` confirms those files are NOT ignored. This glob is
+# the actual (sole) protection for those already-tracked files, not defense-in-depth.
 output/artifacts/
 
 # Real generated interview-prep markdown docs.
