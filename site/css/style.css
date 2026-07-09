@@ -124,5 +124,5 @@ header.-translate-y-full {
 }
 
 .docs-strip-header-hidden {
-  top: 0 !important;
+  top: 0.75rem !important;
 }
