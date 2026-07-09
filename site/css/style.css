@@ -63,22 +63,6 @@ code {
   word-break: break-word;
 }
 
-/* Single shared source of table zebra/header styling for every table in docs.html
-   (24 tables today) — no per-table markup edit needed. Hex values are Tailwind's
-   published default gray scale (gray-800/900/950) so striping stays pixel-consistent
-   with the rest of the Tailwind-CDN-driven page. */
-table thead tr {
-  background-color: #1f2937; /* gray-800 */
-}
-
-table tbody tr:nth-child(odd) {
-  background-color: #111827; /* gray-900 */
-}
-
-table tbody tr:nth-child(even) {
-  background-color: #030712; /* gray-950 */
-}
-
 /* Tooltipster theme override — recolor the default bubble to match the site's dark
    palette instead of shipping/loading a separate custom Tooltipster theme file. */
 .tooltipster-sidetip .tooltipster-box {

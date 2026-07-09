@@ -116,13 +116,13 @@
       <main class="min-w-0">
 <section id="agents" class="docs-anchor-target mb-16">
           <h2 class="text-3xl font-extrabold text-gray-50 border-b border-gray-800 pb-3">Agents — the give-me-job roster</h2>
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Authoritative roster source of truth: <a href="#architecture" class="text-indigo-400 hover:text-indigo-300">Architecture</a> §3–4.</strong>
             This section is a reader-facing mirror of that contract. Every agent named here resolves to a
             real <svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" title="File path" data-tooltip="File path"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg><code class="text-emerald-400">.claude/agents/gmj-*.md</code> file on disk, and <code class="text-emerald-400">python3 tests/test_docs_current.py</code>
             (<code class="text-emerald-400">test_every_docs_agent_exists</code>) fails the build if any token drifts. When the two disagree,
             ARCHITECTURE.md wins and this file is corrected toward it.</p>
-          </blockquote>
+          </div>
           <p class="mt-4 text-gray-300">The collective is a <strong class="text-gray-100">hub-and-spoke</strong> topology: one top-level orchestrator holds the <code class="text-emerald-400">Task</code>
           tool and delegates to spokes; spokes never spawn spokes (nested hubs lose <code class="text-emerald-400">Task</code> in Claude
           Code). See <a href="#rules" class="text-indigo-400 hover:text-indigo-300">Rules</a> for the load-bearing invariants and <a href="#flows" class="text-indigo-400 hover:text-indigo-300">Flows</a> for how
@@ -135,7 +135,7 @@
           <code class="text-emerald-400">gsd-*</code> and general-tooling agents — those are not part of the job collective.)</p>
 
           <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead>
                 <tr class="border-b border-gray-700 text-left text-gray-400">
                   <th class="py-2 pr-4">Member</th><th class="py-2 pr-4">Kind</th><th class="py-2 pr-4">Role (one line)</th><th class="py-2">Disposition</th>
@@ -349,7 +349,7 @@
           spokes, two retained supporting agents, and the branded-template spoke. This table matches
           <code class="text-emerald-400">.planning/PROJECT.md</code>'s locked roster.</p>
           <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead>
                 <tr class="border-b border-gray-700 text-left text-gray-400">
                   <th class="py-2 pr-4">Member</th><th class="py-2 pr-4">Kind</th><th class="py-2 pr-4">Role (one line)</th><th class="py-2 pr-4">Disposition</th><th class="py-2">Owning phase</th>
@@ -368,12 +368,12 @@
               </tbody>
             </table>
           </div>
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Reconciling "exactly."</strong> <code class="text-emerald-400">.claude/agents/</code> also contains ~35 <code class="text-emerald-400">gsd-*.md</code> files and
             <code class="text-emerald-400">ai-agents-architect.md</code>. Those are <strong class="text-gray-200">unrelated GSD / general tooling, not the job
             collective</strong>. The consolidated collective is precisely the nine members listed above:
             hub + 5 core spokes + 2 retained supporting agents + the branded-template spoke.</p>
-          </blockquote>
+          </div>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">4. Per-Spoke Contracts</h3>
           <p class="mt-3 text-gray-300">Each spoke runs in <strong class="text-gray-100">isolated context</strong> with a <strong class="text-gray-100">bounded, narrow structured input</strong>
@@ -634,7 +634,7 @@
           files are <strong class="text-gray-100">moved to <code class="text-emerald-400">example/</code></strong> (reference / prior-art), not hard-deleted — reversible and
           history-preserving. See <code class="text-emerald-400">example/</code> for the moved prior-art files.</p>
           <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead>
                 <tr class="border-b border-gray-700 text-left text-gray-400">
                   <th class="py-2 pr-4">Legacy agent(s)</th><th class="py-2 pr-4">New home</th><th class="py-2">Disposition</th>
@@ -656,15 +656,15 @@
               </tbody>
             </table>
           </div>
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Note:</strong> §7's earlier "retired" disposition for template creation was <strong class="text-gray-200">superseded</strong> when
             the branded-template flow returned as the active <code class="text-emerald-400">gmj-template-creator</code> spoke (Phase 13, with
             the <code class="text-emerald-400">/gmj-template</code> command and template scripts). The row above reflects the current active home.</p>
-          </blockquote>
+          </div>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">8. Deferred / Out-of-Scope</h3>
           <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead>
                 <tr class="border-b border-gray-700 text-left text-gray-400">
                   <th class="py-2 pr-4">Deferred item</th><th class="py-2">Owning phase</th>
@@ -685,12 +685,12 @@
 
 <section id="cli-tools" class="docs-anchor-target mb-16">
           <h2 class="text-3xl font-extrabold text-gray-50 border-b border-gray-800 pb-3">CLI tools — the deterministic script surface</h2>
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Every script named here resolves to a real file under <code class="text-emerald-400">scripts/</code>.</strong>
             <code class="text-emerald-400">python3 tests/test_docs_current.py</code> (<code class="text-emerald-400">test_every_docs_script_exists</code>) fails the build if any
             <code class="text-emerald-400">gmj_*.py</code> token drifts from disk. This page is the reader-facing catalog of <em>what each script
             does</em> (purpose = the script's own module docstring, line 1) and <em>how the scripts group together</em>.</p>
-          </blockquote>
+          </div>
           <p class="mt-4 text-gray-300">The collective is a <strong class="text-gray-100">two-layer control plane</strong>. The lower layer is a set of <strong class="text-gray-100">40 small,
           single-purpose Python CLI tools</strong> (<code class="text-emerald-400">scripts/**/gmj_*.py</code>): each is deterministic, makes exactly one
           decision, exits <code class="text-emerald-400">0</code> on success / <code class="text-emerald-400">1</code> on failure, and touches <strong class="text-gray-100">no LLM and no network</strong> (the one
@@ -698,7 +698,7 @@
           <a href="#agents" class="text-indigo-400 hover:text-indigo-300">gmj-orchestrator</a> — never decides whether a gate passed, whether the retry cap is
           hit, or whether an artifact is deliverable; it shells out to these scripts via <code class="text-emerald-400">Bash</code> and obeys
           their exit codes. Every safety decision in the pipeline is one of the scripts below.</p>
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Count discipline.</strong> This catalog enumerates the <strong class="text-gray-200">disk set of 40</strong> (<code class="text-emerald-400">scripts/**/gmj_*.py</code>),
             not the <code class="text-emerald-400">config/ownership-manifest.yaml</code> rename map (which lists the 23 scripts that were
             renamed during the rebrand — including <code class="text-emerald-400">check_claims</code> → <code class="text-emerald-400">gmj_check_claims.py</code>). Seventeen
@@ -708,7 +708,7 @@
             <code class="text-emerald-400">gmj_template_lint.py</code>, <code class="text-emerald-400">gmj_visual_diff.py</code>, <code class="text-emerald-400">gmj_pipeline_paths.py</code>, <code class="text-emerald-400">gmj_dispatch_cap.py</code>,
             <code class="text-emerald-400">gmj_pipeline_run.py</code>, <code class="text-emerald-400">gmj_sdk_runner.py</code> — were authored natively <code class="text-emerald-400">gmj_</code>-prefixed and are not
             part of that rename map (23 renamed + 17 native = 40).</p>
-          </blockquote>
+          </div>
           <p class="mt-4 text-gray-300"><svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" title="Cross-reference" data-tooltip="Cross-reference"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>See <a href="#flows" class="text-indigo-400 hover:text-indigo-300">Flows</a> for the end-to-end sequences these scripts drive,
           <a href="#references" class="text-indigo-400 hover:text-indigo-300">References</a> for the JSON envelope schemas they read and emit, and
           <a href="#commands" class="text-indigo-400 hover:text-indigo-300">Commands</a> for the slash commands that shell out to them.</p>
@@ -721,7 +721,7 @@
           <h4 class="mt-6 text-lg font-semibold text-gray-100"><code class="text-emerald-400">scripts/artifacts/</code> (6)</h4>
           <p class="mt-2 text-gray-300">Provenance, truth, fit, and the single-owner schema/span grammars for composed artifacts.</p>
           <div class="mt-3 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead><tr class="border-b border-gray-700 text-left text-gray-400"><th class="py-2 pr-4">Script</th><th class="py-2">Purpose</th></tr></thead>
               <tbody class="text-gray-300">
                 <tr class="border-b border-gray-800"><td class="py-2 pr-4"><code class="text-emerald-400">gmj_check_claims.py</code></td><td class="py-2">Executed provenance gate for a composed artifact draft (COMPOSE-03).</td></tr>
@@ -737,7 +737,7 @@
           <h4 class="mt-6 text-lg font-semibold text-gray-100"><code class="text-emerald-400">scripts/contracts/</code> (2)</h4>
           <p class="mt-2 text-gray-300">Content-integrity hashing and envelope validation — the cross-cutting contract layer.</p>
           <div class="mt-3 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead><tr class="border-b border-gray-700 text-left text-gray-400"><th class="py-2 pr-4">Script</th><th class="py-2">Purpose</th></tr></thead>
               <tbody class="text-gray-300">
                 <tr class="border-b border-gray-800"><td class="py-2 pr-4"><code class="text-emerald-400">gmj_hash_artifact.py</code></td><td class="py-2">Compute content-integrity fingerprints (<code class="text-emerald-400">offer_spec_hash</code> / <code class="text-emerald-400">claims_hash</code>) — ARCH-05.</td></tr>
@@ -749,7 +749,7 @@
           <h4 class="mt-6 text-lg font-semibold text-gray-100"><code class="text-emerald-400">scripts/dashboard/</code> (4)</h4>
           <p class="mt-2 text-gray-300">The read-only (opt-in <code class="text-emerald-400">--manage</code>) btop-style Textual dashboard over pipeline run/batch state.</p>
           <div class="mt-3 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead><tr class="border-b border-gray-700 text-left text-gray-400"><th class="py-2 pr-4">Script</th><th class="py-2">Purpose</th></tr></thead>
               <tbody class="text-gray-300">
                 <tr class="border-b border-gray-800"><td class="py-2 pr-4"><code class="text-emerald-400">gmj_dashboard.py</code></td><td class="py-2">Read-only, btop-style Textual dashboard over <code class="text-emerald-400">DashboardModel.snapshot()</code> (Phase 20).</td></tr>
@@ -763,7 +763,7 @@
           <h4 class="mt-6 text-lg font-semibold text-gray-100"><code class="text-emerald-400">scripts/cv/</code> (7)</h4>
           <p class="mt-2 text-gray-300">Extraction, rendering, and the branded-template loop that turn approved drafts into deliverables.</p>
           <div class="mt-3 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead><tr class="border-b border-gray-700 text-left text-gray-400"><th class="py-2 pr-4">Script</th><th class="py-2">Purpose</th></tr></thead>
               <tbody class="text-gray-300">
                 <tr class="border-b border-gray-800"><td class="py-2 pr-4"><code class="text-emerald-400">gmj_draft_to_cv_yaml.py</code></td><td class="py-2">Span-driven bridge: reconstruct an approved <code class="text-emerald-400">artifact_draft</code> into CV-YAML (E2E-02).</td></tr>
@@ -780,7 +780,7 @@
           <h4 class="mt-6 text-lg font-semibold text-gray-100"><code class="text-emerald-400">scripts/offers/</code> (3)</h4>
           <p class="mt-2 text-gray-300">Freeze, tamper-check, and deterministically merge the offers discovered by the scout.</p>
           <div class="mt-3 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead><tr class="border-b border-gray-700 text-left text-gray-400"><th class="py-2 pr-4">Script</th><th class="py-2">Purpose</th></tr></thead>
               <tbody class="text-gray-300">
                 <tr class="border-b border-gray-800"><td class="py-2 pr-4"><code class="text-emerald-400">gmj_check_offer.py</code></td><td class="py-2">Re-check a frozen offer-spec for tampering by recompute-and-compare (INTAKE-02, INTAKE-03).</td></tr>
@@ -793,7 +793,7 @@
           <h4 class="mt-6 text-lg font-semibold text-gray-100"><code class="text-emerald-400">scripts/pipeline/</code> (11)</h4>
           <p class="mt-2 text-gray-300">The routing, gate-recording, cap, dispatch, feedback, delivery-guard, and run-state control plane.</p>
           <div class="mt-3 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead><tr class="border-b border-gray-700 text-left text-gray-400"><th class="py-2 pr-4">Script</th><th class="py-2">Purpose</th></tr></thead>
               <tbody class="text-gray-300">
                 <tr class="border-b border-gray-800"><td class="py-2 pr-4"><code class="text-emerald-400">gmj_batch.py</code></td><td class="py-2">Deterministic per-offer batch control-plane CLI (SELECT-01, SELECT-02, SELECT-03).</td></tr>
@@ -812,12 +812,12 @@
           </div>
 
           <h4 class="mt-6 text-lg font-semibold text-gray-100"><code class="text-emerald-400">scripts/runtime/</code> (1)</h4>
-          <blockquote class="mt-2 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-2 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">EXPERIMENTAL — not part of the default CLI-driven path.</strong> Unsupported for autonomous runs
             until parity with the working <code class="text-emerald-400">claude</code> CLI path is verified (see <code class="text-emerald-400">scripts/runtime/HOOK-PARITY.md</code>).</p>
-          </blockquote>
+          </div>
           <div class="mt-3 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead><tr class="border-b border-gray-700 text-left text-gray-400"><th class="py-2 pr-4">Script</th><th class="py-2">Purpose</th></tr></thead>
               <tbody class="text-gray-300">
                 <tr><td class="py-2 pr-4"><code class="text-emerald-400">gmj_sdk_runner.py</code></td><td class="py-2">Dispatches one spoke through <code class="text-emerald-400">claude-agent-sdk</code>'s <code class="text-emerald-400">query()</code> as an alternate Python-orchestrated harness around the CLI; every returned envelope is re-validated through <code class="text-emerald-400">gmj_validate_envelope.py</code> before being trusted (SDK-01, SDK-02).</td></tr>
@@ -828,7 +828,7 @@
           <h4 class="mt-6 text-lg font-semibold text-gray-100"><code class="text-emerald-400">scripts/preferences/</code> (1)</h4>
           <p class="mt-2 text-gray-300">Validates that offer-search preferences only ever narrow the source allow-list.</p>
           <div class="mt-3 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead><tr class="border-b border-gray-700 text-left text-gray-400"><th class="py-2 pr-4">Script</th><th class="py-2">Purpose</th></tr></thead>
               <tbody class="text-gray-300">
                 <tr><td class="py-2 pr-4"><code class="text-emerald-400">gmj_validate_preferences.py</code></td><td class="py-2">Validate <code class="text-emerald-400">config/preferences.yaml</code>: shape (jsonschema) + subset-of-<code class="text-emerald-400">sources.yaml</code> (Python).</td></tr>
@@ -839,7 +839,7 @@
           <h4 class="mt-6 text-lg font-semibold text-gray-100"><code class="text-emerald-400">scripts/testing/</code> (1)</h4>
           <p class="mt-2 text-gray-300">Feeds human UAT results back into the planning docs.</p>
           <div class="mt-3 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead><tr class="border-b border-gray-700 text-left text-gray-400"><th class="py-2 pr-4">Script</th><th class="py-2">Purpose</th></tr></thead>
               <tbody class="text-gray-300">
                 <tr><td class="py-2 pr-4"><code class="text-emerald-400">gmj_record_uat.py</code></td><td class="py-2">Record a human-testing UAT result and feed it back into the planning docs.</td></tr>
@@ -848,16 +848,16 @@
           </div>
 
           <h3 id="packaging--maintenance" class="mt-8 text-xl font-bold text-gray-100">Packaging &amp; maintenance</h3>
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Not runtime steps.</strong> These four tools build and maintain the standalone distribution and
             repo hygiene. A user running the offer→artifacts pipeline never invokes them; they are
             enumerated here only so the catalog covers the full on-disk <code class="text-emerald-400">scripts/**/gmj_*.py</code> set (and so
             the doc-test resolves them).</p>
-          </blockquote>
+          </div>
 
           <h4 class="mt-6 text-lg font-semibold text-gray-100"><code class="text-emerald-400">scripts/</code> root (4)</h4>
           <div class="mt-3 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead><tr class="border-b border-gray-700 text-left text-gray-400"><th class="py-2 pr-4">Script</th><th class="py-2">Purpose</th></tr></thead>
               <tbody class="text-gray-300">
                 <tr class="border-b border-gray-800"><td class="py-2 pr-4"><code class="text-emerald-400">gmj_build_payload.py</code></td><td class="py-2">Build the standalone <code class="text-emerald-400">gmj-core/</code> install payload (PACKAGE-01).</td></tr>
@@ -876,12 +876,12 @@
 
 <section id="commands" class="docs-anchor-target mb-16">
           <h2 class="text-3xl font-extrabold text-gray-50 border-b border-gray-800 pb-3">Commands — the give-me-job command surface</h2>
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Every command named here resolves to a real file under <code class="text-emerald-400">.claude/commands/</code>.</strong>
             <code class="text-emerald-400">python3 tests/test_docs_current.py</code> (<code class="text-emerald-400">test_every_docs_command_exists</code>) fails the build if any
             <code class="text-emerald-400">/gmj-…</code> token drifts from disk. Command <strong class="text-gray-100">behaviour</strong> is defined by each command file's own body;
             this page is the reader-facing catalog of <em>what each command is for</em> and <em>how the commands relate</em>.</p>
-          </blockquote>
+          </div>
 
           <p class="mt-4 text-gray-300">The collective exposes <strong class="text-gray-100">13 slash commands</strong>: <strong class="text-gray-100">7 top-level</strong> entry points
           (<code class="text-emerald-400">.claude/commands/gmj-*.md</code>) and <strong class="text-gray-100">6 pipeline steps</strong> grouped under <code class="text-emerald-400">.claude/commands/gmj-pipeline/</code>
@@ -893,12 +893,12 @@
           end-to-end sequences these commands trigger, and <a href="#cli-tools" class="text-indigo-400 hover:text-indigo-300">CLI Tools</a> for the deterministic
           scripts they shell out to.</p>
 
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Leaf-naming.</strong> The <code class="text-emerald-400">gmj-pipeline</code> group directory carries the prefix, but its leaves are bare.
             A leaf command is invoked as <code class="text-emerald-400">/gmj-pipeline/scout</code> and its file lives at
             <code class="text-emerald-400">.claude/commands/gmj-pipeline/scout.md</code>. Cross-links to a leaf use its bare rendered anchor,
             e.g. <a href="#commands" class="text-indigo-400 hover:text-indigo-300">the freeze step</a>.</p>
-          </blockquote>
+          </div>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Top-level commands (7)</h3>
           <p class="mt-3 text-gray-300">These seven are invoked directly by a user in a Claude Code session.</p>
@@ -1062,7 +1062,7 @@
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Command → flow map</h3>
           <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead>
                 <tr class="border-b border-gray-700 text-left text-gray-400">
                   <th class="py-2 pr-4">Command</th><th class="py-2 pr-4">Flow</th><th class="py-2">Mode</th>
@@ -1427,21 +1427,21 @@ app:
 /gmj-pipeline-run
 # state your: mode (human_in_the_loop | autonomous), offer (URL/text or offer-spec.json), run_id?</code></pre></div>
 
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Narrate:</strong> "One command drives the whole offer→artifacts flow — dual-mode, gated, retry-capped.
             <code class="text-emerald-400">init_run</code> freezes the <code class="text-emerald-400">execution_mode</code>, the <code class="text-emerald-400">retry_cap</code>, and the <code class="text-emerald-400">run_id</code> into
             <code class="text-emerald-400">.pipeline/runs/&lt;run_id&gt;/state.json</code>. <code class="text-emerald-400">gmj-offer-scout</code> freezes the offer into a hashed
             <code class="text-emerald-400">offer_spec</code>; <code class="text-emerald-400">gmj-artifact-composer</code> composes the CV, cover letter, and interview-prep."</p>
-          </blockquote>
+          </div>
 
           <h4 class="mt-6 text-lg font-semibold text-gray-100">Beat 2 — a gate blocks, and the loop recovers</h4>
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Narrate:</strong> "Gate A (<code class="text-emerald-400">gmj-truth-verifier</code>, via <code class="text-emerald-400">gmj_check_truth.py</code>) re-grounds every claim against
             <code class="text-emerald-400">config/candidate.yaml</code> — a fabricated number is hard-blocked and the offending line is named back
             to the composer. Gate B (<code class="text-emerald-400">gmj-fit-evaluator</code>, via <code class="text-emerald-400">gmj_score_fit.py</code>) then hard-blocks on must-have
             coverage. A failure loops back under the retry cap; the mode gates only the human pause, never the
             machine gate." (See <a href="#showcase" class="text-indigo-400 hover:text-indigo-300">SHOWCASE</a> for the worked Gate A / Gate B example.)</p>
-          </blockquote>
+          </div>
 
           <h4 class="mt-6 text-lg font-semibold text-gray-100">Beat 3 — inspect the run state on disk</h4>
           <p class="mt-2 text-gray-300">Confirm what the run recorded. The valid <code class="text-emerald-400">gmj_runs.py</code> verb is <strong class="text-gray-100">inspect</strong> — there is no <code class="text-emerald-400">show</code>
@@ -1449,31 +1449,31 @@ app:
 
           <div class="relative"><pre><code>python3 scripts/pipeline/gmj_runs.py run inspect &lt;run_id&gt; --pipeline-dir .pipeline</code></pre></div>
 
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Narrate:</strong> "Every verdict is an artifact. <code class="text-emerald-400">run inspect</code> reads <code class="text-emerald-400">.pipeline/runs/&lt;run_id&gt;/</code> — the
             <code class="text-emerald-400">state.json</code> plus the logged <code class="text-emerald-400">gate_result</code> files — the audit trail proving which gates passed for
             each delivered artifact. <code class="text-emerald-400">gmj_check_delivery.py</code> refuses to ship anything lacking a recorded
             Gate A ∧ Gate B pass."</p>
-          </blockquote>
+          </div>
 
           <h4 class="mt-6 text-lg font-semibold text-gray-100">Beat 4 — open the read-only cockpit</h4>
           <div class="relative"><pre><code>python3 scripts/dashboard/gmj_dashboard.py --pipeline-dir &lt;dir&gt;</code></pre></div>
 
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Narrate:</strong> "The btop-style Textual cockpit is <strong class="text-gray-100">read-only by default</strong> — it binds no mutating
             keys. It reads run + vacancy state through <code class="text-emerald-400">gmj_dashboard_model.py</code> and renders the grid; <code class="text-emerald-400">←</code>/<code class="text-emerald-400">→</code>
             switch the diagnostics panes."</p>
-          </blockquote>
+          </div>
 
           <h4 class="mt-6 text-lg font-semibold text-gray-100">Beat 4b — manage mode (opt in — use a COPY)</h4>
           <div class="relative"><pre><code># Use a COPY of &lt;dir&gt; — --manage writes the real --config
 python3 scripts/dashboard/gmj_dashboard.py --manage --pipeline-dir &lt;dir&gt;</code></pre></div>
 
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Narrate:</strong> "<code class="text-emerald-400">--manage</code> opts into the <code class="text-emerald-400">r</code>/<code class="text-emerald-400">R</code>/<code class="text-emerald-400">b</code>/<code class="text-emerald-400">m</code>/<code class="text-emerald-400">c</code> action keys, routed through
             <code class="text-emerald-400">gmj_dashboard_actions.py</code>. Because <code class="text-emerald-400">m</code>/<code class="text-emerald-400">c</code> write the real <code class="text-emerald-400">--config</code>, <strong class="text-gray-100">run manage mode against a
             COPY of the pipeline dir</strong> so a demo never mutates the repo default."</p>
-          </blockquote>
+          </div>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Outputs — what the demo produced</h3>
           <ul class="mt-3 list-disc list-inside space-y-1 text-gray-300">
@@ -1537,12 +1537,12 @@ python3 scripts/dashboard/gmj_dashboard.py --manage --pipeline-dir &lt;dir&gt;</
           <a href="#flows" class="text-indigo-400 hover:text-indigo-300">flows.md</a>, and the per-spoke <a href="#agents" class="text-indigo-400 hover:text-indigo-300">agents.md</a>.</p>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Core value</h3>
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p>Given a real job offer, the system produces a truthful, offer-optimized set of application
             artifacts that provably trace back to the candidate's real profile and pass mandatory
             quality gates. If everything else fails, the artifacts must never fabricate and must
             actually target the offer.</p>
-          </blockquote>
+          </div>
           <p class="mt-4 text-gray-300">The whole design is hardened against the classic multi-agent failure modes: fabricated
           facts, off-target drift, context bloat, and silent quality decay.</p>
 
@@ -1708,14 +1708,14 @@ python3 scripts/dashboard/gmj_dashboard.py --manage --pipeline-dir &lt;dir&gt;</
 
 <section id="flows" class="docs-anchor-target mb-16">
           <h2 class="text-3xl font-extrabold text-gray-50 border-b border-gray-800 pb-3">Flows — the give-me-job runtime sequences</h2>
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Every command and script named here resolves to a real file on disk.</strong>
             <code class="text-emerald-400">python3 tests/test_docs_current.py</code> (<code class="text-emerald-400">test_every_docs_command_exists</code>,
             <code class="text-emerald-400">test_every_docs_script_exists</code>) fails the build if any <code class="text-emerald-400">/gmj-…</code> command token or <code class="text-emerald-400">gmj_*.py</code>
             script name drifts. The authoritative runtime contract is
             <a href="#architecture" class="text-indigo-400 hover:text-indigo-300">docs/ARCHITECTURE.md</a> §5 (data flow) and §5.1 (runtime control loop); this page
             is the reader-facing catalog of the real end-to-end sequences.</p>
-          </blockquote>
+          </div>
           <p class="mt-4 text-gray-300">This page documents <strong class="text-gray-100">what actually happens</strong> when each entry command runs — the ordered script and
           <code class="text-emerald-400">Task</code> sequence, and where the non-bypassable gates sit. Two invariants hold across every gated flow:</p>
           <ul class="mt-2 list-disc list-inside space-y-1 text-gray-300">
@@ -1808,7 +1808,7 @@ python3 scripts/dashboard/gmj_dashboard.py --manage --pipeline-dir &lt;dir&gt;</
           duplicated.</p>
 
           <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead>
                 <tr class="border-b border-gray-700 text-left text-gray-400">
                   <th class="py-2 pr-4">Step</th><th class="py-2 pr-4">Command</th><th class="py-2">Names</th>
@@ -2002,9 +2002,9 @@ python3 tests/test_docs_current.py
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> every test file <code class="text-emerald-400">PASS</code>; <code class="text-emerald-400">run_samples.sh</code> → <code class="text-emerald-400">RESULT: PASS</code>; <code class="text-emerald-400">test_e2e_guards.py</code>
           and <code class="text-emerald-400">test_docs_current.py</code> → all green.<br>
           <strong class="text-gray-100">PASS criteria:</strong> zero <code class="text-emerald-400">FAIL</code> lines.</p>
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p>If anything here fails, stop — fix the environment before behavioral testing.</p>
-          </blockquote>
+          </div>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Test 1 — Installer: fresh-machine setup 🔴</h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> INSTALL-01..04 — one script takes a fresh machine to a working, config-preserved install.<br>
@@ -2074,10 +2074,10 @@ python3 scripts/offers/gmj_check_offer.py --file &lt;the offer-spec.json&gt;   #
           <h3 class="mt-8 text-xl font-bold text-gray-100">Test 5 — <code class="text-emerald-400">gmj-candidate-analyzer</code> + <code class="text-emerald-400">gmj-candidate-configurator</code>: ingestion 🧠</h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> INGEST-01/03/04/05 — source materials (including images) become structured findings,
           merged into the canonical YAML with a provenance trail.</p>
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p>⚠️ This mutates <code class="text-emerald-400">config/candidate.yaml</code>. Do this on a branch, or restore afterward:
             <code class="text-emerald-400">git checkout -- config/candidate.yaml config/candidate.provenance.json</code>.</p>
-          </blockquote>
+          </div>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live):</strong></p>
           <div class="relative"><pre><code>cp tests/fixtures/candidate/* sources/candidate/</code></pre></div>
           <p class="mt-2 text-gray-300">Then run <code class="text-emerald-400">gmj-candidate-analyzer</code> (emits a coverage manifest + findings, must NOT write
@@ -2297,7 +2297,7 @@ python3 scripts/testing/gmj_record_uat.py --id E2E-RUN1 --result pass --notes "r
 </code></pre></div>
 
           <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead>
                 <tr class="border-b border-gray-700 text-left text-gray-400">
                   <th class="py-2 pr-4">#</th><th class="py-2 pr-4">Test</th><th class="py-2 pr-4">Type</th><th class="py-2 pr-4">Result</th><th class="py-2">Notes</th>
@@ -2333,7 +2333,7 @@ python3 scripts/testing/gmj_record_uat.py --id E2E-RUN1 --result pass --notes "r
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Appendix — Deterministic backstop cheat-sheet</h3>
           <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead>
                 <tr class="border-b border-gray-700 text-left text-gray-400">
                   <th class="py-2 pr-4">Behavior</th><th class="py-2">Deterministic check</th>
@@ -2473,7 +2473,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
           (<code class="text-emerald-400">gmj-core/bin/install.sh</code> itself — prerequisite aggregation, run-in-place vs. fresh-clone
           mode detection, idempotent <code class="text-emerald-400">.venv</code> reuse, and the shell-injection/symlink-safety
           regressions) is machine-verified by <code class="text-emerald-400">tests/test_gmj_install_script.py</code>.</p>
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Note (DV-21 — deferred).</strong> A real <strong class="text-gray-100">cross-machine clean-runtime install</strong> — copying the
             payload to a second host with dependencies absent and a different OS, running the
             installer, <code class="text-emerald-400">pip install</code>-ing the requirements, and confirming the four acceptance checks
@@ -2481,7 +2481,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
             auto-asserted from an in-repo subagent. It is recorded as a <strong class="text-gray-100">non-blocking</strong> deferred
             verification (DV-21, <code class="text-emerald-400">clean_runtime_install_uat_deferred</code>); the in-repo deterministic
             substrate is green.</p>
-          </blockquote>
+          </div>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Next steps</h3>
           <ul class="mt-3 list-disc list-inside space-y-1 text-gray-300">
@@ -2551,7 +2551,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
           envelope via <code class="text-emerald-400">$ref</code>.</p>
 
           <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead>
                 <tr class="border-b border-gray-700 text-left text-gray-400">
                   <th class="py-2 pr-4">Schema</th><th class="py-2">What it validates</th>
@@ -2697,7 +2697,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
 
 <section id="requirements" class="docs-anchor-target mb-16">
           <h2 class="text-3xl font-extrabold text-gray-50 border-b border-gray-800 pb-3">Requirements — the milestone inventory</h2>
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">Canonical source: each shipped milestone's archived requirements file under
             <svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" title="File path" data-tooltip="File path"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg><code class="text-emerald-400">.planning/milestones/</code></strong> (e.g.
             <code class="text-emerald-400">v4.0-REQUIREMENTS.md</code> for the current
@@ -2706,7 +2706,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
             groups requirements into families, gives each a one-line description, and names <strong class="text-gray-200">where each is
             realized</strong> (agent / script / schema / config). When this page disagrees with an archived
             <code class="text-emerald-400">.planning/milestones/*-REQUIREMENTS.md</code> file, that file wins.</p>
-          </blockquote>
+          </div>
           <p class="mt-4 text-gray-300">Milestone <strong class="text-gray-100">v2.0 — "Standalone gmj Collective"</strong> hardened the collective against the classic
           multi-agent failure modes (fabricated facts, off-target drift, context bloat, silent quality decay)
           and packaged it as a standalone, installable distribution. Its <strong class="text-gray-100">core value</strong>: given a real job
@@ -2723,7 +2723,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
           <h3 class="mt-8 text-xl font-bold text-gray-100">Requirement families</h3>
 
           <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead>
                 <tr class="border-b border-gray-700 text-left text-gray-400">
                   <th class="py-2 pr-4">Family</th><th class="py-2 pr-4">What it guarantees</th><th class="py-2 pr-4">Primarily realized in</th><th class="py-2">Disposition</th>
@@ -2761,7 +2761,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
           <code class="text-emerald-400">v4.0-REQUIREMENTS.md</code>.</p>
 
           <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead>
                 <tr class="border-b border-gray-700 text-left text-gray-400">
                   <th class="py-2 pr-4">Family</th><th class="py-2 pr-4">What it guarantees</th><th class="py-2 pr-4">Primarily realized in</th><th class="py-2">Disposition</th>
@@ -2820,7 +2820,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
           <h3 class="mt-8 text-xl font-bold text-gray-100">Rule index (7 rules)</h3>
 
           <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead>
                 <tr class="border-b border-gray-700 text-left text-gray-400">
                   <th class="py-2 pr-4">Rule file</th><th class="py-2 pr-4">Scope (match on)</th><th class="py-2">Read when…</th>
@@ -2960,7 +2960,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
           <h3 class="mt-8 text-xl font-bold text-gray-100">4. Done-criteria map</h3>
 
           <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead>
                 <tr class="border-b border-gray-700 text-left text-gray-400">
                   <th class="py-2 pr-4">Criterion</th><th class="py-2 pr-4">What it proves</th><th class="py-2 pr-4">How it is exercised</th><th class="py-2">Status</th>
@@ -3138,18 +3138,18 @@ coverage = 3/5 = 0.60   &lt;   0.70 threshold   &rarr; Gate B FAIL</code></pre><
           <p class="mt-4 text-gray-300">Real dashboard screenshots are a <strong class="text-gray-100">deferred manual capture</strong> (headless environment) — capture them
           yourself and drop them in:</p>
 
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">[SCREENSHOT: read-only dashboard board]</strong> — capture manually with
             <code class="text-emerald-400">python3 scripts/dashboard/gmj_dashboard.py --pipeline-dir &lt;dir&gt;</code> in a &ge;60-row terminal,
             then save to <code class="text-emerald-400">docs/img/dashboard-board.png</code> and replace this placeholder.</p>
-          </blockquote>
+          </div>
 
-          <blockquote class="mt-4 border-l-4 border-indigo-500 pl-4 text-gray-400 italic">
+          <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
             <p><strong class="text-gray-200">[SCREENSHOT: <code class="text-emerald-400">--manage</code> mode with a run in flight]</strong> — capture manually with
             <code class="text-emerald-400">python3 scripts/dashboard/gmj_dashboard.py --manage --pipeline-dir &lt;dir&gt;</code> (use a <strong class="text-gray-200">COPY</strong> of
             <code class="text-emerald-400">&lt;dir&gt;</code> — <code class="text-emerald-400">--manage</code> writes the real config) in a &ge;60-row terminal, then save to
             <code class="text-emerald-400">docs/img/dashboard-manage.png</code> and replace this placeholder.</p>
-          </blockquote>
+          </div>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Where to go next</h3>
           <ul class="mt-3 list-disc list-inside space-y-1 text-gray-300">
@@ -3301,7 +3301,7 @@ coverage = 3/5 = 0.60   &lt;   0.70 threshold   &rarr; Gate B FAIL</code></pre><
           <h3 class="mt-8 text-xl font-bold text-gray-100">Skill index</h3>
 
           <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="table table-zebra w-full text-sm border-collapse">
               <thead>
                 <tr class="border-b border-gray-700 text-left text-gray-400">
                   <th class="py-2 pr-4">Skill</th><th class="py-2 pr-4">Load mode</th><th class="py-2">Applied by</th>

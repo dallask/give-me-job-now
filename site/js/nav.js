@@ -152,6 +152,13 @@ document.addEventListener('DOMContentLoaded', function () {
 // Copy-to-clipboard buttons for fenced code blocks — guarded no-op on pages with
 // zero <pre><code> blocks (contact.html, index.html, about.html).
 document.addEventListener('DOMContentLoaded', function () {
+  // Syntax-highlight every fenced code block via highlight.js (auto language detection).
+  // Guarded so a slow/failed CDN load degrades to plain unhighlighted code blocks instead
+  // of throwing and breaking the copy-to-clipboard wiring below.
+  if (typeof hljs !== 'undefined') {
+    hljs.highlightAll();
+  }
+
   var codeBlocks = document.querySelectorAll('pre code');
 
   if (!codeBlocks || codeBlocks.length === 0) {

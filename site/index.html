@@ -66,8 +66,8 @@
           for one candidate.
         </p>
         <div class="mt-8 flex flex-wrap gap-4">
-          <a href="docs.html" class="inline-flex items-center rounded-md bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-400">Browse full docs →</a>
-          <a href="about.html" class="inline-flex items-center rounded-md border border-gray-700 px-5 py-2.5 text-sm font-semibold text-gray-200 hover:bg-gray-800">About the project</a>
+          <a href="docs.html" class="btn btn-primary inline-flex items-center bg-indigo-500 text-white hover:bg-indigo-400">Browse full docs →</a>
+          <a href="about.html" class="btn btn-outline inline-flex items-center border-gray-700 text-gray-200 hover:bg-gray-800">About the project</a>
         </div>
       </div>
     </section>
@@ -101,25 +101,35 @@
           a draft is a file, a gate verdict is a file, the offer-spec is a file.
         </p>
         <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <div class="rounded-lg border border-gray-800 bg-gray-900 p-5">
-            <h3 class="font-semibold text-gray-100">gmj-offer-scout</h3>
-            <p class="mt-2 text-sm text-gray-400">Discovers, normalizes, and ranks offers within scope, then freezes a hashed offer-spec.</p>
+          <div class="card bg-gray-900 border border-gray-800">
+            <div class="card-body p-5">
+              <h3 class="font-semibold text-gray-100">gmj-offer-scout</h3>
+              <p class="mt-2 text-sm text-gray-400">Discovers, normalizes, and ranks offers within scope, then freezes a hashed offer-spec.</p>
+            </div>
           </div>
-          <div class="rounded-lg border border-gray-800 bg-gray-900 p-5">
-            <h3 class="font-semibold text-gray-100">gmj-artifact-composer</h3>
-            <p class="mt-2 text-sm text-gray-400">Composes the CV, cover letter, and interview-prep from the candidate profile + offer-spec.</p>
+          <div class="card bg-gray-900 border border-gray-800">
+            <div class="card-body p-5">
+              <h3 class="font-semibold text-gray-100">gmj-artifact-composer</h3>
+              <p class="mt-2 text-sm text-gray-400">Composes the CV, cover letter, and interview-prep from the candidate profile + offer-spec.</p>
+            </div>
           </div>
-          <div class="rounded-lg border border-gray-800 bg-gray-900 p-5">
-            <h3 class="font-semibold text-gray-100">gmj-truth-verifier</h3>
-            <p class="mt-2 text-sm text-gray-400">Gate A — re-grounds every claim; a hard block on any fabrication.</p>
+          <div class="card bg-gray-900 border border-gray-800">
+            <div class="card-body p-5">
+              <h3 class="font-semibold text-gray-100">gmj-truth-verifier</h3>
+              <p class="mt-2 text-sm text-gray-400">Gate A — re-grounds every claim; a hard block on any fabrication.</p>
+            </div>
           </div>
-          <div class="rounded-lg border border-gray-800 bg-gray-900 p-5">
-            <h3 class="font-semibold text-gray-100">gmj-fit-evaluator</h3>
-            <p class="mt-2 text-sm text-gray-400">Gate B (target-fit, hard block) + Gate C (polish, advisory).</p>
+          <div class="card bg-gray-900 border border-gray-800">
+            <div class="card-body p-5">
+              <h3 class="font-semibold text-gray-100">gmj-fit-evaluator</h3>
+              <p class="mt-2 text-sm text-gray-400">Gate B (target-fit, hard block) + Gate C (polish, advisory).</p>
+            </div>
           </div>
-          <div class="rounded-lg border border-gray-800 bg-gray-900 p-5">
-            <h3 class="font-semibold text-gray-100">gmj-cv-generator</h3>
-            <p class="mt-2 text-sm text-gray-400">Renders the approved artifacts to PDF via Python — render-only, no content authoring.</p>
+          <div class="card bg-gray-900 border border-gray-800">
+            <div class="card-body p-5">
+              <h3 class="font-semibold text-gray-100">gmj-cv-generator</h3>
+              <p class="mt-2 text-sm text-gray-400">Renders the approved artifacts to PDF via Python — render-only, no content authoring.</p>
+            </div>
           </div>
         </div>
       </div>
