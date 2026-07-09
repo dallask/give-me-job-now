@@ -99,7 +99,15 @@ header.-translate-y-full {
 }
 
 /* docs.html mobile sidebar-strip offset sync — overrides the Tailwind top-16 utility only
-   while the header is hidden, so the strip docks flush with the very top of the viewport. */
+   while the header is hidden, so the strip docks flush with the very top of the viewport.
+   The strip/toggle stay visually present (never display:none/opacity:0) at every scroll
+   position — only `top` changes, and it now transitions smoothly (matching the header's
+   own 300ms transform transition) so the reposition reads as a dock-shift, not a flicker. */
+#docs-mobile-nav .sticky,
+#docs-mobile-toggle {
+  transition: top 300ms ease;
+}
+
 .docs-strip-header-hidden {
   top: 0 !important;
 }
