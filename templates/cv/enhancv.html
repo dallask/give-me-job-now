@@ -454,12 +454,12 @@
       {% for job in candidate.professional_experience %}
       <div class="entry">
         <div class="entry-head">
-          <p class="entry-title">{{ job.position }}</p>
-          {% if job.duration %}<p class="entry-date">{{ job.duration }}</p>{% endif %}
+          <p class="entry-title">{{ job.position | e }}</p>
+          {% if job.duration %}<p class="entry-date">{{ job.duration | e }}</p>{% endif %}
         </div>
         <div class="entry-loc-line">
-          <p class="entry-org">{{ job.company }}</p>
-          {% if job.location %}<p class="entry-date" style="margin-top:2pt;">{{ job.location }}</p>{% endif %}
+          <p class="entry-org">{{ job.company | e }}</p>
+          {% if job.location %}<p class="entry-date" style="margin-top:2pt;">{{ job.location | e }}</p>{% endif %}
         </div>
         {% if job.achievements %}
         <ul class="entry-bullets">
@@ -476,12 +476,12 @@
       {% for row in candidate.education %}
       <div class="entry">
         <div class="entry-head">
-          <p class="entry-title">{{ row.program }}</p>
-          {% if row.duration %}<p class="entry-date">{{ row.duration }}</p>{% endif %}
+          <p class="entry-title">{{ row.program | e }}</p>
+          {% if row.duration %}<p class="entry-date">{{ row.duration | e }}</p>{% endif %}
         </div>
         <div class="entry-loc-line">
-          <p class="entry-org">{{ row.institution }}</p>
-          {% if row.location %}<p class="entry-date" style="margin-top:2pt;">{{ row.location }}</p>{% endif %}
+          <p class="entry-org">{{ row.institution | e }}</p>
+          {% if row.location %}<p class="entry-date" style="margin-top:2pt;">{{ row.location | e }}</p>{% endif %}
         </div>
       </div>
       {% endfor %}

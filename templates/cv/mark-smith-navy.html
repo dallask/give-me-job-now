@@ -548,9 +548,9 @@
         <div class="section-header on-navy">{{ labels.education | default('Education') }}</div>
         {% for edu in candidate.education %}
         <div class="edu-entry">
-          <div class="edu-degree">{{ edu.program }}</div>
-          <div class="edu-school">{{ edu.institution }}{% if edu.location %}, {{ edu.location }}{% endif %}</div>
-          {% if edu.duration %}<div class="edu-year">{{ edu.duration }}</div>{% endif %}
+          <div class="edu-degree">{{ edu.program | e }}</div>
+          <div class="edu-school">{{ edu.institution | e }}{% if edu.location %}, {{ edu.location | e }}{% endif %}</div>
+          {% if edu.duration %}<div class="edu-year">{{ edu.duration | e }}</div>{% endif %}
         </div>
         {% endfor %}
       </div>
@@ -562,8 +562,8 @@
         <div class="section-header on-navy">{{ labels.experience | default('Experience') }}</div>
         {% for exp in candidate.professional_experience %}
         <div class="exp-entry">
-          <div class="exp-company">{{ exp.company }} <span class="exp-pos">— {{ exp.position }}</span></div>
-          {% if exp.duration %}<div class="exp-role">{{ exp.duration }}</div>{% endif %}
+          <div class="exp-company">{{ exp.company | e }} <span class="exp-pos">— {{ exp.position | e }}</span></div>
+          {% if exp.duration %}<div class="exp-role">{{ exp.duration | e }}</div>{% endif %}
           {% if exp.achievements %}
           <div class="exp-desc">{{ exp.achievements[0] | truncate(165, True, '…') }}</div>
           {% elif exp.company_description %}
