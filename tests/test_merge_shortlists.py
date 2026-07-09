@@ -212,29 +212,133 @@ def test_md_view_uses_jobseeker_wording() -> None:  # SCOUT-01
         assert "matching vacancies for you" in text, "md must use the job-seeker header"
 
 
-def test_output_schema_violation_fails_closed() -> None:  # WR-02 frozen-contract guard
-    # An assembled entry lacking the required contract keys (board/trace) must fail closed:
-    # the merge output is validated against shortlist.schema.json BEFORE writing.
+def test_output_schema_violation_no_longer_hard_fails_on_normalizable_gaps() -> None:
+    # WR-02 frozen-contract guard, revised for defensive normalization (PIPE-03/04): board/trace
+    # gaps are now normalizable with safe defaults, so this fixture must exercise a REAL
+    # non-normalizable schema violation instead — a `score` field of the wrong type, which
+    # normalization cannot safely coerce and schema validation still catches.
     with tempfile.TemporaryDirectory() as tmp:
         cwd = Path(tmp)
-        # In-scope by its top-level source_url host, but carries neither `board` nor `trace`
-        # -> a schema-nonconforming assembled entry.
+        # In-scope by its top-level source_url host; carries a non-numeric `score` (a raw
+        # board-supplied field that collides with the computed contract key) -> merge()'s
+        # `{**entry, "score": score_entry(...)}` spread lets the computed float win UNLESS the
+        # raw string sneaks through some other path — pin the genuinely non-normalizable case:
+        # canonical_key ends up a non-string because company/title are non-string types that
+        # slugify cannot coerce into a valid contract shape. Use a `board` that is a non-string
+        # (schema requires board: string) to force a real, non-normalizable type violation.
         entry = {
             "title": "PHP Engineer",
             "company": "SoftPeak",
             "location": "Kyiv",
+            "board": 12345,  # type violation: schema requires board to be a string
             "source_url": "https://www.work.ua/j/9",
             "salary": 4000,
             "mode": "remote",
         }
         result, out = _run_merge(cwd, [entry], _PREFS, _SOURCES, out_name="bad.json")
         assert result.returncode == 1, (
-            f"a schema-nonconforming assembled entry must fail closed (exit 1): {result.stdout}"
+            f"a non-normalizable schema type violation must fail closed (exit 1): {result.stdout}"
         )
         assert "shortlist.schema.json" in result.stderr, (
             f"stderr must name the schema it violated: {result.stderr}"
         )
         assert not out.exists(), "no shortlist must be written when the assembly violates the schema"
+
+
+def test_discovered_at_required_and_schema_validated() -> None:
+    # An entry carrying discovered_at (ISO-8601 string) passes schema validation and survives.
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        entry = _entry(
+            "SoftPeak", "Lead PHP Engineer", "https://www.work.ua/", "https://www.work.ua/j/1",
+            salary=4000, mode="remote", discovered_at="2026-07-09T10:00:00Z",
+        )
+        result, out = _run_merge(cwd, [entry], _PREFS, _SOURCES, out_name="da.json")
+        assert result.returncode == 0, f"CLI must exit 0: {result.stderr}"
+        shortlist = json.loads(out.read_text())["shortlist"]
+        assert len(shortlist) == 1
+        assert shortlist[0]["discovered_at"] == "2026-07-09T10:00:00Z"
+
+
+def test_drifted_entry_normalized_and_kept_not_dropped() -> None:
+    # An entry missing canonical_key/score (but with enough raw fields) survives merge() with
+    # a computed canonical_key/score -- pinning that merge()'s own {**entry, canonical_key,
+    # score} spread behavior stays true after normalization is added.
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        entry = {
+            "title": "PHP Engineer",
+            "company": "SoftPeak",
+            "board": "https://www.work.ua/",
+            "trace": {"source_url": "https://www.work.ua/j/1"},
+            "discovered_at": "2026-07-09T10:00:00Z",
+        }
+        assert "canonical_key" not in entry and "score" not in entry
+        result, out = _run_merge(cwd, [entry], _PREFS, _SOURCES, out_name="drift.json")
+        assert result.returncode == 0, f"CLI must exit 0: {result.stderr}"
+        shortlist = json.loads(out.read_text())["shortlist"]
+        assert len(shortlist) == 1, "a drifted-but-identifiable entry must survive, not drop"
+        assert shortlist[0]["canonical_key"], "canonical_key must be computed by merge()"
+        assert isinstance(shortlist[0]["score"], (int, float)), "score must be computed by merge()"
+
+
+def test_missing_trace_source_url_normalized_with_safe_default() -> None:
+    # An entry missing trace/trace.source_url entirely is normalized to trace: {"source_url": ""}
+    # (safe default) rather than failing the whole batch closed -- UNLESS it has neither title
+    # nor company, in which case a stderr WARNING is also printed (still kept, never dropped).
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        entry = {
+            "title": "PHP Engineer",
+            "company": "SoftPeak",
+            "board": "https://www.work.ua/",
+            "discovered_at": "2026-07-09T10:00:00Z",
+        }
+        result, out = _run_merge(cwd, [entry], _PREFS, _SOURCES, out_name="notrace.json")
+        assert result.returncode == 0, f"CLI must exit 0: {result.stderr}"
+        shortlist = json.loads(out.read_text())["shortlist"]
+        assert len(shortlist) == 1, "an entry missing trace must be normalized and kept"
+        assert shortlist[0]["trace"] == {"source_url": ""}
+        assert "WARNING" not in result.stderr, (
+            "an entry WITH title/company must not print the unusable-entry warning"
+        )
+
+        # Genuinely unusable: no title AND no company -> still kept, but a WARNING is printed.
+        unusable = {
+            "board": "https://www.work.ua/",
+            "trace": {},
+            "discovered_at": "2026-07-09T10:00:00Z",
+            "source_url_hint": "https://www.work.ua/j/unusable",
+        }
+        # Give it a real source_url so it still resolves to a distinct canonical_key.
+        unusable["source_url"] = "https://www.work.ua/j/unusable"
+        result2, out2 = _run_merge(cwd, [unusable], _PREFS, _SOURCES, out_name="unusable.json")
+        assert result2.returncode == 0, f"CLI must exit 0: {result2.stderr}"
+        shortlist2 = json.loads(out2.read_text())["shortlist"]
+        assert len(shortlist2) == 1, "a genuinely unusable entry must still be kept, never dropped"
+        assert "WARNING" in result2.stderr, (
+            f"stderr must warn on a genuinely unusable (no title/company) entry: {result2.stderr}"
+        )
+
+
+def test_missing_discovered_at_normalized_with_safe_default() -> None:
+    # An entry missing discovered_at is normalized to an empty string (never a fabricated "now"
+    # timestamp) and survives to output rather than failing the batch.
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        entry = _entry(
+            "SoftPeak", "Lead PHP Engineer", "https://www.work.ua/", "https://www.work.ua/j/1",
+            salary=4000, mode="remote",
+        )
+        assert "discovered_at" not in entry
+        result, out = _run_merge(cwd, [entry], _PREFS, _SOURCES, out_name="nodate.json")
+        assert result.returncode == 0, f"CLI must exit 0: {result.stderr}"
+        shortlist = json.loads(out.read_text())["shortlist"]
+        assert len(shortlist) == 1
+        assert shortlist[0]["discovered_at"] == "", (
+            "a missing discovered_at must normalize to an empty-string safe default, "
+            "never a fabricated 'now' timestamp"
+        )
 
 
 def test_host_fallback_keeps_distinct_offers() -> None:  # WR-01 data-loss guard
