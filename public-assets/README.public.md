@@ -21,15 +21,6 @@
 
 </div>
 
-> **Sample data only.** This is a public portfolio mirror of a private working repository. It
-> ships with **synthetic placeholder candidate data** (`config/candidate.yaml` and its overlays)
-> so the collective runs out-of-the-box without exposing anyone's real personal information. Swap
-> in your own profile to use it for real.
-
-> **Note on the badges above.** The Releases/License/Tests badges query the GitHub API live —
-> they'll read "invalid" until this repo's visibility is flipped to public, then they'll resolve
-> automatically with no further edits needed.
-
 ---
 
 ## Table of Contents
