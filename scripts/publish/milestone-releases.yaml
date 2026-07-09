@@ -1,0 +1,64 @@
+# milestone-releases.yaml — real, historical release backfill data for
+# scripts/publish/gmj_bootstrap_releases.py. Ships into the public mirror.
+#
+# Each entry anchors a GitHub Release to the last real (non-excluded-path) commit
+# before that milestone's completion — located by exact commit-message match,
+# NOT by hardcoded SHA (SHAs are rewritten on every mirror publish by
+# git-filter-repo; commit messages survive verbatim since none of the real
+# --replace-text redaction tokens appear in them).
+releases:
+  - tag: v1.0.0
+    anchor_message: "test(08-04): assert cv-generator draft wiring + runbook done-criteria"
+    date: "2026-07-03"
+    title: "v1.0.0 — Hardened Collective MVP"
+    notes: |
+      Initial hub-and-spoke job/CV collective (Phases 1-8, + inserted 3.1):
+      - Offer intake with a frozen, hashed offer_spec
+      - Candidate ingestion + artifact composer (CV, cover letter, interview-prep)
+      - Gate A (truth-verifier) and Gate B/C (fit-evaluator) — non-bypassable quality gates
+      - Dual-mode execution (human-in-the-loop / autonomous) with a retry-capped gate loop
+      - cv-generator PDF rendering + end-to-end real-offer run
+  - tag: v2.0.0
+    anchor_message: "fix: propagate P9 candidate-schema rename to shipped live-path payloads"
+    date: "2026-07-05"
+    title: "v2.0.0 — Standalone gmj Collective"
+    notes: |
+      Migrated to the standalone gmj- schema and rebrand (Phases 9-19):
+      - Migrated candidate/CV YAML schema
+      - Interviewer + preferences.yaml gap-filling intake
+      - Parallel multi-board offer-scout, multi-select per-offer batches
+      - Screenshot-to-CV template generation
+      - Deeper artifacts, automated UAT regression, operator ergonomics
+      - Full gmj- rebrand, standalone restructure + installer, documentation
+  - tag: v3.0.0
+    anchor_message: "fix(25): comment no longer trips rebrand grep0 (bare pipeline-run → PIPELINE_RUN ref); rebuild payload"
+    date: "2026-07-05"
+    title: "v3.0.0 — gmj-dashboard Operator Cockpit"
+    notes: |
+      A btop-style Textual TUI operator cockpit (Phases 20-25):
+      - Read-only projection of on-disk pipeline state
+      - Richer read-only panels, rich cockpit density
+      - Opt-in --manage action layer (never judges gates, never forces delivery)
+      - Command/pin ergonomics, docs currency, gmj-core packaging
+  - tag: v3.1.0
+    anchor_message: "docs(31-02): author docs/DEMO-WALKTHROUGH.md + index both new docs"
+    date: "2026-07-07"
+    title: "v3.1.0 — Dashboard Hardening & Application Presentation"
+    notes: |
+      Dashboard hardening + presentation polish (Phases 26-31):
+      - Manage safety guards, launch honesty, reload completeness
+      - Closed test gaps, stabilized flakes
+      - Docs currency refresh
+      - HTML slide deck, written showcase doc, scripted demo walkthrough
+  - tag: v4.0.0
+    anchor_message: "docs(39): CR-01 document stale-file prune safety guarantee in README"
+    date: "2026-07-08"
+    title: "v4.0.0 — Multi-Runtime & Parallel Throughput"
+    notes: |
+      Multi-runtime portability + throughput (Phases 32-39):
+      - Default artifact-set expansion: CV (PDF+HTML), cover letter, interview-prep, all gated
+      - Dashboard docs tab
+      - Bounded-concurrency parallel offer pipeline
+      - Idempotent fresh-machine installer script
+      - Claude Agent SDK runtime prototype (experimental, additive)
+      - Cursor multi-provider roster generation (conditional-GO viability spike)
