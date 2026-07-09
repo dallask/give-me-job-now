@@ -12,24 +12,24 @@ Read this file once at pipeline start. Reference from conversation memory on sub
 ```
 skill_cv_pipeline(skill_slug, skill_description, lang, template):
 
-  [S1] Market research — if sources/research/{skill_slug}-market-brief.md absent:
+  [S1] Market research — if output/research/{skill_slug}-market-brief.md absent:
        Task(job-market-researcher,
             "Research role requirements, required skills, keywords, and salary bands
-             for a {skill_description}. Write to sources/research/{skill_slug}-market-brief.md")
+             for a {skill_description}. Write to output/research/{skill_slug}-market-brief.md")
 
   [S2] CV composition Pass 1 — extract + gap report:
        Task(cv-composer,
             skill_slug={slug}, skill_description={desc}, lang={lang},
             candidate_yaml=config/candidate.yaml,
-            market_brief=sources/research/{slug}-market-brief.md,
+            market_brief=output/research/{slug}-market-brief.md,
             approved_additions=[],
             pass=1,
             confidence_threshold=70)
        → reads agent_result_v1 with status=gap_report_ready
-       → gap report written to sources/analysis/cv-{slug}-{lang}-gaps.md
+       → gap report written to output/analysis/cv-{slug}-{lang}-gaps.md
 
   [S3] User approval — PAUSE (do not spawn any Task):
-       Read sources/analysis/cv-{slug}-{lang}-gaps.md
+       Read output/analysis/cv-{slug}-{lang}-gaps.md
        Present to user as a formatted checklist:
          "Here are the gaps found for [skill_description]. Please confirm which to include:"
          - [ ] (hard) <gap item 1>
@@ -44,7 +44,7 @@ skill_cv_pipeline(skill_slug, skill_description, lang, template):
        Task(cv-composer,
             skill_slug={slug}, skill_description={desc}, lang={lang},
             candidate_yaml=config/candidate.yaml,
-            market_brief=sources/research/{slug}-market-brief.md,
+            market_brief=output/research/{slug}-market-brief.md,
             approved_additions={approved list from S3},
             pass=2,
             confidence_threshold=70)
@@ -59,14 +59,14 @@ skill_cv_pipeline(skill_slug, skill_description, lang, template):
   [S6] Review (market brief as benchmark):
        Task(cv-reviewer,
             cv_yaml=config/cv/cv.{slug}.{lang}.yaml,
-            market_brief=sources/research/{slug}-market-brief.md,
+            market_brief=output/research/{slug}-market-brief.md,
             skill_slug={slug})
-       → sources/analysis/cv-review-{slug}-{lang}-<timestamp>.md
+       → output/analysis/cv-review-{slug}-{lang}-<timestamp>.md
 
   [S7] Enhance:
        Task(cv-enhancer,
             cv_yaml=config/cv/cv.{slug}.{lang}.yaml,
-            review=sources/analysis/cv-review-{slug}-{lang}-*.md)
+            review=output/analysis/cv-review-{slug}-{lang}-*.md)
        NOTE: cv-enhancer must target config/cv/cv.{slug}.{lang}.yaml — NOT config/candidate.yaml.
        Pass this path explicitly in the Task prompt.
 
@@ -110,10 +110,10 @@ When `--lang ua` or `--lang ru` is requested:
 3. On Pass 2: `approved_additions` must be populated from the user's S3 response (may be empty list `[]` but must be present).
 
 **Before `cv-reviewer` (Mode B — market brief):**
-1. `sources/research/{skill_slug}-market-brief.md` must exist (written by job-market-researcher in S1).
+1. `output/research/{skill_slug}-market-brief.md` must exist (written by job-market-researcher in S1).
 
 **Before `cv-reviewer` (Mode A — vacancy):**
 1. Vacancy file path must be present in the user goal or an explicit path. If missing, ask the user before delegating.
 
 **Before `cv-enhancer`:**
-1. `Glob("sources/analysis/cv-review-*.md")` — must return at least one file. If missing, inform user and offer to run `cv-reviewer` first.
+1. `Glob("output/analysis/cv-review-*.md")` — must return at least one file. If missing, inform user and offer to run `cv-reviewer` first.

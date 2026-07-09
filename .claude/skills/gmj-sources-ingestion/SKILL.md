@@ -3,14 +3,17 @@ name: gmj-sources-ingestion
 description: Conventions for placing candidate and vacancy materials under sources/.
 ---
 
-# `sources/` layout
+# `sources/` and `output/` layout
+
+`sources/` is intake-only: raw human-provided materials the collective reads but never writes.
+Generated content lives under `output/`.
 
 | Path | Purpose |
 |------|---------|
 | `sources/` | Raw uploads: PDF/DOCX/XLSX/images/text notes |
-| `sources/vacancies/` | Normalized job postings (`vacancy-scraper`) |
-| `sources/research/` | Market briefs (`job-market-researcher`) |
-| `sources/analysis/` | Analyzer summaries, CV reviews |
+| `output/vacancies/` | Normalized job postings (`vacancy-scraper`) |
+| `output/research/` | Market briefs (`job-market-researcher`) |
+| `output/analysis/` | Analyzer summaries, CV reviews |
 
 ## Filename conventions
 
