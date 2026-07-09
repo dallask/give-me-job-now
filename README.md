@@ -1,18 +1,63 @@
-# give-me-job — Autonomous Job/CV Collective
+<div align="center">
+
+# 😡 Give Me Job NOW! 😡
+
+**Unemployment Termination Squad**
+
+*No Cap, No Fabrication, Just Applications*
+
+**The last job agency you'll ever need. Point it at the vacancies, set your "I-deserve-a-billion-dollar-salary" filter, and go take a nap. Feed it a real job offer. It returns a truthful, laser-targeted CV, cover letter, and interview-prep — zero fabrication, no excuses.**
+
+<p align="center">
+    <a href="docs/installation.md"><img src="https://img.shields.io/badge/python-3.x-blue?logo=python&logoColor=white" alt="Python"/></a>
+    <a href="docs/ARCHITECTURE.md"><img src="https://img.shields.io/badge/architecture-hub--and--spoke-informational" alt="Architecture"/></a>
+    <a href="https://github.com/anthropics/claude-code"><img src="https://img.shields.io/badge/built%20with-Claude%20Code-6b4fbb?logo=anthropic&logoColor=white" alt="Built with Claude Code"/></a>
+    <a href=".planning/ROADMAP.md"><img src="https://img.shields.io/badge/milestone-v4.0-success?logo=semanticrelease&logoColor=white" alt="Milestone"/></a>
+    <a href="#-license"><img src="https://img.shields.io/badge/license-MIT%20(public%20mirror)-blue?logo=opensourceinitiative&logoColor=white" alt="License"/></a>
+    <a href="http://example.com"><img src="https://img.shields.io/badge/author-Ievgen%20Kyvgyla-orange?logo=homepage&logoColor=white" alt="Author"/></a>
+    <a href="#-documentation-index"><img src="https://img.shields.io/badge/docs-16%20guides-blueviolet?logo=readthedocs&logoColor=white" alt="Docs"/></a>
+    <a href=".planning/ROADMAP.md"><img src="https://img.shields.io/badge/releases-v1.0%20--%20v4.0-blue?logo=git&logoColor=white" alt="Releases"/></a>
+    <a href=".github/workflows/tests.yml"><img src="https://img.shields.io/badge/tests-CI-yellowgreen?logo=pytest&logoColor=white" alt="Tests"/></a>
+</p>
+
+</div>
+
+---
+
+## Table of Contents
+
+- [🤖 What is give-me-job](#-what-is-give-me-job)
+- [🎯 Core value](#-core-value)
+- [🔀 Hub-and-spoke model](#-hub-and-spoke-model)
+- [🔒 Truthfulness guarantee](#-truthfulness-guarantee)
+- [⚡ Quickstart](#-quickstart)
+- [📚 Documentation index](#-documentation-index)
+- [🌐 Public portfolio mirror](#-public-portfolio-mirror)
+- [💬 Support](#-support)
+- [🙏 Acknowledgements](#-acknowledgements)
+- [📄 License](#-license)
+
+---
+
+## 🤖 What is give-me-job
 
 **give-me-job** is a standalone hub-and-spoke collective of specialized Claude Code agents,
 commands, skills, and Python scripts that, given a real job offer, autonomously produces a
 **truthful, offer-optimized** set of application artifacts — a CV (PDF), a cover letter, and an
 interview-prep document — for one candidate.
 
-## Core value
+---
+
+## 🎯 Core value
 
 Given a real offer, the system produces application artifacts that **provably trace back to the
 candidate's real profile** (`config/candidate.yaml`) and **pass mandatory quality gates**. If
 everything else fails, the artifacts must never fabricate and must actually target the offer.
 Reframing and emphasis are allowed; invention is hard-blocked.
 
-## Hub-and-spoke model
+---
+
+## 🔀 Hub-and-spoke model
 
 A single top-level orchestrator, **`gmj-orchestrator`**, is the only role that holds `Task` and
 delegates to spokes. Spokes never spawn spokes (nested hubs lose `Task` in Claude Code), so
@@ -23,20 +68,26 @@ For the authoritative roster and data flow, see
 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — the source of truth for the hub + 5-spoke
 roster, per-spoke boundaries, and the offer→render pipeline.
 
-## Truthfulness guarantee
+---
+
+## 🔒 Truthfulness guarantee
 
 `config/candidate.yaml` is the single source of truth. Every artifact claim must trace to it.
 Two hard gates — **Gate A (truth)** and **Gate B (target-fit)** — are non-bypassable in any
 mode. Autonomous mode removes the human pause, never the machine gate; auto-loops are bounded by
 a retry cap.
 
-## Quickstart
+---
+
+## ⚡ Quickstart
 
 New here? Start with **[docs/installation.md](docs/installation.md)** to set up the Python 3
 render environment and dependencies, then follow **[docs/RUNBOOK.md](docs/RUNBOOK.md)** for an
 end-to-end real-offer run.
 
-## Documentation index
+---
+
+## 📚 Documentation index
 
 | Section | Description |
 |---------|-------------|
@@ -56,3 +107,56 @@ end-to-end real-offer run.
 | [Showcase](docs/SHOWCASE.md) | End-to-end narrative with a concrete walked offer→artifacts example (both gates firing). |
 | [Demo walkthrough](docs/DEMO-WALKTHROUGH.md) | Scripted live demo — exact command sequence, narration beats, and an asciinema recording plan. |
 | [Human testing plan](docs/HUMAN-TESTING-PLAN.md) | Manual verification plan for the collective. |
+
+---
+
+## 🌐 Public portfolio mirror
+
+This is the private working repository — it carries the real candidate profile and real
+generated offer artifacts, so it stays private by design. A **sanitized, PII-free portfolio
+mirror** (synthetic sample data, MIT-licensed) is published separately via
+`scripts/publish/gmj_publish_mirror.sh` and its CI wrapper
+(`.github/workflows/publish-mirror.yml`), with an automated semantic-release pipeline
+(`.github/workflows/release.yml`) backfilling a real, honest release history on the mirror.
+See `scripts/publish/README.md` for the full operator runbook.
+
+---
+
+## 💬 Support
+
+This is a personal, single-candidate project without a dedicated support channel. If you're
+looking at this as a reference implementation, the architecture and rules docs above
+(`docs/ARCHITECTURE.md`, `rules/README.md`) are the best starting point for understanding the
+design; issues can be filed against this repository.
+
+---
+
+## 🙏 Acknowledgements
+
+Built with [Claude Code](https://github.com/anthropics/claude-code) on top of the
+[GSD Core](https://github.com/open-gsd/gsd-core) planning/execution framework — the phase
+loop (discuss → plan → execute → verify → ship), `.planning/` state model, and this README's
+formatting conventions are all downstream of that project. PDF/document rendering relies on
+[ReportLab](https://www.reportlab.com/), [Jinja2](https://jinja.palletsprojects.com/), and
+optionally [WeasyPrint](https://weasyprint.org/); configuration parsing uses
+[PyYAML](https://pyyaml.org/).
+
+---
+
+## 📄 License
+
+This private repository is **not currently licensed for redistribution** — it contains a real
+candidate profile and real generated application artifacts, and stays closed by design. The
+**public portfolio mirror** (see [above](#-public-portfolio-mirror)) ships a sanitized, synthetic
+copy of the code under the **MIT License** — see that mirror's own `LICENSE` file
+(sourced from [`public-assets/LICENSE`](public-assets/LICENSE) in this repo).
+
+---
+
+<div align="center">
+
+**Truthful by construction. Offer-optimized by design.**
+
+Made by [Ievgen Kyvgyla](http://example.com)
+
+</div>

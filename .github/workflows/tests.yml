@@ -1,0 +1,40 @@
+# tests.yml — runs the pytest suite on push/PR against THIS (private) repo.
+#
+# Distinct from publish-mirror.yml / release.yml / publish-site.yml, which are all
+# workflow_dispatch-only and target the public mirror (give-me-job-now). This workflow
+# runs continuously against live development here, on the real repo, to catch
+# regressions before they land — no mirror, no push, no external repo involved.
+name: Tests
+
+on:
+  push:
+    branches: [main, feature/gsd]
+  pull_request:
+    branches: [main, feature/gsd]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          pip install pytest
+          # Aggregate every scripts/*/requirements.txt — the suite spans multiple
+          # independently-versioned subsystems (cv, dashboard, contracts,
+          # preferences, publish, runtime), each with its own requirements file.
+          for req in scripts/*/requirements.txt; do
+            echo "Installing $req"
+            pip install -r "$req"
+          done
+
+      - name: Run pytest
+        run: python3 -m pytest tests/ -q
