@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "timestamp": "2026-07-09T20:40:35.462Z",
+  "timestamp": "2026-07-09T22:34:58.911Z",
   "mode": "full",
   "files": {
     "gmj-core/VERSION": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
@@ -90,6 +90,7 @@
     "gmj-core/scripts/dashboard/requirements.txt": "4051e2dd5a5633109d9910dfe6d4a67e456f67cb1f04b5545dcebe32f3572989",
     "gmj-core/scripts/gmj_build_payload.py": "ffb6c0233721f2ef6301fcfa303e090feedaf0d4ccaae77da967254c877d6bde",
     "gmj-core/scripts/gmj_cleanup_report.py": "e4117e16791cbe29f6b3193fd64e21605eb12e1d07ec8e204f05826c741e9e7d",
+    "gmj-core/scripts/gmj_cleanup_wizard.py": "cc1cdeeac93fd902770a9075ae61a5e57ca94f85f208a83d27c27ed4a24baefe",
     "gmj-core/scripts/offers/gmj_check_offer.py": "9c37fea0b0c6d6b0d08611b92f48d7ab4eedabfab8a757bb8d971e98672b2bfa",
     "gmj-core/scripts/offers/gmj_detect_language.py": "4dead6207193f82016d62fc1564f6456a599149ee2d86728bdf47a8b0cf1ec37",
     "gmj-core/scripts/offers/gmj_freeze_offer.py": "1526145ec7838d272177b5515835032142424c5c5903949f447e27cfb3ff7dcf",
