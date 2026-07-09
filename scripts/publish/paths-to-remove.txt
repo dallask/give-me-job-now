@@ -35,3 +35,9 @@ glob:sources/*.jpg
 # gitignored in the private repo (defense in depth against an accidental commit).
 scripts/publish/replacements.txt
 scripts/publish/pii-denylist.txt
+
+# This repo's own self-publishing CI workflow — meaningless in the destination
+# repo (it pushes back to give-me-job-now via a PAT scoped to THIS operation),
+# and shipping it would require the publish PAT to carry the broader `workflow`
+# scope just to push a file that does nothing there.
+.github/workflows/publish-mirror.yml
