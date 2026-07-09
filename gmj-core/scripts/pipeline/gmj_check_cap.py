@@ -1,13 +1,32 @@
 #!/usr/bin/env python3
-"""Honest hard-stop at the FROZEN retry cap (EXEC-03).
+"""Honest hard-stop at the FROZEN retry cap (EXEC-03, PIPE-07/PIPE-08).
 
 Reads the per-(offer-slug, artifact_type) retry counter recorded by
 ``gmj_record_retry.py`` and compares it to the FROZEN ``state.retry_cap``:
 
 - below cap — ``retry_count < retry_cap``: print ``continue`` to stdout, exit 0,
-- at/over cap — ``retry_count >= retry_cap``: print a distinct EXHAUSTED report
-  ``{"status":"exhausted","artifact":<type>,"reason":<reason>}`` to stdout and
-  exit nonzero (the hub maps this to a HARD STOP report).
+- AT cap, first time (``retry_count == retry_cap`` and the caller has not
+  already passed ``--raised`` for this offer/type) — print a distinct
+  ``propose_raise`` report ``{"status":"propose_raise","artifact":<type>,
+  "current_cap":<int>,"proposed_cap":<int>,"reason":<reason>}`` to stdout and
+  exit **2**. The hub then either prompts for human approval
+  (human-in-the-loop) or auto-applies + logs the raise (autonomous), re-invokes
+  this script with ``--raised`` for the SAME offer/type going forward in this
+  retry sequence, and retries the SAME recompose→Gate A/B path — a raised-cap
+  recompose is NOT exempt from Gate A/B (T-41-07).
+- at/over cap otherwise (``current > cap``, OR ``current == cap`` and
+  ``--raised`` was passed) — print the final, distinct EXHAUSTED report
+  ``{"status":"exhausted","artifact":<type>,"reason":<reason>,
+  "failure_class":<"narrow"|"systemic">}`` to stdout and exit **1** (the hub
+  maps this to a HARD STOP report).
+
+**3-way exit code contract:** ``0`` = continue, ``1`` = exhausted (final hard
+stop), ``2`` = propose_raise (bounded, fires at most once per offer/type per
+retry sequence — CONTEXT.md's "ONE bounded cap raise" decision). The
+"has this offer/type already used its one raise" state is tracked OUTSIDE this
+script by the caller (``--raised``) — no new ``state.json`` key is invented
+here and no cross-invocation filesystem side effect is added by this script
+itself, consistent with its existing pure-function-over-CLI-args shape.
 
 There is NO "deliver best-effort" / ship-last-attempt branch anywhere: cap
 exhaustion is a repudiation-proof stop, not a downgrade (Pitfall 2, T-07-12).
@@ -18,20 +37,55 @@ cap is rejected. Control flow mirrors ``scripts/offers/gmj_check_offer.py``
 compute → distinct stdout token + exit code).
 
 CLI: ``gmj_check_cap.py --state <path> --offer-slug <s> --artifact-type
-<cv|cover_letter|interview_prep> [--reason <str>]`` exits 0 (continue) or nonzero
-(exhausted / missing file / invalid JSON / malformed cap); all errors go to
-stderr with no traceback.
+<cv|cover_letter|interview_prep> [--reason <str>] [--raised]`` exits 0
+(continue), 2 (propose_raise), or 1 (exhausted / missing file / invalid JSON /
+malformed cap); all errors go to stderr with no traceback.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
 ARTIFACT_TYPES = ["cv", "cover_letter", "interview_prep"]
 DEFAULT_REASON = "retry cap reached"
+
+# Fixed +1 increment for the ONE bounded cap raise (CONTEXT.md decision) —
+# never config-driven, never operator-adjustable at raise time (T-41-07).
+RAISE_INCREMENT = 1
+
+# Simple, documented, necessarily-approximate heuristic (PIPE-07): a reason
+# string is classified "narrow" when it looks like it names ONE specific
+# failing claim (a claim-index pattern like "claims[3]"/"claim 3", or the
+# literal word "single"); anything else — empty reason, wording implying
+# MULTIPLE claims, or generic/unspecific text — is classified "systemic".
+_NARROW_KEYWORDS = ("single claim", "single-claim")
+# Digit-index citation patterns like "claims[3]" or "claim 3" also imply a
+# single, specific failing claim.
+_NARROW_INDEX_RE = re.compile(r"claims?\s*[\[\(]?\s*\d+")
+
+
+def _classify_failure(reason: str) -> str:
+    """Classify a cap-exhaustion ``reason`` string as narrow vs systemic.
+
+    Heuristic (approximate, documented — see module docstring): a reason is
+    "narrow" when it names exactly one specific failing claim (a claim-index
+    pattern such as "claims[3]"/"claim 3", or the literal phrase "single
+    claim"). Anything else — empty/missing reason, or wording implying
+    multiple/unclear failing claims (e.g. "multiple claims") — is "systemic".
+    This is a best-effort signal for the operator, not a precise count.
+    """
+    if not reason:
+        return "systemic"
+    lowered = reason.lower()
+    if any(keyword in lowered for keyword in _NARROW_KEYWORDS):
+        return "narrow"
+    if _NARROW_INDEX_RE.search(lowered) and "multiple" not in lowered:
+        return "narrow"
+    return "systemic"
 
 
 def main() -> int:
@@ -49,7 +103,16 @@ def main() -> int:
     parser.add_argument(
         "--reason",
         default=DEFAULT_REASON,
-        help="Failing reason carried into the exhausted report (last gate summary).",
+        help="Failing reason carried into the exhausted/propose_raise report (last gate summary).",
+    )
+    parser.add_argument(
+        "--raised",
+        action="store_true",
+        default=False,
+        help=(
+            "This offer/type has ALREADY had its one bounded raise proposed/applied "
+            "for this retry sequence (caller-tracked; see module docstring)."
+        ),
     )
     args = parser.parse_args()
 
@@ -86,10 +149,34 @@ def main() -> int:
         print("continue")
         return 0
 
-    # At/over cap — distinct EXHAUSTED report. NO deliver/best-effort branch.
+    if current == cap and not args.raised:
+        # FIRST time this exact count reaches cap — propose the ONE bounded
+        # +1 raise instead of the final report (exit 2, distinct from both 0
+        # and 1 so callers can branch on exit code alone without JSON-parsing
+        # in a shell context).
+        print(
+            json.dumps(
+                {
+                    "status": "propose_raise",
+                    "artifact": artifact_type,
+                    "current_cap": cap,
+                    "proposed_cap": cap + RAISE_INCREMENT,
+                    "reason": args.reason,
+                }
+            )
+        )
+        return 2
+
+    # current > cap, OR current == cap and already raised — final, distinct
+    # EXHAUSTED report. NO deliver/best-effort branch.
     print(
         json.dumps(
-            {"status": "exhausted", "artifact": artifact_type, "reason": args.reason}
+            {
+                "status": "exhausted",
+                "artifact": artifact_type,
+                "reason": args.reason,
+                "failure_class": _classify_failure(args.reason),
+            }
         )
     )
     return 1

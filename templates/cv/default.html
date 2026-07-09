@@ -35,11 +35,7 @@
 
   {% if candidate.contact %}
   <h2>{{ labels.contact | default('Contact') }}</h2>
-  <p class="muted">
-    {% for k in ['email','phone','address','website','github','linkedin'] %}
-      {% if candidate.contact[k] %}{{ k }}: {{ candidate.contact[k] }}{% if not loop.last %} · {% endif %}{% endif %}
-    {% endfor %}
-  </p>
+  <p class="muted">{% for line in candidate.contact | contact_lines %}{{ line | e }}{% if not loop.last %} &middot; {% endif %}{% endfor %}</p>
   {% endif %}
 
   {% if candidate.expertise %}

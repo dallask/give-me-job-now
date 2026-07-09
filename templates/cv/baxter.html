@@ -481,24 +481,9 @@
           <span class="label">{{ labels.contact_me | default('Contact Me') }}</span>
         </div>
         <ul class="contact-list">
-          {% if c.phone %}
-          <li><span class="bullet"></span><span>{{ c.phone | e }}</span></li>
-          {% endif %}
-          {% if c.website %}
-          <li><span class="bullet"></span><span>{{ c.website | e }}</span></li>
-          {% endif %}
-          {% if c.email %}
-          <li><span class="bullet"></span><span>{{ c.email | e }}</span></li>
-          {% endif %}
-          {% if c.address %}
-          <li><span class="bullet"></span><span>{{ c.address | e }}</span></li>
-          {% endif %}
-          {% if c.github %}
-          <li><span class="bullet"></span><span>{{ c.github | e }}</span></li>
-          {% endif %}
-          {% if c.linkedin %}
-          <li><span class="bullet"></span><span>{{ c.linkedin | e }}</span></li>
-          {% endif %}
+          {% for line in candidate.contact | contact_lines %}
+          <li><span class="bullet"></span><span>{{ line | e }}</span></li>
+          {% endfor %}
         </ul>
 
         <hr class="side-divider" />

@@ -410,7 +410,7 @@
             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
             <polyline points="22,6 12,13 2,6"/>
           </svg>
-          {{ c.email }}
+          {{ (c.email[0] if c.email is sequence and c.email is not string else c.email) | e }}
         </span>
         {% endif %}
         {% if c.linkedin %}
@@ -429,15 +429,6 @@
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
           </svg>
           <a href="{{ c.portfolio }}">Portfolio</a>
-        </span>
-        {% elif c.website %}
-        <span class="ci" title="Website">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="2" y1="12" x2="22" y2="12"/>
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-          </svg>
-          <a href="{{ c.website }}">{{ c.website }}</a>
         </span>
         {% endif %}
         {% if c.address %}
