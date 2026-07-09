@@ -7,6 +7,13 @@ EXHAUSTED report (naming the failing artifact + reason) and exits nonzero — wi
 NO "deliver best-effort" branch anywhere (Pitfall 2, T-07-12). The cap is read
 from ``state.retry_cap`` (frozen), never from config; a bool/missing cap is
 rejected (T-07-14). No pytest — run with ``python3 tests/test_check_cap.py``.
+
+PIPE-07/PIPE-08 (phase 41-04): the EXHAUSTED report also carries a
+``failure_class`` (``narrow``/``systemic``) heuristic classification, and the
+FIRST time an offer/type reaches cap (current == cap, no prior raise), the
+script emits a distinct ``propose_raise`` status (exit 2) instead of the final
+report — bounded to exactly one raise per CONTEXT.md's "ONE bounded cap raise"
+decision, tracked by the caller-supplied ``--raised`` flag.
 """
 
 from __future__ import annotations
@@ -174,6 +181,106 @@ def test_invalid_artifact_type_rejected() -> None:
         "--artifact-type", "resume",
     )
     assert result.returncode != 0, "off-enum artifact_type rejected by argparse choices"
+
+
+def test_first_exhaustion_emits_propose_raise_not_final_report() -> None:
+    # current == cap, no --raised flag → FIRST time this exact count reaches
+    # cap → propose_raise (exit 2), NOT the final flat EXHAUSTED report.
+    state_path = _seed_state(
+        {"retry_cap": 2, "retry_counts": {"acme": {"cv": 2}}}
+    )
+    result = _run(
+        "--state", str(state_path),
+        "--offer-slug", "acme",
+        "--artifact-type", "cv",
+        "--reason", "gate failed",
+    )
+    assert result.returncode == 2, (
+        f"first exhaustion must exit 2 (propose_raise), got {result.returncode}: {result.stderr}"
+    )
+    report = json.loads(result.stdout)
+    assert report == {
+        "status": "propose_raise",
+        "artifact": "cv",
+        "current_cap": 2,
+        "proposed_cap": 3,
+        "reason": "gate failed",
+    }, report
+
+
+def test_second_exhaustion_after_raise_emits_final_exhausted_no_further_raise() -> None:
+    # Cap already raised once (2 -> 3); caller passes --raised to signal this
+    # offer/type already used its one bounded raise → final EXHAUSTED (exit 1),
+    # NEVER a second propose_raise.
+    state_path = _seed_state(
+        {"retry_cap": 3, "retry_counts": {"acme": {"cv": 3}}}
+    )
+    result = _run(
+        "--state", str(state_path),
+        "--offer-slug", "acme",
+        "--artifact-type", "cv",
+        "--reason", "gate failed again",
+        "--raised",
+    )
+    assert result.returncode == 1, (
+        f"second exhaustion (already raised) must exit 1 (final), got {result.returncode}"
+    )
+    report = json.loads(result.stdout)
+    assert report["status"] == "exhausted", report
+    assert report["artifact"] == "cv", report
+    assert "failure_class" in report, report
+
+
+def test_exhausted_report_classifies_systemic_vs_narrow() -> None:
+    # Narrow: a reason implying a single failing claim / claim-index pattern.
+    state_path = _seed_state(
+        {"retry_cap": 1, "retry_counts": {"acme": {"cv": 1}}}
+    )
+    result = _run(
+        "--state", str(state_path),
+        "--offer-slug", "acme",
+        "--artifact-type", "cv",
+        "--reason", "single claim failed: claims[3] unresolved_span",
+        "--raised",
+    )
+    assert result.returncode == 1, result.stderr
+    report = json.loads(result.stdout)
+    assert report["failure_class"] == "narrow", report
+
+    # Systemic: generic/empty reason implying multiple/unclear failing claims.
+    state_path2 = _seed_state(
+        {"retry_cap": 1, "retry_counts": {"acme": {"cover_letter": 1}}}
+    )
+    result2 = _run(
+        "--state", str(state_path2),
+        "--offer-slug", "acme",
+        "--artifact-type", "cover_letter",
+        "--reason", "multiple claims fabricated across the draft",
+        "--raised",
+    )
+    assert result2.returncode == 1, result2.stderr
+    report2 = json.loads(result2.stdout)
+    assert report2["failure_class"] == "systemic", report2
+
+
+def test_over_cap_without_raise_marker_still_treated_as_final_exhausted() -> None:
+    # current > cap (already over, not exactly at cap) — never emits
+    # propose_raise (which only fires exactly AT the first-reached cap); goes
+    # straight to the final EXHAUSTED report. Preserves
+    # test_over_cap_emits_exhausted_report's existing contract even without
+    # --raised.
+    state_path = _seed_state(
+        {"retry_cap": 2, "retry_counts": {"acme": {"interview_prep": 5}}}
+    )
+    result = _run(
+        "--state", str(state_path),
+        "--offer-slug", "acme",
+        "--artifact-type", "interview_prep",
+    )
+    assert result.returncode == 1, "over-cap must exit 1 (final), never propose_raise"
+    report = json.loads(result.stdout)
+    assert report["status"] == "exhausted", report
+    assert "failure_class" in report, report
 
 
 def main() -> int:
