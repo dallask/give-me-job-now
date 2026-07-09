@@ -13,6 +13,7 @@
       "language": "ua",
       "mode": "remote",
       "salary": 4500,
+      "discovered_at": "2026-07-09T10:00:00Z",
       "trace": {
         "source_url": "https://robota.ua/company/softpeak/vacancy/325215",
         "excerpt": "Шукаємо Lead Backend PHP інженера з комерційним досвідом Laravel"
@@ -29,6 +30,7 @@
       "language": "ua",
       "mode": "hybrid",
       "salary": 4000,
+      "discovered_at": "2026-07-09T10:05:00Z",
       "trace": {
         "source_url": "https://www.work.ua/jobs/7890/"
       }

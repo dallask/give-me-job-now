@@ -31,7 +31,9 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MERGER = REPO_ROOT / "scripts" / "offers" / "gmj_merge_shortlists.py"
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "preferences"))
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "offers"))
 from gmj_validate_preferences import _norm_site  # noqa: E402
+import gmj_merge_shortlists as _merger_mod  # noqa: E402  (direct import for the schema-gate unit test)
 
 
 def _cli(
@@ -213,36 +215,58 @@ def test_md_view_uses_jobseeker_wording() -> None:  # SCOUT-01
 
 
 def test_output_schema_violation_no_longer_hard_fails_on_normalizable_gaps() -> None:
-    # WR-02 frozen-contract guard, revised for defensive normalization (PIPE-03/04): board/trace
-    # gaps are now normalizable with safe defaults, so this fixture must exercise a REAL
-    # non-normalizable schema violation instead — a `score` field of the wrong type, which
-    # normalization cannot safely coerce and schema validation still catches.
+    # WR-02 frozen-contract guard, revised for defensive normalization (PIPE-03/04): after
+    # _normalize_entry() fills board/trace/discovered_at with safe-default strings and merge()'s
+    # existing {**entry, "canonical_key": key, "score": score_entry(...)} spread ALWAYS
+    # recomputes canonical_key (str) and score (float), every one of shortlist_entry's 5 required
+    # fields is schema-conformant for every CLI-reachable entry — that is the intended effect of
+    # this task (never fail closed over a normalizable gap). So the CLI path itself can no longer
+    # reach an entry-level schema violation; first prove that positively (a raw board entry with
+    # every gap imaginable still exits 0 and is kept), then prove the schema GATE ITSELF still
+    # fails closed on a genuinely non-normalizable assembled document by calling
+    # write_shortlist()/_validate_against_schema() directly with a hand-built doc whose `score`
+    # is a string -- the one shape merge()'s own scoring spread guarantees can never occur via the
+    # CLI, but that write_shortlist() must still reject if it were ever reached (e.g. a future
+    # caller bypassing merge()).
     with tempfile.TemporaryDirectory() as tmp:
         cwd = Path(tmp)
-        # In-scope by its top-level source_url host; carries a non-numeric `score` (a raw
-        # board-supplied field that collides with the computed contract key) -> merge()'s
-        # `{**entry, "score": score_entry(...)}` spread lets the computed float win UNLESS the
-        # raw string sneaks through some other path — pin the genuinely non-normalizable case:
-        # canonical_key ends up a non-string because company/title are non-string types that
-        # slugify cannot coerce into a valid contract shape. Use a `board` that is a non-string
-        # (schema requires board: string) to force a real, non-normalizable type violation.
         entry = {
             "title": "PHP Engineer",
             "company": "SoftPeak",
             "location": "Kyiv",
-            "board": 12345,  # type violation: schema requires board to be a string
             "source_url": "https://www.work.ua/j/9",
             "salary": 4000,
             "mode": "remote",
         }
-        result, out = _run_merge(cwd, [entry], _PREFS, _SOURCES, out_name="bad.json")
-        assert result.returncode == 1, (
-            f"a non-normalizable schema type violation must fail closed (exit 1): {result.stdout}"
+        result, out = _run_merge(cwd, [entry], _PREFS, _SOURCES, out_name="ok.json")
+        assert result.returncode == 0, (
+            f"a normalizable gap (missing board/trace/discovered_at) must no longer fail closed: "
+            f"{result.stderr}"
         )
-        assert "shortlist.schema.json" in result.stderr, (
-            f"stderr must name the schema it violated: {result.stderr}"
-        )
-        assert not out.exists(), "no shortlist must be written when the assembly violates the schema"
+        shortlist = json.loads(out.read_text())["shortlist"]
+        assert len(shortlist) == 1, "the normalized entry must be kept, not dropped"
+
+    # The schema gate itself must still reject a genuinely non-normalizable assembled entry
+    # (score as a string) -- proving write_shortlist()'s fail-closed mechanism is intact.
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        bad_ranked = [{
+            "canonical_key": "softpeak-php-engineer-kyiv",
+            "board": "https://www.work.ua/",
+            "score": "high",  # type violation: schema requires score to be a number
+            "trace": {"source_url": "https://www.work.ua/j/9"},
+            "discovered_at": "2026-07-09T10:00:00Z",
+        }]
+        out_path = cwd / ".pipeline" / "bad.json"
+        try:
+            _merger_mod.write_shortlist(bad_ranked, out_path, cwd / ".pipeline")
+            raised = False
+        except ValueError as exc:
+            raised = True
+            msg = str(exc)
+        assert raised, "write_shortlist() must still raise on a non-normalizable schema violation"
+        assert "shortlist.schema.json" in msg, f"error must name the schema it violated: {msg}"
+        assert not out_path.exists(), "no shortlist must be written when the assembly violates the schema"
 
 
 def test_discovered_at_required_and_schema_validated() -> None:
