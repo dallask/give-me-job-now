@@ -1,0 +1,53 @@
+# release.yml — semantic-release + milestone-backfill CI for the PUBLIC mirror repo.
+# Runs inside give-me-job-now itself (this file ships there via the sanitize-and-mirror
+# publisher). Triggers on push to main — which is exactly what gmj_publish_mirror.sh's
+# force-push does on every publish, so no cross-repo dispatch is needed.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install -r scripts/publish/requirements.txt
+
+      - name: Configure git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Backfill real milestone releases (idempotent — recreated fresh every run)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/publish/gmj_bootstrap_releases.py
+
+      # python-semantic-release 10.x CLI surface (verified against the installed
+      # version's own `semantic-release --help` / `version --help` output —
+      # there is no separate "changelog"+"push" step needed here: `version`
+      # itself commits/tags/pushes/creates the VCS release in one pass by
+      # default). `publish` additionally builds+uploads any dist/ assets to
+      # the release (a no-op for this repo, which ships no Python package).
+      - name: Semantic-release for any commits beyond the last milestone
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          semantic-release version || echo "No release-worthy commits beyond the last milestone tag — nothing to do."
+          semantic-release publish || true
