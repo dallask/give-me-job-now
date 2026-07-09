@@ -595,7 +595,7 @@ Raised during UAT review: the current vacancies band is a static, single-line-pe
 | Area | Today |
 |------|--------|
 | Widget | `#vac-placeholder` — `Static` text |
-| Data source | `DashboardModel._vacancies()` globs `sources/offers/*.offer-spec.json` |
+| Data source | `DashboardModel._vacancies()` globs `output/offers/*.offer-spec.json` |
 | List fields | `title`, `company`, `location`, `seniority`, `salary_range`, `n_must_haves`, `offer_spec_hash` |
 | Interaction | None — no row cursor, no drill-in, **no filter** |
 | Batch rollup | Appended below offer lines in the same `Static` (`batches:` section) |
@@ -603,12 +603,12 @@ Raised during UAT review: the current vacancies band is a static, single-line-pe
 
 List rendering lives in `_apply_vacancies()` ([`scripts/dashboard/gmj_dashboard.py`](../scripts/dashboard/gmj_dashboard.py)); thin reader in [`scripts/dashboard/gmj_dashboard_model.py`](../scripts/dashboard/gmj_dashboard_model.py) `_vacancies()`.
 
-**Data boundary:** the panel shows **frozen** offer-specs on disk only (`sources/offers/*.offer-spec.json`). It does **not** show live in-flight scout/web results until an offer is frozen (scout → freeze) or a spec file is placed manually. This matches VIEW-10 and [TUI/cli-dashboard-proposal.md](cli-dashboard-proposal.md) § panels.
+**Data boundary:** the panel shows **frozen** offer-specs on disk only (`output/offers/*.offer-spec.json`). It does **not** show live in-flight scout/web results until an offer is frozen (scout → freeze) or a spec file is placed manually. This matches VIEW-10 and [TUI/cli-dashboard-proposal.md](cli-dashboard-proposal.md) § panels.
 
 ### Reproduce (current limitation)
 
 1. `python3 scripts/dashboard/gmj_dashboard.py --pipeline-dir .pipeline`
-2. Ensure `sources/offers/*.offer-spec.json` exists (fixture: `tests/fixtures/dashboard/sources/offers/`).
+2. Ensure `output/offers/*.offer-spec.json` exists (fixture: `tests/fixtures/dashboard/output/offers/`).
 3. Observe the right-hand vacancies panel: prose lines like  
    `Backend Engineer · TestCorp · senior · 4000-6000 USD · mh 3`
 4. Try to select a row or open details → **not possible** (no table, no modal).
@@ -631,7 +631,7 @@ def offer_detail(self, offer_spec_hash: str) -> dict:
     """Return a drill-in payload for one frozen offer-spec, else {}."""
 ```
 
-- Lookup by `offer_spec_hash` against the same `sources/offers/*.offer-spec.json` glob used by `_vacancies()` (do **not** follow `state.offer_spec_path` from run state — T-20-02 / T-22-07).
+- Lookup by `offer_spec_hash` against the same `output/offers/*.offer-spec.json` glob used by `_vacancies()` (do **not** follow `state.offer_spec_path` from run state — T-20-02 / T-22-07).
 - Whitelist modal fields from `content` + envelope:
   - `title`, `company`, `location`, `seniority`, `employment_type`, `language`
   - `salary_range` (verbatim dict or null)
@@ -806,7 +806,7 @@ Update [TUI/testing-plan.md](testing-plan.md) UAT matrix with **DASH-UAT-04** �
 
 ### Acceptance criteria
 
-1. All frozen offers under `sources/offers/*.offer-spec.json` appear as rows in `#vacancies`.
+1. All frozen offers under `output/offers/*.offer-spec.json` appear as rows in `#vacancies`.
 2. `#vac-filter` narrows visible rows by substring (title / company / seniority / location / hash); clearing the filter restores all rows; polling does not resurrect filtered-out rows.
 3. Arrow keys move row cursor on `#vacancies`; **Enter** opens `VacancyDetailModal` with full whitelisted fields.
 4. **Escape** closes modal; base board keeps polling without error.
