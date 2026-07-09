@@ -25,7 +25,7 @@
       },
       {
         "text": "I raise engineering quality where it counts: I lifted core-module test coverage to 80%+ by enforcing PHPUnit and PHP Code Sniffer across delivery squads.",
-        "source_span": "key_achievements[6].description",
+        "source_span": "key_achievements[11].description",
         "section": "body",
         "reframing_note": "Confident offer-register phrasing; the 80%+ coverage figure is present in the cited span."
       },
