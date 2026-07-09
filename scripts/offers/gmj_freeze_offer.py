@@ -5,7 +5,7 @@ Reads a fielded offer draft (a ``content`` object, or an object with a ``content
 key) from ``--file`` or ``--stdin``, validates it against
 ``schemas/offer_spec.schema.json#/$defs/offer_content``, computes
 ``offer_spec_hash = canonical_hash(content)`` by REUSING Phase 2's audited hasher,
-and writes ``sources/offers/<slug>.offer-spec.json`` with ``content`` plus
+and writes ``output/offers/<slug>.offer-spec.json`` with ``content`` plus
 ``captured_at`` and ``offer_spec_hash`` as siblings OUTSIDE ``content``.
 
 Design (RESEARCH Pattern 1/3, Pitfall 1): nesting the hashed fields in ``content``
@@ -13,7 +13,7 @@ while keeping ``captured_at`` a sibling excludes capture time from the fingerpri
 BY CONSTRUCTION — so ``canonical_hash`` is reused unchanged and no ``VOLATILE_FIELDS``
 edit is needed. The hash is produced only by this executed code, never agent-asserted
 (T-03-hash). The ``<slug>`` is sanitized to ``[a-z0-9-]`` and the file is written only
-under ``sources/offers/`` (T-03-path).
+under ``output/offers/`` (T-03-path).
 
 CLI: ``gmj_freeze_offer.py (--file <path> | --stdin) [--captured-at <iso8601>]`` exits 0
 after printing the written path; validation/JSON/IO errors go to stderr, exit 1.
@@ -38,7 +38,7 @@ from gmj_validate_envelope import build_registry  # noqa: E402  reuse the local 
 DEFAULT_SCHEMA_DIR = REPO_ROOT / "schemas"
 OFFER_SPEC_SCHEMA = "offer_spec.schema.json"
 # cwd-relative so the freeze target is predictable from repo root and isolatable in tests.
-OUTPUT_SUBDIR = Path("sources") / "offers"
+OUTPUT_SUBDIR = Path("output") / "offers"
 
 
 def freeze(content: dict, captured_at: str) -> dict:

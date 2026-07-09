@@ -162,7 +162,7 @@ def test_two_runs_touch_only_report_path() -> None:
         root = Path(tmp)
         (root / "some_file.py").write_text("VALUE = 5\n", encoding="utf-8")
         (root / "docs.md").write_text("no mention of anything special here\n", encoding="utf-8")
-        output_path = root / "sources" / "analysis" / "cleanup-report.md"
+        output_path = root / "output" / "analysis" / "cleanup-report.md"
 
         def _snapshot() -> dict[str, tuple[int, int]]:
             snap: dict[str, tuple[int, int]] = {}
