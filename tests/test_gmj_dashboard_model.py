@@ -625,7 +625,7 @@ def test_pipeline_activity_detects_in_flight_work() -> None:
 
 
 def test_missing_files_degrade_without_raising() -> None:
-    # A repo_root with NO config/ and NO sources/offers/ must degrade to {}/[] — never raise.
+    # A repo_root with NO config/ and NO output/offers/ must degrade to {}/[] — never raise.
     with tempfile.TemporaryDirectory() as tmp:
         model = gmj_dashboard_model.DashboardModel(pipeline_dir=str(Path(tmp) / "nopipeline"), repo_root=Path(tmp))
         snap = _snapshot(model)
