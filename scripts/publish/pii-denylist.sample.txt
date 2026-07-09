@@ -1,0 +1,32 @@
+# pii-denylist.sample.txt — TEMPLATE for the HARD verification gate's denylist.
+#
+# Copy this file to the gitignored scripts/publish/pii-denylist.txt and fill in the
+# REAL literal tokens read from config/candidate.yaml (referenced below by YAML
+# location, never by value in this committed template). One literal per line.
+#
+# scripts/publish/gmj_publish_mirror.sh greps every line of the REAL denylist
+# across ALL history refs of the filtered temp clone (`git grep` over all commits).
+# ANY hit is a HARD failure that aborts the publish before any push.
+#
+# Fill in real values for (see config/candidate.yaml for the real values):
+#   - contact.phone
+#   - contact.email[0] (personal email)
+#   - contact.email[1] (gmail)
+#   - contact.website.personal[*] (domains)
+#   - contact.messengers.telegram (handle)
+#   - top-level name (Latin variant)
+#   - top-level name (Cyrillic variant, if candidate.ua.yaml/candidate.ru.yaml carry one)
+#   - contact.address
+#
+# PLACEHOLDER LINES ONLY — never put real digits/emails/domains/handles/names in
+# this committed file. Real tokens belong ONLY in the gitignored
+# scripts/publish/pii-denylist.txt.
+
+REAL_PHONE_HERE
+REAL_PERSONAL_EMAIL_HERE
+REAL_GMAIL_HERE
+REAL_PERSONAL_DOMAIN_HERE
+REAL_TELEGRAM_HANDLE_HERE
+REAL_NAME_LATIN_HERE
+REAL_NAME_CYRILLIC_HERE
+REAL_ADDRESS_HERE

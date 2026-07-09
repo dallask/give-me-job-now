@@ -1,0 +1,34 @@
+# replacements.sample.txt — TEMPLATE for git-filter-repo's --replace-text map.
+#
+# Copy this file to the gitignored scripts/publish/replacements.txt and fill in the
+# REAL tokens read from config/candidate.yaml (referenced below by YAML location,
+# never by value in this committed template). One mapping per line:
+#
+#   literal==>replacement
+#
+# git-filter-repo rewrites every occurrence of `literal` to `replacement` across
+# ALL history (blobs + commit messages) when this file is passed to --replace-text.
+#
+# Fill in placeholders for (see config/candidate.yaml for the real values):
+#   - contact.phone                        ==> +00000000000
+#   - contact.email[0] (personal email)    ==> you@example.com
+#   - contact.email[1] (gmail)             ==> you@example.com
+#   - contact.website.personal[*] (domains)==> example.com
+#   - contact.messengers.telegram (handle) ==> @yourhandle
+#   - top-level name (Latin variant)       ==> Your Name
+#   - top-level name (Cyrillic variant, if candidate.ua.yaml/candidate.ru.yaml carry one)
+#                                           ==> Your Name
+#   - contact.address                      ==> City, Country
+#
+# PLACEHOLDER EXAMPLES ONLY — never put real digits/emails/domains/handles/names
+# in this committed file. Real tokens belong ONLY in the gitignored
+# scripts/publish/replacements.txt.
+
+REAL_PHONE_HERE==>+00000000000
+REAL_PERSONAL_EMAIL_HERE==>you@example.com
+REAL_GMAIL_HERE==>you@example.com
+REAL_PERSONAL_DOMAIN_HERE==>example.com
+REAL_TELEGRAM_HANDLE_HERE==>@yourhandle
+REAL_NAME_LATIN_HERE==>Your Name
+REAL_NAME_CYRILLIC_HERE==>Your Name
+REAL_ADDRESS_HERE==>City, Country

@@ -40,3 +40,8 @@ sources/offers/*
 !sources/offers/.gitkeep
 !sources/offers/sample-offer.txt
 !sources/offers/sample-offer-draft.json
+
+# Real PII map + denylist for scripts/publish/gmj_publish_mirror.sh — hold the
+# real values from config/candidate.yaml; only the .sample templates ship.
+scripts/publish/replacements.txt
+scripts/publish/pii-denylist.txt

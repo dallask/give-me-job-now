@@ -1,0 +1,37 @@
+# paths-to-remove.txt — committed, PII-free path-removal list for git-filter-repo.
+#
+# Consumed by scripts/publish/gmj_publish_mirror.sh via:
+#   git filter-repo --force --invert-paths --paths-from-file <(this file)
+#
+# One path or glob per line. filter-repo path-globs are LITERAL (fnmatch-style),
+# matched against the path as recorded in each commit, across ALL history.
+#
+# KEEP fixtures (deliberately NOT matched by any glob below — verified by listing
+# them explicitly here, not via an exclude directive):
+#   sources/offers/sample-offer.txt
+#   sources/offers/sample-offer-draft.json
+#   sources/README.md
+#   sources/candidate/README.md
+#   .gitkeep files (e.g. output/cv/.gitkeep, sources/analysis/.gitkeep, ...)
+#
+# No real PII value appears in this file — only paths and globs.
+
+# Private planning workspace — never mirrored publicly.
+.planning/
+
+# Real per-offer generated artifact drafts (CV/cover-letter/interview-prep JSON).
+sources/artifacts/
+
+# Real generated interview-prep markdown docs.
+glob:output/interview-prep-*.md
+
+# Real personal source documents (diplomas, certificates, CVs, badges, photo).
+glob:sources/*.pdf
+glob:sources/**/*.pdf
+sources/user_photo.jpg
+glob:sources/*.jpg
+
+# Real PII map + denylist must never reach the public repo, even though they are
+# gitignored in the private repo (defense in depth against an accidental commit).
+scripts/publish/replacements.txt
+scripts/publish/pii-denylist.txt
