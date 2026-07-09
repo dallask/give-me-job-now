@@ -1380,8 +1380,8 @@ app:
 
 <section id="demo-walkthrough" class="docs-anchor-target mb-16">
           <h2 class="text-3xl font-extrabold text-gray-50 border-b border-gray-800 pb-3">DEMO-WALKTHROUGH — script the give-me-job collective live</h2>
-          <p class="mt-4 text-gray-300">A ready-to-run script for demonstrating the give-me-job collective end to end: the <strong class="text-gray-100">real pipeline</strong>
-          (<code class="text-emerald-400">/gmj-pipeline-run</code>), an on-disk <strong class="text-gray-100">run inspection</strong>, and the <strong class="text-gray-100">operator cockpit</strong>
+          <p class="mt-4 text-gray-300">A ready-to-run script for demonstrating the give-me-job collective end to end: <svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-indigo-400 tooltip" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" data-tip="Live pipeline run"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" /></svg>the <strong class="text-gray-100">real pipeline</strong>
+          (<code class="text-emerald-400">/gmj-pipeline-run</code>), an on-disk <strong class="text-gray-100">run inspection</strong>, and <svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-emerald-400 tooltip" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" data-tip="File path"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>the <strong class="text-gray-100">operator cockpit</strong>
           (<code class="text-emerald-400">gmj_dashboard.py</code>), interleaved with narration beats — plus an <strong class="text-gray-100">asciinema recording plan</strong> for
           capturing it. This follows the <a href="#runbook" class="text-indigo-400 hover:text-indigo-300">RUNBOOK</a> Setup → Run → Outputs arc; for the
           story behind the commands see <a href="#showcase" class="text-indigo-400 hover:text-indigo-300">SHOWCASE</a>.</p>
@@ -1409,7 +1409,7 @@ app:
             <li>A <strong class="text-gray-100">≥ ~60-row terminal</strong> for the dashboard (grid-derived minimum; below that the runs/vacancies
               band starves).</li>
             <li>A <strong class="text-gray-100">real, current offer</strong> (URL/text or an <code class="text-emerald-400">offer-spec.json</code>) and a <strong class="text-gray-100">real, populated</strong>
-              <code class="text-emerald-400">config/candidate.yaml</code> — the single source of truth every artifact claim traces back to.</li>
+              <svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-emerald-400 tooltip" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" data-tip="File path"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg><code class="text-emerald-400">config/candidate.yaml</code> — the single source of truth every artifact claim traces back to.</li>
           </ul>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Run — the exact command sequence + narration</h3>
@@ -1715,7 +1715,7 @@ python3 scripts/dashboard/gmj_dashboard.py --manage --pipeline-dir &lt;dir&gt;</
           <p class="mt-4 text-gray-300">This page documents <strong class="text-gray-100">what actually happens</strong> when each entry command runs — the ordered script and
           <code class="text-emerald-400">Task</code> sequence, and where the non-bypassable gates sit. Two invariants hold across every gated flow:</p>
           <ul class="mt-2 list-disc list-inside space-y-1 text-gray-300">
-            <li><strong class="text-gray-100">Gate A (truth) passes before Gate B (fit).</strong> <code class="text-emerald-400">gmj-truth-verifier</code> re-grounds every claim against
+            <li><svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-indigo-400 tooltip" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" data-tip="Non-bypassable hard gate"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg><strong class="text-gray-100">Gate A (truth) passes before Gate B (fit).</strong> <code class="text-emerald-400">gmj-truth-verifier</code> re-grounds every claim against
               <code class="text-emerald-400">config/candidate.yaml</code> first; only a Gate-A-passed draft is scored for target-fit by
               <code class="text-emerald-400">gmj-fit-evaluator</code>. A fabrication is a hard block, never bypassable in any mode.</li>
             <li><strong class="text-gray-100">Mode gates only the post-PASS human pause, never the machine gate.</strong> <code class="text-emerald-400">execution_mode</code> (frozen at
@@ -1731,7 +1731,7 @@ python3 scripts/dashboard/gmj_dashboard.py --manage --pipeline-dir &lt;dir&gt;</
           duplicated here.</p>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">Single-offer pipeline</h3>
-          <p class="mt-3 text-gray-300"><strong class="text-gray-100">Entry:</strong> <code class="text-emerald-400">/gmj-pipeline-run</code> — the whole offer→artifacts flow in one command (dual-mode, gated,
+          <p class="mt-3 text-gray-300"><svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-indigo-400 tooltip" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" data-tip="Parallel Task fan-out, sequential gates"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg><strong class="text-gray-100">Entry:</strong> <code class="text-emerald-400">/gmj-pipeline-run</code> — the whole offer→artifacts flow in one command (dual-mode, gated,
           retry-capped). This is the flow the RUNBOOK exercises end to end; see
           <a href="#runbook" class="text-indigo-400 hover:text-indigo-300">docs/RUNBOOK.md</a> §2.</p>
 
@@ -1938,7 +1938,7 @@ python3 scripts/dashboard/gmj_dashboard.py --manage --pipeline-dir &lt;dir&gt;</
 
 <section id="human-testing-plan" class="docs-anchor-target mb-16">
           <h2 class="text-3xl font-extrabold text-gray-50 border-b border-gray-800 pb-3">Human Testing Plan — give-me-job (post-v4.0)</h2>
-          <p class="mt-4 text-gray-300"><strong class="text-gray-100">Purpose.</strong> Every deterministic behavior in this repo is already green (machine-verified in
+          <p class="mt-4 text-gray-300"><svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-emerald-400 tooltip" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" data-tip="File path"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg><strong class="text-gray-100">Purpose.</strong> Every deterministic behavior in this repo is already green (machine-verified in
           every phase's <code class="text-emerald-400">VERIFICATION.md</code>, milestone audits passed for v1.0–v4.0). What remains — as in
           every prior milestone — is <strong class="text-gray-100">behavioral acceptance</strong>: the LLM-in-loop and live-multi-agent items
           that cannot be exercised non-interactively. This plan walks a human through <strong class="text-gray-100">every command
@@ -1969,7 +1969,7 @@ ls scripts/cv/fonts/ | grep -i dejavu &amp;&amp; echo "fonts OK"
 node --version   # any recent Node works — zero npm deps required
 </code></pre></div>
           <ul class="mt-2 list-disc list-inside space-y-1 text-gray-300">
-            <li><strong class="text-gray-100">Live agent tests</strong> run inside Claude Code at the <strong class="text-gray-100">top level</strong> (the hub <code class="text-emerald-400">gmj-orchestrator</code>
+            <li><svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-indigo-400 tooltip" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" data-tip="Hub-and-spoke invariant"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg><strong class="text-gray-100">Live agent tests</strong> run inside Claude Code at the <strong class="text-gray-100">top level</strong> (the hub <code class="text-emerald-400">gmj-orchestrator</code>
               must hold <code class="text-emerald-400">Task</code>; never nest it via a subagent). Launch with:
               <div class="relative"><pre><code>claude --dangerously-skip-permissions</code></pre></div>
             </li>
@@ -1981,7 +1981,7 @@ node --version   # any recent Node works — zero npm deps required
               allow-list). If either is thin, run <strong class="text-gray-100">Test 4</strong> (<code class="text-emerald-400">/gmj-interview</code>) and <strong class="text-gray-100">Test 5</strong> first.</li>
           </ul>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Part 1 — Deterministic Regression Sanity 🟢 (~2 min)</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Part 1 — Deterministic Regression Sanity <span class="tooltip" data-tip="Deterministic — re-run for confidence">🟢</span> (~2 min)</h3>
           <p class="mt-3 text-gray-300">Fast confidence check before behavioral work.</p>
           <div class="relative"><pre><code># 1.1 Full unit suite
 for t in tests/test_*.py; do python3 "$t" &gt;/dev/null 2&gt;&amp;1 &amp;&amp; echo "PASS $t" || echo "FAIL $t"; done
@@ -2002,7 +2002,7 @@ python3 tests/test_docs_current.py
             <p>If anything here fails, stop — fix the environment before behavioral testing.</p>
           </div>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 1 — Installer: fresh-machine setup 🔴</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 1 — Installer: fresh-machine setup <span class="tooltip" data-tip="Live end-to-end">🔴</span></h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> INSTALL-01..04 — one script takes a fresh machine to a working, config-preserved install.<br>
           <strong class="text-gray-100">Why human:</strong> needs a real filesystem/clone target; can't be sandboxed identically to production.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps:</strong></p>
@@ -2018,7 +2018,7 @@ bash gmj-core/bin/install.sh
           <code class="text-emerald-400">gmj-core/bin/gmj-tools.cjs install .</code> having run.<br>
           <strong class="text-gray-100">PASS criteria:</strong> idempotent, config untouched, no errors.</p>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 2 — <code class="text-emerald-400">/gmj-collective</code>: interactive hub 🧠</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 2 — <code class="text-emerald-400">/gmj-collective</code>: interactive hub <span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> the conversational entry point routes a free-form goal to the right spoke.<br>
           <strong class="text-gray-100">Why human:</strong> routing judgment + a live <code class="text-emerald-400">Task</code> dispatch.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live, top level):</strong></p>
@@ -2031,7 +2031,7 @@ bash gmj-core/bin/install.sh
           before calling <code class="text-emerald-400">Task</code>, and returns a real result (e.g. a rendered PDF path).<br>
           <strong class="text-gray-100">PASS criteria:</strong> correct spoke chosen; no fabricated result; hub never spawns a nested hub.</p>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 3 — <code class="text-emerald-400">/gmj-interview</code>: gap-filling interviewer 🧠</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 3 — <code class="text-emerald-400">/gmj-interview</code>: gap-filling interviewer <span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> the interviewer asks only about real profile gaps, one at a time, and writes
           write-free into the canonical YAML (via the configurator, never directly).</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live):</strong></p>
@@ -2047,7 +2047,7 @@ bash gmj-core/bin/install.sh
           <strong class="text-gray-100">PASS criteria:</strong> gap-only questions; preferences validate; canonical write stayed
           configurator-only.</p>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 4 — <code class="text-emerald-400">gmj-offer-scout</code>: board-search + single-offer intake 🧠</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 4 — <code class="text-emerald-400">gmj-offer-scout</code>: board-search + single-offer intake <span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> INTAKE-01/03/04 — ranked shortlist within scope, and accurate single-offer fielding.<br>
           <strong class="text-gray-100">Why human:</strong> ranking quality and field extraction are LLM judgment.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live):</strong></p>
@@ -2067,7 +2067,7 @@ python3 scripts/offers/gmj_check_offer.py --file &lt;the offer-spec.json&gt;   #
           hand-edited copy is rejected (<code class="text-emerald-400">exit 1</code>, STALE).<br>
           <strong class="text-gray-100">PASS criteria:</strong> in-scope + sensibly ordered; fields faithful; hash/staleness enforced.</p>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 5 — <code class="text-emerald-400">gmj-candidate-analyzer</code> + <code class="text-emerald-400">gmj-candidate-configurator</code>: ingestion 🧠</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 5 — <code class="text-emerald-400">gmj-candidate-analyzer</code> + <code class="text-emerald-400">gmj-candidate-configurator</code>: ingestion <span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> INGEST-01/03/04/05 — source materials (including images) become structured findings,
           merged into the canonical YAML with a provenance trail.</p>
           <div role="alert" class="alert mt-4 bg-gray-900 border border-indigo-500 text-gray-400 items-start">
@@ -2089,7 +2089,7 @@ python3 -c "import json; json.load(open('config/candidate.provenance.json')); pr
           <strong class="text-gray-100">PASS criteria:</strong> census == every file; YAML valid + enriched; provenance present; write-role
           boundary held.</p>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 6 — Artifact composition: 3 isolated drafts + targeted retry 🧠</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 6 — Artifact composition: 3 isolated drafts + targeted retry <span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> COMPOSE-02/04 — one composer call per artifact type, correctly isolated; a
           gate-failure retry revises only the flagged artifact from structured feedback.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live):</strong> run <code class="text-emerald-400">gmj-artifact-composer</code> for <code class="text-emerald-400">cv</code>, <code class="text-emerald-400">cover_letter</code>, and <code class="text-emerald-400">interview_prep</code>
@@ -2103,7 +2103,7 @@ python3 -c "import json; json.load(open('config/candidate.provenance.json')); pr
           artifact and still passes <code class="text-emerald-400">check_claims</code>.<br>
           <strong class="text-gray-100">PASS criteria:</strong> 3 isolated drafts, all provenance-green; targeted retry confirmed.</p>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 7 — Gate A (truth) on the adversarial set 🧠 (safety-critical)</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 7 — Gate A (truth) on the adversarial set <span class="tooltip" data-tip="LLM-judgment UAT">🧠</span> (safety-critical)</h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> the Gate-A trust precondition — the verifier catches subtle fabrication before it's
           trusted live. <strong class="text-gray-100">This is the single most important test in this plan.</strong></p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps:</strong></p>
@@ -2122,7 +2122,7 @@ python3 -c "import json; json.load(open('config/candidate.provenance.json')); pr
           <strong class="text-gray-100">PASS criteria:</strong> perfect score on the adversarial set. A miss here is a real finding, file it
           immediately (<code class="text-emerald-400">/gsd-debug</code>).</p>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 8 — Gate B (fit) + Gate C (polish) 🧠</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 8 — Gate B (fit) + Gate C (polish) <span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> accurate claim→must-have mapping; polish scoring is advisory-only, never gates.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps:</strong></p>
           <div class="relative"><pre><code>python3 scripts/artifacts/gmj_score_fit.py --file tests/fixtures/fit/pass.draft.json \
@@ -2135,7 +2135,7 @@ python3 tests/calibrate_fit.py --verdicts &lt;your-map.json&gt;
           correctly); Gate C polish scores are reasonable but <strong class="text-gray-100">never</strong> flip a Gate B pass/fail.<br>
           <strong class="text-gray-100">PASS criteria:</strong> correct verdicts; polish confirmed advisory-only.</p>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Part 3 — 🔴 E2E Acceptance Run 1: Single-Offer Pipeline (<code class="text-emerald-400">/gmj-pipeline-run</code>)</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Part 3 — <span class="tooltip" data-tip="Live end-to-end">🔴</span> E2E Acceptance Run 1: Single-Offer Pipeline (<code class="text-emerald-400">/gmj-pipeline-run</code>)</h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">The headline acceptance run.</strong> A full run against <strong class="text-gray-100">one real, current job offer</strong> with your
           <strong class="text-gray-100">real <code class="text-emerald-400">config/candidate.yaml</code></strong>, with <strong class="text-gray-100">no <code class="text-emerald-400">--artifact-types</code> flag</strong> (exercising the v4.0
           default: all three artifact types, each independently gated).</p>
@@ -2176,7 +2176,7 @@ python3 scripts/pipeline/gmj_check_delivery.py --state .pipeline/runs/&lt;run_id
           <div class="relative"><pre><code>/gmj-pipeline-run  (offer=..., artifact-types=cv,cover_letter)</code></pre></div>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> only 2 artifact types dispatched; <code class="text-emerald-400">interview_prep</code> not attempted.</p>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Part 4 — 🔴 E2E Acceptance Run 2: Batch + Bounded Concurrency (<code class="text-emerald-400">/gmj-batch</code>)</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Part 4 — <span class="tooltip" data-tip="Live end-to-end">🔴</span> E2E Acceptance Run 2: Batch + Bounded Concurrency (<code class="text-emerald-400">/gmj-batch</code>)</h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> SELECT-02/03/04 (multi-offer batch) + CONC-01..06 (bounded parallel fan-out).<br>
           <strong class="text-gray-100">Why human:</strong> live multi-agent concurrent dispatch can't be exercised non-interactively.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live):</strong></p>
@@ -2202,7 +2202,7 @@ cat .pipeline/batches/&lt;batch_id&gt;/manifest.json   # per-offer status: waiti
           still enforce per-offer per-artifact-type (no shared/aggregate shortcut).<br>
           <strong class="text-gray-100">PASS criteria:</strong> all 4 behaviors (concurrent, isolated, resumable, gate-enforced) observed.</p>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 9 — <code class="text-emerald-400">/gmj-runs</code>: read-only inspector 🟢🧠</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 9 — <code class="text-emerald-400">/gmj-runs</code>: read-only inspector <span class="tooltip" data-tip="Deterministic (re-run for confidence) and LLM-judgment UAT">🟢🧠</span></h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> ERGO-02 — terse, accurate run/batch timeline with a runnable (never auto-executed)
           resume command.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps:</strong></p>
@@ -2212,7 +2212,7 @@ cat .pipeline/batches/&lt;batch_id&gt;/manifest.json   # per-offer status: waiti
           executed by the inspector itself.<br>
           <strong class="text-gray-100">PASS criteria:</strong> accurate timeline; resume command verified by actually running it once.</p>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 10 — <code class="text-emerald-400">/gmj-dashboard</code>: read-only cockpit + docs tab 🧠</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 10 — <code class="text-emerald-400">/gmj-dashboard</code>: read-only cockpit + docs tab <span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> VIEW-01..16, DOCTAB-01..03 — a live, accurate, write-free projection of pipeline state.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live, in a real terminal — not headless):</strong></p>
           <div class="relative"><pre><code>/gmj-dashboard</code></pre></div>
@@ -2232,7 +2232,7 @@ cat .pipeline/batches/&lt;batch_id&gt;/manifest.json   # per-offer status: waiti
           truth); docs tab renders real Markdown; <code class="text-emerald-400">--manage</code> never forges a gate verdict or forces delivery.<br>
           <strong class="text-gray-100">PASS criteria:</strong> live updates confirmed; docs render correctly; <code class="text-emerald-400">--manage</code> gate-safe.</p>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 11 — <code class="text-emerald-400">/gmj-template</code>: screenshot → branded CV template 🧠</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 11 — <code class="text-emerald-400">/gmj-template</code>: screenshot → branded CV template <span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> a pasted design screenshot produces a working, candidate.yaml-bound HTML template.</p>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Steps (live):</strong> paste a CV design screenshot to <code class="text-emerald-400">/gmj-template</code>.</p>
           <p class="mt-4 text-gray-300"><strong class="text-gray-100">Expected:</strong> the compare==ship loop runs (cap 5, diff-ratio ≤ 0.10) and produces a template
@@ -2240,7 +2240,7 @@ cat .pipeline/batches/&lt;batch_id&gt;/manifest.json   # per-offer status: waiti
           text), visually close to the pasted design, with Cyrillic support intact.<br>
           <strong class="text-gray-100">PASS criteria:</strong> template renders real data; visual match reasonable; loop terminated within cap.</p>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 12 — Project cleanup report (read-only) 🟢</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Test 12 — Project cleanup report (read-only) <span class="tooltip" data-tip="Deterministic — re-run for confidence">🟢</span></h3>
           <p class="mt-3 text-gray-300"><strong class="text-gray-100">Proves:</strong> CLEANUP-01/02 — the unused-file scanner is genuinely non-mutating.</p>
           <div class="relative"><pre><code>git status --porcelain &gt; /tmp/before.txt
 python3 scripts/gmj_cleanup_report.py
@@ -2254,12 +2254,12 @@ cat sources/analysis/cleanup-report.md
           <strong class="text-gray-100">PASS criteria:</strong> zero unexpected mutations; report is plausible (spot-check 2–3 listed files
           really are unreferenced).</p>
 
-          <h3 class="mt-8 text-xl font-bold text-gray-100">Part 7 — 🧪 Optional/Experimental: Alternate Runtimes (not part of the default flow)</h3>
+          <h3 class="mt-8 text-xl font-bold text-gray-100">Part 7 — <span class="tooltip" data-tip="Optional/experimental — not part of the default flow">🧪</span> Optional/Experimental: Alternate Runtimes (not part of the default flow)</h3>
           <p class="mt-3 text-gray-300">These two are <strong class="text-gray-100">investigation-phase prototypes</strong> (v4.0 Phases 38/39), explicitly labeled
           experimental/unsupported for autonomous runs, and <strong class="text-gray-100">not wired into any default path</strong>. Test only
           if you want to evaluate the alternate-runtime work itself.</p>
 
-          <h4 class="mt-6 text-lg font-semibold text-gray-100">Test 13 — Claude Agent SDK prototype 🧪</h4>
+          <h4 class="mt-6 text-lg font-semibold text-gray-100">Test 13 — Claude Agent SDK prototype <span class="tooltip" data-tip="Optional/experimental — not part of the default flow">🧪</span></h4>
           <div class="relative"><pre><code>pip install -r scripts/runtime/requirements.txt   # installs claude-agent-sdk for real
 python3 scripts/runtime/gmj_sdk_runner.py --spoke gmj-offer-scout --input '{"...":"..."}'
 </code></pre></div>
@@ -2271,7 +2271,7 @@ python3 scripts/runtime/gmj_sdk_runner.py --spoke gmj-offer-scout --input '{"...
           <strong class="text-gray-100">PASS criteria:</strong> envelope validates; scope guard demonstrably fires; no claim overclaims beyond
           what <code class="text-emerald-400">HOOK-PARITY.md</code> states.</p>
 
-          <h4 class="mt-6 text-lg font-semibold text-gray-100">Test 14 — Cursor adapter (DV-24) 🧪</h4>
+          <h4 class="mt-6 text-lg font-semibold text-gray-100">Test 14 — Cursor adapter (DV-24) <span class="tooltip" data-tip="Optional/experimental — not part of the default flow">🧪</span></h4>
           <p class="mt-2 text-gray-300">Requires a real, authenticated Cursor account/CLI — this is the one item this project's own CI
           sandbox could never verify.</p>
           <div class="relative"><pre><code>node gmj-core/bin/gmj-cursor-adapter.cjs generate   # regenerate .cursor/agents/*.md, confirm no drift</code></pre></div>
@@ -2300,23 +2300,23 @@ python3 scripts/testing/gmj_record_uat.py --id E2E-RUN1 --result pass --notes "r
                 </tr>
               </thead>
               <tbody class="text-gray-300">
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4">1</td><td class="py-2 pr-4">Deterministic regression sanity</td><td class="py-2 pr-4">🟢</td><td class="py-2 pr-4"></td><td class="py-2">full suite + run_samples + e2e_guards + docs_current</td></tr>
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T1</td><td class="py-2 pr-4">Installer fresh-machine setup</td><td class="py-2 pr-4">🔴</td><td class="py-2 pr-4"></td><td class="py-2">idempotent, config untouched</td></tr>
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T2</td><td class="py-2 pr-4"><code class="text-emerald-400">/gmj-collective</code> routing</td><td class="py-2 pr-4">🧠</td><td class="py-2 pr-4"></td><td class="py-2">correct spoke dispatch</td></tr>
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T3</td><td class="py-2 pr-4"><code class="text-emerald-400">/gmj-interview</code> gap-fill</td><td class="py-2 pr-4">🧠</td><td class="py-2 pr-4"></td><td class="py-2">preferences validate</td></tr>
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T4</td><td class="py-2 pr-4"><code class="text-emerald-400">gmj-offer-scout</code> board-search + single-offer</td><td class="py-2 pr-4">🧠</td><td class="py-2 pr-4"></td><td class="py-2">in-scope, hash stable</td></tr>
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T5</td><td class="py-2 pr-4">Ingestion analyzer→configurator</td><td class="py-2 pr-4">🧠</td><td class="py-2 pr-4"></td><td class="py-2">census + provenance</td></tr>
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T6</td><td class="py-2 pr-4">3 isolated drafts + targeted retry</td><td class="py-2 pr-4">🧠</td><td class="py-2 pr-4"></td><td class="py-2">check_claims green ×3</td></tr>
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T7</td><td class="py-2 pr-4"><strong class="text-gray-100">Gate A truth accuracy (adversarial)</strong></td><td class="py-2 pr-4">🧠</td><td class="py-2 pr-4"></td><td class="py-2"><strong class="text-gray-100">target 1.0 — safety-critical</strong></td></tr>
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T8</td><td class="py-2 pr-4">Gate B coverage + Gate C polish</td><td class="py-2 pr-4">🧠</td><td class="py-2 pr-4"></td><td class="py-2">calibrate_fit</td></tr>
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4"><strong class="text-gray-100">E2E-RUN1</strong></td><td class="py-2 pr-4"><strong class="text-gray-100">Single-offer pipeline, default 3 artifacts</strong></td><td class="py-2 pr-4">🔴</td><td class="py-2 pr-4"></td><td class="py-2"><strong class="text-gray-100">headline acceptance</strong></td></tr>
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4"><strong class="text-gray-100">E2E-RUN2</strong></td><td class="py-2 pr-4"><strong class="text-gray-100">Batch + bounded concurrency</strong></td><td class="py-2 pr-4">🔴</td><td class="py-2 pr-4"></td><td class="py-2"><strong class="text-gray-100">concurrent, isolated, resumable</strong></td></tr>
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T9</td><td class="py-2 pr-4"><code class="text-emerald-400">/gmj-runs</code> inspector</td><td class="py-2 pr-4">🟢🧠</td><td class="py-2 pr-4"></td><td class="py-2">resume command verified</td></tr>
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T10</td><td class="py-2 pr-4"><code class="text-emerald-400">/gmj-dashboard</code> + docs tab + <code class="text-emerald-400">--manage</code></td><td class="py-2 pr-4">🧠</td><td class="py-2 pr-4"></td><td class="py-2">live updates, real Markdown</td></tr>
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T11</td><td class="py-2 pr-4"><code class="text-emerald-400">/gmj-template</code> screenshot→template</td><td class="py-2 pr-4">🧠</td><td class="py-2 pr-4"></td><td class="py-2">real-data render</td></tr>
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T12</td><td class="py-2 pr-4">Cleanup report zero-mutation</td><td class="py-2 pr-4">🟢</td><td class="py-2 pr-4"></td><td class="py-2">diff-verified</td></tr>
-                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T13</td><td class="py-2 pr-4">SDK prototype 🧪</td><td class="py-2 pr-4">🧪</td><td class="py-2 pr-4"></td><td class="py-2">optional</td></tr>
-                <tr><td class="py-2 pr-4">T14</td><td class="py-2 pr-4">Cursor adapter (DV-24) 🧪</td><td class="py-2 pr-4">🧪</td><td class="py-2 pr-4"></td><td class="py-2">optional — closes DV-24</td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4">1</td><td class="py-2 pr-4">Deterministic regression sanity</td><td class="py-2 pr-4"><span class="tooltip" data-tip="Deterministic — re-run for confidence">🟢</span></td><td class="py-2 pr-4"></td><td class="py-2">full suite + run_samples + e2e_guards + docs_current</td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T1</td><td class="py-2 pr-4">Installer fresh-machine setup</td><td class="py-2 pr-4"><span class="tooltip" data-tip="Live end-to-end">🔴</span></td><td class="py-2 pr-4"></td><td class="py-2">idempotent, config untouched</td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T2</td><td class="py-2 pr-4"><code class="text-emerald-400">/gmj-collective</code> routing</td><td class="py-2 pr-4"><span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></td><td class="py-2 pr-4"></td><td class="py-2">correct spoke dispatch</td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T3</td><td class="py-2 pr-4"><code class="text-emerald-400">/gmj-interview</code> gap-fill</td><td class="py-2 pr-4"><span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></td><td class="py-2 pr-4"></td><td class="py-2">preferences validate</td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T4</td><td class="py-2 pr-4"><code class="text-emerald-400">gmj-offer-scout</code> board-search + single-offer</td><td class="py-2 pr-4"><span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></td><td class="py-2 pr-4"></td><td class="py-2">in-scope, hash stable</td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T5</td><td class="py-2 pr-4">Ingestion analyzer→configurator</td><td class="py-2 pr-4"><span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></td><td class="py-2 pr-4"></td><td class="py-2">census + provenance</td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T6</td><td class="py-2 pr-4">3 isolated drafts + targeted retry</td><td class="py-2 pr-4"><span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></td><td class="py-2 pr-4"></td><td class="py-2">check_claims green ×3</td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T7</td><td class="py-2 pr-4"><strong class="text-gray-100">Gate A truth accuracy (adversarial)</strong></td><td class="py-2 pr-4"><span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></td><td class="py-2 pr-4"></td><td class="py-2"><strong class="text-gray-100">target 1.0 — safety-critical</strong></td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T8</td><td class="py-2 pr-4">Gate B coverage + Gate C polish</td><td class="py-2 pr-4"><span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></td><td class="py-2 pr-4"></td><td class="py-2">calibrate_fit</td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4"><strong class="text-gray-100">E2E-RUN1</strong></td><td class="py-2 pr-4"><strong class="text-gray-100">Single-offer pipeline, default 3 artifacts</strong></td><td class="py-2 pr-4"><span class="tooltip" data-tip="Live end-to-end">🔴</span></td><td class="py-2 pr-4"></td><td class="py-2"><strong class="text-gray-100">headline acceptance</strong></td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4"><strong class="text-gray-100">E2E-RUN2</strong></td><td class="py-2 pr-4"><strong class="text-gray-100">Batch + bounded concurrency</strong></td><td class="py-2 pr-4"><span class="tooltip" data-tip="Live end-to-end">🔴</span></td><td class="py-2 pr-4"></td><td class="py-2"><strong class="text-gray-100">concurrent, isolated, resumable</strong></td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T9</td><td class="py-2 pr-4"><code class="text-emerald-400">/gmj-runs</code> inspector</td><td class="py-2 pr-4"><span class="tooltip" data-tip="Deterministic (re-run for confidence) and LLM-judgment UAT">🟢🧠</span></td><td class="py-2 pr-4"></td><td class="py-2">resume command verified</td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T10</td><td class="py-2 pr-4"><code class="text-emerald-400">/gmj-dashboard</code> + docs tab + <code class="text-emerald-400">--manage</code></td><td class="py-2 pr-4"><span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></td><td class="py-2 pr-4"></td><td class="py-2">live updates, real Markdown</td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T11</td><td class="py-2 pr-4"><code class="text-emerald-400">/gmj-template</code> screenshot→template</td><td class="py-2 pr-4"><span class="tooltip" data-tip="LLM-judgment UAT">🧠</span></td><td class="py-2 pr-4"></td><td class="py-2">real-data render</td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T12</td><td class="py-2 pr-4">Cleanup report zero-mutation</td><td class="py-2 pr-4"><span class="tooltip" data-tip="Deterministic — re-run for confidence">🟢</span></td><td class="py-2 pr-4"></td><td class="py-2">diff-verified</td></tr>
+                <tr class="border-b border-gray-800"><td class="py-2 pr-4">T13</td><td class="py-2 pr-4">SDK prototype <span class="tooltip" data-tip="Optional/experimental — not part of the default flow">🧪</span></td><td class="py-2 pr-4"><span class="tooltip" data-tip="Optional/experimental — not part of the default flow">🧪</span></td><td class="py-2 pr-4"></td><td class="py-2">optional</td></tr>
+                <tr><td class="py-2 pr-4">T14</td><td class="py-2 pr-4">Cursor adapter (DV-24) <span class="tooltip" data-tip="Optional/experimental — not part of the default flow">🧪</span></td><td class="py-2 pr-4"><span class="tooltip" data-tip="Optional/experimental — not part of the default flow">🧪</span></td><td class="py-2 pr-4"></td><td class="py-2">optional — closes DV-24</td></tr>
               </tbody>
             </table>
           </div>
@@ -2491,7 +2491,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
           <h2 class="text-3xl font-extrabold text-gray-50 border-b border-gray-800 pb-3">References — Contracts, Schemas &amp; Envelopes</h2>
           <p class="mt-4 text-gray-300">The give-me-job collective exchanges <strong class="text-gray-100">typed file artifacts</strong>, never transcripts. Every
           hop between the hub (<code class="text-emerald-400">gmj-orchestrator</code>) and a spoke is a JSON envelope validated against a
-          versioned schema under <code class="text-emerald-400">schemas/</code>. This page is the reference for those contracts: the
+          versioned schema under <svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-emerald-400 tooltip" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" data-tip="File path"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg><code class="text-emerald-400">schemas/</code>. This page is the reference for those contracts: the
           shared <code class="text-emerald-400">agent_result_v1</code> envelope, the eight JSON Schemas, and the documentation-currency
           convention that keeps this reference honest.</p>
           <p class="mt-4 text-gray-300">See also: <a href="#configuration" class="text-indigo-400 hover:text-indigo-300">Configuration</a> for the <code class="text-emerald-400">config/*</code> file shapes, and
@@ -2538,7 +2538,7 @@ GMJ_INSTALL_DIR=my-give-me-job \
               agent.</li>
             <li><strong class="text-gray-100"><code class="text-emerald-400">notes</code></strong> — one-line key outcome, counts, or handoff reason.</li>
           </ul>
-          <p class="mt-4 text-gray-300">Emitted envelopes are validated at runtime by the <code class="text-emerald-400">gmj-validate-envelope.sh</code> hook against
+          <p class="mt-4 text-gray-300"><svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-indigo-400 tooltip" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" data-tip="Runtime enforcement hook"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>Emitted envelopes are validated at runtime by the <code class="text-emerald-400">gmj-validate-envelope.sh</code> hook against
           <code class="text-emerald-400">scripts/contracts/gmj_validate_envelope.py</code>.</p>
 
           <h3 class="mt-8 text-xl font-bold text-gray-100">JSON Schemas (<code class="text-emerald-400">schemas/*.json</code>)</h3>
@@ -3159,14 +3159,14 @@ coverage = 3/5 = 0.60   &lt;   0.70 threshold   &rarr; Gate B FAIL</code></pre><
 
 <section id="skills" class="docs-anchor-target mb-16">
           <h2 class="text-3xl font-extrabold text-gray-50 border-b border-gray-800 pb-3">Skills</h2>
-          <p class="mt-4 text-gray-300">The collective ships <strong class="text-gray-100">10 project skills</strong> under <code class="text-emerald-400">.claude/skills/</code>, each a <code class="text-emerald-400">gmj-*/SKILL.md</code>
+          <p class="mt-4 text-gray-300">The collective ships <strong class="text-gray-100">10 project skills</strong> under <svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-emerald-400 tooltip" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" data-tip="File path"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg><code class="text-emerald-400">.claude/skills/</code>, each a <code class="text-emerald-400">gmj-*/SKILL.md</code>
           carrying <code class="text-emerald-400">name</code> + <code class="text-emerald-400">description</code> frontmatter and a body of schema rules, rubrics, or protocols.
           Skills are <strong class="text-gray-100">domain knowledge</strong>, not agents — they encode the contracts and rubrics that agents
           apply. Most are surfaced to an agent by name (Claude Code's skill mechanism); one
           (<code class="text-emerald-400">gmj-orchestrator-pipelines</code>) is <strong class="text-gray-100">Read on demand</strong> rather than statically included.</p>
 
           <p class="mt-4 text-gray-300">Each entry below gives the skill's description (mined from its <code class="text-emerald-400">SKILL.md</code> frontmatter), what it
-          covers, when it is loaded, and the agent(s) that apply it. <svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-indigo-400 tooltip" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" data-tip="Cross-reference"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>Cross-references:
+          covers, <svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-indigo-400 tooltip" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" data-tip="Read on demand, not statically loaded"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>when it is loaded, and the agent(s) that apply it. <svg class="inline-block h-4 w-4 align-text-bottom mr-1 text-indigo-400 tooltip" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" data-tip="Cross-reference"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>Cross-references:
           <a href="#agents" class="text-indigo-400 hover:text-indigo-300">Agents</a> (the roster that applies these skills) and <a href="#rules" class="text-indigo-400 hover:text-indigo-300">Rules</a> (the
           load-bearing invariants that pair with several skills).</p>
 
