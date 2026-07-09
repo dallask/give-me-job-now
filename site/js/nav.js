@@ -235,23 +235,11 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // docs.html-only elements — safely undefined (no-op) on index/about/contact.html.
+  // #docs-mobile-strip is a direct child of the full-height grid container (spans down
+  // through <main>), so native `position: sticky` sticks it for the whole scrollable
+  // page instead of detaching after a short parent box scrolls out of view.
   var docsStripWrapper = document.getElementById('docs-mobile-strip');
   var docsToggle = document.getElementById('docs-mobile-toggle');
-  var docsStripSpacer = document.getElementById('docs-mobile-strip-spacer');
-
-  // The strip is `position: fixed` (so it never disappears when scrolled past its own
-  // short container — sticky's containing-block limitation), which removes it from
-  // normal flow. Measure its real rendered height and size the in-flow spacer to match
-  // exactly, instead of guessing a fixed px value that could drift out of sync with the
-  // button's actual height (font rendering, wrapping, etc.) and leave a mismatched gap.
-  function syncDocsStripSpacerHeight() {
-    if (docsStripWrapper && docsStripSpacer) {
-      docsStripSpacer.style.height = docsStripWrapper.offsetHeight + 'px';
-    }
-  }
-
-  syncDocsStripSpacerHeight();
-  window.addEventListener('resize', syncDocsStripSpacerHeight);
 
   var SCROLL_DELTA_THRESHOLD = 8;
   var HEADER_ALWAYS_VISIBLE_THRESHOLD = 64;
