@@ -136,3 +136,54 @@ amended or merged into; each publish run replaces it wholesale.
 trigger) CI use. It is **never** wired to `push`/`pull_request`/`schedule`. See the comments in
 that file for the required repository secrets (the real replacements/denylist content, plus a
 `PUBLIC_REPO_PAT` with push access to the public repo).
+
+## Release pipeline (ships into the public mirror)
+
+Unlike `publish-mirror.yml` (excluded from the mirror — see `paths-to-remove.txt`), a second
+workflow, **`.github/workflows/release.yml`**, ships *into* the public mirror itself, because the
+public repo needs its own release CI (this repo's own private CI doesn't run there).
+
+### What ships
+
+- `.github/workflows/release.yml` — triggers on `push` to `main` in the **public** repo, which is
+  exactly what `gmj_publish_mirror.sh`'s force-push does on every publish (no cross-repo dispatch
+  needed).
+- `scripts/publish/milestone-releases.yaml` — real, historical release backfill data: one entry
+  per actually-shipped milestone (v1.0.0..v4.0.0), each anchored to a real commit by an **exact
+  commit-message match**, never a hardcoded SHA (SHAs are rewritten by `git-filter-repo` on every
+  mirror publish; commit messages survive verbatim).
+- `scripts/publish/gmj_bootstrap_releases.py` — reads `milestone-releases.yaml`, resolves each
+  anchor commit, and idempotently (delete-then-recreate) creates the tag + GitHub Release.
+- `pyproject.toml` (`[tool.semantic_release]`) — config for `python-semantic-release`, which
+  analyzes conventional commits beyond the last milestone anchor to cut further real releases
+  automatically.
+
+### One-time manual setup in the PUBLIC repo
+
+`release.yml` uses the default `GITHUB_TOKEN` (no PAT) to push tags and create releases — but some
+org/repo defaults ship that token as read-only. In the **public** repo's GitHub settings:
+
+```
+Settings → Actions → General → Workflow permissions → "Read and write permissions"
+```
+
+This is required once, manually, before `release.yml` can push tags/releases on its own.
+
+### Re-publish semantics (idempotent, fresh every run)
+
+Every mirror publish force-rewrites the public repo's entire history (`git-filter-repo`, not
+incremental), which orphans previously-created release tags. `release.yml` compensates by
+**recreating all 5 milestone releases fresh, every time it runs** — this is by design, per the
+operator's explicit re-publish choice, not a bug. Practically: do not expect a GitHub Release's
+"created at" timestamp in the UI to stay stable across republishes; the release **notes/content**
+stay accurate and pinned to the real historical `date` in `milestone-releases.yaml`, but the
+Release object itself is deleted and recreated on every run.
+
+### PUBLIC_REPO_PAT scope (cross-reference)
+
+If you use `publish-mirror.yml`'s CI path to publish, note that `PUBLIC_REPO_PAT` now needs
+`workflow` scope in addition to push/contents access (classic PAT: `repo` + `workflow`;
+fine-grained PAT: Contents read/write + Workflows read/write) — see the updated secret comment in
+`.github/workflows/publish-mirror.yml`. This widening is required because `release.yml` (unlike
+`publish-mirror.yml` itself) now ships into and must run inside the public repo, and GitHub
+requires `workflow` scope on any token that pushes a commit touching `.github/workflows/*`.
