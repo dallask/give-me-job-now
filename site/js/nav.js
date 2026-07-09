@@ -235,7 +235,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // docs.html-only elements — safely undefined (no-op) on index/about/contact.html.
-  var docsStripWrapper = document.querySelector('#docs-mobile-nav .sticky');
+  var docsStripWrapper = document.getElementById('docs-mobile-strip');
   var docsToggle = document.getElementById('docs-mobile-toggle');
 
   var SCROLL_DELTA_THRESHOLD = 8;

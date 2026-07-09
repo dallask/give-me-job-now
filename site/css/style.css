@@ -118,7 +118,7 @@ header.-translate-y-full {
    The strip/toggle stay visually present (never display:none/opacity:0) at every scroll
    position — only `top` changes, and it now transitions smoothly (matching the header's
    own 300ms transform transition) so the reposition reads as a dock-shift, not a flicker. */
-#docs-mobile-nav .sticky,
+#docs-mobile-strip,
 #docs-mobile-toggle {
   transition: top 300ms ease;
 }
