@@ -29,3 +29,22 @@ before acting.
 | `python-render-only.md` | globs `scripts/cv/**`, `output/cv/**`; keywords render, PDF; agent gmj-cv-generator | You produce any PDF/document — render only via `scripts/cv/gmj_render_cv.py`; never author binaries in chat. |
 | `gate-non-bypassability.md` | keywords gate, Gate A, Gate B, autonomous, retry-cap; agents gmj-orchestrator, gmj-fit-evaluator | You handle a quality gate or autonomous loop — Gate A/B are non-bypassable in any mode; auto-loops are retry-capped. |
 | `docs-currency.md` | keywords milestone, finalize, docs, README, documentation | You finalize a milestone or touch docs/ or README — refresh the docs set and re-run `python3 tests/test_docs_current.py`. |
+
+## Why repo-root, not `.claude/rules/`
+
+Claude Code's native `.claude/rules/` auto-load convention was considered for this project and
+rejected, in favor of keeping `rules/*.md` at repo-root under the read-on-demand model documented
+above:
+
+1. **Auto-load defeats read-on-demand.** `.claude/rules/` auto-loads every rule into every
+   session, which would defeat the deliberate read-on-demand, token-budget-conscious design this
+   file already documents — every rule's content would sit in context on every task, whether or
+   not it's relevant.
+2. **Keyword/agent-name scoping can't be expressed via native path-glob loading.** Some rules are
+   scoped by keyword or agent name, not by file path — see the table above: `hub-and-spoke.md`
+   matches on keywords `orchestrator, Task, delegation, routing` and agent `gmj-orchestrator`.
+   Native `.claude/rules/` loading is path-glob-based and has no mechanism to express a
+   keyword/agent-name match condition.
+
+This placement reaffirms the locked STRUCT-02 decision (18-01-PLAN + 18-VALIDATION line 46):
+the rules live at repo-root `./rules/` — not `.claude/rules/`.
