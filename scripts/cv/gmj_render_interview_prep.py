@@ -109,7 +109,7 @@ def main() -> int:
     out_path = args.out
     if not out_path:
         repo_root = repo_root_from_here()
-        out_dir = (repo_root / "output").resolve()
+        out_dir = (repo_root / "output" / "cv").resolve()
         out_dir.mkdir(parents=True, exist_ok=True)
         date_part = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H:%M:%S")
         out_path = out_dir / f"interview-prep-{date_part}.md"

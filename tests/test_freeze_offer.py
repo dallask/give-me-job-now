@@ -11,7 +11,7 @@ Runnable as a plain assertion script (no pytest dependency), mirroring
 - keeps that hash STABLE when only ``captured_at`` changes (Pitfall 1),
 - validates ``content`` against ``schemas/offer_spec.schema.json#/$defs/offer_content``
   and rejects an extra key (``additionalProperties:false``),
-- via the CLI, writes ``sources/offers/<slug>.offer-spec.json`` with a sanitized
+- via the CLI, writes ``output/offers/<slug>.offer-spec.json`` with a sanitized
   ``[a-z0-9-]`` slug and exits 0; a draft missing a required field exits 1 (validation
   before write).
 """
@@ -27,7 +27,7 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DRAFT = REPO_ROOT / "sources" / "offers" / "sample-offer-draft.json"
+DRAFT = REPO_ROOT / "tests" / "fixtures" / "offers" / "sample-offer-draft.json"
 FREEZER = REPO_ROOT / "scripts" / "offers" / "gmj_freeze_offer.py"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "offers"))
@@ -105,7 +105,7 @@ def test_cli_writes_sanitized_slug_path_and_exits_zero() -> None:
         tmpdir = Path(tmp)
         result = _cli(["--file", str(DRAFT), "--captured-at", "2026-07-03T10:00:00Z"], cwd=tmpdir)
         assert result.returncode == 0, f"CLI must exit 0: {result.stderr}"
-        written = list((tmpdir / "sources" / "offers").glob("*.offer-spec.json"))
+        written = list((tmpdir / "output" / "offers").glob("*.offer-spec.json"))
         assert len(written) == 1, f"exactly one frozen file expected, got {written}"
         out = written[0]
         slug = out.name[: -len(".offer-spec.json")]
@@ -126,7 +126,7 @@ def test_cli_missing_required_field_exits_one() -> None:
         result = _cli(["--file", str(bad_path)], cwd=tmpdir)
         assert result.returncode == 1, "a draft missing a required field must exit 1"
         assert result.stderr.strip() != "", "validation failure must report to stderr"
-        written = list((tmpdir / "sources" / "offers").glob("*.offer-spec.json"))
+        written = list((tmpdir / "output" / "offers").glob("*.offer-spec.json"))
         assert written == [], "no file may be written when validation fails (validate before write)"
 
 
