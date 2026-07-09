@@ -63,32 +63,6 @@ code {
   word-break: break-word;
 }
 
-/* Tooltipster theme override — recolor the default bubble to match the site's dark
-   palette instead of shipping/loading a separate custom Tooltipster theme file. */
-.tooltipster-sidetip .tooltipster-box {
-  background-color: #111827; /* gray-900 */
-  border: 1px solid #374151; /* gray-700 */
-  border-radius: 0.375rem;
-}
-
-.tooltipster-sidetip .tooltipster-content {
-  color: #f9fafb; /* gray-50 */
-  padding: 6px 10px;
-  font-size: 0.75rem;
-}
-
-.tooltipster-sidetip.tooltipster-top .tooltipster-arrow-background,
-.tooltipster-sidetip.tooltipster-bottom .tooltipster-arrow-background {
-  border-top-color: #111827;
-  border-bottom-color: #111827;
-}
-
-.tooltipster-sidetip.tooltipster-top .tooltipster-arrow-border,
-.tooltipster-sidetip.tooltipster-bottom .tooltipster-arrow-border {
-  border-top-color: #374151;
-  border-bottom-color: #374151;
-}
-
 /* Smooth expand/collapse for the header hamburger menu + docs-sidebar mobile dropdown.
    CSS cannot transition to/from display:none, so `hidden` (Tailwind's display:none) stays
    the true closed/at-rest state, and JS toggles this `.menu-open` class alongside it —

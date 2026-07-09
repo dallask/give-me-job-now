@@ -185,10 +185,9 @@ document.addEventListener('DOMContentLoaded', function () {
       var button = document.createElement('button');
       button.type = 'button';
       button.className =
-        'absolute top-2 right-2 inline-flex items-center justify-center rounded-md border border-gray-700 bg-gray-800 p-1.5 text-gray-300 hover:bg-gray-700 hover:text-gray-100 transition-colors icon-swap-fade';
+        'absolute top-2 right-2 inline-flex items-center justify-center rounded-md border border-gray-700 bg-gray-800 p-1.5 text-gray-300 hover:bg-gray-700 hover:text-gray-100 transition-colors icon-swap-fade tooltip tooltip-left';
       button.setAttribute('aria-label', 'Copy code to clipboard');
-      button.setAttribute('title', 'Copy to clipboard');
-      button.setAttribute('data-tooltip', 'Copy to clipboard');
+      button.setAttribute('data-tip', 'Copy to clipboard');
       button.innerHTML = CLIPBOARD_ICON;
 
       var resetTimer = null;
@@ -433,19 +432,4 @@ document.addEventListener('DOMContentLoaded', function () {
   // Trigger the initial state manually in case the page loads already scrolled to a
   // mid-page anchor, rather than waiting for the first intersection-change callback.
   setActive(pickActiveFromRects());
-});
-
-// Tooltipster init — defensively guarded so a slow/failed CDN load degrades to plain
-// title-less icons instead of throwing and breaking the other guarded blocks above.
-document.addEventListener('DOMContentLoaded', function () {
-  if (typeof jQuery === 'undefined' || typeof jQuery.fn.tooltipster === 'undefined') {
-    return;
-  }
-
-  jQuery('[data-tooltip]').tooltipster({
-    theme: 'tooltipster-sidetip',
-    animation: 'fade',
-    delay: 100,
-    side: 'top'
-  });
 });
