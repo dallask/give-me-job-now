@@ -33,6 +33,30 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Prune orphaned tags/releases from previous mirror rewrites
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Every publish-mirror run force-rewrites this repo's entire history from
+          # scratch (git-filter-repo on the private side), so ANY tag left over from
+          # a prior run — one of the 5 backfilled milestone tags, OR a real tag
+          # semantic-release cut on its own (e.g. v4.1.0) — may now point at a commit
+          # that is no longer reachable from the current HEAD. A stale-but-present
+          # tag makes semantic-release conclude "already released" and skip
+          # re-cutting a release whose content `main` doesn't actually contain
+          # anymore. Delete any tag (and its GitHub Release, if one exists) that is
+          # not an ancestor of the current HEAD, so both the milestone backfill and
+          # semantic-release always recompute fresh against what's really on `main`.
+          for tag in $(git tag); do
+            if ! git merge-base --is-ancestor "$tag" HEAD 2>/dev/null; then
+              echo "Pruning orphaned tag: $tag"
+              gh release delete "$tag" --yes --cleanup-tag 2>/dev/null || true
+              git push origin ":refs/tags/$tag" 2>/dev/null || true
+              git tag -d "$tag" 2>/dev/null || true
+            fi
+          done
+
       - name: Backfill real milestone releases (idempotent — recreated fresh every run)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

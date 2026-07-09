@@ -187,6 +187,18 @@ operator's explicit re-publish choice, not a bug. Practically: do not expect a G
 stay accurate and pinned to the real historical `date` in `milestone-releases.yaml`, but the
 Release object itself is deleted and recreated on every run.
 
+This same orphaning affects any release `python-semantic-release` cuts on its own beyond the
+last milestone (e.g. a real `v4.1.0`): its tag survives a force-rewrite of `main`, but the commit
+it points to — including that release's `CHANGELOG.md` — does not, since `main` was rewritten
+from scratch on the private side and never included that commit. `semantic-release` only checks
+whether the tag exists, not whether it's still reachable, so it would otherwise conclude "already
+released" and silently skip re-cutting a release that `main` no longer actually contains (this
+was a real gap found and fixed after CI surfaced a missing `CHANGELOG.md`). `release.yml`'s
+**"Prune orphaned tags/releases from previous mirror rewrites"** step runs before both the
+milestone backfill and `semantic-release`: it deletes any tag (and its GitHub Release, if any)
+that is not an ancestor of the current `HEAD`, so every run — milestone tags and
+`semantic-release`'s own — always recomputes fresh against what's really on `main`.
+
 ### PUBLIC_REPO_PAT scope (cross-reference)
 
 If you use `publish-mirror.yml`'s CI path to publish, note that `PUBLIC_REPO_PAT` now needs
