@@ -37,4 +37,10 @@ jobs:
           done
 
       - name: Run pytest
-        run: python3 -m pytest tests/ -q
+        env:
+          # A pre-existing test asserts no __pycache__ build artifacts under scripts/**
+          # or tests/** — pytest normally writes .pyc bytecode cache as a side effect of
+          # its own run, which would trip that check within the same suite. Disabling
+          # bytecode writes keeps the tree clean without touching the check itself.
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 -B -m pytest tests/ -q -p no:cacheprovider

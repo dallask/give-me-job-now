@@ -64,8 +64,10 @@ the runs/vacancies band starves.
 
 ## Diagnostics tabs
 
-Seven panes, `initial = errors`:
-**errors · debug · activity (events) · commands · metrics · pipeline stages · throughput / gates**.
+Eight panes, `initial = errors`:
+**errors · debug · activity (events) · commands · metrics · pipeline stages · throughput / gates · docs**.
+The docs pane lists every top-level `docs/*.md` file by name; selecting one opens a wide
+read-only Markdown modal (Escape dismisses).
 Each pane body scrolls (↑/↓, PgUp/PgDn, wheel).
 
 ## Keyboard

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "timestamp": "2026-07-08T13:15:14.264Z",
+  "timestamp": "2026-07-09T12:23:44.411Z",
   "mode": "full",
   "files": {
     "gmj-core/VERSION": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
@@ -15,7 +15,7 @@
     "gmj-core/agents/gmj-truth-verifier.md": "60d2fddba58de38c3c86d26bc1c8a5a014fce542e651ed2af708da3f6082eaac",
     "gmj-core/commands/gmj-batch.md": "05282a9fe8a19ed114f020be31a6f3787015167a6ad8f406df257636a282880c",
     "gmj-core/commands/gmj-collective.md": "898ba0b418b632770e2eb2121d17db8d325be2a7cdee59ab4ddac2358c66ac69",
-    "gmj-core/commands/gmj-dashboard.md": "121fbc0b6491d5d8f8cc314206567705740071d5b77083d971c7807c560d84cc",
+    "gmj-core/commands/gmj-dashboard.md": "cbbdd5778c1c8b4db615006e77aa2ff926f9d9c3c1afa4c6e6c5b8e68eef61ef",
     "gmj-core/commands/gmj-interview.md": "f11011b17a8fd2a1ef35c5ff184cdbae73bde46248a63c2858fa27f80b8daff8",
     "gmj-core/commands/gmj-pipeline-run.md": "c98895b83d24de9fb5668069c1643e0f51f4cd581d8e1cde86b110992d24f7b2",
     "gmj-core/commands/gmj-pipeline/compose.md": "70e4fcd61b4bbfd81492e7e1df970eccfceadeb9c2c04d559affabc03aa2dd62",
@@ -80,7 +80,7 @@
     "gmj-core/scripts/cv/gmj_render_interview_prep.py": "3c7421b41c55eb3f720bd016d4470d43b1ba72e8cb9e99aa49999082748c5f7d",
     "gmj-core/scripts/cv/gmj_template_lint.py": "3fed9b5cb2ceb74bd614e30e028e426db248be842072ff1ad3d7b8f89bb86054",
     "gmj-core/scripts/cv/gmj_visual_diff.py": "4a004dce40f68f88a6c268ddb119dc13cef1005ac75b791351fbbcf53bbd8bf6",
-    "gmj-core/scripts/cv/requirements.txt": "937675e4f61c1ab18936474009d841df0f0359f706be362847ad6360a2d131d4",
+    "gmj-core/scripts/cv/requirements.txt": "0136e2e0f904ac2b8839bbad14da7a715450c459cf24857541ee8e0549bea323",
     "gmj-core/scripts/dashboard/gmj_dashboard.py": "325373f56779af55e3d5829a00158de4ffb8539233711bbcce01c5e9a6c8499d",
     "gmj-core/scripts/dashboard/gmj_dashboard.tcss": "1ec8b1f5efcfed38d01ad2aa007e0b206455d30767da6142cef242e264854ad1",
     "gmj-core/scripts/dashboard/gmj_dashboard_actions.py": "7f33191a8d23f3ca6021a75309fc2073d6cc479e947339e2c1439eef1987f263",
@@ -105,6 +105,7 @@
     "gmj-core/scripts/pipeline/gmj_state_write.py": "b8b28074d4a73256cc82c0c6497b07ac2d5e5f236d59f155a281a24f9984b988",
     "gmj-core/scripts/preferences/gmj_validate_preferences.py": "e86471e9a93394dc1623b2491330dc8c0ad50c1dbbafa9049e7fa6c4b311ffed",
     "gmj-core/scripts/preferences/requirements.txt": "b63f70d9bf9032f05c1fc20787c9c2f4edbe9de9683ea7164775909883b029cf",
+    "gmj-core/scripts/publish/gmj_bootstrap_releases.py": "0275a261e53102f32d742cf471cac09dcfe4953d28422cc0616cc58fe82b048f",
     "gmj-core/scripts/runtime/gmj_sdk_runner.py": "8d62e6af3cf037a802f912a5df2b8a5115c0a17cb9f87db61b1717aefdc47ad6",
     "gmj-core/scripts/runtime/requirements.txt": "433a5d28431dfa171f4241451bd61a991ae0c4b944bdcd7ab97ae64029027d5a",
     "gmj-core/scripts/testing/gmj_record_uat.py": "5212673c837a9752d143b84d35bc8b0e05dfa17afefa0aab783f09978bf7b7e1",

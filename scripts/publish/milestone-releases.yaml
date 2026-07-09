@@ -8,16 +8,16 @@
 # --replace-text redaction tokens appear in them).
 releases:
   - tag: v1.0.0
-    anchor_message: "test(08-04): assert cv-generator draft wiring + runbook done-criteria"
+    anchor_message: "test(08-03): add E2E-01 guard matrix + E2E-03 dry-run"
     date: "2026-07-03"
     title: "v1.0.0 — Hardened Collective MVP"
     notes: |
       Initial hub-and-spoke job/CV collective (Phases 1-8, + inserted 3.1):
       - Offer intake with a frozen, hashed offer_spec
       - Candidate ingestion + artifact composer (CV, cover letter, interview-prep)
-      - Gate A (truth-verifier) and Gate B/C (fit-evaluator) — non-bypassable quality gates
+      - Gate A (gmj-truth-verifier) and Gate B/C (gmj-fit-evaluator) — non-bypassable quality gates
       - Dual-mode execution (human-in-the-loop / autonomous) with a retry-capped gate loop
-      - cv-generator PDF rendering + end-to-end real-offer run
+      - gmj-cv-generator PDF rendering + end-to-end real-offer run
   - tag: v2.0.0
     anchor_message: "fix: propagate P9 candidate-schema rename to shipped live-path payloads"
     date: "2026-07-05"
@@ -26,12 +26,12 @@ releases:
       Migrated to the standalone gmj- schema and rebrand (Phases 9-19):
       - Migrated candidate/CV YAML schema
       - Interviewer + preferences.yaml gap-filling intake
-      - Parallel multi-board offer-scout, multi-select per-offer batches
+      - Parallel multi-board gmj-offer-scout, multi-select per-offer batches
       - Screenshot-to-CV template generation
       - Deeper artifacts, automated UAT regression, operator ergonomics
       - Full gmj- rebrand, standalone restructure + installer, documentation
   - tag: v3.0.0
-    anchor_message: "fix(25): comment no longer trips rebrand grep0 (bare pipeline-run → PIPELINE_RUN ref); rebuild payload"
+    anchor_message: "docs(25-03): add Dashboard flow section to flows.md (PKG-03)"
     date: "2026-07-05"
     title: "v3.0.0 — gmj-dashboard Operator Cockpit"
     notes: |
