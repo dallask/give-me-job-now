@@ -82,5 +82,14 @@
     {% endfor %}
   </ul>
   {% endif %}
+
+  {% if candidate.certifications %}
+  <h2>{{ labels.certifications | default('Certifications') }}</h2>
+  <ul>
+    {% for cert in candidate.certifications %}
+    <li>{{ cert.issuer }}{% if cert.year %} ({{ cert.year }}){% endif %}{% if cert.credentials %}: {{ cert.credentials | join(', ') }}{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
 </body>
 </html>

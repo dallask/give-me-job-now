@@ -454,7 +454,10 @@ def _prune_old_outputs(new_pdf: Path, out_dir: Path, keep: int) -> None:
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
-    to_delete = peers[keep - 1:]  # keep (keep-1) existing + the new one = keep total
+    keep = max(0, keep)
+    # keep 0 (or negative) means "prune everything"; otherwise keep (keep-1) existing
+    # peers + the new one = keep total.
+    to_delete = peers[max(keep - 1, 0):] if keep > 0 else peers
     for old in to_delete:
         try:
             old.unlink(missing_ok=True)

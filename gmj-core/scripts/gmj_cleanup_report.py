@@ -29,7 +29,7 @@ copies must stay in sync if ``gmj_remove_gsd.py``'s logic ever changes.
 
 CLI (mirrors ``scripts/gmj_remove_gsd.py``): ``python3 scripts/gmj_cleanup_report.py
 [--manifest config/ownership-manifest.yaml] [--repo-root .] [--output
-sources/analysis/cleanup-report.md]``; writes the Markdown report and prints its path.
+output/analysis/cleanup-report.md]``; writes the Markdown report and prints its path.
 A missing/unparsable manifest prints a structured stderr message and exits 1 (fail
 closed — never degrades to "report everything").
 """
@@ -47,7 +47,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent  # scripts/ -> repo root
 DEFAULT_MANIFEST = REPO_ROOT / "config" / "ownership-manifest.yaml"
-DEFAULT_OUTPUT = REPO_ROOT / "sources" / "analysis" / "cleanup-report.md"
+DEFAULT_OUTPUT = REPO_ROOT / "output" / "analysis" / "cleanup-report.md"
 
 
 def load_framework_globs(manifest_path: Path) -> list[str]:

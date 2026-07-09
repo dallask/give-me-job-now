@@ -6,7 +6,7 @@
     {
       "offer_index": 0,
       "canonical_key": "softpeak-lead-backend-php-engineer-laravel-kyiv",
-      "offer_spec_path": "sources/offers/softpeak-lead-backend-php-engineer-laravel-kyiv.offer-spec.json",
+      "offer_spec_path": "output/offers/softpeak-lead-backend-php-engineer-laravel-kyiv.offer-spec.json",
       "offer_spec_hash": "3b0c1f2a4d5e6f7089aabbccddeeff00112233445566778899aabbccddeeff00",
       "runs": {
         "cv": { "run_id": "batch-20260704T083000-000-cv", "status": "delivered" },

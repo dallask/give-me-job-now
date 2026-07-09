@@ -335,14 +335,14 @@ class DashboardModel:
         return data if isinstance(data, dict) else {}
 
     def _vacancies(self, *, top_must: int | None = None) -> list[dict]:
-        """List every frozen ``sources/offers/*.offer-spec.json`` (A1) — verbatim display fields.
+        """List every frozen ``output/offers/*.offer-spec.json`` (A1) — verbatim display fields.
 
         Globs the offers dir directly; NEVER follows/resolves/stats ``state.offer_spec_path``
         (Pitfall 4 / T-20-02). Sibling ``*.draft.json`` / ``*-shortlist.json`` files are excluded by
         the ``*.offer-spec.json`` glob. A malformed spec is skipped, never fatal.
         """
         out: list[dict] = []
-        offers_dir = self.repo_root / "sources" / "offers"
+        offers_dir = self.repo_root / "output" / "offers"
         if not offers_dir.is_dir():
             return out
         for p in sorted(offers_dir.glob("*.offer-spec.json")):
@@ -372,13 +372,13 @@ class DashboardModel:
     def offer_detail(self, offer_spec_hash: str) -> dict:
         """Return a drill-in payload for one frozen offer-spec hash, else ``{}``.
 
-        Lookup uses the same ``sources/offers/*.offer-spec.json`` glob as ``_vacancies()`` — never
+        Lookup uses the same ``output/offers/*.offer-spec.json`` glob as ``_vacancies()`` — never
         ``state.offer_spec_path`` from run state (T-20-02). Full fields are loaded on demand only here;
         ``snapshot()["vacancies"]`` stays thin.
         """
         if not offer_spec_hash:
             return {}
-        offers_dir = self.repo_root / "sources" / "offers"
+        offers_dir = self.repo_root / "output" / "offers"
         if not offers_dir.is_dir():
             return {}
         for p in sorted(offers_dir.glob("*.offer-spec.json")):

@@ -75,6 +75,44 @@ def _entry_source_url(entry: dict) -> str:
     return url if isinstance(url, str) else ""
 
 
+def _normalize_entry(entry: dict, origin: str) -> dict:
+    """Fill a raw board entry's schema-declared gaps with safe defaults, never dropping it.
+
+    Guard-shape-A-fall-back-to-safe-default idiom (mirrors ``_entry_source_url``): a per-board
+    worker output that drifted from the canonical shape (missing ``trace``/``board``/
+    ``discovered_at``) is normalized here BEFORE it reaches ``merge()``, so the deterministic
+    merge authority always operates on a schema-conformant entry and the whole batch never fails
+    closed over one drifted entry (PIPE-03). ``discovered_at`` is filled with an empty string,
+    NEVER a freshly-computed "now" timestamp -- backfilling a fake discovery time would
+    misrepresent when the entry was actually found (this is a merge-time gap-fill, not a
+    re-stamp) (PIPE-04, T-41-06 accept).
+
+    If the normalized entry has neither a non-empty ``title`` nor a non-empty ``company``, it is
+    genuinely unusable for a human to act on -- still kept (never dropped), but a ``stderr``
+    warning names the entry's origin/board so the gap is visible.
+    """
+    normalized = dict(entry)
+
+    trace = normalized.get("trace")
+    if not isinstance(trace, dict) or not isinstance(trace.get("source_url"), str) or not trace.get(
+        "source_url"
+    ):
+        normalized["trace"] = {"source_url": _entry_source_url(entry)}
+
+    normalized["board"] = str(normalized.get("board", ""))
+    normalized["discovered_at"] = str(normalized.get("discovered_at", ""))
+
+    title = str(normalized.get("title", "")).strip()
+    company = str(normalized.get("company", "")).strip()
+    if not title and not company:
+        print(
+            f"WARNING: unusable shortlist entry (no title/company) from {origin}: {entry!r}",
+            file=sys.stderr,
+        )
+
+    return normalized
+
+
 def _url_path(url: str) -> str:
     """The path/query portion of a URL after the host (mirrors ``_norm_site`` scheme handling).
 
@@ -146,7 +184,10 @@ def score_entry(entry: dict, prefs: dict) -> float:
     salary_weight = _num(ranking.get("salary_weight")) or 0.0
     remote_weight = _num(ranking.get("remote_weight")) or 0.0
 
-    # salary-fit sub-score (0..1).
+    # salary-fit sub-score (0..1). Deliberately min-threshold-not-maximization: this
+    # measures fit against preferences.salary.min and clamps to 1.0 once the entry clears
+    # it, so it cannot discriminate "$4000" from "$40000" once both clear the threshold
+    # (WR-04) — that is intentional (fit vs. min, not "richest wins"), not a precision bug.
     salary_cfg = prefs.get("salary") if isinstance(prefs.get("salary"), dict) else {}
     salary_min = _num(salary_cfg.get("min"))
     entry_salary = _entry_salary(entry)
@@ -194,9 +235,9 @@ def merge(board_entries: list[dict], prefs: dict, sources: dict) -> list[dict]:
         key = canonical_key(entry)
         scored = {**entry, "canonical_key": key, "score": score_entry(entry, prefs)}
         cur = groups.get(key)
-        if cur is None or (scored["score"], cur.get("board", "")) > (
+        if cur is None or (scored["score"], scored.get("board", "")) > (
             cur["score"],
-            scored.get("board", ""),
+            cur.get("board", ""),
         ):
             groups[key] = scored
 
@@ -283,11 +324,15 @@ def write_shortlist(ranked: list[dict], out: Path, pipeline_dir: Path) -> Path:
 
 
 def _entries_from_doc(doc: object, origin: str) -> list[dict]:
-    """Extract the entry list from a loaded board document.
+    """Extract the entry list from a loaded board document, normalizing each entry.
 
     Accepts BOTH the wrapped ``{..., "shortlist": [<entry>, ...]}`` document that the real
     gmj-offer-scout per-board worker emits (and that shortlist.sample.json is) AND a bare JSON list
-    of entry objects. Any other top-level type is an error.
+    of entry objects. Any other top-level type is an error. Every dict entry is passed through
+    ``_normalize_entry()`` (fills schema-declared gaps with safe defaults, never drops) here --
+    BEFORE entries reach ``merge()`` -- so ``merge()``'s ``canonical_key``/``score`` computation
+    always operates on a normalized entry, with ``origin`` available for the unusable-entry
+    warning (PIPE-03/04).
     """
     if isinstance(doc, list):
         entries = doc
@@ -297,7 +342,7 @@ def _entries_from_doc(doc: object, origin: str) -> list[dict]:
         raise ValueError(f"{origin}: top-level JSON must be a list or an object with 'shortlist'")
     if not isinstance(entries, list):
         raise ValueError(f"{origin}: 'shortlist' must be a JSON array")
-    return [e for e in entries if isinstance(e, dict)]
+    return [_normalize_entry(e, origin) for e in entries if isinstance(e, dict)]
 
 
 def load_board_entries(board_files: list[Path] | None, use_stdin: bool) -> list[dict]:

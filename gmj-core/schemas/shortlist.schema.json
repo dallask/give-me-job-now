@@ -28,9 +28,13 @@
             "source_url": { "type": "string" }
           },
           "required": ["source_url"]
+        },
+        "discovered_at": {
+          "type": "string",
+          "description": "ISO-8601 UTC timestamp the scout stamped at per-board write time (never derived from file mtime, never re-fetched). May be an empty string when genuinely unavailable (normalization safe default) -- never a fabricated 'now' timestamp."
         }
       },
-      "required": ["canonical_key", "board", "score", "trace"],
+      "required": ["canonical_key", "board", "score", "trace", "discovered_at"],
       "additionalProperties": true
     }
   }

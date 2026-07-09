@@ -6,7 +6,7 @@
   "pipeline_run_id": "run-2026-07-03-002",
   "status": "succeeded",
   "artifacts": [
-    { "type": "file", "path": "/abs/sources/vacancies/python-kyiv-124.md" }
+    { "type": "file", "path": "/abs/output/vacancies/python-kyiv-124.md" }
   ],
   "acceptance_criteria_met": ["crit-offer-normalized"],
   "acceptance_criteria_failed": [],

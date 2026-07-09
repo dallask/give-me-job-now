@@ -18,7 +18,7 @@ description: Run the gmj-orchestrator collective (routing schema + CV toolchain)
 
 Paste your goal after invoking this command, for example:
 
-- “Analyze materials under `sources/`, refresh `config/candidate.yaml`, generate PDF, review against `sources/vacancies/foo.md`.”
+- “Analyze materials under `sources/`, refresh `config/candidate.yaml`, generate PDF, review against `output/vacancies/foo.md`.”
 - “Research PHP/Drupal remote market trends for EU, then tune keywords in YAML.”
 - “I attached a CV layout screenshot—create `templates/cv/…` to match it (browser MCP for pixel tweaks), then render PDF.”
 

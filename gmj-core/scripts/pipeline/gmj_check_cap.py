@@ -60,8 +60,9 @@ RAISE_INCREMENT = 1
 # Simple, documented, necessarily-approximate heuristic (PIPE-07): a reason
 # string is classified "narrow" when it looks like it names ONE specific
 # failing claim (a claim-index pattern like "claims[3]"/"claim 3", or the
-# literal word "single"); anything else — empty reason, wording implying
-# MULTIPLE claims, or generic/unspecific text — is classified "systemic".
+# literal phrase "single claim"/"single-claim"); anything else — empty
+# reason, wording implying MULTIPLE claims, or generic/unspecific text — is
+# classified "systemic".
 _NARROW_KEYWORDS = ("single claim", "single-claim")
 # Digit-index citation patterns like "claims[3]" or "claim 3" also imply a
 # single, specific failing claim.
