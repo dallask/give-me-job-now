@@ -56,6 +56,24 @@ CATEGORIES: dict[str, Path] = {
 _NO_GITKEEP_CATEGORY_KEY = ".pipeline/runs/"
 
 
+def _category_path(repo_root: Path, label: str, default_path: Path) -> Path:
+    """Re-anchor ``default_path`` (a module-level ``CATEGORIES`` value) under ``repo_root``.
+
+    Single source for the relative-path re-derivation used by both the stats-gathering
+    loop and the delete-dispatch loop in ``main()`` — extracted so the two loops can
+    never silently diverge (e.g. a future edit to the fallback derivation in one copy
+    without the matching edit to the other). ``default_path`` is expressed relative to
+    the module-level ``REPO_ROOT``; if it is not (e.g. a fixture path outside the repo
+    tree entirely), the label itself (with its trailing slash stripped) is used as the
+    relative path instead.
+    """
+    try:
+        relative = default_path.relative_to(REPO_ROOT)
+    except ValueError:
+        relative = Path(label.rstrip("/"))
+    return repo_root / relative
+
+
 def compute_category_stats(path: Path) -> tuple[int, int]:
     """Return (file_count, total_bytes) for every file under ``path``.
 
@@ -184,11 +202,7 @@ def main(argv: list[str] | None = None) -> int:
     for label, default_path in CATEGORIES.items():
         # Re-anchor each category under the (possibly overridden) repo_root for
         # testability, mirroring the relative layout of the module-level CATEGORIES dict.
-        try:
-            relative = default_path.relative_to(REPO_ROOT)
-        except ValueError:
-            relative = Path(label.rstrip("/"))
-        category_path = repo_root / relative
+        category_path = _category_path(repo_root, label, default_path)
 
         try:
             count, size = compute_category_stats(category_path)
@@ -228,12 +242,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     for label in selected:
-        default_path = CATEGORIES[label]
-        try:
-            relative = default_path.relative_to(REPO_ROOT)
-        except ValueError:
-            relative = Path(label.rstrip("/"))
-        category_path = repo_root / relative
+        category_path = _category_path(repo_root, label, CATEGORIES[label])
 
         try:
             resolved = resolve_category_path(repo_root, category_path)
