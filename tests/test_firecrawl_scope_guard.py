@@ -21,6 +21,7 @@ real repo log.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -86,6 +87,44 @@ INTERPRETER_VALUE_FLAG_BYPASS_OFFLIST = (
     '{"tool_name": "Bash", "tool_input": {"command": '
     '"python3 -X utf8 scripts/offers/gmj_firecrawl_search.py --mode scrape '
     '--url https://evil-untrusted-board.example.com/job/1"}}'
+)
+
+# A real invocation via a VERSIONED interpreter name (e.g. `python3.11`) targeting an
+# off-allow-list host. Fifth regression fixture: the shlex token-walk introduced for
+# the -u/-X fixes still matched the interpreter by a literal `"python3"`/`"python"`
+# token equality check, which missed any versioned or path-qualified interpreter name
+# (`python3.11`, `/usr/bin/python3`) — a third fail-open bypass found by code review.
+VERSIONED_INTERPRETER_BYPASS_OFFLIST = (
+    '{"tool_name": "Bash", "tool_input": {"command": '
+    '"python3.11 scripts/offers/gmj_firecrawl_search.py --mode scrape '
+    '--url https://evil-untrusted-board.example.com/job/1"}}'
+)
+
+# A repeated --url flag, where the LAST occurrence is off-allow-list. Sixth
+# regression fixture: the extraction regex used to collect every match into a
+# multi-line shell variable rather than the last (matching argparse's own
+# last-occurrence-wins semantics), which both misrepresented what the Python script
+# would actually resolve args.url to AND fed an embedded newline unescaped into the
+# hand-rolled JSON block-reason payload, producing invalid JSON on stdout (CR-03).
+REPEATED_URL_LAST_OCCURRENCE_OFFLIST = (
+    '{"tool_name": "Bash", "tool_input": {"command": '
+    '"python3 scripts/offers/gmj_firecrawl_search.py --mode scrape '
+    '--url https://www.work.ua/job/1 '
+    '--url https://evil-untrusted-board.example.com/job/1"}}'
+)
+
+# `python3 -m MODULE <file>` runs MODULE as __main__ with <file> as that module's
+# own argv — it never executes <file> as a script. A real false positive found
+# while working on this hook: `python3 -m py_compile
+# scripts/offers/gmj_firecrawl_search.py` (a routine syntax check) was misdetected
+# as invoking the Firecrawl script, because the token walk consumed "py_compile" as
+# -m's value (the same "one value token after a flag" rule that legitimately handles
+# `-X utf8`) and then matched the compile target as the script-path token. -m/-c
+# fundamentally change interpretation and must not be treated as ordinary
+# value-taking flags like -X/-W.
+MODULE_FLAG_NOT_INVOCATION = (
+    '{"tool_name": "Bash", "tool_input": {"command": '
+    '"python3 -m py_compile scripts/offers/gmj_firecrawl_search.py"}}'
 )
 
 
@@ -228,6 +267,54 @@ def test_interpreter_value_flag_invocation_still_scoped() -> None:
     )
     _assert_read_logged_before_decision(log)
     assert "BLOCK" in log.read_text(encoding="utf-8")
+
+
+def test_versioned_interpreter_invocation_still_scoped() -> None:
+    result, log = _run(VERSIONED_INTERPRETER_BYPASS_OFFLIST)
+    assert result.returncode == 2, (
+        "an off-allow-list Firecrawl invocation via a versioned interpreter name "
+        "(e.g. `python3.11 ...gmj_firecrawl_search.py --url <evil>`) must still be "
+        f"blocked (exit 2), not silently pass through; got {result.returncode}\n"
+        f"stderr: {result.stderr}"
+    )
+    _assert_read_logged_before_decision(log)
+    assert "BLOCK" in log.read_text(encoding="utf-8")
+
+
+def test_repeated_url_last_occurrence_blocked_with_valid_json() -> None:
+    result, log = _run(REPEATED_URL_LAST_OCCURRENCE_OFFLIST)
+    assert result.returncode == 2, (
+        "a repeated --url flag whose LAST occurrence is off-allow-list must be "
+        f"blocked (exit 2); got {result.returncode}\nstderr: {result.stderr}"
+    )
+    _assert_read_logged_before_decision(log)
+    assert "BLOCK" in log.read_text(encoding="utf-8")
+    # The block-reason JSON payload must be well-formed even when the extracted
+    # host/query value could otherwise contain embedded newlines or quotes.
+    payload = json.loads(result.stdout)
+    assert payload.get("decision") == "block"
+    assert "evil-untrusted-board.example.com" in payload.get("reason", "")
+    assert "work.ua" not in payload.get("reason", ""), (
+        "the block reason must reflect only the LAST --url occurrence "
+        f"(argparse semantics), not both; got: {payload.get('reason')!r}"
+    )
+
+
+def test_module_flag_target_not_treated_as_invocation() -> None:
+    result, tmp = _run_in_dir(MODULE_FLAG_NOT_INVOCATION)
+    assert result.returncode == 0, (
+        "`python3 -m py_compile scripts/offers/gmj_firecrawl_search.py` runs "
+        "py_compile as __main__ against the file, not the file itself — it must "
+        f"pass through (exit 0), not be blocked; got {result.returncode}\n"
+        f"stderr: {result.stderr}"
+    )
+    log_path = tmp / ".claude" / "logs" / "firecrawl-scope.log"
+    if log_path.is_file():
+        text = log_path.read_text(encoding="utf-8")
+        assert text == "", (
+            f"a -m MODULE invocation must write NO log entry (true pass-through); "
+            f"got:\n{text}"
+        )
 
 
 def test_query_mode_offlist_domain_pin_blocked() -> None:
