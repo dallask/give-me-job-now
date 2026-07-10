@@ -48,16 +48,19 @@ orchestrates, it never re-judges a gate.
    conditions), `score` (SELECT-05).
 
    - **Human-in-the-loop mode:** present a bounded **`AskUserQuestion`** offering `top-3` /
-     `top-5` / `all` / `custom indices` as the narrowing options (SELECT-06). Translate the
-     answer into a plain 1-indexed comma string BEFORE forwarding it to Step 2's existing
-     `gmj_batch.py init --select` call: `top-3` -> `"1,2,3"`, `top-5` -> `"1,2,3,4,5"` (capped
-     at the shortlist's actual length), `all` -> `"all"`, `custom indices` -> the user's raw
-     string passed straight through unchanged. The persona never re-derives these indices
-     itself and never re-sorts by score itself — both are the deterministic scripts' job, per
-     this doc's own "Bash drives every safety decision" framing below.
+     `top-5` / `all` / `custom indices` as the narrowing options (SELECT-06). Map the answer to
+     Step 2's `gmj_batch.py init --select` value: `top-3` -> `top3`, `top-5` -> `top5`, `all` ->
+     `all`, `custom indices` -> the user's raw string passed straight through unchanged. The
+     persona forwards the `top{N}` sentinel itself — it does **not** compute a raw index string
+     (e.g. `"1,2,3"`) for `top-3`/`top-5`. `gmj_batch.py`'s `_expand_top3_selection()` clamps to
+     `min(N, len(shortlist))` at script level before calling `resolve_selection()`; a
+     hub-computed `"1,2,3"` against a 2-entry shortlist would hit `resolve_selection()`'s own
+     out-of-range error instead of degrading gracefully. The persona never re-derives these
+     indices itself and never re-sorts by score itself — both are the deterministic scripts'
+     job, per this doc's own "Bash drives every safety decision" framing below.
    - **Autonomous mode:** skip the `AskUserQuestion` prompt entirely (no human present to ask)
      and call `gmj_batch.py init --select top3` directly — the underlying
-     selection-resolution machinery (`resolve_selection()` plus the `top3` expansion) is
+     selection-resolution machinery (`resolve_selection()` plus the `top{N}` expansion) is
      identical in both modes; only whether the human prompt fires differs.
 
 2. **Init the batch.**
@@ -141,8 +144,9 @@ skipped).
 
 ## Parameters
 
-- **`select`** — the offer selection: `1,3,5` (1-indexed, comma-separated) or `all`. Passed
-  to `gmj_batch.py init --select`.
+- **`select`** — the offer selection: `1,3,5` (1-indexed, comma-separated), `all`, or `top{N}`
+  (e.g. `top3`, `top5` — the first N by score, clamped to the shortlist's actual length at
+  script level). Passed to `gmj_batch.py init --select`.
 - **`mode`** — `human_in_the_loop` | `autonomous`. Overrides the `execution_mode` default;
   frozen into each run state at `init` (a mid-run config edit cannot change an in-flight
   run). `mode` gates ONLY the post-PASS human pause, never the machine gate. `mode ==

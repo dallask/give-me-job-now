@@ -215,6 +215,74 @@ def test_select_top3_degrades_on_short_shortlist() -> None:
         )
 
 
+def test_select_top5_resolves_first_five_by_score() -> None:
+    """--select top5 (the human-in-the-loop 'top-5' narrowing choice's forwarded sentinel,
+    per .claude/commands/gmj-batch.md) generalizes the same clamp as top3 to N=5. Regression
+    test for a real bug found in code review: the persona doc previously had the hub compute a
+    raw '1,2,3,4,5' string for 'top-5', which resolve_selection() would hard-reject as
+    out-of-range on any shortlist shorter than 5 entries instead of degrading gracefully."""
+    shortlist = {
+        "kind": "offer_shortlist",
+        "schema_version": "1.0",
+        "shortlist": [
+            {
+                "board": "https://www.work.ua/",
+                "canonical_key": f"company-{i}-role-kyiv",
+                "company": f"Company{i}",
+                "language": "ua",
+                "location": "Kyiv",
+                "mode": "remote",
+                "salary": 3000 + i * 100,
+                "score": 10.0 - i,
+                "seniority": "senior",
+                "title": f"Role {i}",
+                "trace": {"source_url": f"https://www.work.ua/jobs/{i}/"},
+            }
+            for i in range(7)
+        ],
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        fixture_path = cwd / "shortlist.json"
+        fixture_path.write_text(json.dumps(shortlist), encoding="utf-8")
+        r = _init(cwd, "top5", shortlist=fixture_path)
+        assert r.returncode == 0, f"init must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        _, offers = _parse_offers(r.stdout)
+        idxs = sorted(o["offer_index"] for o in offers)
+        assert idxs == [0, 1, 2, 3, 4], (
+            f"'top5' on a 7-entry shortlist must resolve to offer_index 0..4: {idxs}"
+        )
+
+
+def test_select_top5_degrades_on_short_shortlist() -> None:
+    """--select top5 on a <5-entry shortlist selects every available entry — never an error.
+    This is the exact regression the code review found: a hub-computed '1,2,3,4,5' against the
+    2-entry default FIXTURE would raise resolve_selection()'s out-of-range ValueError."""
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        r = _init(cwd, "top5")  # default FIXTURE has exactly 2 entries
+        assert r.returncode == 0, f"init must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        _, offers = _parse_offers(r.stdout)
+        idxs = sorted(o["offer_index"] for o in offers)
+        assert idxs == [0, 1], (
+            f"'top5' on a 2-entry shortlist must degrade to selecting both entries: {idxs}"
+        )
+
+
+def test_select_non_topn_values_pass_through_unchanged() -> None:
+    """Values that don't match ^top(\\d+)$ (explicit indices, 'all') must reach
+    resolve_selection() completely unmodified — the topN expansion must never mangle them."""
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        r = _init(cwd, "all")  # default FIXTURE has exactly 2 entries
+        assert r.returncode == 0, f"init must exit 0: {r.stderr}"
+        _, offers = _parse_offers(r.stdout)
+        idxs = sorted(o["offer_index"] for o in offers)
+        assert idxs == [0, 1], f"'all' must pass through unchanged to resolve_selection: {idxs}"
+
+
 # --- SELECT-02: coarse->draft mapping + too-thin flag ------------------------
 
 def test_coarse_map_copies_present_fields_drops_non_schema() -> None:
