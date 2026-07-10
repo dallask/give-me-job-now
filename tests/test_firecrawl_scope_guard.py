@@ -45,6 +45,24 @@ QUERY_OFFLIST_PIN = (
     '--query \\"FPV Engineer site:evil-untrusted-board.example.com\\""}}'
 )
 
+# A command whose text merely MENTIONS the script's filename in prose (e.g. a git
+# commit message describing a change to it) without invoking it. Regression fixture
+# for a real bug found during Phase 48 execution: the hook's original filename-
+# substring `case` match fired on this shape and blocked an unrelated `git commit`.
+MENTION_ONLY_NOT_INVOCATION = (
+    '{"tool_name": "Bash", "tool_input": {"command": '
+    '"git commit -m \\"fix: regenerate payload manifest for gmj_firecrawl_search.py\\""}}'
+)
+
+# A command that references the script's PATH as an argument to another command
+# (git add, cat, an editor) — not an invocation. Second regression fixture: an
+# earlier fix attempt matched any path-qualified mention of the filename, which
+# still falsely fired on `git add gmj-core/scripts/offers/gmj_firecrawl_search.py`.
+PATH_REFERENCE_NOT_INVOCATION = (
+    '{"tool_name": "Bash", "tool_input": {"command": '
+    '"git add gmj-core/scripts/offers/gmj_firecrawl_search.py"}}'
+)
+
 
 def _run_in_dir(stdin_text: str) -> tuple[subprocess.CompletedProcess[str], Path]:
     """Run the hook in an isolated CLAUDE_PROJECT_DIR seeded with config/sources.yaml.
@@ -127,6 +145,39 @@ def test_non_firecrawl_bash_passthrough() -> None:
         assert text == "", (
             f"unrelated Bash command must write NO log entry (true pass-through, "
             f"not silent-allow); got:\n{text}"
+        )
+
+
+def test_filename_mention_without_invocation_passes_through() -> None:
+    result, tmp = _run_in_dir(MENTION_ONLY_NOT_INVOCATION)
+    assert result.returncode == 0, (
+        "a command that only MENTIONS gmj_firecrawl_search.py in text (e.g. a git "
+        "commit message) — without invoking it via python3/a path-qualified call — "
+        f"must pass through (exit 0); got {result.returncode}\nstderr: {result.stderr}"
+    )
+    log_path = tmp / ".claude" / "logs" / "firecrawl-scope.log"
+    if log_path.is_file():
+        text = log_path.read_text(encoding="utf-8")
+        assert text == "", (
+            f"a filename mention with no invocation must write NO log entry "
+            f"(true pass-through); got:\n{text}"
+        )
+
+
+def test_path_reference_without_invocation_passes_through() -> None:
+    result, tmp = _run_in_dir(PATH_REFERENCE_NOT_INVOCATION)
+    assert result.returncode == 0, (
+        "a command that references the script's path as an argument to another "
+        "command (e.g. `git add <path>`) — without a python3/python interpreter "
+        f"invocation — must pass through (exit 0); got {result.returncode}\n"
+        f"stderr: {result.stderr}"
+    )
+    log_path = tmp / ".claude" / "logs" / "firecrawl-scope.log"
+    if log_path.is_file():
+        text = log_path.read_text(encoding="utf-8")
+        assert text == "", (
+            f"a path reference with no invocation must write NO log entry "
+            f"(true pass-through); got:\n{text}"
         )
 
 
