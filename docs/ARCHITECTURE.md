@@ -36,6 +36,12 @@ never spawn other spokes (a nested hub loses `Task` in Claude Code). Two retaine
 agents (`gmj-candidate-analyzer`, `gmj-candidate-configurator`) sit outside the 5-spoke artifact
 roster but feed the canonical profile.
 
+**Path convention (v6.0, Phase 42).** `sources/` is strictly intake-only — human-provided
+material, read by scripts/agents, never written to. `output/{analysis,artifacts,offers,
+research,vacancies,logs,cv}/` is the single generated-content root — every spoke's write
+target referenced elsewhere in this document already reflects this convention (STRUCT-01/02).
+This is an infrastructure-level path convention, not an architectural or roster change.
+
 Every hop below is a **typed file artifact** identified by its path — never a conversation
 transcript. This is the artifact-only handoff invariant (see §6): a spoke receives file
 paths and emits file paths, so no spoke inherits another spoke's context.
@@ -399,6 +405,7 @@ history-preserving. See `example/` for the moved prior-art files.
 | Per-spoke behavior implementations (offer intake, compose, truth, fit) | Phases 3, 3.1, 4, 5, 6 |
 | Exact fit thresholds/weights | Phase 6 (Fit) |
 | Dual-mode execution (interactive default + autonomous flag) + retry-cap loop enforcement | Phase 7 — **landed**; runtime loop documented in §5.1 |
+| Firecrawl/ScrapingBee external scrape/search integration for gmj-offer-scout (viability spike returned NO-GO; bot-evasion capability gated behind paid-only add-ons for both tools, no board-specific evidence for either against config/sources.yaml's 7 boards) | Phase 45 (SEARCH-01..03) |
 
 Envelope kinds above are forward-referenced in prose only; no schema is defined in this
 document.
