@@ -67,6 +67,9 @@ sources/vacancies/*
 scripts/publish/replacements.txt
 scripts/publish/pii-denylist.txt
 
+# Firecrawl credentials — real key never committed; .env.example ships the placeholder.
+.env
+
 # Next.js (web/) build surface — Phase 46 introduces the repo's first Node
 # build step outside .claude/'s own tooling. web/node_modules/ can be
 # hundreds of MB; web/.next/ and web/out/ (the static-export output, the
