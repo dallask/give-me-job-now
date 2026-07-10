@@ -180,6 +180,41 @@ def test_no_nested_orchestrator_task_recommended() -> None:
                 )
 
 
+def test_bounded_dispatch_states_completeness_backstop() -> None:
+    # T-01-04/T-01-05: the hub must state the SAME mandatory-resume-before-declaring-done
+    # invariant as gmj-batch.md's step 6, worded consistently (identical sentinel substring),
+    # positioned after "### Bounded concurrent-offer dispatch" and after step 4's "Greedy
+    # refill." text, and before "## Result" -- mirroring
+    # test_hub_documents_bounded_concurrent_dispatch's .index()-ordering style.
+    hub = _read(HUB_PATH)
+    sentinel = "the hub MUST loop back to step 4"
+    assert sentinel in hub, (
+        f"hub does not state the mandatory-backstop sentinel {sentinel!r} (T-01-04)"
+    )
+    # Also assert the identical sentinel is present in gmj-batch.md, proving both docs are
+    # worded consistently.
+    batch_doc = _read(BATCH_CMD)
+    assert sentinel in batch_doc, (
+        f"gmj-batch.md does not state the same mandatory-backstop sentinel {sentinel!r} "
+        "as the hub -- both docs must state the identical invariant"
+    )
+    dispatch_idx = hub.index("### Bounded concurrent-offer dispatch")
+    greedy_refill_idx = hub.index("Greedy refill.")
+    sentinel_idx = hub.index(sentinel)
+    result_idx = hub.index("## Result")
+    assert dispatch_idx < greedy_refill_idx < sentinel_idx < result_idx, (
+        "completeness-backstop sentinel must be positioned after '### Bounded concurrent-offer "
+        "dispatch', after step 4's 'Greedy refill.' text, and before '## Result'"
+    )
+    subsection = hub[dispatch_idx:result_idx]
+    assert "gmj_batch.py resume" in subsection, (
+        "hub's Bounded concurrent-offer dispatch subsection must name gmj_batch.py resume (T-01-04)"
+    )
+    assert "gmj_batch.py status" in subsection, (
+        "hub's Bounded concurrent-offer dispatch subsection must name gmj_batch.py status (T-01-04)"
+    )
+
+
 def test_pipeline_commands_exist() -> None:
     # Plan 06 artifacts: the whole-flow command + six per-step wrappers.
     assert (COMMANDS_DIR / "gmj-pipeline-run.md").is_file(), "missing .claude/commands/gmj-pipeline-run.md"

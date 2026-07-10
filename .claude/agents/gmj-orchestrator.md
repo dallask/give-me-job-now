@@ -285,6 +285,19 @@ finish, then starting the next:
    fixed-size wave to finish before topping back up to the cap — until every offer's 3
    artifact-type runs each reach a terminal status.
 
+5. **Completeness backstop before Result.** The hub is structurally forbidden from declaring
+   the batch done or printing the final per-offer summary while a deterministic script still
+   reports outstanding work. Before the hub is allowed to declare the batch done, run
+   `Bash: python3 scripts/pipeline/gmj_batch.py resume --batch <batch_id>`. Any output other
+   than `nothing to resume` means the batch is NOT done — the hub MUST loop back to step 4
+   (this subsection's own "Greedy refill" step) and keep dispatching, never dispatch the
+   run_ids `resume` lists directly: `resume`'s output is NOT cap-aware, and dispatching it
+   directly would bypass `gmj_dispatch_cap.py`'s `max_parallel_offers` bound. For the batch
+   case, the final per-offer summary is then satisfied via the `gmj_batch.py status`
+   subcommand's table output (see `/gmj-batch`'s own `## Result` section) — this does not
+   duplicate or replace the generic `## Result` section below, which already states "never a
+   single collapsed boolean" and stays valid for both single-offer and batch flows.
+
 This is the **SAME** orchestrated task fan-out on Claude Code's single-threaded event loop —
 not OS threads — that already ranks N offers and composes the 3 artifact types elsewhere in
 this section; it is **never** a per-offer nested `Task(gmj-orchestrator)` call, which would
