@@ -1,0 +1,6 @@
+{
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "python3 scripts/offers/gmj_firecrawl_search.py --mode scrape --url \"https://www.work.ua/jobs/1234567/\" --limit 5"
+  }
+}
