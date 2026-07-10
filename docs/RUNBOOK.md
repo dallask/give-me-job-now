@@ -171,9 +171,9 @@ redirecting stdout/stderr into this repo's existing git-ignored `output/logs/` c
   <key>StartInterval</key>
   <integer>86400</integer>
   <key>StandardOutPath</key>
-  <string>/absolute/path/to/give-me-job/output/logs/gmj-cron-run.out.log</string>
+  <string>/absolute/path/to/give-me-job/output/logs/gmj_cron_run.out.log</string>
   <key>StandardErrorPath</key>
-  <string>/absolute/path/to/give-me-job/output/logs/gmj-cron-run.err.log</string>
+  <string>/absolute/path/to/give-me-job/output/logs/gmj_cron_run.err.log</string>
 </dict>
 </plist>
 ```
@@ -186,7 +186,7 @@ time-of-day schedule.
 
 ```
 # Daily at 03:00 — invoke the wrapper directly, NOT prefixed by shell flock(1).
-0 3 * * * cd /absolute/path/to/give-me-job && bash scripts/ops/gmj_cron_run.sh >> output/logs/gmj-cron-run.log 2>&1
+0 3 * * * cd /absolute/path/to/give-me-job && bash scripts/ops/gmj_cron_run.sh >> output/logs/gmj_cron_run.log 2>&1
 ```
 
 Note there is **no `flock(1)` prefix** on this line. Unlike common Linux cron-locking recipes,
