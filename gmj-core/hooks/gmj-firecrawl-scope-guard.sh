@@ -55,6 +55,49 @@ except Exception:
 TOOL_NAME=$(read_field tool_name)
 COMMAND=$(read_field tool_input.command)
 
+# Detect a genuine python3/python invocation of gmj_firecrawl_search.py — see the
+# comment at the call site below for why this replaced a regex-based check.
+is_firecrawl_invocation() {
+  python3 - "$1" <<'PY' 2>/dev/null
+import re, shlex, sys
+
+command = sys.argv[1]
+try:
+    tokens = shlex.split(command)
+except ValueError:
+    # Unbalanced quotes etc. — fail closed: treat as a potential invocation so
+    # the scope check still runs rather than silently passing through.
+    sys.exit(0)
+
+
+def is_script_token(tok):
+    return bool(re.match(r"^[A-Za-z0-9_./-]*gmj_firecrawl_search\.py$", tok))
+
+
+for idx, tok in enumerate(tokens):
+    if tok not in ("python3", "python"):
+        continue
+    i = idx + 1
+    matched = False
+    while i < len(tokens):
+        t = tokens[i]
+        if is_script_token(t):
+            matched = True
+            break
+        if t.startswith("-"):
+            i += 1
+            continue
+        if i > idx + 1 and tokens[i - 1].startswith("-"):
+            # a flag's value token (e.g. "utf8" after "-X") — consume, continue
+            i += 1
+            continue
+        break
+    if matched:
+        sys.exit(0)
+sys.exit(1)
+PY
+}
+
 # Early pass-through: only Bash calls cross this hook's boundary.
 if [ "$TOOL_NAME" != "Bash" ]; then
   exit 0
@@ -73,15 +116,22 @@ fi
 # "python"/"python3" immediately followed by a path ending in the script name —
 # rather than any bare path or filename mention.
 #
-# Standard interpreter FLAGS (e.g. `python3 -u ...`, `-B`, `-O`) are tolerated
-# between the interpreter and the script path — a fail-open regression found in
-# code review: the earlier version required the script path immediately after
-# python3/python with a single whitespace run, so `python3 -u scripts/offers/
-# gmj_firecrawl_search.py --url ...` slipped past this gate entirely (exit 0,
-# no log, no scope check) even though it is a genuine invocation. Zero or more
-# `-flag` tokens are now accepted before the path; this hook fails CLOSED on
-# any real invocation shape, never open.
-if ! printf '%s' "$COMMAND" | grep -Eq '(^|[^A-Za-z0-9_./-])python3?([[:space:]]+-[A-Za-z0-9]+)*[[:space:]]+[A-Za-z0-9_./-]*gmj_firecrawl_search\.py([[:space:]]|$)'; then
+# Standard interpreter FLAGS (e.g. `python3 -u ...`, `-B`, `-O`, or value-taking
+# flags like `-X utf8`, `-W ignore`) are tolerated between the interpreter and the
+# script path. A hand-rolled regex for "python3, then zero or more flag-or-value
+# tokens, then the script path" was tightened three separate times against three
+# distinct bugs (a filename-mention false positive, a bare-adjacency false negative,
+# then a single-token-flag-only false negative that still missed value-taking flags
+# like `-X utf8`) — regex cannot express this shape without enumerating every
+# Python flag's arity, and each fix reintroduced or missed another edge case.
+# Tokenize the command with shlex instead (this also naturally rejects prose
+# mentions of the filename inside a quoted string, since shlex keeps a quoted
+# phrase as ONE token rather than splitting it into separate words) and walk
+# tokens explicitly: after a python3/python token, skip any number of `-flag`
+# tokens and at most one non-flag token immediately following each flag (a
+# flag's value, e.g. "utf8" after "-X") until the script-path token is reached.
+# This hook fails CLOSED on any real invocation shape, never open.
+if ! is_firecrawl_invocation "$COMMAND"; then
   exit 0
 fi
 
