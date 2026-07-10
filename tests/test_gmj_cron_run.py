@@ -18,6 +18,11 @@ Plain-python3 self-running harness (NO pytest required) — run with
 - ``test_lock_released_after_first_process_exits``: after the first process from the overlap
   test completes, a THIRD invocation against the same lock path succeeds immediately — proving
   the lock is released (not stuck) once its holder exits normally.
+- ``test_claude_missing_from_path_exits_cleanly``: shadows ``PATH`` with an empty directory
+  (no ``claude`` stub anywhere resolvable) and asserts the wrapper exits non-zero with a clean,
+  actionable ``gmj_cron_run: ...`` stderr message and no raw Python ``Traceback`` — proving the
+  wrapper's ``os.execvp("claude", ...)`` failure path degrades the same way every other failure
+  path in this script does, instead of surfacing an uncaught ``FileNotFoundError``.
 
 Discipline (mirrors tests/test_gmj_batch_manifest_concurrency.py's module docstring): every test
 asserts the exit code AND a specific field/sentinel, and asserts ``"Traceback" not in`` any
@@ -161,6 +166,34 @@ def test_lock_released_after_first_process_exits() -> None:
             f"got {proc_c.returncode}; stdout={proc_c.stdout!r} stderr={proc_c.stderr!r}"
         )
         assert "Traceback" not in proc_c.stderr, proc_c.stderr
+
+
+# --- Test 4: claude missing from PATH exits cleanly, no traceback (WR-01/WR-02) --------------
+
+def test_claude_missing_from_path_exits_cleanly() -> None:
+    import os
+
+    with tempfile.TemporaryDirectory() as empty_bin_dir_s, tempfile.TemporaryDirectory() as lock_dir_s:
+        empty_bin_dir = Path(empty_bin_dir_s)
+        lock_path = Path(lock_dir_s) / "cron.lock"
+
+        # Shadow PATH with the empty directory PLUS the standard system dirs ("/usr/bin:/bin")
+        # needed for the wrapper's own use of `dirname`/`mkdir`/`python3` and for subprocess.run's
+        # `bash` invocation below to resolve — neither ships a `claude` binary on any standard
+        # install, so this keeps the test's premise intact: no real `claude` is resolvable.
+        env = {**os.environ, "PATH": f"{empty_bin_dir}:/usr/bin:/bin"}
+        args = ["bash", str(WRAPPER), "--lock-path", str(lock_path)]
+        proc = subprocess.run(args, capture_output=True, text=True, env=env)
+
+        assert proc.returncode != 0, (
+            f"missing-claude invocation must exit non-zero, got {proc.returncode}; "
+            f"stdout={proc.stdout!r} stderr={proc.stderr!r}"
+        )
+        assert proc.stderr.strip() != "", "missing-claude failure must print a clear stderr message, got blank stderr"
+        assert "claude" in proc.stderr and "PATH" in proc.stderr, (
+            f"expected a clear claude-not-on-PATH message, got stderr={proc.stderr!r}"
+        )
+        assert "Traceback" not in proc.stderr, proc.stderr
 
 
 def main() -> int:
