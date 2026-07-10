@@ -95,7 +95,8 @@ _FIXTURE_CANDIDATE_UA = {
 
 
 def _render_fixture(candidate: dict, out_pdf: Path, lang: str = "en") -> None:
-    """Write ``candidate`` to a tempfile and render it via the real ship path."""
+    """Write ``candidate`` to a tempfile and render it via the ReportLab --no-template
+    fallback path."""
     fixture_yaml = out_pdf.parent / f"fixture-{lang}.yaml"
     fixture_yaml.write_text(yaml.safe_dump(candidate, allow_unicode=True), encoding="utf-8")
     result = subprocess.run(
@@ -114,15 +115,43 @@ def _render_fixture(candidate: dict, out_pdf: Path, lang: str = "en") -> None:
     assert out_pdf.is_file(), f"fixture render produced no PDF: {out_pdf}"
 
 
+def _render_fixture_default_template(candidate: dict, out_pdf: Path, lang: str = "en") -> None:
+    """Write ``candidate`` to a tempfile and render it via the renderer's actual
+    UNMODIFIED DEFAULT path (no --template/--no-template flag at all -- i.e.
+    templates/cv/baxter.html via WeasyPrint). CR-01 regression lock: the missing-sections
+    check must be verified against this path, not just the --no-template fallback."""
+    fixture_yaml = out_pdf.parent / f"fixture-default-{lang}.yaml"
+    fixture_yaml.write_text(yaml.safe_dump(candidate, allow_unicode=True), encoding="utf-8")
+    result = subprocess.run(
+        [
+            sys.executable, str(RENDER_SCRIPT),
+            "--config", str(fixture_yaml),
+            "--lang", lang,
+            "--out", str(out_pdf),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+    )
+    assert result.returncode == 0, f"default-template fixture render failed: {result.stderr}"
+    assert out_pdf.is_file(), f"default-template fixture render produced no PDF: {out_pdf}"
+
+
 def test_missing_section_detected_when_label_absent_from_pdf_text() -> None:
     # Part A: CLI, real render, zero false positives on the happy-path fixture.
+    # This fixture is rendered via --no-template (ReportLab), so the QA check must be
+    # told --template-name reportlab -- otherwise it defaults to the baxter.html table
+    # (CR-01) and would false-positive on a correctly-rendered ReportLab PDF.
     tmpdir = _mkfixturedir()
     fixture_yaml = tmpdir / "fixture.yaml"
     fixture_yaml.write_text(yaml.safe_dump(_FIXTURE_CANDIDATE), encoding="utf-8")
     out_pdf = tmpdir / "fixture.pdf"
     _render_fixture(_FIXTURE_CANDIDATE, out_pdf, lang="en")
 
-    result = _run("--pdf", str(out_pdf), "--candidate-yaml", str(fixture_yaml), "--lang", "en")
+    result = _run(
+        "--pdf", str(out_pdf), "--candidate-yaml", str(fixture_yaml), "--lang", "en",
+        "--template-name", "reportlab",
+    )
     assert result.returncode == 0, f"QA script must exit 0: {result.stderr}"
     lines = result.stdout.splitlines()
     assert lines[0] == "defects: 0", f"expected no false positives, got: {result.stdout}"
@@ -131,10 +160,47 @@ def test_missing_section_detected_when_label_absent_from_pdf_text() -> None:
     # Part B: unit-level, genuine miss — call find_missing_sections() directly.
     candidate = {"professional_experience": [{"company": "X"}]}
     labels = {"experience": "Experience"}
-    defects = find_missing_sections(candidate, labels, rendered_text="this text has no such heading")
+    defects = find_missing_sections(
+        candidate, labels, rendered_text="this text has no such heading",
+        template_name="reportlab",
+    )
     assert len(defects) == 1, defects
     assert defects[0]["type"] == "missing_section"
     assert defects[0]["key"] == "professional_experience"
+
+
+def test_missing_sections_zero_false_positives_against_default_template_cr01() -> None:
+    """CR-01 regression lock: the missing-sections check must be verified against the
+    renderer's actual DEFAULT path (templates/cv/baxter.html via WeasyPrint, no
+    --template/--no-template flag), not just the --no-template ReportLab fallback the
+    rest of this test file exercises. Before the CR-01 fix, this exact fixture produced a
+    false-positive `missing_section: summary` defect against a PDF that visibly contained
+    the rendered "About Me" heading and summary body text, because the label mapping was
+    only ever validated against render_reportlab()."""
+    tmpdir = _mkfixturedir()
+    fixture_yaml = tmpdir / "fixture_default.yaml"
+    fixture_yaml.write_text(yaml.safe_dump(_FIXTURE_CANDIDATE), encoding="utf-8")
+    out_pdf = tmpdir / "fixture_default.pdf"
+    _render_fixture_default_template(_FIXTURE_CANDIDATE, out_pdf, lang="en")
+
+    # No --template-name passed: DEFAULT_TEMPLATE_NAME ("baxter.html") must match this
+    # render path with zero defects, since that's the renderer's own default precedence.
+    result = _run("--pdf", str(out_pdf), "--candidate-yaml", str(fixture_yaml), "--lang", "en")
+    assert result.returncode == 0, f"QA script must exit 0: {result.stderr}"
+    lines = result.stdout.splitlines()
+    assert lines[0] == "defects: 0", (
+        f"expected no false positives against the unmodified default template path, "
+        f"got: {result.stdout}"
+    )
+    assert "missing_section" not in result.stdout
+
+    # Explicit --template-name baxter.html must produce the identical zero-defect result.
+    result_explicit = _run(
+        "--pdf", str(out_pdf), "--candidate-yaml", str(fixture_yaml), "--lang", "en",
+        "--template-name", "baxter.html",
+    )
+    assert result_explicit.returncode == 0, result_explicit.stderr
+    assert result_explicit.stdout.splitlines()[0] == "defects: 0", result_explicit.stdout
 
 
 def test_clipped_content_detected_via_bbox_vs_cropbox() -> None:
@@ -284,7 +350,9 @@ def test_missing_sections_fires_independently_of_clipping_pitfall_1() -> None:
 
     candidate = {"education": [{"program": "BSc"}]}
     labels = {"education": "Education"}
-    missing_defects = find_missing_sections(candidate, labels, rendered_text=full_text)
+    missing_defects = find_missing_sections(
+        candidate, labels, rendered_text=full_text, template_name="reportlab",
+    )
     assert len(missing_defects) == 1, missing_defects
     assert missing_defects[0]["type"] == "missing_section"
 
@@ -303,7 +371,10 @@ def test_successful_run_always_exits_0_regardless_of_defect_count() -> None:
     engineered_candidate["certifications"] = [{"issuer": "Nonexistent Cert Body", "year": 2099}]
     engineered_yaml.write_text(yaml.safe_dump(engineered_candidate), encoding="utf-8")
 
-    result = _run("--pdf", str(out_pdf), "--candidate-yaml", str(engineered_yaml), "--lang", "en")
+    result = _run(
+        "--pdf", str(out_pdf), "--candidate-yaml", str(engineered_yaml), "--lang", "en",
+        "--template-name", "reportlab",
+    )
     assert result.returncode == 0, f"advisory check must always exit 0: {result.stderr}"
     lines = result.stdout.splitlines()
     assert lines[0].startswith("defects: "), result.stdout
@@ -341,7 +412,10 @@ def test_cyrillic_lang_labels_detected_pitfall_3() -> None:
     out_pdf = tmpdir / "fixture_ua.pdf"
     _render_fixture(_FIXTURE_CANDIDATE_UA, out_pdf, lang="ua")
 
-    result = _run("--pdf", str(out_pdf), "--candidate-yaml", str(fixture_yaml), "--lang", "ua")
+    result = _run(
+        "--pdf", str(out_pdf), "--candidate-yaml", str(fixture_yaml), "--lang", "ua",
+        "--template-name", "reportlab",
+    )
     assert result.returncode == 0, f"QA script must exit 0: {result.stderr}"
     lines = result.stdout.splitlines()
     assert lines[0] == "defects: 0", (
