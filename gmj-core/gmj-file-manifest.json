@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "timestamp": "2026-07-10T09:53:31.537Z",
+  "timestamp": "2026-07-10T10:04:24.159Z",
   "mode": "full",
   "files": {
     "gmj-core/VERSION": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
@@ -39,7 +39,7 @@
     "gmj-core/config/sources.yaml.sample": "d109f542547312b12377d566e90d91617fdfd1e2b9425d3c739a4df86f4c303d",
     "gmj-core/hooks/gmj-block-destructive-commands.sh": "258574be2dcc4d6f8808b424c36bc9acebee306c0a73f9c8d995c0b05e8401a1",
     "gmj-core/hooks/gmj-collective-handoff-contract.sh": "2803057f9b577dd50f0202c28fcacf7742992427c6221e0d7d5895e122cac797",
-    "gmj-core/hooks/gmj-firecrawl-scope-guard.sh": "cf33e0b7192b6b4a1589d5985b7711e6c0850e51c59404b7032d1096310db585",
+    "gmj-core/hooks/gmj-firecrawl-scope-guard.sh": "c6321149dc814ebe7b37a66cf157f7be79ce78969a9fd5443ec96d6064a86a2c",
     "gmj-core/hooks/gmj-session-bootstrap.sh": "8bd2d7383366bc4ef590d440f3302bbdfc8dafbeee347d85febb1904ec4c9783",
     "gmj-core/hooks/gmj-sources-scope-guard.sh": "b2b6934e8552e7447db73464fe0b8d0afc1169e807e25e7961339d8aa59ff2ed",
     "gmj-core/hooks/gmj-subagent-stop-quality-reminder.sh": "aa650ad72e9af6bd36ef7dcef3026137f532e88f0e1a9ad58cdfa2bdd88daf13",

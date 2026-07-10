@@ -98,17 +98,21 @@ def is_script_token(tok):
     return bool(re.match(r"^[A-Za-z0-9_./-]*gmj_firecrawl_search\.py$", tok))
 
 
-# Flags that fundamentally change interpretation: `-m MODULE` runs a module as
-# __main__ (MODULE is a dotted name, never a script path, and everything after
-# it is that module's own argv — never "the script"); `-c CODE` runs inline code
-# with no script file at all. Treating either as an ordinary value-taking flag
-# (like -X/-W) caused a real false positive: `python3 -m py_compile
-# scripts/offers/gmj_firecrawl_search.py` was misdetected as invoking the
-# Firecrawl script, because the walk consumed "py_compile" as -m's value and
-# then matched the compile TARGET as the script-path token.
-MODULE_OR_CODE_FLAGS = ("-m", "-c")
-
-
+# `-m`/`-c` are deliberately NOT special-cased here, even though `-m MODULE`
+# means the trailing tokens are MODULE's own argv rather than a script path. An
+# earlier version of this walk treated `-m`/`-c` identically (both "terminate the
+# walk, nothing after can be a script path") to fix a false positive
+# (`python3 -m py_compile scripts/offers/gmj_firecrawl_search.py`, a routine
+# syntax check, was misdetected as an invocation). That fix was itself a real
+# bypass: code review proved `python3 -c "<code using sys.argv[1]>"
+# scripts/offers/gmj_firecrawl_search.py --url <evil>` is functionally capable of
+# loading and invoking this script's own main() via the inline code's own argv —
+# `-c`'s trailing tokens are NOT inert the way `-m MODULE`'s target argument can
+# be. Rather than trying to draw a reliable line between the two (and risk a
+# third bypass), `-m`/`-c` are treated like any other flag: skip the flag token,
+# consume one value token, keep scanning for the script-path token. This
+# reintroduces the rare py_compile-style false positive (blocked, not a security
+# issue) in exchange for never silently passing an off-allow-list target through.
 def find_invocation(tokens):
     for idx, tok in enumerate(tokens):
         if not is_python_token(tok):
@@ -118,10 +122,6 @@ def find_invocation(tokens):
             t = tokens[i]
             if is_script_token(t):
                 return True
-            if t in MODULE_OR_CODE_FLAGS:
-                # This occurrence runs a module/inline code, not a script file —
-                # nothing after it can be "the script path" for this invocation.
-                break
             if t.startswith("-"):
                 i += 1
                 continue
