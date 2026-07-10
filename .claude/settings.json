@@ -44,6 +44,10 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/gmj-block-destructive-commands.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/gmj-firecrawl-scope-guard.sh"
           }
         ]
       },
