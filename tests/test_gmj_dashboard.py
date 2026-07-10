@@ -237,7 +237,7 @@ async def _settle(pilot, predicate, *, tries: int = 50, delay: float = 0.05) -> 
 
 async def _bound_keys(pipeline_dir: Path, *, manage: bool) -> set[str]:
     """Launch, let the interval + first snapshot run, and return the set of bound keys."""
-    app = _build_app(pipeline_dir, manage=manage)
+    app = _build_app(pipeline_dir, manage=manage, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         await pilot.pause()
@@ -263,7 +263,7 @@ async def _readonly_launcher_never_invoked(pipeline_dir: Path) -> int:
     never invoked (a keypress reaches no launch handler). Focusing the runs table takes focus off the
     filter Input so a bound letter key WOULD reach the App binding — yet in read-only none is bound.
     """
-    app = _build_app(pipeline_dir, manage=False)
+    app = _build_app(pipeline_dir, manage=False, refresh=0.1)
     spy = _RecordingLauncher()
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
@@ -1138,7 +1138,7 @@ _INFLIGHT_PROJECTED = "delivered"
 
 async def _probe_inflight_overlay(pipeline_dir: Path) -> dict:
     """Build the app, snapshot ``_table_status`` with NO live child, then seed one and re-snapshot."""
-    app = _build_app(pipeline_dir, manage=True)
+    app = _build_app(pipeline_dir, manage=True, refresh=0.1)
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         rid = _INFLIGHT_RUN_ID
@@ -1722,7 +1722,7 @@ _MANAGE_RUN_ID = "20260601T120000-del"
 
 async def _probe_manage_binds_and_launch(pipeline_dir: Path) -> dict:
     """Under --manage: read the binding action names, then drive r/R with a fake launcher + collectors."""
-    app = _build_app(pipeline_dir, manage=True)
+    app = _build_app(pipeline_dir, manage=True, refresh=0.1)
     rec = _RecordingLauncher()
     out: dict = {}
     async with app.run_test(size=(120, 40)) as pilot:
@@ -1803,7 +1803,7 @@ def test_manage_binds_real_actions() -> None:
 
 async def _drive_config_edits(pipeline_dir: Path, config_path: Path) -> dict:
     """Under --manage: drive `m` (mode toggle) then `c` (retry_cap set) over a temp config copy."""
-    app = _build_app(pipeline_dir, manage=True, config_path=config_path)
+    app = _build_app(pipeline_dir, manage=True, refresh=0.1, config_path=config_path)
     notes: list = []
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
@@ -1853,7 +1853,7 @@ def test_manage_config_edit() -> None:
 
 async def _drive_real_prompt_modal(pipeline_dir: Path, config_path: Path) -> dict:
     """Press `c` with NO `_prompt_cap` override so the real `_PromptModal` opens; type + submit it."""
-    app = _build_app(pipeline_dir, manage=True, config_path=config_path)
+    app = _build_app(pipeline_dir, manage=True, refresh=0.1, config_path=config_path)
     out: dict = {}
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
@@ -1908,7 +1908,7 @@ retry_cap: 4
 async def _drive_confirm_gate(config_path: Path, *, confirm: bool, presses: int) -> dict:
     """Force the SAFE-02 gate ON over a temp config; press `m` ``presses`` times through a counting seam."""
     with _temp_pipeline() as pipe:
-        app = _build_app(pipe, manage=True, config_path=config_path)
+        app = _build_app(pipe, manage=True, refresh=0.1, config_path=config_path)
         calls = {"confirm": 0}
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
@@ -1979,7 +1979,7 @@ def test_manage_confirm_gate_blocks_first_write() -> None:
 async def _drive_concurrent_confirm(config_path: Path) -> dict:
     """Force the SAFE-02 gate ON; press `m` twice WHILE the confirm seam is blocked open on an Event."""
     with _temp_pipeline() as pipe:
-        app = _build_app(pipe, manage=True, config_path=config_path)
+        app = _build_app(pipe, manage=True, refresh=0.1, config_path=config_path)
         gate = asyncio.Event()
         calls = {"entered": 0, "resolved": 0}
         async with app.run_test(size=(120, 40)) as pilot:
@@ -2041,7 +2041,7 @@ def test_manage_confirm_gate_no_double_write_under_concurrent_keypress() -> None
 async def _drive_failed_then_reprompt(config_path: Path) -> dict:
     """Force the gate ON; make the first write RAISE, then prove the next keypress re-prompts + writes."""
     with _temp_pipeline() as pipe:
-        app = _build_app(pipe, manage=True, config_path=config_path)
+        app = _build_app(pipe, manage=True, refresh=0.1, config_path=config_path)
         calls = {"confirm": 0}
         import gmj_dashboard_actions as actions
 
@@ -2108,7 +2108,7 @@ def test_manage_confirm_latch_survives_failed_write() -> None:
 async def _drive_banner(config_path: Path, *, manage: bool, force_repo_default: bool) -> str:
     """Launch (manage / read-only), optionally force the repo-default detection, read the banner text."""
     with _temp_pipeline() as pipe:
-        app = _build_app(pipe, manage=manage, config_path=config_path)
+        app = _build_app(pipe, manage=manage, refresh=0.1, config_path=config_path)
         if force_repo_default:
             app._editing_repo_default = lambda: True
         async with app.run_test(size=(120, 40)) as pilot:
@@ -2161,7 +2161,7 @@ def test_manage_batch_action() -> None:
         return _Completed()
 
     async def _drive_batch(pipeline_dir: Path) -> list:
-        app = _build_app(pipeline_dir, manage=True)
+        app = _build_app(pipeline_dir, manage=True, refresh=0.1)
         notes: list = []
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
@@ -2201,7 +2201,7 @@ def test_manage_batch_action() -> None:
 
 async def _drive_launch_failure(pipeline_dir: Path) -> list:
     """Inject a launcher raising FileNotFoundError; drive `r` and capture the posted notifications."""
-    app = _build_app(pipeline_dir, manage=True)
+    app = _build_app(pipeline_dir, manage=True, refresh=0.1)
     notes: list = []
 
     async def _boom(*argv, **kwargs):
@@ -2349,7 +2349,7 @@ def test_launch_sidecar_kind_derives_from_slash() -> None:
     """The sidecar kind is derived from the feature SLASH (collective/interview/template) — NOT
     feature['kind'] (command/agent/skill/flow). Pure helper, no pilot render (deterministic)."""
     with _temp_pipeline() as pipe:
-        app = _build_app(pipe, manage=True)
+        app = _build_app(pipe, manage=True, refresh=0.1)
         assert app._launch_sidecar_kind({"slash": "/gmj-interview"}) == "interview"
         assert app._launch_sidecar_kind({"slash": "/gmj-template"}) == "template"
         assert app._launch_sidecar_kind({"slash": "/gmj-collective"}) == "collective"
@@ -2431,7 +2431,7 @@ def test_heartbeat_recovers_launch_after_reload() -> None:
     """After reload (in-memory tracking empty, disk pipeline active), the heartbeat strip lists one item
     per recovered live launch (label + kind) — parity with recovered runs/batches (RELOAD-02)."""
     with _temp_idle_pipeline() as pipe:
-        app = _build_app(pipe, manage=False)
+        app = _build_app(pipe, manage=False, refresh=0.1)
         # Simulate the post-reload state the model produces: in-memory branch empty, disk branch active.
         app._disk_pipeline_active = True
         app._pipeline_activity = {
@@ -2448,7 +2448,7 @@ def test_heartbeat_recovers_launch_after_reload() -> None:
 def test_heartbeat_recovered_launch_label_without_kind() -> None:
     """A recovered launch with no kind falls back to a bare label (never an empty ``()`` suffix)."""
     with _temp_idle_pipeline() as pipe:
-        app = _build_app(pipe, manage=False)
+        app = _build_app(pipe, manage=False, refresh=0.1)
         app._disk_pipeline_active = True
         app._pipeline_activity = {"active_launches": [{"label": "gmj-collective", "kind": ""}]}
         assert app._heartbeat_task_items() == ["gmj-collective"], (
@@ -2460,7 +2460,7 @@ def test_live_launch_not_double_counted() -> None:
     """A live-session launch (in-memory branch non-empty) is listed ONCE — the disk branch fills in only
     when the in-memory branch is empty (the in-memory-wins dedup runs/batches already use)."""
     with _temp_idle_pipeline() as pipe:
-        app = _build_app(pipe, manage=True)
+        app = _build_app(pipe, manage=True, refresh=0.1)
         proc = _FakeProc()  # no returncode attr => treated as in-flight
         app._pending_launches = [proc]
         app._launch_labels[id(proc)] = "gmj-collective"
@@ -2487,7 +2487,7 @@ def test_live_launch_not_double_counted() -> None:
 
 async def _drive_batch_modal_escape_cancel(pipeline_dir: Path) -> dict:
     """Press `b` (real path), advance past step 1, Escape-cancel step 2; report the modal chain state."""
-    app = _build_app(pipeline_dir, manage=True)
+    app = _build_app(pipeline_dir, manage=True, refresh=0.1)
     out: dict = {}
     async with app.run_test(size=(120, 40)) as pilot:
         await _settle(pilot, lambda: app.query_one("#runs", DataTable).row_count > 0)
