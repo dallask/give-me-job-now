@@ -1943,9 +1943,7 @@ class GmjDashboard(App):
             t.remove_row(gone)
 
         lines: list[str] = []
-        if not vac:
-            lines.extend(["No frozen offers", "Freeze an offer with the scout/freeze step."])
-        elif not seen:
+        if not seen and vac:
             lines.append("No vacancies match filter")
         lines.append("")
         lines.append("batches:" if batches else "No batches")
