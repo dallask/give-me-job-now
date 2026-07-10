@@ -1,0 +1,7 @@
+1:"$Sreact.fragment"
+2:I[22016,["/give-me-job-now/_next/static/chunks/21y1gt0-3wgjr.js","/give-me-job-now/_next/static/chunks/0zxo70thknutn.js","/give-me-job-now/_next/static/chunks/14mrh2-p_w84d.js"],""]
+3:I[97367,["/give-me-job-now/_next/static/chunks/21y1gt0-3wgjr.js","/give-me-job-now/_next/static/chunks/0zxo70thknutn.js","/give-me-job-now/_next/static/chunks/14mrh2-p_w84d.js"],"OutletBoundary"]
+4:"$Sreact.suspense"
+:HL["/give-me-job-now/_next/static/chunks/1xh3_j4b1g5hs.css","style"]
+0:{"rsc":["$","$1","c",{"children":[["$","main",null,{"className":"not-found-module-scss-module__2jWFaq__main","children":["$","div",null,{"className":"not-found-module-scss-module__2jWFaq__content","children":[["$","h1",null,{"className":"not-found-module-scss-module__2jWFaq__heading","children":"Page not found"}],["$","p",null,{"className":"not-found-module-scss-module__2jWFaq__body","children":"This page doesn't exist — try the navigation above or head back to the homepage."}],["$","$L2",null,{"href":"/","className":"not-found-module-scss-module__2jWFaq__link","children":"Back to home →"}]]}]}],[["$","link","0",{"rel":"stylesheet","href":"/give-me-job-now/_next/static/chunks/1xh3_j4b1g5hs.css","precedence":"next"}]],["$","$L3",null,{"children":["$","$4",null,{"name":"Next.MetadataOutlet","children":"$@5"}]}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"y2KnHYyoT7QoRlRJUX-ww"}
+5:null
