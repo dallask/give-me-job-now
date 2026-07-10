@@ -24,14 +24,18 @@
 # hook — never config/credentials.yaml, a semantically different allow-list.
 #
 # Known, accepted limitation: this hook detects invocations shaped like the script's
-# own documented CLI contract (plan 48-01) — `python3`/`python` (any version suffix,
-# any interpreter path) followed by the script path. It does NOT detect direct
-# shebang execution (`./scripts/offers/gmj_firecrawl_search.py ...` with no python3/
-# python token at all) or other interpreter-wrapping shapes (`env python3 ...`,
-# `sh -c '...'`). Matching on script-basename alone regardless of interpreter would
-# reopen the exact false-positive class this file's history is built around (firing
-# on mentions/references — `chmod +x <path>`, `git add <path>`, a commit message
-# naming the file). This is a best-effort pattern match on the one documented,
+# own documented CLI contract (plan 48-01) — a `python3`/`python` token (any version
+# suffix, any interpreter path — `env python3 ...` is also caught, since the walk
+# scans every token for a python-token, not just the first) somewhere in the command,
+# followed eventually by the script path. It does NOT detect direct shebang execution
+# (`./scripts/offers/gmj_firecrawl_search.py ...` with no python3/python token at
+# all), nor an invocation wrapped inside a nested shell layer whose inner command is
+# a single opaque string to this hook's tokenizer (`sh -c '...'`, `bash -c '...'`,
+# `eval '...'`, command substitution/backticks — arbitrarily nestable, so this is not
+# a finite list to special-case). Matching on script-basename alone regardless of
+# interpreter would reopen the exact false-positive class this file's history is
+# built around (firing on mentions/references — `chmod +x <path>`, `git add <path>`,
+# a commit message naming the file). This is a best-effort pattern match on the one documented,
 # agent-instructed invocation shape, not a hardened sandbox boundary.
 set -e
 
