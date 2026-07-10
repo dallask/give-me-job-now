@@ -754,7 +754,12 @@ async def _probe_docs_reopen_after_change(pipeline_dir: Path) -> dict:
             await pilot.pause()
             second_markdown = app.screen.query_one("#doc-modal-body", Markdown)._markdown
             await pilot.press("escape")
-            await pilot.pause()
+            # No pilot.pause() here (D-07 approach c): nothing after this line reads UI state that
+            # depends on the escape's message queue having drained — the function returns
+            # immediately, and Textual's run_test() context manager tears the app down safely on
+            # exit regardless. The other 3 pauses in this function are load-bearing (each gates an
+            # immediate read of first_markdown/second_markdown, or the file-mutation +
+            # table-re-query step that needs the modal actually dismissed) and are left unchanged.
             return {"first_markdown": first_markdown, "second_markdown": second_markdown}
 
 
