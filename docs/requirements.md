@@ -73,6 +73,27 @@ families**, all **Complete**; full text and the phase traceability table (Phases
 
 ---
 
+## v6.0 requirements — "Pipeline Hardening, Ops Tooling & Site Rebuild"
+
+Milestone **v6.0** fixed real defects surfaced by the first live end-to-end
+`/gmj-pipeline-run` and the full test suite, added operator hygiene tooling, investigated an
+optional external-search integration, relocated/restructured a couple of file-layout
+conventions, and rebuilt the public site on Next.js — all while keeping truth/fit gates and
+hub-and-spoke untouched. **23 requirements** across **6 families**, all **Complete**; full
+text and the phase traceability table (Phases 41-47) live in
+[`v6.0-REQUIREMENTS.md`](../.planning/milestones/v6.0-REQUIREMENTS.md).
+
+| Family | What it guarantees | Primarily realized in | Disposition |
+|--------|--------------------|-----------------------|-------------|
+| **PIPE** (×11) | Gate A's stale-fixture drift is fixed (numeric-invention vs. unresolved-span classified correctly); CV renderer `repr()`-leak fixes across both backends; photo rendering; single-language-per-artifact selection; populated Education/Languages/Certifications; a pinned shortlist entry shape with defensive normalization; a `discovered_at` liveness signal; the documented `current_step` seeding convention; differentiated cap-exhaustion reporting plus a bounded `propose_raise` auto-retry. | `scripts/artifacts/gmj_check_truth.py`, `gmj_format_fields.py`; `scripts/offers/gmj_detect_language.py`, `gmj_merge_shortlists.py`; `scripts/pipeline/gmj_check_cap.py`; Phase 41 | Complete |
+| **STRUCT** (×3, of which STRUCT-01/02 realize in Phase 42 and STRUCT-03 in Phase 43) | `sources/` restructured to strictly intake-only (git-ignored generated subfolders); `output/{analysis,artifacts,offers,research,vacancies,logs,cv}/` established as the single generated-content root via an atomic, multi-consumer migration; `rules/*.md` repo-root placement reaffirmed and documented. | `.gitignore`; `CLAUDE.md` Paths table; `rules/README.md`; Phases 42-43 | Complete |
+| **OPS** (×1) | An interactive `questionary`-based cleanup wizard lets the operator select and delete generated-content categories behind an un-skippable confirm — a wholly independent sibling of the read-only reporter. | `scripts/gmj_cleanup_wizard.py`; Phase 44 | Complete |
+| **SEARCH** (×3) | A viability spike evaluates a Firecrawl-style external scrape/search tool as an opt-in `gmj-offer-scout` alternative; verdict **NO-GO** (SEARCH-02/03 vacuously satisfied — zero source files touched). | `.planning/phases/45-optional-search-integration-spike/45-RESEARCH.md`; `gmj-offer-scout` (unchanged); Phase 45 | Complete (NO-GO) |
+| **SITE** (×4) | The public site is rebuilt on Next.js App Router (static export) with reusable components, SCSS design tokens extracted from the DaisyUI `night` theme (Tailwind CDN + DaisyUI removed), a new push/PR `build-site.yml` CI workflow separate from the existing `workflow_dispatch`-only `publish-site.yml`, and a documented source-tree placement decision. | `web/` (Next.js project), `web/app/`, `web/components/`, `web/styles/`; `.github/workflows/build-site.yml`, `.github/workflows/publish-site.yml`; Phase 46 | Complete |
+| **DOCS** (×1) | `docs/*.md` and the public site's own content are refreshed for v6.0 currency, verified via `tests/test_docs_current.py`. | `docs/`; `web/content/docs/*.mdx`; `README.md`; Phase 47 | Complete (this phase) |
+
+---
+
 ## Implementation-level requirement tags
 
 Beyond the 12 milestone families above, the deterministic CLI tools carry **finer-grained
@@ -92,6 +113,8 @@ are the traceability breadcrumbs you see in [cli-tools.md](cli-tools.md), for ex
   frozen retry cap (`gmj_hash_artifact.py`, `gmj_route.py`, `gmj_check_cap.py`).
 - **PACKAGE-01 / REBRAND-01/02/03** — the build and rebrand maintenance tools
   (`gmj_build_payload.py`, `gmj_rebrand.py`).
+- **PIPE-06** — the documented no-go for non-numeric wrong-span detection
+  (`scripts/pipeline/gmj_check_cap.py`'s `propose_raise` semantics).
 
 These tags are internal implementation anchors; the milestone-level families in the table above —
 and their canonical text in [`.planning/REQUIREMENTS.md`](../.planning/REQUIREMENTS.md) — remain the
