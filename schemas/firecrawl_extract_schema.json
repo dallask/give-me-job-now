@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:give-me-job:schema:firecrawl_extract",
+  "title": "Firecrawl offer-content extraction schema",
+  "description": "Extraction-time target schema handed to Firecrawl's formats=[{\"type\":\"json\",\"schema\":...}] scrape call (SEARCH-08). Derived from offer_spec.schema.json#/$defs/offer_content, but intentionally LOOSER: no `required` array and no `additionalProperties: false`, so Firecrawl's LLM-backed extraction can report a genuinely-absent field as absent instead of being forced to invent a value to satisfy a strict schema (RESEARCH.md Pitfall 3). gmj_freeze_offer.py's validate_content() remains the strict freeze-time gate against the full offer_content $def and is unchanged by this schema.",
+  "type": "object",
+  "properties": {
+    "title": { "type": "string" },
+    "company": { "type": "string" },
+    "location": { "type": "string" },
+    "seniority": {
+      "type": "string",
+      "enum": ["intern", "junior", "mid", "senior", "lead", "principal"]
+    },
+    "employment_type": {
+      "type": "string",
+      "enum": ["full_time", "part_time", "contract", "internship"]
+    },
+    "language": {
+      "type": "string",
+      "enum": ["ua", "ru", "en"]
+    },
+    "must_haves": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "nice_to_haves": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "responsibilities": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "salary_range": {
+      "type": ["object", "null"]
+    }
+  }
+}
