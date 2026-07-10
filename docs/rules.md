@@ -11,7 +11,10 @@ rule **before** acting. Correctness rests on this convention plus the machine ga
 is indexed in the canonical table — **not** on any flaky native auto-loader.
 
 The canonical index lives at [../rules/README.md](../rules/README.md); the table below mirrors
-it. When the two disagree, the canonical index wins.
+it. When the two disagree, the canonical index wins. `rules/*.md` live at repo-root (not
+`.claude/rules/`) — a deliberate, reaffirmed placement decision; see
+[../rules/README.md](../rules/README.md)'s "Why repo-root, not `.claude/rules/`" section for the
+rationale.
 
 ## Rule index (7 rules)
 
