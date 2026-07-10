@@ -56,9 +56,12 @@ retry-capped). This is the flow the RUNBOOK exercises end to end; see
    d. GATE node?  (recorded independently per type — never a shared/collapsed verdict)
         Gate A (truth):  gmj_check_truth.py → gmj_record_gate.py       exit 0/1 — NO bypass
         Gate B (fit):    gmj_score_fit.py   → gmj_record_gate.py       exit 0/1 — NO bypass
-        FAIL ⇒ gmj_record_retry.py --increment → gmj_check_cap.py
-                 ├ below cap ⇒ gmj_map_feedback.py → Task(gmj-artifact-composer) ↺ (this type only)
-                 └ at cap    ⇒ HARD STOP report (names failing artifact + reason)
+        FAIL ⇒ gmj_record_retry.py --increment → gmj_check_cap.py  (3-way exit contract)
+                 ├ exit 0 continue      ⇒ gmj_map_feedback.py → Task(gmj-artifact-composer) ↺ (this type only)
+                 ├ exit 2 propose_raise ⇒ first time at frozen cap: HITL asks approval / autonomous
+                 │                         applies+logs a fixed +1 raise, then re-enters the SAME
+                 │                         recompose→Gate A/B path (still non-bypassable)
+                 └ exit 1 exhausted     ⇒ HARD STOP report (names failing artifact + reason + failure_class)
         PASS ⇒ (human_in_the_loop: pause for approval) → route advances
 3. deliver:     gmj_check_delivery.py   (per type: Gate A ∧ Gate B recorded pass?)  else blocked
                  — runs once per derived run_id, reported as a per-type breakdown, never a
@@ -86,7 +89,15 @@ retry-capped). This is the flow the RUNBOOK exercises end to end; see
 6. **Gate A → Gate B, per type.** `gmj_check_truth.py` (truth) then `gmj_score_fit.py` (fit), each
    recorded independently per type by `gmj_record_gate.py` — one type's PASS never satisfies
    another's delivery. On failure, `gmj_map_feedback.py` projects a structured feedback packet back
-   to the composer for that type only, bounded by `gmj_check_cap.py`.
+   to the composer for that type only, bounded by `gmj_check_cap.py`'s 3-way exit contract (`0`
+   continue / `2` propose_raise / `1` exhausted-final). On the first cap-exhaustion for a given
+   offer/type, `gmj_check_cap.py` differentiates a systemic composer failure from a narrow
+   single-claim slip in its report and the hub automatically proposes one bounded cap raise (fixed
+   +1 increment) before the final hard-stop — presented as an explicit approval prompt in
+   `human_in_the_loop` mode, applied once automatically and logged in `autonomous` mode. The
+   recomposed artifact still must pass both gates via the unchanged, non-bypassable gate mechanism;
+   a second exhaustion after the raise is an unconditional hard stop (Gate A/B are never weakened by
+   this).
 7. **Deliver.** `gmj_check_delivery.py` runs once per derived run_id and refuses delivery for any
    type lacking its own recorded Gate A ∧ Gate B PASS, reported as a per-type breakdown. A passing
    CV draft reaches `gmj-cv-generator`, which renders `output/cv/*.pdf` **and** a first-class
