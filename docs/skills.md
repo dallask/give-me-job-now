@@ -113,13 +113,15 @@ in the current roster is **`gmj-offer-scout`** — apply this protocol there.
 
 **Description:** Conventions for placing candidate and vacancy materials under `sources/`.
 
-The `sources/` layout conventions (raw uploads at the root; normalized vacancies, market briefs,
-and analysis in their subdirectories), kebab-case dated filename conventions, PII/secret
-handling, and the extract-first analyzer workflow via
+The `sources/` vs `output/` layout split (`sources/` is intake-only for raw human-provided
+uploads; normalized vacancies live under `output/vacancies/`, market briefs under
+`output/research/`, and analysis/CV-review summaries under `output/analysis/`), kebab-case dated
+filename conventions, PII/secret handling, and the extract-first analyzer workflow via
 `python3 scripts/cv/gmj_extract.py "<file>" --json`.
 
 - **When loaded:** when ingesting or organizing candidate/vacancy source materials.
-- **Applied by:** `gmj-candidate-analyzer` and `gmj-offer-scout` when writing under `sources/`.
+- **Applied by:** `gmj-candidate-analyzer` (raw uploads under `sources/`) and `gmj-offer-scout`
+  (generated vacancy/research/analysis content under `output/*`).
 
 ### gmj-truth-rubric
 
