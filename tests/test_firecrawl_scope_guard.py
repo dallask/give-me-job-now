@@ -63,6 +63,19 @@ PATH_REFERENCE_NOT_INVOCATION = (
     '"git add gmj-core/scripts/offers/gmj_firecrawl_search.py"}}'
 )
 
+# A real invocation with an interpreter FLAG between python3 and the script path,
+# targeting an off-allow-list host. Third regression fixture, this one for a
+# fail-OPEN bug (not fail-closed like the two above) found by code review: the
+# prior regex required the script path immediately after python3/python with a
+# single whitespace run, so `python3 -u ...gmj_firecrawl_search.py --url <evil>`
+# slipped past the second early pass-through entirely (exit 0, no log, no scope
+# check) even though it is a genuine, malicious-target invocation.
+INTERPRETER_FLAG_BYPASS_OFFLIST = (
+    '{"tool_name": "Bash", "tool_input": {"command": '
+    '"python3 -u scripts/offers/gmj_firecrawl_search.py --mode scrape '
+    '--url https://evil-untrusted-board.example.com/job/1"}}'
+)
+
 
 def _run_in_dir(stdin_text: str) -> tuple[subprocess.CompletedProcess[str], Path]:
     """Run the hook in an isolated CLAUDE_PROJECT_DIR seeded with config/sources.yaml.
@@ -179,6 +192,18 @@ def test_path_reference_without_invocation_passes_through() -> None:
             f"a path reference with no invocation must write NO log entry "
             f"(true pass-through); got:\n{text}"
         )
+
+
+def test_interpreter_flag_invocation_still_scoped() -> None:
+    result, log = _run(INTERPRETER_FLAG_BYPASS_OFFLIST)
+    assert result.returncode == 2, (
+        "an off-allow-list Firecrawl invocation with an interpreter flag "
+        "(e.g. `python3 -u ...gmj_firecrawl_search.py --url <evil>`) must still "
+        f"be blocked (exit 2), not silently pass through; got {result.returncode}\n"
+        f"stderr: {result.stderr}"
+    )
+    _assert_read_logged_before_decision(log)
+    assert "BLOCK" in log.read_text(encoding="utf-8")
 
 
 def test_query_mode_offlist_domain_pin_blocked() -> None:

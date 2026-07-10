@@ -72,7 +72,16 @@ fi
 # firecrawl_search.py ...`. Require that exact interpreter-invocation shape —
 # "python"/"python3" immediately followed by a path ending in the script name —
 # rather than any bare path or filename mention.
-if ! printf '%s' "$COMMAND" | grep -Eq '(^|[^A-Za-z0-9_./-])python3?[[:space:]]+[A-Za-z0-9_./-]*gmj_firecrawl_search\.py([[:space:]]|$)'; then
+#
+# Standard interpreter FLAGS (e.g. `python3 -u ...`, `-B`, `-O`) are tolerated
+# between the interpreter and the script path — a fail-open regression found in
+# code review: the earlier version required the script path immediately after
+# python3/python with a single whitespace run, so `python3 -u scripts/offers/
+# gmj_firecrawl_search.py --url ...` slipped past this gate entirely (exit 0,
+# no log, no scope check) even though it is a genuine invocation. Zero or more
+# `-flag` tokens are now accepted before the path; this hook fails CLOSED on
+# any real invocation shape, never open.
+if ! printf '%s' "$COMMAND" | grep -Eq '(^|[^A-Za-z0-9_./-])python3?([[:space:]]+-[A-Za-z0-9]+)*[[:space:]]+[A-Za-z0-9_./-]*gmj_firecrawl_search\.py([[:space:]]|$)'; then
   exit 0
 fi
 

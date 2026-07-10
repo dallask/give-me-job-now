@@ -60,14 +60,30 @@ if [ "$TOOL_NAME" != "Bash" ]; then
   exit 0
 fi
 
-# SECOND early pass-through: only commands invoking gmj_firecrawl_search.py are
-# gated here — this hook must never interfere with unrelated Bash usage (ls, git
-# status, gmj-block-destructive-commands.sh's own checks, etc.). The pass-through
-# below is for OTHER commands only, never for a gmj_firecrawl_search.py invocation.
-case "$COMMAND" in
-  *gmj_firecrawl_search.py*) ;;
-  *) exit 0 ;;
-esac
+# SECOND early pass-through: only commands that actually INVOKE
+# gmj_firecrawl_search.py are gated here — this hook must never interfere with
+# unrelated Bash usage (ls, git status, gmj-block-destructive-commands.sh's own
+# checks, a git commit message that merely mentions the filename in prose, a
+# `git add`/`cat`/editor command referencing its path, etc.). A bare substring
+# match on the filename is too broad — it also fires on any command that merely
+# REFERENCES the name or path in text (commit messages, `git add <path>`, `cat
+# <path>`), none of which are invocations. This script is only ever invoked one
+# way per its own CLI contract (plan 48-01): `python3 scripts/offers/gmj_
+# firecrawl_search.py ...`. Require that exact interpreter-invocation shape —
+# "python"/"python3" immediately followed by a path ending in the script name —
+# rather than any bare path or filename mention.
+#
+# Standard interpreter FLAGS (e.g. `python3 -u ...`, `-B`, `-O`) are tolerated
+# between the interpreter and the script path — a fail-open regression found in
+# code review: the earlier version required the script path immediately after
+# python3/python with a single whitespace run, so `python3 -u scripts/offers/
+# gmj_firecrawl_search.py --url ...` slipped past this gate entirely (exit 0,
+# no log, no scope check) even though it is a genuine invocation. Zero or more
+# `-flag` tokens are now accepted before the path; this hook fails CLOSED on
+# any real invocation shape, never open.
+if ! printf '%s' "$COMMAND" | grep -Eq '(^|[^A-Za-z0-9_./-])python3?([[:space:]]+-[A-Za-z0-9]+)*[[:space:]]+[A-Za-z0-9_./-]*gmj_firecrawl_search\.py([[:space:]]|$)'; then
+  exit 0
+fi
 
 # Locate the allow-list: prefer the project dir, fall back to the cwd-relative config.
 SOURCES_YAML=""
