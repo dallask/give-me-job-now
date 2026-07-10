@@ -182,10 +182,18 @@ Load it with `launchctl load ~/Library/LaunchAgents/com.gmj.cron-run.plist`. `St
 in seconds (86400 = daily); a `StartCalendarInterval` dict is the alternative for a fixed
 time-of-day schedule.
 
+If `claude` is installed via nvm/Homebrew/volta, add an `EnvironmentVariables` dict with a `PATH`
+key to the `.plist` (e.g. `<key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin</string>`) so
+the scheduled job's minimal default PATH can still resolve the `claude` binary — `launchd` jobs do
+not inherit an interactive shell's PATH by default.
+
 ### Portable `crontab` example
 
 ```
 # Daily at 03:00 — invoke the wrapper directly, NOT prefixed by shell flock(1).
+# PATH= must include claude's install directory (e.g. /opt/homebrew/bin for a Homebrew install) —
+# cron jobs run with a minimal default PATH that does not inherit an interactive shell's setup.
+PATH=/opt/homebrew/bin:/usr/bin:/bin
 0 3 * * * cd /absolute/path/to/give-me-job && bash scripts/ops/gmj_cron_run.sh >> output/logs/gmj_cron_run.log 2>&1
 ```
 
@@ -194,6 +202,11 @@ this repo's own macOS dev machine has no `flock(1)` shell utility (`flock` is a 
 package command, absent from macOS's BSD userland by default) — and none is needed here anyway:
 `scripts/ops/gmj_cron_run.sh` already implements its own overlap guard internally via Python's
 `fcntl.flock(LOCK_EX | LOCK_NB)`, so no external `flock` prefix is correct or required.
+
+If `claude` is not resolvable on `PATH` when the wrapper's `os.execvp("claude", ...)` call runs,
+the wrapper prints a clean `gmj_cron_run: 'claude' not found on PATH; check cron/launchd PATH env`
+message to stderr and exits non-zero (rather than an uncaught traceback) — the `PATH=` line above
+is what avoids hitting that failure mode in the first place.
 
 ### Fail-closed overlap behavior
 

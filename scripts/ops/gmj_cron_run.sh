@@ -76,5 +76,9 @@ fcntl.fcntl(f.fileno(), fcntl.F_SETFD, flags & ~fcntl.FD_CLOEXEC)
 
 # Keep f open (and thus the lock held) — os.execvp replaces this process image with claude,
 # so the open file descriptor (and its lock) survives for the lifetime of the claude process.
-os.execvp("claude", ["claude", "--dangerously-skip-permissions", "-p", "/gmj-batch mode=autonomous"])
+try:
+    os.execvp("claude", ["claude", "--dangerously-skip-permissions", "-p", "/gmj-batch mode=autonomous"])
+except FileNotFoundError:
+    print("gmj_cron_run: '\''claude'\'' not found on PATH; check cron/launchd PATH env", file=sys.stderr)
+    sys.exit(1)
 ' "$LOCK_PATH"
