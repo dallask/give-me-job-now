@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: |
           set -euo pipefail
-          pip install pytest
+          pip install pytest pytest-xdist
           # Aggregate every scripts/*/requirements.txt — the suite spans multiple
           # independently-versioned subsystems (cv, dashboard, contracts,
           # preferences, publish, runtime), each with its own requirements file.
@@ -43,4 +43,4 @@ jobs:
           # its own run, which would trip that check within the same suite. Disabling
           # bytecode writes keeps the tree clean without touching the check itself.
           PYTHONDONTWRITEBYTECODE: "1"
-        run: python3 -B -m pytest tests/ -q -p no:cacheprovider
+        run: python3 -B -m pytest tests/ -q -p no:cacheprovider -n auto
