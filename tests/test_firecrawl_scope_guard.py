@@ -76,6 +76,18 @@ INTERPRETER_FLAG_BYPASS_OFFLIST = (
     '--url https://evil-untrusted-board.example.com/job/1"}}'
 )
 
+# A real invocation with a VALUE-TAKING interpreter flag (the flag and its value are
+# two separate tokens, e.g. `-X utf8`) between python3 and the script path, targeting
+# an off-allow-list host. Fourth regression fixture, for a second fail-OPEN bug found
+# by code review after the -u fix: the boolean-flags-only regex from that fix matched
+# `-u`/`-B`/`-O` (single tokens) but not `-X utf8`/`-W ignore` (flag + separate value
+# token), so this shape still slipped past the second early pass-through entirely.
+INTERPRETER_VALUE_FLAG_BYPASS_OFFLIST = (
+    '{"tool_name": "Bash", "tool_input": {"command": '
+    '"python3 -X utf8 scripts/offers/gmj_firecrawl_search.py --mode scrape '
+    '--url https://evil-untrusted-board.example.com/job/1"}}'
+)
+
 
 def _run_in_dir(stdin_text: str) -> tuple[subprocess.CompletedProcess[str], Path]:
     """Run the hook in an isolated CLAUDE_PROJECT_DIR seeded with config/sources.yaml.
@@ -199,6 +211,18 @@ def test_interpreter_flag_invocation_still_scoped() -> None:
     assert result.returncode == 2, (
         "an off-allow-list Firecrawl invocation with an interpreter flag "
         "(e.g. `python3 -u ...gmj_firecrawl_search.py --url <evil>`) must still "
+        f"be blocked (exit 2), not silently pass through; got {result.returncode}\n"
+        f"stderr: {result.stderr}"
+    )
+    _assert_read_logged_before_decision(log)
+    assert "BLOCK" in log.read_text(encoding="utf-8")
+
+
+def test_interpreter_value_flag_invocation_still_scoped() -> None:
+    result, log = _run(INTERPRETER_VALUE_FLAG_BYPASS_OFFLIST)
+    assert result.returncode == 2, (
+        "an off-allow-list Firecrawl invocation with a value-taking interpreter flag "
+        "(e.g. `python3 -X utf8 ...gmj_firecrawl_search.py --url <evil>`) must still "
         f"be blocked (exit 2), not silently pass through; got {result.returncode}\n"
         f"stderr: {result.stderr}"
     )
