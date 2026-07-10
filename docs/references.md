@@ -192,6 +192,8 @@ Sample instances for these schemas live under `schemas/samples/`.
 
 ## Related operator references
 
+- **[docs/ARCHITECTURE.md](ARCHITECTURE.md)** — the authoritative hub + 5-spoke roster,
+  per-spoke contracts, and offer→artifacts data flow that these schemas implement.
 - **[docs/RUNBOOK.md](RUNBOOK.md)** — the end-to-end operator guide for running the
   collective against a real, current offer via `/gmj-pipeline-run` (setup, control loop,
   outputs, audit trail).
