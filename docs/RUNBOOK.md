@@ -127,3 +127,78 @@ confirm-gated (no bypass flag), so nothing is removed without an explicit final 
 **E2E-01** is the deterministic floor (machine-proven). **E2E-03** is the live acceptance
 run a human performs with a real offer; it cannot be auto-asserted because it depends on a
 current external posting and human judgment of the delivered artifacts.
+
+---
+
+## 5. Scheduled / unattended runs
+
+`scripts/ops/gmj_cron_run.sh` lets an operator run the autonomous pipeline
+(`/gmj-batch mode=autonomous`) unattended on a recurring OS-native schedule (cron or launchd),
+with a non-blocking overlap guard: if a scheduled run is still in progress when the next tick
+fires, the second invocation exits non-zero immediately (fail closed — no queueing, no silent
+skip) rather than starting a second overlapping run.
+
+### One-time prerequisite: workspace trust
+
+Before adding any cron/launchd entry, run `claude` **interactively** in this repo directory at
+least once and accept the workspace-trust prompt (or pre-set `hasTrustDialogAccepted: true` for
+this project path in `~/.claude.json`). Without this one-time step, a fresh (never-interactively-
+run) workspace **silently ignores** `.claude/settings.json`'s declared `permissions.allow`
+entries on every scheduled `-p` invocation — `--dangerously-skip-permissions` itself still works
+regardless of trust status, but the declared allow-list is otherwise a no-op on an untrusted
+workspace. This is a one-time setup step, not a per-run requirement.
+
+### macOS `launchd` example
+
+Create a `.plist` (e.g. `~/Library/LaunchAgents/com.gmj.cron-run.plist`) pointing at the wrapper,
+redirecting stdout/stderr into this repo's existing git-ignored `output/logs/` convention:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.gmj.cron-run</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/absolute/path/to/give-me-job/scripts/ops/gmj_cron_run.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/absolute/path/to/give-me-job</string>
+  <key>StartInterval</key>
+  <integer>86400</integer>
+  <key>StandardOutPath</key>
+  <string>/absolute/path/to/give-me-job/output/logs/gmj-cron-run.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/absolute/path/to/give-me-job/output/logs/gmj-cron-run.err.log</string>
+</dict>
+</plist>
+```
+
+Load it with `launchctl load ~/Library/LaunchAgents/com.gmj.cron-run.plist`. `StartInterval` is
+in seconds (86400 = daily); a `StartCalendarInterval` dict is the alternative for a fixed
+time-of-day schedule.
+
+### Portable `crontab` example
+
+```
+# Daily at 03:00 — invoke the wrapper directly, NOT prefixed by shell flock(1).
+0 3 * * * cd /absolute/path/to/give-me-job && bash scripts/ops/gmj_cron_run.sh >> output/logs/gmj-cron-run.log 2>&1
+```
+
+Note there is **no `flock(1)` prefix** on this line. Unlike common Linux cron-locking recipes,
+this repo's own macOS dev machine has no `flock(1)` shell utility (`flock` is a `util-linux`
+package command, absent from macOS's BSD userland by default) — and none is needed here anyway:
+`scripts/ops/gmj_cron_run.sh` already implements its own overlap guard internally via Python's
+`fcntl.flock(LOCK_EX | LOCK_NB)`, so no external `flock` prefix is correct or required.
+
+### Fail-closed overlap behavior
+
+The wrapper exits non-zero the instant it finds `.pipeline/cron.lock` already held (visible to
+cron's mail-on-error, or to `launchd`'s `StandardErrorPath` log) — it never retries and never
+queues a second overlapping tick. The lock is acquired before the `claude` invocation and held
+for the wrapper's entire outer lifetime (the `claude -p` call is never backgrounded), so it is
+only released once the whole scheduled run completes.
