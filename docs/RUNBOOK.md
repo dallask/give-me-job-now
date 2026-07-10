@@ -110,6 +110,10 @@ Gate verdicts and run state are logged under **`.pipeline/runs/<run_id>/`** — 
 trail (GUARD-03 / T-08-13): the recorded `gate_result` artifacts prove which verdicts
 passed for each delivered artifact.
 
+**Reclaiming disk space.** `scripts/gmj_cleanup_wizard.py` is an interactive, checkbox-driven
+CLI for deleting generated `output/*` content and `.pipeline/runs/` state — every category is
+confirm-gated (no bypass flag), so nothing is removed without an explicit final confirmation.
+
 ---
 
 ## 4. Done-criteria map
