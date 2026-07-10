@@ -160,6 +160,61 @@ def test_select_dedup() -> None:
         assert idxs == [0, 1], f"'1,1,2' must dedup to offer_index 0 and 1 once each: {idxs}"
 
 
+# --- SELECT-07: autonomous top3 default selection ----------------------------
+
+def test_select_top3_resolves_first_three_by_score() -> None:
+    """--select top3 on a >=3-entry shortlist picks the first three positions (script-level,
+    never LLM judgment) — the sort itself is regression-tested at gmj_merge_shortlists.py's
+    boundary (Plan 01), this test only proves top3 picks the first three of whatever order the
+    shortlist arrives in."""
+    shortlist = {
+        "kind": "offer_shortlist",
+        "schema_version": "1.0",
+        "shortlist": [
+            {
+                "board": "https://www.work.ua/",
+                "canonical_key": f"company-{i}-role-kyiv",
+                "company": f"Company{i}",
+                "language": "ua",
+                "location": "Kyiv",
+                "mode": "remote",
+                "salary": 3000 + i * 100,
+                "score": 5.0 - i,
+                "seniority": "senior",
+                "title": f"Role {i}",
+                "trace": {"source_url": f"https://www.work.ua/jobs/{i}/"},
+            }
+            for i in range(4)
+        ],
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        fixture_path = cwd / "shortlist.json"
+        fixture_path.write_text(json.dumps(shortlist), encoding="utf-8")
+        r = _init(cwd, "top3", shortlist=fixture_path)
+        assert r.returncode == 0, f"init must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        _, offers = _parse_offers(r.stdout)
+        idxs = sorted(o["offer_index"] for o in offers)
+        assert idxs == [0, 1, 2], (
+            f"'top3' on a 4-entry shortlist must resolve to offer_index 0, 1, 2: {idxs}"
+        )
+
+
+def test_select_top3_degrades_on_short_shortlist() -> None:
+    """--select top3 on a <3-entry shortlist selects every available entry — never an error."""
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        r = _init(cwd, "top3")  # default FIXTURE has exactly 2 entries
+        assert r.returncode == 0, f"init must exit 0: {r.stderr}"
+        assert "Traceback" not in r.stderr, r.stderr
+        _, offers = _parse_offers(r.stdout)
+        idxs = sorted(o["offer_index"] for o in offers)
+        assert idxs == [0, 1], (
+            f"'top3' on a 2-entry shortlist must degrade to selecting both entries: {idxs}"
+        )
+
+
 # --- SELECT-02: coarse->draft mapping + too-thin flag ------------------------
 
 def test_coarse_map_copies_present_fields_drops_non_schema() -> None:
