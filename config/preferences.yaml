@@ -4,6 +4,7 @@
 # below may only restrict the boards/geos/languages already declared in sources.yaml —
 # it can NEVER widen them. scripts/preferences/gmj_validate_preferences.py enforces the
 # subset-of-sources.yaml invariant (fail-closed) and never writes sources.yaml.
+# search_provider: firecrawl   # OPTIONAL — opt-in; absent (default) = WebSearch/WebFetch path.
 salary:
   min: 1000
   currency: USD
