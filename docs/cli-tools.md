@@ -5,7 +5,7 @@
 > `gmj_*.py` token drifts from disk. This page is the reader-facing catalog of *what each script
 > does* (purpose = the script's own module docstring, line 1) and *how the scripts group together*.
 
-The collective is a **two-layer control plane**. The lower layer is a set of **40 small,
+The collective is a **two-layer control plane**. The lower layer is a set of **43 small,
 single-purpose Python CLI tools** (`scripts/**/gmj_*.py`): each is deterministic, makes exactly one
 decision, exits `0` on success / `1` on failure, and touches **no LLM and no network** (the one
 EXPERIMENTAL exception, `gmj_sdk_runner.py`, is called out below). The upper layer — the LLM hub
@@ -13,29 +13,30 @@ EXPERIMENTAL exception, `gmj_sdk_runner.py`, is called out below). The upper lay
 hit, or whether an artifact is deliverable; it shells out to these scripts via `Bash` and obeys
 their exit codes. Every safety decision in the pipeline is one of the scripts below.
 
-> **Count discipline.** This catalog enumerates the **disk set of 41** (`scripts/**/gmj_*.py`),
+> **Count discipline.** This catalog enumerates the **disk set of 44** (`scripts/**/gmj_*.py`),
 > not the `config/ownership-manifest.yaml` rename map (which lists the 23 scripts that were
-> renamed during the rebrand — including `check_claims` → `gmj_check_claims.py`). Eighteen
+> renamed during the rebrand — including `check_claims` → `gmj_check_claims.py`). Twenty-one
 > scripts — `gmj_build_payload.py`, `gmj_rebrand.py`, `gmj_remove_gsd.py`, `gmj_cleanup_report.py`,
 > `gmj_cleanup_wizard.py`, `gmj_batch.py`, `gmj_runs.py`, `gmj_merge_shortlists.py`,
 > `gmj_dashboard.py`, `gmj_dashboard_model.py`, `gmj_dashboard_actions.py`,
 > `gmj_dashboard_features.py`, `gmj_template_lint.py`, `gmj_visual_diff.py`,
-> `gmj_pipeline_paths.py`, `gmj_dispatch_cap.py`, `gmj_pipeline_run.py`, `gmj_sdk_runner.py` — were
-> authored natively `gmj_`-prefixed and are not part of that rename map (23 renamed + 18 native = 41).
+> `gmj_pipeline_paths.py`, `gmj_dispatch_cap.py`, `gmj_pipeline_run.py`, `gmj_sdk_runner.py`,
+> `gmj_format_fields.py`, `gmj_detect_language.py`, `gmj_bootstrap_releases.py` — were authored
+> natively `gmj_`-prefixed and are not part of that rename map (23 renamed + 21 native = 44).
 
 See [flows.md](flows.md) for the end-to-end sequences these scripts drive,
 [references.md](references.md) for the JSON envelope schemas they read and emit, and
 [commands.md](commands.md) for the slash commands that shell out to them.
 
-The **36 runtime tools** below are grouped by directory; the **5 build/packaging tools** live in a
+The **39 runtime tools** below are grouped by directory; the **5 build/packaging tools** live in a
 separate [Packaging & maintenance](#packaging--maintenance) section at the end because they are
 one-off maintenance utilities, not steps a user runs during a pipeline.
 
 ---
 
-## Runtime CLI tools (36)
+## Runtime CLI tools (39)
 
-### `scripts/artifacts/` (6)
+### `scripts/artifacts/` (7)
 
 Provenance, truth, fit, and the single-owner schema/span grammars for composed artifacts.
 
@@ -43,6 +44,7 @@ Provenance, truth, fit, and the single-owner schema/span grammars for composed a
 |--------|---------|
 | `gmj_check_claims.py` | Executed provenance gate for a composed artifact draft (COMPOSE-03). |
 | `gmj_check_truth.py` | Deterministic Gate-A pre-gate + `gate_result` emitter (TRUTH-01/03/04). |
+| `gmj_format_fields.py` | Single owner of dict/list-safe `candidate.yaml` structured-field formatting; prevents raw Python `repr()` leaks in rendered CV output (PIPE-02). |
 | `gmj_record_retry.py` | Record a per-(offer-slug, artifact_type) retry counter into the pipeline state (COMPOSE-02). |
 | `gmj_schema_fields.py` | Single owner of the `candidate.yaml` field-name schema (SCHEMA-06). |
 | `gmj_score_fit.py` | Deterministic Gate-B (target-fit) scorer + `gate_result` emitter (FIT-01/02/03/05). |
@@ -82,13 +84,14 @@ Extraction, rendering, and the branded-template loop that turn approved drafts i
 | `gmj_template_lint.py` | Fail-closed zero-sample-strings gate for generated CV templates (TEMPLATE-02). |
 | `gmj_visual_diff.py` | Deterministic visual-diff for a candidate CV template (TEMPLATE-03 / TEMPLATE-04). |
 
-### `scripts/offers/` (3)
+### `scripts/offers/` (4)
 
-Freeze, tamper-check, and deterministically merge the offers discovered by the scout.
+Freeze, tamper-check, detect language, and deterministically merge the offers discovered by the scout.
 
 | Script | Purpose |
 |--------|---------|
 | `gmj_check_offer.py` | Re-check a frozen offer-spec for tampering by recompute-and-compare (INTAKE-02, INTAKE-03). |
+| `gmj_detect_language.py` | Deterministic offer-language detector via Cyrillic-ratio + UA/RU stopword heuristic, no LLM/ML fallback (PIPE-10). |
 | `gmj_freeze_offer.py` | Freeze a fielded offer draft into an immutable `offer-spec.json` (INTAKE-01, INTAKE-03). |
 | `gmj_merge_shortlists.py` | Deterministic, LLM-free merge authority for parallel multi-board [`gmj-offer-scout`](agents.md) (SCOUT-02/04). |
 
@@ -126,6 +129,14 @@ Validates that offer-search preferences only ever narrow the source allow-list.
 | Script | Purpose |
 |--------|---------|
 | `gmj_validate_preferences.py` | Validate `config/preferences.yaml`: shape (jsonschema) + subset-of-`sources.yaml` (Python). |
+
+### `scripts/publish/` (1)
+
+Backfills real historical GitHub Releases for the public mirror.
+
+| Script | Purpose |
+|--------|---------|
+| `gmj_bootstrap_releases.py` | Reads `scripts/publish/milestone-releases.yaml` and idempotently creates the matching annotated git tag + GitHub Release at each entry's anchor commit (matched by exact commit message, never a hardcoded SHA). |
 
 ### `scripts/testing/` (1)
 
