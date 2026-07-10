@@ -119,6 +119,24 @@ def _safe_id(value: str, label: str) -> str | None:
     return value
 
 
+def _expand_top3_selection(sel: str, n: int) -> str:
+    """Expand the ``"top3"`` sentinel into a plain 1-indexed selection string (SELECT-07).
+
+    Autonomous runs have no human present to narrow a shortlist, so ``--select top3`` must
+    resolve deterministically at script level to the first ``min(3, n)`` indices of the
+    already score-sorted shortlist — never an LLM arithmetic call. Mirrors
+    ``gmj_dispatch_cap.py``'s clamp/fallback-never-raise idiom: a shortlist shorter than 3
+    entries degrades naturally to ``n`` entries instead of erroring. Any value other than an
+    exact case-insensitive-stripped ``"top3"`` match (including ``"all"`` and explicit index
+    strings like ``"1,3,5"``) passes through unchanged — ``resolve_selection()`` itself never
+    sees the sentinel and is not modified by this helper.
+    """
+    if sel.strip().lower() != "top3":
+        return sel
+    count = min(3, n)
+    return ",".join(str(i) for i in range(1, count + 1))
+
+
 def resolve_selection(sel: str, n: int) -> list[int]:
     """Resolve a 1-indexed selection string to sorted, deduped 0-based indices (SELECT-01).
 
@@ -305,9 +323,11 @@ def _cmd_init(args: argparse.Namespace) -> int:
         print("Shortlist 'shortlist' must be a non-empty JSON array.", file=sys.stderr)
         return 1
 
-    # Resolve the selection (SELECT-01).
+    # Resolve the selection (SELECT-01). The "top3" sentinel (SELECT-07) is expanded into a
+    # plain 1-indexed string BEFORE resolve_selection() is called — resolve_selection() itself
+    # never sees the sentinel and stays unmodified.
     try:
-        selected = resolve_selection(args.select, len(entries))
+        selected = resolve_selection(_expand_top3_selection(args.select, len(entries)), len(entries))
     except ValueError as exc:
         print(f"Selection error: {exc}", file=sys.stderr)
         return 1
@@ -661,7 +681,15 @@ def main() -> int:
 
     p_init = sub.add_parser("init", help="Resolve a selection and seed a per-offer batch.")
     p_init.add_argument("--shortlist", required=True, help="Path to the offer shortlist JSON.")
-    p_init.add_argument("--select", required=True, help="1-indexed selection string, e.g. '1,3,5' or 'all'.")
+    p_init.add_argument(
+        "--select",
+        required=True,
+        help=(
+            "1-indexed selection string, e.g. '1,3,5', 'all', or 'top3' (the first 3 — or "
+            "fewer if the shortlist is shorter — by score, resolved at script level, never "
+            "LLM judgment)."
+        ),
+    )
     p_init.add_argument("--batch-id", default=None, help="Override the generated batch_id.")
     p_init.add_argument("--run-id-prefix", default=None, help="Override the per-offer run_id prefix.")
     p_init.add_argument(
