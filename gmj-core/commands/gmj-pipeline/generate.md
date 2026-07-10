@@ -28,5 +28,21 @@ description: Run the gmj-cv-generator spoke to render each gate-passed artifact 
   # interview_prep:
   python3 scripts/cv/gmj_render_interview_prep.py --file <draft.json>
   ```
+- **Post-render QA pass (advisory-only, `cv` type only — QA-02/QA-03)**: immediately after the
+  `cv` branch above renders `output/cv/<name>.pdf`, run the deterministic structural QA check
+  against that rendered PDF (this phase's scope is PDF-only per CONTEXT.md — `cover_letter`/
+  `interview_prep` are not PDF-rendered CVs and are not checked here):
+  ```bash
+  python3 scripts/pipeline/gmj_check_render_quality.py --pdf output/cv/<name>.pdf \
+    --candidate-yaml <cv.yaml path used for that render> --lang <content.language>
+  ```
+  This check **always exits 0** and never blocks the pipeline — it is not a gate, and it never
+  touches the "Delivery precondition first" block above or `gmj_check_delivery.py`'s own
+  `REQUIRED_GATES` precondition. If its stdout `defects:` count is greater than 0, print a
+  one-line warning banner to the session (`⚠ QA: <N> defect(s) found in <pdf path> — see
+  output/analysis/qa-render-<run_id>.md`, using this artifact's own derived per-type run_id,
+  which for a `cv` artifact already ends in `-cv` — do not append an extra `-cv` suffix)
+  and write that Markdown report naming each defect line from the script's stdout. A zero-defect
+  run requires no report file and no banner.
 
 `gmj-cv-generator` never authors content — content is fixed upstream by the gates. This command just names the render entry points (one Task call per requested type); the live end-to-end run against a real offer is exercised in Phase 8. No type shares another's gate verdict; the N independent results are aggregated into an explicit per-type breakdown — never a single collapsed boolean.

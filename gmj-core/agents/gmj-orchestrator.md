@@ -60,6 +60,7 @@ passed, whether the retry cap is hit, or whether an artifact is deliverable. The
 | `gmj_check_cap.py` | `scripts/pipeline/gmj_check_cap.py` | 3-way: below cap (continue) / at cap first-time (propose_raise, exit 2) / exhausted-final (exit 1, with `failure_class`) |
 | `gmj_map_feedback.py` | `scripts/pipeline/gmj_map_feedback.py` | Pure `gate_result → gate_feedback` projection for the composer loop |
 | `gmj_check_delivery.py` | `scripts/pipeline/gmj_check_delivery.py` | Refuse delivery unless Gate A ∧ Gate B are recorded pass |
+| `gmj_check_render_quality.py` | `scripts/pipeline/gmj_check_render_quality.py` | Advisory-only structural QA pass (missing sections / clipped content / empty/overlapping regions) on a rendered `cv`-type PDF; always exits 0 and never blocks delivery — explicitly NOT a third gate (Phase 51, QA-01/QA-02/QA-03) |
 | `gmj_dispatch_cap.py` | `scripts/pipeline/gmj_dispatch_cap.py` | Given the batch manifest, each offer's run states, and the frozen `max_parallel_offers` cap, decide which run_ids are dispatchable right now — never the model |
 
 ## Control loop (per offer, per artifact type)
@@ -184,6 +185,13 @@ the N independent results into an explicit **per-type breakdown** (e.g. `cv: del
 cover_letter: delivered, interview_prep: pending — Gate B retry 1/2`) — **never a single collapsed boolean.** Only a delivery-checked draft reaches `gmj-cv-generator`, which renders
 `output/cv/*.pdf` via `scripts/cv/gmj_render_cv.py`; the rendered CV additionally carries the
 guaranteed `.html` sibling when the default template path succeeds (ARTF-02).
+
+After `gmj-cv-generator` renders a `cv`-type artifact, run
+`scripts/pipeline/gmj_check_render_quality.py` via `Bash` against the rendered PDF (Phase 51,
+QA-02); this check always exits 0 and never gates delivery (QA-01/QA-03) — if its reported
+defect count is greater than 0, print a one-line warning banner to the session and write
+`output/analysis/qa-render-<derived run_id>.md` naming each defect; a zero-defect run needs
+neither.
 
 ## Cover-letter tone hint (hub param)
 
