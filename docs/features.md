@@ -171,6 +171,16 @@ the same ownership manifest that scopes the `gmj-` rebrand — it proposes candi
 review under `output/analysis/cleanup-report.md` and contains no deletion/rename/move code
 path.
 
+### Interactive cleanup wizard
+
+`scripts/gmj_cleanup_wizard.py` is a `questionary`-based interactive CLI that presents the
+operator with the 8 fixed generated-content categories (`output/{analysis,artifacts,offers,
+research,vacancies,logs,cv}/` plus `.pipeline/runs/`) as a checkbox selection, shows a
+count-and-size summary of the selection, and gates all deletion behind a single un-skippable
+`questionary.confirm(default=False)` prompt with no bypass flag. It is a wholly independent
+sibling script from the read-only `gmj_cleanup_report.py` above — sharing no imports or
+function names.
+
 ### Operator ergonomics
 
 - `/gmj-pipeline-run` drives the whole offer→artifacts pipeline (dual-mode, retry-capped),
@@ -184,6 +194,14 @@ path.
 
 Run-scoped state and gate-log audit artifacts live under `.pipeline/runs/<run_id>/` (the
 `run_id` is sanitized before it becomes a directory name).
+
+A viability spike evaluated Firecrawl/ScrapingBee as an opt-in external scrape/search
+alternative to WebSearch/WebFetch for `gmj-offer-scout`, specifically targeting vacancy-site
+bot-blocking across `config/sources.yaml`'s 7 boards. The verdict was **NO-GO**: no
+board-specific evidence supported either tool, the general evidence was contradictory or
+hedged, and bot-evasion capability was gated behind paid-only add-ons for both — matching this
+repo's v4.0 Playwright MCP precedent. `gmj-offer-scout` continues using WebSearch/WebFetch
+unchanged.
 
 ---
 
