@@ -32,6 +32,24 @@ SCHEMA_PATH = REPO_ROOT / "schemas" / "firecrawl_extract_schema.json"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "offers"))
 
+try:
+    import firecrawl  # noqa: F401
+
+    _FIRECRAWL_INSTALLED = True
+except ImportError:
+    _FIRECRAWL_INSTALLED = False
+
+
+class SkipTest(Exception):
+    """Raised to mark a test as skipped (not failed) — see main()'s runner."""
+
+
+def _require_firecrawl() -> None:
+    if not _FIRECRAWL_INSTALLED:
+        raise SkipTest(
+            "firecrawl-py not installed (pip install -r scripts/offers/requirements.txt)"
+        )
+
 
 def _fresh_module():
     """Import (or re-import) gmj_firecrawl_search as a fresh module object."""
@@ -41,6 +59,7 @@ def _fresh_module():
 
 
 def test_unset_api_key_exits_nonzero_and_never_constructs_client() -> None:
+    _require_firecrawl()
     result = subprocess.run(
         [sys.executable, str(SCRIPT), "--mode", "search", "--query", "FPV Engineer Kyiv"],
         capture_output=True,
@@ -85,6 +104,7 @@ def test_scrape_without_url_and_search_without_query_exit_nonzero() -> None:
 
 
 def test_search_mode_writes_valid_json_with_web_key() -> None:
+    _require_firecrawl()
     mod = _fresh_module()
 
     fake_web_hit = SimpleNamespace(
@@ -119,6 +139,7 @@ def test_search_mode_writes_valid_json_with_web_key() -> None:
 
 
 def test_scrape_mode_uses_schema_guided_formats_and_writes_json() -> None:
+    _require_firecrawl()
     mod = _fresh_module()
 
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
@@ -159,17 +180,22 @@ def test_scrape_mode_uses_schema_guided_formats_and_writes_json() -> None:
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
+    skipped = 0
     for test in tests:
         try:
             test()
             print(f"PASS {test.__name__}")
+        except SkipTest as exc:
+            skipped += 1
+            print(f"SKIP {test.__name__}: {exc}")
         except Exception as exc:  # noqa: BLE001
             failed += 1
             print(f"FAIL {test.__name__}: {exc}", file=sys.stderr)
     if failed:
-        print(f"{failed}/{len(tests)} tests failed", file=sys.stderr)
+        print(f"{failed}/{len(tests)} tests failed ({skipped} skipped)", file=sys.stderr)
         return 1
-    print(f"all {len(tests)} tests passed")
+    suffix = f" ({skipped} skipped)" if skipped else ""
+    print(f"all {len(tests) - skipped} tests passed{suffix}")
     return 0
 
 

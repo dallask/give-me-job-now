@@ -114,17 +114,32 @@ REPEATED_URL_LAST_OCCURRENCE_OFFLIST = (
 )
 
 # `python3 -m MODULE <file>` runs MODULE as __main__ with <file> as that module's
-# own argv — it never executes <file> as a script. A real false positive found
-# while working on this hook: `python3 -m py_compile
-# scripts/offers/gmj_firecrawl_search.py` (a routine syntax check) was misdetected
-# as invoking the Firecrawl script, because the token walk consumed "py_compile" as
-# -m's value (the same "one value token after a flag" rule that legitimately handles
-# `-X utf8`) and then matched the compile target as the script-path token. -m/-c
-# fundamentally change interpretation and must not be treated as ordinary
-# value-taking flags like -X/-W.
-MODULE_FLAG_NOT_INVOCATION = (
+# own argv, not as a script — `python3 -m py_compile
+# scripts/offers/gmj_firecrawl_search.py` is a routine syntax check, not an
+# invocation. An earlier fix attempt special-cased `-m`/`-c` to avoid flagging this
+# as a false positive — but that fix was itself a real bypass (see
+# INLINE_CODE_BYPASS_OFFLIST below): `-c`'s trailing tokens are that inline code's
+# OWN argv and the code can legitimately read/execute them, unlike `-m`'s dotted
+# module name. Rather than trying to draw a reliable line between the two, both are
+# now treated as ordinary value-taking flags (like -X), so this py_compile-shaped
+# command IS treated as a potential invocation (blocked here as an unparseable
+# target, since it has no --url/--query) — a false positive, not a security issue.
+MODULE_FLAG_TREATED_AS_POTENTIAL_INVOCATION = (
     '{"tool_name": "Bash", "tool_input": {"command": '
     '"python3 -m py_compile scripts/offers/gmj_firecrawl_search.py"}}'
+)
+
+# `-c` runs inline code with the trailing tokens as that code's OWN sys.argv — the
+# code can read and act on those tokens however it likes, including loading and
+# invoking gmj_firecrawl_search.py's own main(). A prior fix that treated `-c` like
+# `-m` (terminate the walk, nothing after it can be a script path) made this shape
+# silently pass through (exit 0, no log, no scope check) despite being a genuine,
+# functionally-exploitable invocation of this script's logic against an
+# off-allow-list host.
+INLINE_CODE_BYPASS_OFFLIST = (
+    '{"tool_name": "Bash", "tool_input": {"command": '
+    '"python3 -c \\"print(1)\\" scripts/offers/gmj_firecrawl_search.py '
+    '--mode scrape --url https://evil-untrusted-board.example.com/job/1"}}'
 )
 
 
@@ -300,21 +315,28 @@ def test_repeated_url_last_occurrence_blocked_with_valid_json() -> None:
     )
 
 
-def test_module_flag_target_not_treated_as_invocation() -> None:
-    result, tmp = _run_in_dir(MODULE_FLAG_NOT_INVOCATION)
-    assert result.returncode == 0, (
-        "`python3 -m py_compile scripts/offers/gmj_firecrawl_search.py` runs "
-        "py_compile as __main__ against the file, not the file itself — it must "
-        f"pass through (exit 0), not be blocked; got {result.returncode}\n"
-        f"stderr: {result.stderr}"
+def test_module_flag_target_treated_as_potential_invocation() -> None:
+    # A deliberate, documented false positive (see the fixture's comment): -m/-c are
+    # not special-cased, so this is scope-checked like any other invocation shape.
+    # With no --url/--query, it hits the unparseable-target fallback (exit 2).
+    result, log = _run(MODULE_FLAG_TREATED_AS_POTENTIAL_INVOCATION)
+    assert result.returncode == 2, (
+        "python3 -m py_compile <path-matching-the-script-name> is intentionally "
+        "treated as a potential invocation (fail closed) rather than a confirmed "
+        f"non-match; got {result.returncode}\nstderr: {result.stderr}"
     )
-    log_path = tmp / ".claude" / "logs" / "firecrawl-scope.log"
-    if log_path.is_file():
-        text = log_path.read_text(encoding="utf-8")
-        assert text == "", (
-            f"a -m MODULE invocation must write NO log entry (true pass-through); "
-            f"got:\n{text}"
-        )
+    _assert_read_logged_before_decision(log)
+
+
+def test_inline_code_invocation_still_scoped() -> None:
+    result, log = _run(INLINE_CODE_BYPASS_OFFLIST)
+    assert result.returncode == 2, (
+        "an off-allow-list Firecrawl invocation via `python3 -c \"<code>\" "
+        "...gmj_firecrawl_search.py --url <evil>` must still be blocked (exit 2), "
+        f"not silently pass through; got {result.returncode}\nstderr: {result.stderr}"
+    )
+    _assert_read_logged_before_decision(log)
+    assert "BLOCK" in log.read_text(encoding="utf-8")
 
 
 def test_query_mode_offlist_domain_pin_blocked() -> None:
