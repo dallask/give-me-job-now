@@ -40,7 +40,8 @@ description: Run the gmj-cv-generator spoke to render each gate-passed artifact 
   touches the "Delivery precondition first" block above or `gmj_check_delivery.py`'s own
   `REQUIRED_GATES` precondition. If its stdout `defects:` count is greater than 0, print a
   one-line warning banner to the session (`⚠ QA: <N> defect(s) found in <pdf path> — see
-  output/analysis/qa-render-<run_id>-cv.md`, using this artifact's own derived per-type run_id)
+  output/analysis/qa-render-<run_id>.md`, using this artifact's own derived per-type run_id,
+  which for a `cv` artifact already ends in `-cv` — do not append an extra `-cv` suffix)
   and write that Markdown report naming each defect line from the script's stdout. A zero-defect
   run requires no report file and no banner.
 
