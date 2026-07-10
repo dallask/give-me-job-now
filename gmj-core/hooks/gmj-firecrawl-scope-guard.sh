@@ -22,6 +22,17 @@
 #     object) — fail CLOSED, never fail open.
 # Enforces the SAME config/sources.yaml `sites` allow-list as the WebSearch/WebFetch
 # hook — never config/credentials.yaml, a semantically different allow-list.
+#
+# Known, accepted limitation: this hook detects invocations shaped like the script's
+# own documented CLI contract (plan 48-01) — `python3`/`python` (any version suffix,
+# any interpreter path) followed by the script path. It does NOT detect direct
+# shebang execution (`./scripts/offers/gmj_firecrawl_search.py ...` with no python3/
+# python token at all) or other interpreter-wrapping shapes (`env python3 ...`,
+# `sh -c '...'`). Matching on script-basename alone regardless of interpreter would
+# reopen the exact false-positive class this file's history is built around (firing
+# on mentions/references — `chmod +x <path>`, `git add <path>`, a commit message
+# naming the file). This is a best-effort pattern match on the one documented,
+# agent-instructed invocation shape, not a hardened sandbox boundary.
 set -e
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
@@ -57,45 +68,105 @@ COMMAND=$(read_field tool_input.command)
 
 # Detect a genuine python3/python invocation of gmj_firecrawl_search.py — see the
 # comment at the call site below for why this replaced a regex-based check.
+#
+# Fail-closed contract: this function communicates match/no-match via STDOUT text
+# (MATCH/NOMATCH), never via the python3 process's own exit code. Any execution
+# problem (python3 missing, an unexpected internal error) is caught inside the
+# script and reported as MATCH; the shell wrapper additionally treats a nonzero
+# python3 exit code, or any output other than the two expected tokens, as MATCH.
+# This means an environment problem narrows the hook to "run the scope check
+# unnecessarily on a non-invocation" (safe) rather than "silently disable the
+# guard entirely" (the fail-open shape CR-02 code review flagged: the earlier
+# version returned match/no-match via sys.exit(), so any python3 failure and a
+# deliberate NOMATCH were both a nonzero exit and indistinguishable at the `if !`
+# call site).
 is_firecrawl_invocation() {
-  python3 - "$1" <<'PY' 2>/dev/null
+  _RESULT=$(python3 - "$1" <<'PY' 2>/dev/null
 import re, shlex, sys
 
-command = sys.argv[1]
-try:
-    tokens = shlex.split(command)
-except ValueError:
-    # Unbalanced quotes etc. — fail closed: treat as a potential invocation so
-    # the scope check still runs rather than silently passing through.
-    sys.exit(0)
+
+def is_python_token(tok):
+    # Match by basename so `/usr/bin/python3`, `/usr/local/bin/python3.11`, and a
+    # bare `python3.11` are all recognized as the interpreter, not just a literal
+    # `python3`/`python` token (CR-01: the prior literal-token check missed every
+    # versioned or path-qualified interpreter name).
+    base = tok.rsplit("/", 1)[-1]
+    return bool(re.match(r"^python3?(\.[0-9]+)?$", base))
 
 
 def is_script_token(tok):
     return bool(re.match(r"^[A-Za-z0-9_./-]*gmj_firecrawl_search\.py$", tok))
 
 
-for idx, tok in enumerate(tokens):
-    if tok not in ("python3", "python"):
-        continue
-    i = idx + 1
-    matched = False
-    while i < len(tokens):
-        t = tokens[i]
-        if is_script_token(t):
-            matched = True
+# Flags that fundamentally change interpretation: `-m MODULE` runs a module as
+# __main__ (MODULE is a dotted name, never a script path, and everything after
+# it is that module's own argv — never "the script"); `-c CODE` runs inline code
+# with no script file at all. Treating either as an ordinary value-taking flag
+# (like -X/-W) caused a real false positive: `python3 -m py_compile
+# scripts/offers/gmj_firecrawl_search.py` was misdetected as invoking the
+# Firecrawl script, because the walk consumed "py_compile" as -m's value and
+# then matched the compile TARGET as the script-path token.
+MODULE_OR_CODE_FLAGS = ("-m", "-c")
+
+
+def find_invocation(tokens):
+    for idx, tok in enumerate(tokens):
+        if not is_python_token(tok):
+            continue
+        i = idx + 1
+        while i < len(tokens):
+            t = tokens[i]
+            if is_script_token(t):
+                return True
+            if t in MODULE_OR_CODE_FLAGS:
+                # This occurrence runs a module/inline code, not a script file —
+                # nothing after it can be "the script path" for this invocation.
+                break
+            if t.startswith("-"):
+                i += 1
+                continue
+            if i > idx + 1 and tokens[i - 1].startswith("-"):
+                # a flag's value token (e.g. "utf8" after "-X") — consume, continue
+                i += 1
+                continue
             break
-        if t.startswith("-"):
-            i += 1
-            continue
-        if i > idx + 1 and tokens[i - 1].startswith("-"):
-            # a flag's value token (e.g. "utf8" after "-X") — consume, continue
-            i += 1
-            continue
-        break
-    if matched:
-        sys.exit(0)
-sys.exit(1)
+    return False
+
+
+try:
+    command = sys.argv[1]
+    tokens = shlex.split(command)
+    print("MATCH" if find_invocation(tokens) else "NOMATCH")
+except Exception:
+    # Unbalanced quotes, or any unexpected error — fail closed: treat as a
+    # potential invocation so the scope check still runs.
+    print("MATCH")
 PY
+)
+  _PY_EXIT=$?
+  if [ "$_PY_EXIT" -ne 0 ]; then
+    return 0
+  fi
+  case "$_RESULT" in
+    MATCH) return 0 ;;
+    NOMATCH) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+# JSON-escape a string for embedding as a block-reason value (CR-03: the naive
+# `"${VAR}"` interpolation this replaced could emit unescaped quotes/backslashes/
+# control characters — e.g. a multi-line $HOST/$QUERY value from a repeated
+# --url/--query flag, see the last-occurrence-wins fix below — producing invalid
+# JSON on stdout). Always emits a valid JSON string literal, including the
+# surrounding quotes; falls back to a fixed safe literal on any failure so a
+# malformed reason can never itself cause the hook to error instead of block.
+json_escape() {
+  printf '%s' "$1" | python3 -c 'import json, sys
+try:
+    sys.stdout.write(json.dumps(sys.stdin.read()))
+except Exception:
+    sys.stdout.write("\"(reason unavailable)\"")' 2>/dev/null || printf '"(reason unavailable)"'
 }
 
 # Early pass-through: only Bash calls cross this hook's boundary.
@@ -143,12 +214,18 @@ elif [ -f "config/sources.yaml" ]; then
   SOURCES_YAML="config/sources.yaml"
 fi
 
-# Extract --url value (quoted or bare, stops at whitespace/quote).
-URL=$(printf '%s' "$COMMAND" | grep -oE -- '--url[[:space:]]+["'"'"']?[^"'"'"' ]+' 2>/dev/null | sed -E 's/^--url[[:space:]]+["'"'"']?//' || true)
+# Extract --url value (quoted or bare, stops at whitespace/quote). A repeated
+# --url flag matches argparse's own "last occurrence wins" semantics via
+# `tail -n 1` — the prior version returned EVERY match joined by embedded
+# newlines, which (a) didn't reflect what the Python script would actually
+# resolve args.url to, and (b) produced a multi-line $HOST that fed unescaped
+# into the JSON block-reason payload below, corrupting it (CR-03).
+URL=$(printf '%s' "$COMMAND" | grep -oE -- '--url[[:space:]]+["'"'"']?[^"'"'"' ]+' 2>/dev/null | tail -n 1 | sed -E 's/^--url[[:space:]]+["'"'"']?//' || true)
 
 # Extract --query value — may contain spaces inside quotes, so capture through to
 # the closing quote character rather than stopping at the first whitespace.
-QUERY=$(printf '%s' "$COMMAND" | grep -oE -- '--query[[:space:]]+"[^"]*"|--query[[:space:]]+'"'"'[^'"'"']*'"'"'|--query[[:space:]]+[^[:space:]]+' 2>/dev/null | sed -E 's/^--query[[:space:]]+["'"'"']?//; s/["'"'"']$//' || true)
+# Same last-occurrence-wins fix as --url above.
+QUERY=$(printf '%s' "$COMMAND" | grep -oE -- '--query[[:space:]]+"[^"]*"|--query[[:space:]]+'"'"'[^'"'"']*'"'"'|--query[[:space:]]+[^[:space:]]+' 2>/dev/null | tail -n 1 | sed -E 's/^--query[[:space:]]+["'"'"']?//; s/["'"'"']$//' || true)
 
 # SC2: log the sources.yaml read + target BEFORE deciding anything. This line is the
 # demonstrable audit record that the read happened ahead of the Firecrawl call.
@@ -224,7 +301,7 @@ if [ -n "$URL" ]; then
   fi
   log "BLOCK tool=Bash host=${HOST} reason=off-allow-list"
   echo "BLOCKED: ${HOST} is not in config/sources.yaml sites allow-list" >&2
-  printf '{"decision":"block","reason":%s}\n' "\"${HOST} not in config/sources.yaml sites allow-list\""
+  printf '{"decision":"block","reason":%s}\n' "$(json_escape "${HOST} not in config/sources.yaml sites allow-list")"
   exit 2
 fi
 
@@ -240,7 +317,7 @@ if [ -n "$QUERY" ]; then
     if ! host_allowed "$h"; then
       log "BLOCK tool=Bash host=${h} reason=off-allow-list-in-query"
       echo "BLOCKED: query pins ${h}, not in config/sources.yaml sites allow-list" >&2
-      printf '{"decision":"block","reason":%s}\n' "\"${h} not in config/sources.yaml sites allow-list\""
+      printf '{"decision":"block","reason":%s}\n' "$(json_escape "${h} not in config/sources.yaml sites allow-list")"
       exit 2
     fi
   done

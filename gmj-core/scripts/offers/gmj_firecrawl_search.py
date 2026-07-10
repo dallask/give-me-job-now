@@ -102,6 +102,9 @@ def main() -> int:
         print(f"Firecrawl call failed: {exc}", file=sys.stderr)
         return 1
     fielded = getattr(doc, "json", None)
+    if fielded is None:
+        print("Firecrawl scrape returned no fielded JSON extraction", file=sys.stderr)
+        return 1
     print(json.dumps(fielded, ensure_ascii=False))
     return 0
 

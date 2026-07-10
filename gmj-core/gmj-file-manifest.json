@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "timestamp": "2026-07-10T09:42:51.362Z",
+  "timestamp": "2026-07-10T09:53:31.537Z",
   "mode": "full",
   "files": {
     "gmj-core/VERSION": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
@@ -39,7 +39,7 @@
     "gmj-core/config/sources.yaml.sample": "d109f542547312b12377d566e90d91617fdfd1e2b9425d3c739a4df86f4c303d",
     "gmj-core/hooks/gmj-block-destructive-commands.sh": "258574be2dcc4d6f8808b424c36bc9acebee306c0a73f9c8d995c0b05e8401a1",
     "gmj-core/hooks/gmj-collective-handoff-contract.sh": "2803057f9b577dd50f0202c28fcacf7742992427c6221e0d7d5895e122cac797",
-    "gmj-core/hooks/gmj-firecrawl-scope-guard.sh": "45f836f5ea6308f491fa4b518c1827c6954a23c9d91182d5c59259cb86344b20",
+    "gmj-core/hooks/gmj-firecrawl-scope-guard.sh": "cf33e0b7192b6b4a1589d5985b7711e6c0850e51c59404b7032d1096310db585",
     "gmj-core/hooks/gmj-session-bootstrap.sh": "8bd2d7383366bc4ef590d440f3302bbdfc8dafbeee347d85febb1904ec4c9783",
     "gmj-core/hooks/gmj-sources-scope-guard.sh": "b2b6934e8552e7447db73464fe0b8d0afc1169e807e25e7961339d8aa59ff2ed",
     "gmj-core/hooks/gmj-subagent-stop-quality-reminder.sh": "aa650ad72e9af6bd36ef7dcef3026137f532e88f0e1a9ad58cdfa2bdd88daf13",
@@ -94,7 +94,7 @@
     "gmj-core/scripts/gmj_cleanup_wizard.py": "4d3f670cfae4bc12fe93791443564ade5f210a8129ade16f98f63573b0a67804",
     "gmj-core/scripts/offers/gmj_check_offer.py": "9c37fea0b0c6d6b0d08611b92f48d7ab4eedabfab8a757bb8d971e98672b2bfa",
     "gmj-core/scripts/offers/gmj_detect_language.py": "4dead6207193f82016d62fc1564f6456a599149ee2d86728bdf47a8b0cf1ec37",
-    "gmj-core/scripts/offers/gmj_firecrawl_search.py": "a513cbb935b5eb4ea56bda5a51178b75f7bd62c2a51364e650f781aa754b779d",
+    "gmj-core/scripts/offers/gmj_firecrawl_search.py": "80615badbf1636969dd642838aaea4eb0841cf697738254548746b0b402d14dc",
     "gmj-core/scripts/offers/gmj_freeze_offer.py": "1526145ec7838d272177b5515835032142424c5c5903949f447e27cfb3ff7dcf",
     "gmj-core/scripts/offers/gmj_merge_shortlists.py": "4db9a50951ac12e75590b05ad5043cf6d73dbcb10bd0841296257d82b771e820",
     "gmj-core/scripts/pipeline/gmj_batch.py": "b0908acdfad8963d0053220184be61010c73dcfe0a60951104a1bf7bebc48832",
