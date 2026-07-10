@@ -159,6 +159,62 @@ def test_tie_break_is_canonical_key_asc() -> None:  # SCOUT-04 tie-break
         assert got == sorted(got), f"equal-score entries must order by canonical_key asc: {got}"
 
 
+def test_shortlist_written_score_descending() -> None:  # SELECT-05
+    # A 4-entry fixture with distinct salaries (mixed input order, NOT already descending by
+    # luck) must be written to .pipeline/<out>.json sorted score-descending -- the single
+    # ranking source both the interactive picker (SELECT-06) and autonomous top-3 (SELECT-07)
+    # will read from unchanged this phase. Salaries chosen to be clearly distinct under
+    # _PREFS's ranking weights (0.4 salary / 0.6 remote) so score_entry() yields 4 distinct
+    # scores; mode varies too so remote-fit isn't uniformly 0 or 1 across all four.
+    entries = [
+        _entry("Bravo", "PHP Engineer", "https://www.work.ua/", "https://www.work.ua/bravo",
+               salary=1500, mode="onsite"),
+        _entry("Delta", "PHP Engineer", "https://robota.ua/", "https://robota.ua/delta",
+               salary=6000, mode="remote"),
+        _entry("Alpha", "PHP Engineer", "https://www.work.ua/", "https://www.work.ua/alpha",
+               salary=2400, mode="hybrid"),
+        _entry("Charlie", "PHP Engineer", "https://robota.ua/", "https://robota.ua/charlie",
+               salary=900, mode="remote"),
+    ]
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        result, out = _run_merge(cwd, entries, _PREFS, _SOURCES, out_name="ranked.json")
+        assert result.returncode == 0, f"CLI must exit 0: {result.stderr}"
+        shortlist = json.loads(out.read_text())["shortlist"]
+        assert len(shortlist) == 4, f"all 4 distinct offers must survive: {shortlist}"
+        scores = [round(e["score"], 9) for e in shortlist]
+        assert len(set(scores)) == 4, (
+            f"fixture must produce 4 distinct scores to prove real ordering, not tie luck: {scores}"
+        )
+        assert scores == sorted(scores, reverse=True), (
+            f".pipeline/ranked.json 'shortlist' array must be sorted score-descending, "
+            f"got sequence: {scores}"
+        )
+
+    # Edge case: FIRST entry in input order has the LOWER score, SECOND has the HIGHER score
+    # -- directly proves output order is not an accident of input insertion order.
+    low_then_high = [
+        _entry("Low", "PHP Engineer", "https://www.work.ua/", "https://www.work.ua/low",
+               salary=1500, mode="onsite"),
+        _entry("High", "PHP Engineer", "https://robota.ua/", "https://robota.ua/high",
+               salary=6000, mode="remote"),
+    ]
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        result, out = _run_merge(cwd, low_then_high, _PREFS, _SOURCES, out_name="lowhigh.json")
+        assert result.returncode == 0, f"CLI must exit 0: {result.stderr}"
+        shortlist = json.loads(out.read_text())["shortlist"]
+        assert len(shortlist) == 2, f"both distinct offers must survive: {shortlist}"
+        assert shortlist[0]["score"] > shortlist[1]["score"], (
+            f"first output entry must be the higher-scoring one, not first-by-input-position: "
+            f"{[(e['canonical_key'], e['score']) for e in shortlist]}"
+        )
+        assert "high" in shortlist[0]["canonical_key"], (
+            f"the higher-scoring entry ('High') must be first in output, not by array position "
+            f"of the input: got {shortlist[0]['canonical_key']}"
+        )
+
+
 def test_same_key_different_score_keeps_higher_scoring_entry() -> None:  # CR-01 regression
     # Two cross-posted entries sharing a canonical_key but with DIFFERENT scores (different
     # salary/mode) must retain the higher-scoring representative, not the lower-scoring one.
