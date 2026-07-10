@@ -1037,7 +1037,14 @@ def test_vacancies_and_batch_rollup_render() -> None:
             f"(zero counts are never omitted): {vac_text!r}"
         )
     assert empty["row_count"] == 0, f"empty offers must render zero table rows: {empty['row_count']}"
-    assert "No frozen offers" in empty_text, f"the empty vacancies panel must show 'No frozen offers': {empty_text!r}"
+    # VIEW-29: the empty-state caption is removed entirely (not reworded) — assert its absence.
+    assert "No frozen offers" not in empty_text, (
+        f"the empty vacancies panel must NOT show the removed 'No frozen offers' caption: {empty_text!r}"
+    )
+    assert "Freeze an offer with the scout/freeze step." not in empty_text, (
+        "the empty vacancies panel must NOT show the removed "
+        f"'Freeze an offer with the scout/freeze step.' caption: {empty_text!r}"
+    )
     assert "No batches" in empty_text, f"the empty vacancies panel must show 'No batches': {empty_text!r}"
 
 
