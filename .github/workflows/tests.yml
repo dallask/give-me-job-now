@@ -28,10 +28,13 @@ jobs:
         run: |
           set -euo pipefail
           pip install pytest pytest-xdist
-          # Aggregate every scripts/*/requirements.txt — the suite spans multiple
-          # independently-versioned subsystems (cv, dashboard, contracts,
-          # preferences, publish, runtime), each with its own requirements file.
-          for req in scripts/*/requirements.txt; do
+          # Aggregate every scripts/*/requirements.txt AND every root-level
+          # scripts/requirements-*.txt — the suite spans multiple independently-versioned
+          # subsystems (cv, dashboard, contracts, preferences, publish, runtime), each with
+          # its own requirements file, plus root-level scripts/gmj_*.py tools (e.g. the
+          # cleanup wizard) that pin their deps in a root-level scripts/requirements-*.txt
+          # instead of a subdirectory.
+          for req in scripts/*/requirements.txt scripts/requirements-*.txt; do
             echo "Installing $req"
             pip install -r "$req"
           done
