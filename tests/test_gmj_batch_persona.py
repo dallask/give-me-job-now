@@ -131,6 +131,24 @@ def test_frontmatter_grants_ask_user_question() -> None:
     )
 
 
+def test_status_subcommand_named() -> None:
+    t = _persona_text()
+    assert "gmj_batch.py status" in t, (
+        "persona must name the gmj_batch.py status subcommand as the Result-summary source"
+    )
+
+
+def test_completeness_backstop_mandatory() -> None:
+    t = _persona_text()
+    assert (
+        "the hub MUST loop back to step 4 (the existing bounded greedy-refill dispatch)" in t
+    ), (
+        "persona must state the mandatory-backstop sentinel: non-empty resume output forces "
+        "a loop back to step 4, never a direct dispatch of resume's list (T-01-04/T-01-05)"
+    )
+    assert "## Result" in t, "persona must have a ## Result heading (previously absent)"
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
