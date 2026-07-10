@@ -82,7 +82,7 @@ SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9._-]+$")
 # Directory names pruned from the reference-rewrite tree walk: framework (.git/gsd-core),
 # planning docs, stale bytecode, ephemeral runtime runs (.pipeline) and logs, and vendored deps.
 # gsd-* files/dirs are pruned separately by prefix.
-EXCLUDE_DIRS = {".git", ".planning", "gsd-core", "__pycache__", ".pipeline", "node_modules", "logs"}
+EXCLUDE_DIRS = {".git", ".planning", "gsd-core", "__pycache__", ".pipeline", "node_modules", "logs", ".venv", ".next", "out"}
 
 # The rebrand tooling itself carries old names by design (the manifest map, this engine, and the
 # rebrand-acceptance tests) — never rewrite or scan them, or the engine would corrupt its own map.
