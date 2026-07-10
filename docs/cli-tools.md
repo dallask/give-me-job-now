@@ -13,21 +13,21 @@ EXPERIMENTAL exception, `gmj_sdk_runner.py`, is called out below). The upper lay
 hit, or whether an artifact is deliverable; it shells out to these scripts via `Bash` and obeys
 their exit codes. Every safety decision in the pipeline is one of the scripts below.
 
-> **Count discipline.** This catalog enumerates the **disk set of 40** (`scripts/**/gmj_*.py`),
+> **Count discipline.** This catalog enumerates the **disk set of 41** (`scripts/**/gmj_*.py`),
 > not the `config/ownership-manifest.yaml` rename map (which lists the 23 scripts that were
-> renamed during the rebrand — including `check_claims` → `gmj_check_claims.py`). Seventeen
+> renamed during the rebrand — including `check_claims` → `gmj_check_claims.py`). Eighteen
 > scripts — `gmj_build_payload.py`, `gmj_rebrand.py`, `gmj_remove_gsd.py`, `gmj_cleanup_report.py`,
-> `gmj_batch.py`, `gmj_runs.py`, `gmj_merge_shortlists.py`, `gmj_dashboard.py`,
-> `gmj_dashboard_model.py`, `gmj_dashboard_actions.py`, `gmj_dashboard_features.py`,
-> `gmj_template_lint.py`, `gmj_visual_diff.py`, `gmj_pipeline_paths.py`, `gmj_dispatch_cap.py`,
-> `gmj_pipeline_run.py`, `gmj_sdk_runner.py` — were authored natively `gmj_`-prefixed and are not
-> part of that rename map (23 renamed + 17 native = 40).
+> `gmj_cleanup_wizard.py`, `gmj_batch.py`, `gmj_runs.py`, `gmj_merge_shortlists.py`,
+> `gmj_dashboard.py`, `gmj_dashboard_model.py`, `gmj_dashboard_actions.py`,
+> `gmj_dashboard_features.py`, `gmj_template_lint.py`, `gmj_visual_diff.py`,
+> `gmj_pipeline_paths.py`, `gmj_dispatch_cap.py`, `gmj_pipeline_run.py`, `gmj_sdk_runner.py` — were
+> authored natively `gmj_`-prefixed and are not part of that rename map (23 renamed + 18 native = 41).
 
 See [flows.md](flows.md) for the end-to-end sequences these scripts drive,
 [references.md](references.md) for the JSON envelope schemas they read and emit, and
 [commands.md](commands.md) for the slash commands that shell out to them.
 
-The **36 runtime tools** below are grouped by directory; the **4 build/packaging tools** live in a
+The **36 runtime tools** below are grouped by directory; the **5 build/packaging tools** live in a
 separate [Packaging & maintenance](#packaging--maintenance) section at the end because they are
 one-off maintenance utilities, not steps a user runs during a pipeline.
 
@@ -139,17 +139,18 @@ Feeds human UAT results back into the planning docs.
 
 ## Packaging & maintenance
 
-> **Not runtime steps.** These four tools build and maintain the standalone distribution and
+> **Not runtime steps.** These five tools build and maintain the standalone distribution and
 > repo hygiene. A user running the offer→artifacts pipeline never invokes them; they are
 > enumerated here only so the catalog covers the full on-disk `scripts/**/gmj_*.py` set (and so
 > the doc-test resolves them).
 
-### `scripts/` root (4)
+### `scripts/` root (5)
 
 | Script | Purpose |
 |--------|---------|
 | `gmj_build_payload.py` | Build the standalone `gmj-core/` install payload (PACKAGE-01). |
 | `gmj_cleanup_report.py` | Read-only, report-ONLY unused-file/folder proposal reporter — no deletion/rename/move code path exists in this file (CLEANUP-01, CLEANUP-02). |
+| `gmj_cleanup_wizard.py` | Interactive `questionary`-based CLI that lets the operator select and delete generated-content categories under `output/*` + `.pipeline/runs/`, gated behind a single un-skippable confirm prompt with no bypass flag (OPS-01). |
 | `gmj_rebrand.py` | Manifest-gated dry-run/apply rename+rewrite engine for the gmj rebrand (REBRAND-01/02/03). |
 | `gmj_remove_gsd.py` | Dry-run / report-only GSD-framework-trace reporter (PACKAGE-03 + PACKAGE-04). |
 
