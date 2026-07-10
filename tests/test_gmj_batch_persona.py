@@ -100,6 +100,37 @@ def test_frontmatter_grants_task_and_bash() -> None:
     assert "Bash(*)" in t, "frontmatter allowed-tools must grant Bash(*) (drives the control plane)"
 
 
+def test_displays_ranked_fields_before_selection() -> None:
+    t = _persona_text()
+    for sentinel in ("title", "company", "salary", "mode", "score"):
+        assert sentinel in t, (
+            f"persona must name {sentinel!r} as a per-entry display field before selection (SELECT-05)"
+        )
+
+
+def test_narrowing_uses_ask_user_question() -> None:
+    t = _persona_text()
+    assert "AskUserQuestion" in t, "persona must present narrowing via AskUserQuestion (SELECT-06)"
+    assert "top-3" in t, "persona must document the 'top-3' narrowing option (SELECT-06)"
+    assert "top-5" in t, "persona must document the 'top-5' narrowing option (SELECT-06)"
+    assert "custom" in t, "persona must document a 'custom indices' narrowing option (SELECT-06)"
+
+
+def test_autonomous_bypasses_ask_user_question_with_top3() -> None:
+    t = _persona_text()
+    assert "autonomous" in t, "persona must document the autonomous-mode bypass (SELECT-06)"
+    assert "--select top3" in t, (
+        "persona must document the autonomous bypass calling 'gmj_batch.py init --select top3' directly"
+    )
+
+
+def test_frontmatter_grants_ask_user_question() -> None:
+    t = _persona_text()
+    assert "AskUserQuestion(*)" in t, (
+        "frontmatter allowed-tools must grant AskUserQuestion(*) (bounded human narrowing prompt)"
+    )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
