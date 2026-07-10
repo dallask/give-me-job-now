@@ -687,6 +687,59 @@ def _cmd_resume(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_status(args: argparse.Namespace) -> int:
+    """Print the full per-(offer, artifact_type) status table, including delivered runs.
+
+    Complementary to _cmd_resume (D-06): resume enumerates ONLY non-delivered runs (the
+    completeness gate); status prints ALL runs' real status — including delivered — for the
+    final per-offer delivery summary. Reuses the exact label-AND-gate delivered predicate
+    _cmd_resume uses (never re-derives it, T-01-02) so the two subcommands can never disagree
+    about what counts as delivered.
+    """
+    pipeline_dir = Path(args.pipeline_dir).expanduser().resolve()
+    runs_dir = pipeline_dir / "runs"
+    if _safe_id(args.batch, "batch_id") is None:  # T-01-01, mandatory even for a read-only op
+        return 1
+    manifest, _manifest_path, _batches_dir = _load_manifest(pipeline_dir, args.batch)
+    if manifest is None:
+        return 1
+
+    out_lines: list[str] = []
+    for offer in manifest.get("offers", []):
+        offer_index = offer.get("offer_index")
+        canonical_key = offer.get("canonical_key", "")
+        parts: list[str] = []
+        for artifact_type, run in (offer.get("runs") or {}).items():
+            if not isinstance(run, dict):
+                continue
+            run_id = run.get("run_id")
+            if _safe_id(str(run_id), "run_id") is None:  # T-01-01, inside the per-run loop too
+                return 1
+            label = run.get("status")
+            gate_results: dict = {}
+            state_path = runs_dir / run_id / "state.json"
+            if state_path.is_file():
+                try:
+                    state = json.loads(
+                        state_path.read_text(encoding="utf-8"), parse_constant=_reject_nan
+                    )
+                except ValueError as exc:  # JSONDecodeError subclasses ValueError; also _reject_nan
+                    print(f"Invalid state JSON at {state_path}: {exc}", file=sys.stderr)
+                    return 1
+                if isinstance(state, dict) and isinstance(state.get("gate_results"), dict):
+                    gate_results = state["gate_results"]
+            # T-01-02: reused verbatim from _cmd_resume line 677 — never a label-only re-derivation.
+            delivered = label == "delivered" and blocked_reason(gate_results) is None
+            resolved = "delivered" if delivered else (label or "unknown")
+            parts.append(f"{artifact_type}={resolved}")
+        out_lines.append(
+            f"offer_index={offer_index} canonical_key={canonical_key} " + " ".join(parts)
+        )
+
+    print("\n".join(out_lines) if out_lines else "no offers in batch")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Deterministic per-offer batch control-plane CLI (SELECT-01/02/03/04)."
@@ -756,6 +809,18 @@ def main() -> int:
         help="Writable pipeline root (default .pipeline); resolved as the containment anchor.",
     )
     p_resume.set_defaults(func=_cmd_resume)
+
+    p_status = sub.add_parser(
+        "status",
+        help="Print the full per-(offer, artifact_type) status table (delivered runs included).",
+    )
+    p_status.add_argument("--batch", required=True, help="batch_id whose manifest to report.")
+    p_status.add_argument(
+        "--pipeline-dir",
+        default=resolve_pipeline_dir(),
+        help="Writable pipeline root (default .pipeline); resolved as the containment anchor.",
+    )
+    p_status.set_defaults(func=_cmd_status)
 
     p_spec = sub.add_parser(
         "record-spec",
