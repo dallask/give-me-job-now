@@ -92,3 +92,10 @@ releases:
       - Ops automation: cron/launchd-schedulable wrapper with a fail-closed fcntl.flock overlap guard
       - Post-generation QA reviewer: advisory PyMuPDF render-quality check for missing-section/clipped-content/empty-overlapping defects
       - Claude Evals feasibility investigation closed NO-GO/NOT-NOW against this repo's hand-rolled eval harnesses
+  - tag: v9.0.0
+    anchor_message: "feat(02-01): add 4-step walkthrough section to how-to page"
+    date: "2026-07-11"
+    title: "v9.0.0 — Quick Start & How-To Docs"
+    notes: |
+      Quick-start and how-to documentation for the public site (2 phases, 2 plans):
+      - Sequential 4-step "Install -> Configure -> Run -> Review" walkthrough inserted into /how-to, reusing 100% existing SCSS classes and linking out to README.md Quickstart and /docs#runbook
