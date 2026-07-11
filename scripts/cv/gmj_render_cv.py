@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render candidate YAML to PDF: defaults to templates/cv/baxter.html via Jinja2 + WeasyPrint, falling back to the built-in ReportLab layout (--no-template, WeasyPrint/Jinja2 unavailable, or default template missing)."""
+"""Render candidate YAML to PDF: defaults to the config-resolved template (config/preferences.yaml's cv: block, falling back to templates/cv/baxter.html when unconfigured), via Jinja2 + WeasyPrint, falling back to the built-in ReportLab layout (--no-template, WeasyPrint/Jinja2 unavailable, or default template missing)."""
 
 from __future__ import annotations
 
@@ -22,6 +22,10 @@ from xml.sax.saxutils import escape
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "artifacts"))
 from gmj_schema_fields import CONTACT, WEBSITE_GROUPS  # noqa: E402  (both must be USED, not just imported)
 from gmj_format_fields import contact_lines  # noqa: E402  (single-owner shared formatter, PIPE-02)
+
+# Sibling-module import (scripts/cv/ itself) for the config-driven template resolver (TMPL-01/02).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from gmj_cv_template_config import resolve_template, DOCUMENTED_DEFAULT_TEMPLATE  # noqa: E402
 
 LANGS = ("en", "ua", "ru")
 DEFAULT_LANG = "en"
@@ -483,6 +487,15 @@ def main() -> int:
         help="Force built-in ReportLab layout (overriding the default baxter.html template)",
     )
     parser.add_argument(
+        "--state",
+        type=Path,
+        default=None,
+        help=(
+            "Optional path to this offer's state.json for per-offer template rotation "
+            "keying (random/all mode, D-05). Absent = unkeyed per-invocation pick."
+        ),
+    )
+    parser.add_argument(
         "--lang",
         default=None,
         choices=list(LANGS),
@@ -521,7 +534,14 @@ def main() -> int:
     elif explicit_template:
         tpl = args.template.expanduser().resolve()
     else:
-        tpl = (repo_root / "templates" / "cv" / "baxter.html").resolve()
+        resolved_name = resolve_template(
+            explicit_template=None,
+            no_template=False,
+            prefs_path=repo_root / "config" / "preferences.yaml",
+            state_path=args.state.expanduser().resolve() if args.state else None,
+            templates_dir=repo_root / "templates" / "cv",
+        )
+        tpl = (repo_root / "templates" / "cv" / resolved_name).resolve()
     use_html = tpl is not None
 
     if use_html:
