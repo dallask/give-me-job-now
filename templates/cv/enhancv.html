@@ -493,7 +493,7 @@
       <div class="tech-grid">
         {% for block in candidate.expertise %}
         <div class="tech-block">
-          <p class="tech-group-label">{{ block.resume_title }}</p>
+          {% if block.resume_title %}<p class="tech-group-label">{{ block.resume_title }}</p>{% endif %}
           <p class="tech-skills">{{ block.skills | join(' · ') }}</p>
         </div>
         {% endfor %}
@@ -563,7 +563,7 @@
       {% if candidate.languages %}
       <h2 class="sec-side">{{ labels.languages | default('Languages') }}</h2>
       {% for row in candidate.languages %}
-      <p class="lang-item">{{ row.language }} — {{ row.proficiency }}</p>
+      <p class="lang-item">{{ row.language }}{% if row.proficiency %} — {{ row.proficiency }}{% endif %}</p>
       {% endfor %}
       {% endif %}
 

@@ -513,7 +513,7 @@
       <h2 class="section-title-main">{{ labels.languages | default('Languages') }}</h2>
       <ul>
         {% for row in candidate.languages %}
-        <li>{{ row.language }} — {{ row.proficiency }}</li>
+        <li>{{ row.language }}{% if row.proficiency %} — {{ row.proficiency }}{% endif %}</li>
         {% endfor %}
       </ul>
       {% endif %}
@@ -552,7 +552,7 @@
       <h2 class="section-title-side">{{ labels.expertise | default('Skills') }}</h2>
       {% for block in candidate.expertise %}
       <div class="skill-group">
-        <p class="skill-group-label">{{ block.resume_title }}</p>
+        {% if block.resume_title %}<p class="skill-group-label">{{ block.resume_title }}</p>{% endif %}
         {% for s in block.skills %}
         <p class="skill-line">{{ s }}</p>
         {% endfor %}
