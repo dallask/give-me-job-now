@@ -515,12 +515,12 @@
         <hr class="side-divider" />
 
         <!-- LANGUAGES -->
-        {% if candidate.languages %}
+        {% if candidate.languages | languages_rows %}
         <div class="side-heading">
           <span class="dot-icon"></span>
           <span class="label">{{ labels.languages | default('Languages') }}</span>
         </div>
-        {% for lang in candidate.languages %}
+        {% for lang in candidate.languages | languages_rows %}
         <div class="lang-item">
           <span class="lang-name">{{ lang.language | e }}</span>
           {% if lang.proficiency %}&nbsp;—&nbsp;{{ lang.proficiency | e }}{% endif %}

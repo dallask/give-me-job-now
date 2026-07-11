@@ -745,7 +745,7 @@
     {% endif %}
 
     <!-- Languages -->
-    {% if candidate.languages %}
+    {% if candidate.languages | languages_rows %}
     <div class="section">
       <div class="section-title">
         <span class="ib">
@@ -754,7 +754,7 @@
         {{ labels.languages }}
       </div>
       <div class="lang-grid">
-        {% for l in candidate.languages %}
+        {% for l in candidate.languages | languages_rows %}
         {% set _prof = l.proficiency | lower %}
         {% if _prof in ['native', 'native / bilingual', 'bilingual', 'fluent', 'c2',
                         'рідна', 'рідна / двомовна', 'двомовна', 'вільне володіння'] %}

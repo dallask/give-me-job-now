@@ -51,10 +51,10 @@
   <p>{{ candidate.skills | join(', ') }}</p>
   {% endif %}
 
-  {% if candidate.languages %}
+  {% if candidate.languages | languages_rows %}
   <h2>{{ labels.languages | default('Languages') }}</h2>
   <ul>
-    {% for row in candidate.languages %}
+    {% for row in candidate.languages | languages_rows %}
     {% if row.language or row.proficiency %}
     <li>{{ row.language or '' }}{% if row.language and row.proficiency %} — {% endif %}{{ row.proficiency or '' }}</li>
     {% endif %}

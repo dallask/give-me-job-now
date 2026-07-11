@@ -560,9 +560,9 @@
       {% endif %}
 
       <!-- LANGUAGES -->
-      {% if candidate.languages %}
+      {% if candidate.languages | languages_rows %}
       <h2 class="sec-side">{{ labels.languages | default('Languages') }}</h2>
-      {% for row in candidate.languages %}
+      {% for row in candidate.languages | languages_rows %}
       <p class="lang-item">{{ row.language }}{% if row.proficiency %} — {{ row.proficiency }}{% endif %}</p>
       {% endfor %}
       {% endif %}
