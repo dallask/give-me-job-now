@@ -87,7 +87,10 @@ applicants.
    `WebSearch`, still scoped to your one assigned board and respecting the same `limits.*` caps.)
 2. Field each matching vacancy into a **fielded, unscored** shortlist entry naming the EXACT
    keys `scripts/offers/gmj_merge_shortlists.py` reads — see `schemas/samples/shortlist.sample.json`
-   for the concrete worked example of this shape:
+   for the concrete worked example of this shape. **The per-board file's top-level key MUST always
+   be `shortlist` — never `entries` or any other name.** `gmj_merge_shortlists.py` now tolerates
+   `entries` as a legacy fallback alias, but that alias is a safety net against accidental drift,
+   NOT a second valid canonical key — you must continue emitting `shortlist` every time.
    - `board` — the source board URL string (the assigned `sources.yaml` site).
    - `trace.source_url` — the posting's canonical URL, nested under `trace` (NOT a top-level
      `source_url` — the merge script's `_entry_source_url()` falls back to a top-level
