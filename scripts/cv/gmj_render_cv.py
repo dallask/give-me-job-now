@@ -304,9 +304,10 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
         for block in tech:
             if not isinstance(block, dict):
                 continue
-            rt = block.get("resume_title") or "Skills"
+            rt = block.get("resume_title")
             skills = block.get("skills") or []
-            story.append(Paragraph(f"<b>{escape(str(rt))}</b>", body_style))
+            if rt:
+                story.append(Paragraph(f"<b>{escape(str(rt))}</b>", body_style))
             if isinstance(skills, list):
                 story.append(Paragraph(", ".join(str(s) for s in skills).replace("&", "&amp;"), body_style))
             story.append(Spacer(1, 4))
@@ -334,9 +335,10 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
         for job in exp:
             if not isinstance(job, dict):
                 continue
-            header_text = f"{job.get('position','')} — {job.get('company','')}"
+            header_text = " — ".join(x for x in (job.get("position"), job.get("company")) if x)
             meta = " | ".join(x for x in (job.get("location"), job.get("duration")) if x)
-            story.append(Paragraph(f"<b>{header_text}</b>".replace("&", "&amp;"), body_style))
+            if header_text:
+                story.append(Paragraph(f"<b>{header_text}</b>".replace("&", "&amp;"), body_style))
             if meta:
                 story.append(Paragraph(meta.replace("&", "&amp;"), subtitle_style))
             # role_progression is a schema-declared experience field (EXPERIENCE_FIELDS)
