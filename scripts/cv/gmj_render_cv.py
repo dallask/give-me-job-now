@@ -21,7 +21,7 @@ from xml.sax.saxutils import escape
 # Same import idiom as scripts/cv/gmj_draft_to_cv_yaml.py (scripts/artifacts on sys.path).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "artifacts"))
 from gmj_schema_fields import CONTACT, WEBSITE_GROUPS  # noqa: E402  (both must be USED, not just imported)
-from gmj_format_fields import contact_lines  # noqa: E402  (single-owner shared formatter, PIPE-02)
+from gmj_format_fields import contact_lines, languages_rows  # noqa: E402  (single-owner shared formatter, PIPE-02)
 
 # Sibling-module import (scripts/cv/ itself) for the config-driven template resolver (TMPL-01/02).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -317,17 +317,16 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
         story.append(Paragraph(f"<b>{escape(lbl('core_skills', 'Core skills'))}</b>", h2_style))
         story.append(Paragraph(", ".join(str(s) for s in skills_flat).replace("&", "&amp;"), body_style))
 
-    langs = candidate.get("languages") or []
+    langs = languages_rows(candidate.get("languages"))
     if langs:
         story.append(Paragraph(f"<b>{escape(lbl('languages', 'Languages'))}</b>", h2_style))
         for row in langs:
-            if isinstance(row, dict):
-                story.append(
-                    Paragraph(
-                        f"• {row.get('language','')}: {row.get('proficiency','')}".replace("&", "&amp;"),
-                        body_style,
-                    )
+            story.append(
+                Paragraph(
+                    f"• {row.get('language','')}: {row.get('proficiency','')}".replace("&", "&amp;"),
+                    body_style,
                 )
+            )
 
     exp = candidate.get("professional_experience") or []
     if exp:
@@ -435,6 +434,7 @@ def render_weasyprint_html(
         autoescape=select_autoescape(["html", "xml"]),
     )
     env.filters["contact_lines"] = contact_lines
+    env.filters["languages_rows"] = languages_rows
     tpl = env.get_template(template_path.name)
     br = repo_root.resolve()
     base_uri = br.as_uri()
