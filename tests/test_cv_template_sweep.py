@@ -255,6 +255,95 @@ def test_no_lone_dash_line_in_experience_or_languages_with_malformed_data() -> N
     assert not offenders, "lone dash glyph line found:\n" + "\n".join(offenders)
 
 
+def test_no_language_row_explosion_with_malformed_data() -> None:
+    """Closes 03-VERIFICATION.md's gaps[1] / 03-REVIEW.md's WR-03: locks the TMPL-04
+    languages-row-explosion defect (03-VERIFICATION.md's gaps[0] / CR-01) with a real
+    regression assertion, not just a "no visible garbage" check.
+
+    ``MALFORMED_FIXTURE``'s ``languages`` field is a single 74-character bare prose
+    string (see tests/fixtures/cv.malformed.sample.yaml). Before 03-06-PLAN.md's
+    ``languages_rows()`` shape-guard + 03-07-PLAN.md's 8 template call-site fixes, every
+    template's ``{% for row in candidate.languages %}`` iterated that string
+    character-by-character, exploding into 74 empty language-row elements per template
+    (confirmed via this task's manual RED-step run against a scratch-reverted guard,
+    documented in this plan's SUMMARY.md). Post-fix, ``languages_rows()`` returns ``[]``
+    for a non-list input, so the row count must be 0 (comfortably under the bound below).
+
+    Row-count signal is read from each template's rendered ``.html`` sibling (a
+    markup-structure property), not from extracted PDF text, per each template's actual
+    per-row CSS class marker (RESEARCH.md/PATTERNS.md document these differ per file —
+    no single universal marker string exists across all 9 templates):
+
+      * ``class="lang-entry"`` — mark-smith-navy.html, emerald.html
+      * ``class="lang-item"`` — baxter.html, enhancv.html
+      * plain ``<li>`` (whole-file count; each of these templates' Languages section is
+        the file's ONLY ``<li>``-emitting loop over ``candidate.languages``, and the
+        outer ``{% if candidate.languages | languages_rows %}`` guard removes the entire
+        ``<ul>...</ul>`` block — including its heading — when the guarded list is empty,
+        so a small bound is safe without narrowing to a specific block) —
+        enhancv-left.html, enhancv-inspired.html, gmj-baseline.html, default.html
+
+    A generous bound of <= 5 is used (0 is the correct post-fix value; 5 comfortably
+    allows a few legitimate rows while failing hard on anything proportional to the
+    74-character malformed input — RESEARCH.md confirms 74 rows is the actual pre-fix
+    explosion count for the class-marker-based templates, and 76 total <li> elements for
+    the <ul>-based templates in the RED-step confirmation, both far above this bound).
+    """
+    assert len(TEMPLATES) == 9, f"expected 9 templates, found {len(TEMPLATES)}"
+    row_marker_by_template = {
+        "mark-smith-navy.html": 'class="lang-entry"',
+        "emerald.html": 'class="lang-entry"',
+        "baxter.html": 'class="lang-item"',
+        "enhancv.html": 'class="lang-item"',
+        "enhancv-left.html": "<li",
+        "enhancv-inspired.html": "<li",
+        "gmj-baseline.html": "<li",
+        "default.html": "<li",
+    }
+    max_rows = 5
+    offenders: list[str] = []
+    checked_any = False
+    for template in TEMPLATES:
+        marker = row_marker_by_template.get(template.name)
+        if marker is None:
+            continue  # anthony.html — no languages section, correctly out of scope
+        checked_any = True
+        out = Path(tempfile.mkdtemp()) / f"{template.stem}.pdf"
+        result = _run("--config", str(MALFORMED_FIXTURE), "--template", str(template), "--out", str(out))
+        if result.returncode != 0:
+            offenders.append(f"{template.name}: render exited {result.returncode}: {result.stderr}")
+            continue
+        html_out = out.with_suffix(".html")
+        if not html_out.is_file():
+            offenders.append(f"{template.name}: no .html sibling produced at {html_out}")
+            continue
+        html_text = html_out.read_text(encoding="utf-8")
+        row_count = html_text.count(marker)
+        if row_count > max_rows:
+            offenders.append(
+                f"{template.name}: {row_count} language-row-shaped elements ({marker!r}) "
+                f"found (bound is <= {max_rows}) — likely a bare-string languages "
+                f"character-explosion regression"
+            )
+    assert checked_any, "no template had a known row marker — sweep found nothing to check"
+
+    # ReportLab (--no-template) path: mirrors 03-06-PLAN.md's fix — the "Languages"
+    # heading itself must be entirely absent (not merely "no rows under it"), since the
+    # heading is gated on the guarded list being non-empty.
+    out = Path(tempfile.mkdtemp()) / "reportlab.pdf"
+    result = _run("--config", str(MALFORMED_FIXTURE), "--no-template", "--out", str(out))
+    if result.returncode != 0:
+        offenders.append(f"--no-template (ReportLab): render exited {result.returncode}: {result.stderr}")
+    else:
+        text = _pdf_text(out)
+        if "Languages" in text:
+            offenders.append(
+                "--no-template (ReportLab): 'Languages' heading present despite malformed "
+                "(bare-string) languages input — heading must be gated on languages_rows()"
+            )
+    assert not offenders, "language-row-explosion regression found:\n" + "\n".join(offenders)
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
