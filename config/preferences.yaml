@@ -38,3 +38,7 @@ ranking:
 #     - Kyiv                        # subset of sources.yaml.cities
 #   languages:
 #     - ua                          # subset of sources.yaml.languages
+cv:
+  templates: [baxter.html, default.html, emerald.html, enhancv.html, enhancv-left.html, enhancv-inspired.html, anthony.html, mark-smith-navy.html, gmj-baseline.html]  # available template filenames (any templates/cv/*.html)
+  default: baxter.html  # default template filename (TMPL-02 documented default)
+  mode: default  # default | random | all
