@@ -81,9 +81,32 @@ a retry cap.
 
 ## ⚡ Quickstart
 
-New here? Start with **[docs/installation.md](docs/installation.md)** to set up the Python 3
-render environment and dependencies, then follow **[docs/RUNBOOK.md](docs/RUNBOOK.md)** for an
-end-to-end real-offer run.
+New here? This is the fast path from a fresh clone to your first run.
+
+**Requirements**
+
+- **Python 3.x** — required, for the render/dependency environment. See
+  **[docs/installation.md](docs/installation.md)**.
+- **git** — required, for cloning/updating the repo.
+- **Claude Code** (or **Cursor**, experimental) — Claude Code is the required runtime. Cursor is
+  an alternative, but it's experimental — a CONDITIONAL GO viability spike, not a fully verified
+  runtime path. See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+- **Firecrawl** — optional, opt-in via the `search_provider` key in `config/preferences.yaml`
+  (commented out by default); credentials are `.env`-only.
+
+**Install**
+
+```bash
+bash gmj-core/bin/install.sh
+```
+
+Safe to re-run (idempotent). Full detail: **[docs/installation.md](docs/installation.md)**.
+
+**First command**
+
+Run `` `/gmj-collective` `` to launch the interactive hub — the friendliest entry point for a
+new user. For a fully autonomous run instead, use `` `/gmj-pipeline-run` ``. For the full
+end-to-end real-offer walkthrough, see **[docs/RUNBOOK.md](docs/RUNBOOK.md)**.
 
 ---
 
