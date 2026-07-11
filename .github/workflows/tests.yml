@@ -46,4 +46,4 @@ jobs:
           # its own run, which would trip that check within the same suite. Disabling
           # bytecode writes keeps the tree clean without touching the check itself.
           PYTHONDONTWRITEBYTECODE: "1"
-        run: python3 -B -m pytest tests/ -q -p no:cacheprovider -n auto
+        run: python3 -B -m pytest tests/ -q -p no:cacheprovider -n auto --durations=25
