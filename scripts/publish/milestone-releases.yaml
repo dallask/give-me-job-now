@@ -62,3 +62,10 @@ releases:
       - Idempotent fresh-machine installer script
       - Claude Agent SDK runtime prototype (experimental, additive)
       - Cursor multi-provider roster generation (conditional-GO viability spike)
+  - tag: v5.0.0
+    anchor_message: "docs(40-01): flip SITE-01..04 requirements and traceability to Complete"
+    date: "2026-07-09"
+    title: "v5.0.0 — Public Site Documentation & Closeout"
+    notes: |
+      Public site documentation and traceability closeout (Phase 40):
+      - Promoted the already-shipped public marketing/docs site and its GitHub Pages publish workflow to Validated/Complete status in PROJECT.md and REQUIREMENTS.md (SITE-01..04), with zero application code touched
