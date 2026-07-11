@@ -1,0 +1,58 @@
+# Hand-authored malformed CV-YAML fixture (mirrors the tests/fixtures/cv.draft.sample.json
+# "Alex Fictional" synthetic-data convention — no real candidate PII).
+#
+# Purpose: reproduce the exact defect shapes documented in
+# .planning/workstreams/r8-1/phases/03-cv-rendering-field-population-fixes/03-RESEARCH.md
+# (TMPL-03, TMPL-04, TMPL-05) so the renderer/template fixes in 03-02/03-03/03-04-PLAN.md
+# have a fail-then-pass fixture to render against, and 03-05-PLAN.md's regression assertions
+# can consume it. This fixture is intentionally malformed — do not "fix" it to look like
+# well-formed config/candidate.yaml data; its malformed shape is the point.
+
+name: "Alex Fictional"
+title: "Sample Software Engineer"
+summary: "Synthetic profile fragment produced for malformed-data rendering tests."
+
+contact:
+  email: "alex.fictional@example.com"
+  phone: "+1 555 0100"
+  address: "Sampletown, Testland"
+
+# TMPL-03 shape: one expertise block missing `resume_title` entirely (skills present),
+# alongside one well-formed block so the fix's "no behavior change for well-formed data"
+# guarantee is exercised in the same fixture.
+expertise:
+  - skills:
+      - "Sample skill one"
+      - "Sample skill two"
+  - resume_title: "Well-Formed Block"
+    skills:
+      - "Sample skill three"
+
+# TMPL-04 shape: languages emitted as a bare prose string instead of the expected
+# list-of-{language, proficiency} dicts.
+languages: "English and Ukrainian, conversational"
+
+# TMPL-05 shape: one professional_experience entry missing BOTH position and company
+# (achievements/role_progression/company_description still present so those fields'
+# rendering can be observed independently), alongside one well-formed entry.
+professional_experience:
+  - achievements:
+      - "Sample achievement with neither position nor company present."
+    role_progression: "Sample role progression text."
+    company_description: "Sample company description text."
+    location: "Remote"
+    duration: "2020 - Present"
+  - company: "Sample Well-Formed Co"
+    position: "Sample Well-Formed Role"
+    location: "Remote"
+    duration: "2018 - 2020"
+    achievements:
+      - "Sample achievement for the well-formed entry."
+
+education:
+  - institution: "Sample University"
+    program: "BSc Sample Engineering"
+    duration: "2014 - 2018"
+
+skills:
+  - "Sample flat skill"
