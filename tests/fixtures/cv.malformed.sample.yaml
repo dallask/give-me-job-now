@@ -1,0 +1,50 @@
+# Malformed CV-YAML fixture — intentionally reproduces the TMPL-03/04/05 defect
+# shapes documented in 03-RESEARCH.md (Phase 3: CV Rendering Field-Population Fixes).
+#
+# This fixture must NOT be "fixed" to look like well-formed candidate.yaml data — its
+# malformed shape IS the point. It mirrors exactly the three empirically-confirmed
+# defects found in real production composer drafts (gmj-artifact-composer never
+# emitting resume_title / position / company claims, and sometimes emitting
+# `languages` as one pre-joined prose scalar instead of per-field claims):
+#
+#   1. TMPL-03: an `expertise` block with `skills` but NO `resume_title` key at all
+#      (key omitted entirely, not set to null/empty string).
+#   2. TMPL-04: `languages` is a bare prose string, not a list of {language,
+#      proficiency} dicts.
+#   3. TMPL-05: a `professional_experience` entry with `role_progression`,
+#      `company_description`, and `achievements` but NO `position` and NO `company`
+#      key (both omitted entirely).
+#
+# Consumed via `gmj_render_cv.py --config` (same root-mapping shape load_candidate()
+# already accepts — no `contact`/`photo` required, kept minimal).
+
+name: "Alex Fictional"
+title: "Software Engineer"
+
+summary: "Synthetic profile fragment reproducing malformed composer-draft output for regression testing."
+
+expertise:
+  # TMPL-03 defect shape: skills present, resume_title key entirely absent.
+  - skills:
+      - "Python"
+      - "PHP"
+      - "JavaScript"
+  # A second block with the same defect shape, mirroring the real drafts where
+  # every expertise block lacked resume_title (not just one).
+  - skills:
+      - "Docker"
+      - "PostgreSQL"
+
+# TMPL-04 defect shape: a bare prose string instead of a list of {language,
+# proficiency} dicts — the worst-case shape RESEARCH.md found, iterated character
+# by character by every template's `{% for row in candidate.languages %}`.
+languages: "Native/bilingual in Ukrainian and Russian, Upper-Intermediate (B2) English"
+
+professional_experience:
+  # TMPL-05 defect shape: role_progression/company_description/achievements present,
+  # position and company keys both entirely absent.
+  - role_progression: "Promoted from Junior to Senior Developer over 3 years"
+    company_description: "Mid-size product company building B2B SaaS tooling"
+    achievements:
+      - "Led migration of legacy monolith to a service-oriented architecture"
+      - "Mentored 4 junior engineers"
