@@ -99,7 +99,7 @@
     <h2>{{ labels.expertise | default('Skills') }}</h2>
     {% for group in candidate.expertise %}
       <div class="skill-group">
-        <div class="label">{{ group.resume_title }}</div>
+        {% if group.resume_title %}<div class="label">{{ group.resume_title }}</div>{% endif %}
         <div class="skill-list">{{ (group.skills or []) | join(' · ') }}</div>
       </div>
     {% endfor %}
@@ -109,7 +109,7 @@
     <h2>{{ labels.languages }}</h2>
     <ul>
       {% for l in candidate.languages %}
-        <li>{{ l.language }} — <em>{{ l.proficiency }}</em></li>
+        <li>{{ l.language }}{% if l.proficiency %} — <em>{{ l.proficiency }}</em>{% endif %}</li>
       {% endfor %}
     </ul>
     {% endif %}
@@ -135,10 +135,12 @@
     <h2>{{ labels.experience }}</h2>
     {% for job in candidate.professional_experience %}
       <div class="item">
+        {% if job.position or job.company %}
         <div class="row1">
-          <span><span class="title">{{ job.position }}</span> — {{ job.company }}</span>
+          <span><span class="title">{{ job.position }}</span>{% if job.company %} — {{ job.company }}{% endif %}</span>
           <span class="meta">{{ job.duration }}{% if job.location %} · {{ job.location }}{% endif %}</span>
         </div>
+        {% endif %}
         {% if job.company_description %}<div class="desc">{{ job.company_description }}</div>{% endif %}
         {% if job.achievements %}
         <ul>
@@ -166,10 +168,12 @@
     <h2>{{ labels.education }}</h2>
     {% for e in candidate.education %}
       <div class="item">
+        {% if e.program or e.institution %}
         <div class="row1">
-          <span><span class="title">{{ e.program }}</span> — {{ e.institution }}</span>
+          <span><span class="title">{{ e.program }}</span>{% if e.institution %} — {{ e.institution }}{% endif %}</span>
           <span class="meta">{{ e.duration }}{% if e.location %} · {{ e.location }}{% endif %}</span>
         </div>
+        {% endif %}
       </div>
     {% endfor %}
     {% endif %}
