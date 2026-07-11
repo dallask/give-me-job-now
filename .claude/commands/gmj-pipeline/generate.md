@@ -22,7 +22,7 @@ description: Run the gmj-cv-generator spoke to render each gate-passed artifact 
   ```bash
   # cv:
   python3 scripts/cv/gmj_draft_to_cv_yaml.py --file <draft.json> --out <cv.yaml>
-  python3 scripts/cv/gmj_render_cv.py --config <cv.yaml> --lang <content.language> --out output/cv/<name>.pdf
+  python3 scripts/cv/gmj_render_cv.py --config <cv.yaml> --lang <content.language> --out output/cv/<name>.pdf --state <root>/runs/<run_id>-cv/state.json
   # cover_letter:
   python3 scripts/cv/gmj_render_cover_letter.py --file <draft.json> --lang <content.language>
   # interview_prep:
@@ -31,10 +31,17 @@ description: Run the gmj-cv-generator spoke to render each gate-passed artifact 
 - **Post-render QA pass (advisory-only, `cv` type only — QA-02/QA-03)**: immediately after the
   `cv` branch above renders `output/cv/<name>.pdf`, run the deterministic structural QA check
   against that rendered PDF (this phase's scope is PDF-only per CONTEXT.md — `cover_letter`/
-  `interview_prep` are not PDF-rendered CVs and are not checked here):
+  `interview_prep` are not PDF-rendered CVs and are not checked here). Read
+  `cv_template_rotation.picked` from `<root>/runs/<run_id>-cv/state.json` (written by the
+  `--state`-threaded `gmj_render_cv.py` call above, in EVERY `cv.mode` — not only `random`/`all`)
+  — if present, pass it as `--template-name <picked>`; if the key is absent (e.g. a
+  pre-Plan-02 state.json, or `gmj_render_cv.py` was invoked without `--state`), omit the flag
+  and let `gmj_check_render_quality.py` fall back to its own `DEFAULT_TEMPLATE_NAME` default,
+  unchanged from today:
   ```bash
   python3 scripts/pipeline/gmj_check_render_quality.py --pdf output/cv/<name>.pdf \
-    --candidate-yaml <cv.yaml path used for that render> --lang <content.language>
+    --candidate-yaml <cv.yaml path used for that render> --lang <content.language> \
+    --template-name <cv_template_rotation.picked from state.json, if present>
   ```
   This check **always exits 0** and never blocks the pipeline — it is not a gate, and it never
   touches the "Delivery precondition first" block above or `gmj_check_delivery.py`'s own
