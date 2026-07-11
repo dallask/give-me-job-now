@@ -104,8 +104,8 @@ Safe to re-run (idempotent). Full detail: **[docs/installation.md](docs/installa
 
 **First command**
 
-Run `` `/gmj-collective` `` to launch the interactive hub — the friendliest entry point for a
-new user. For a fully autonomous run instead, use `` `/gmj-pipeline-run` ``. For the full
+Run `/gmj-collective` to launch the interactive hub — the friendliest entry point for a
+new user. For a fully autonomous run instead, use `/gmj-pipeline-run`. For the full
 end-to-end real-offer walkthrough, see **[docs/RUNBOOK.md](docs/RUNBOOK.md)**.
 
 ---
