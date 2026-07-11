@@ -733,7 +733,7 @@
       </div>
       {% for group in candidate.expertise %}
       <div class="skills-group">
-        <div class="skills-group-title">{{ group.resume_title }}</div>
+        {% if group.resume_title %}<div class="skills-group-title">{{ group.resume_title }}</div>{% endif %}
         <ul class="skills-list">
           {% for skill in (group.skills or []) %}
           <li>{{ skill }}</li>

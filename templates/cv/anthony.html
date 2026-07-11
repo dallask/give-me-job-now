@@ -325,12 +325,13 @@
       <div class="candidate-name">
         <span class="name-first">{{ _parts[0] }}</span>{% if _parts | length > 1 %}<span class="name-last"> {{ _parts[1] }}</span>{% endif %}
       </div>
+      {% set contact = candidate.contact or {} %}
       <div class="contact-info">
-        {% if candidate.contact.phone %}<div>{{ candidate.contact.phone }}</div>{% endif %}
-        {% if candidate.contact.email %}<div>{{ candidate.contact.email[0] }}</div>{% endif %}
-        {% if candidate.contact.website and candidate.contact.website.personal %}<div>{{ candidate.contact.website.personal[0] }}</div>{% endif %}
-        {% if candidate.contact.website and candidate.contact.website.media and candidate.contact.website.media.linkedin %}<div>{{ candidate.contact.website.media.linkedin }}</div>{% endif %}
-        {% if candidate.contact.messengers %}{% for label, handle in candidate.contact.messengers.items() %}<div>{{ label | capitalize }}: {{ handle }}</div>{% endfor %}{% endif %}
+        {% if contact.phone %}<div>{{ contact.phone }}</div>{% endif %}
+        {% if contact.email %}<div>{{ contact.email[0] }}</div>{% endif %}
+        {% if contact.website and contact.website.personal %}<div>{{ contact.website.personal[0] }}</div>{% endif %}
+        {% if contact.website and contact.website.media and contact.website.media.linkedin %}<div>{{ contact.website.media.linkedin }}</div>{% endif %}
+        {% if contact.messengers %}{% for label, handle in contact.messengers.items() %}<div>{{ label | capitalize }}: {{ handle }}</div>{% endfor %}{% endif %}
       </div>
     </div>
   </div>
@@ -352,7 +353,7 @@
       <div class="section-heading">{{ labels.expertise | default('Skills') }}</div>
       {% for block in candidate.expertise %}
       <div class="skills-group">
-        <div class="skills-group-title">{{ block.resume_title }}</div>
+        {% if block.resume_title %}<div class="skills-group-title">{{ block.resume_title }}</div>{% endif %}
         <ul class="skills-list">
           {% for skill in block.skills %}
             <li>{{ skill }}</li>

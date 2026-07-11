@@ -634,7 +634,7 @@
         </div>
         {% for block in candidate.expertise %}
         <div class="tech-group">
-          <div class="tech-title" style="text-transform: none;">{{ block.resume_title | e }}</div>
+          {% if block.resume_title %}<div class="tech-title" style="text-transform: none;">{{ block.resume_title | e }}</div>{% endif %}
           <div class="tech-skills">{{ block.skills | join(', ') }}</div>
         </div>
         {% endfor %}
