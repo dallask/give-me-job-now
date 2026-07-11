@@ -45,11 +45,13 @@ import sys
 import tempfile
 from pathlib import Path
 
+import yaml
 from pypdf import PdfReader
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "cv" / "gmj_render_cv.py"
 CONFIG = REPO_ROOT / "config" / "candidate.yaml"
+MALFORMED_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "cv.malformed.sample.yaml"
 TEMPLATES_DIR = REPO_ROOT / "templates" / "cv"
 TEMPLATES = sorted(TEMPLATES_DIR.glob("*.html"))
 
@@ -149,6 +151,108 @@ def test_education_languages_certifications_present_where_template_supports_them
                 offenders.append(f"{template.name}: {label!r} section label missing from extracted PDF text")
     assert checked_any, "no template declared a certifications block — sweep found nothing to check"
     assert not offenders, "section presence check failed:\n" + "\n".join(offenders)
+
+
+def test_no_repeated_skills_literal_across_all_9_templates_and_reportlab() -> None:
+    """D-06 #1 (TMPL-03): the literal 'Skills' fallback must never fire, across all 9
+    templates plus the ReportLab (--no-template) path, when fed a draft whose expertise
+    blocks entirely lack a resume_title key (the confirmed real-world defect shape)."""
+    assert len(TEMPLATES) == 9, f"expected 9 templates, found {len(TEMPLATES)}"
+    offenders: list[str] = []
+    for template in TEMPLATES:
+        out = Path(tempfile.mkdtemp()) / f"{template.stem}.pdf"
+        result = _run("--config", str(MALFORMED_FIXTURE), "--template", str(template), "--out", str(out))
+        if result.returncode != 0:
+            offenders.append(f"{template.name}: render exited {result.returncode}: {result.stderr}")
+            continue
+        text = _pdf_text(out)
+        if "Skills" in text:
+            offenders.append(f"{template.name}: literal 'Skills' fallback leaked into rendered text")
+    out = Path(tempfile.mkdtemp()) / "reportlab.pdf"
+    result = _run("--config", str(MALFORMED_FIXTURE), "--no-template", "--out", str(out))
+    if result.returncode != 0:
+        offenders.append(f"--no-template (ReportLab): render exited {result.returncode}: {result.stderr}")
+    else:
+        text = _pdf_text(out)
+        if "Skills" in text:
+            offenders.append("--no-template (ReportLab): literal 'Skills' fallback leaked into rendered text")
+    assert not offenders, "literal 'Skills' fallback found:\n" + "\n".join(offenders)
+
+
+def test_languages_section_shows_real_values_when_data_present() -> None:
+    """D-06 #2 (TMPL-04): when candidate.yaml has well-formed languages data, every
+    actual language value must appear in the rendered output — proving Languages shows
+    REAL values, not just "no visible garbage". Matching is case-insensitive since some
+    templates render section content in uppercase via CSS text-transform (pypdf extracts
+    the literal drawn glyph shapes, not the DOM source casing — same quirk documented in
+    test_education_languages_certifications_present_where_template_supports_them).
+    Templates whose own HTML source has no `languages` binding at all (e.g. anthony.html,
+    confirmed via 03-RESEARCH.md) are out of scope for this check, detected at test time."""
+    raw = yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
+    languages = raw.get("languages") or []
+    assert languages, "config/candidate.yaml has no languages data — nothing to verify"
+    expected_values = [entry["language"] for entry in languages if isinstance(entry, dict) and entry.get("language")]
+    assert expected_values, "config/candidate.yaml's languages entries have no 'language' values to check"
+    expected_lower = [v.lower() for v in expected_values]
+
+    assert len(TEMPLATES) == 9, f"expected 9 templates, found {len(TEMPLATES)}"
+    offenders: list[str] = []
+    checked_any = False
+    for template in TEMPLATES:
+        html_src = template.read_text(encoding="utf-8")
+        if "languages" not in html_src:
+            continue  # this template declares no languages binding at all — not in scope
+        checked_any = True
+        out = Path(tempfile.mkdtemp()) / f"{template.stem}.pdf"
+        result = _run("--config", str(CONFIG), "--template", str(template), "--out", str(out))
+        if result.returncode != 0:
+            offenders.append(f"{template.name}: render exited {result.returncode}: {result.stderr}")
+            continue
+        text_lower = _pdf_text(out).lower()
+        for value, value_lower in zip(expected_values, expected_lower):
+            if value_lower not in text_lower:
+                offenders.append(f"{template.name}: language value {value!r} missing from rendered text")
+    assert checked_any, "no template declared a languages binding — sweep found nothing to check"
+    out = Path(tempfile.mkdtemp()) / "reportlab.pdf"
+    result = _run("--config", str(CONFIG), "--no-template", "--out", str(out))
+    if result.returncode != 0:
+        offenders.append(f"--no-template (ReportLab): render exited {result.returncode}: {result.stderr}")
+    else:
+        text_lower = _pdf_text(out).lower()
+        for value, value_lower in zip(expected_values, expected_lower):
+            if value_lower not in text_lower:
+                offenders.append(f"--no-template (ReportLab): language value {value!r} missing from rendered text")
+    assert not offenders, "Languages section missing real values:\n" + "\n".join(offenders)
+
+
+def test_no_lone_dash_line_in_experience_or_languages_with_malformed_data() -> None:
+    """D-06 #3 (TMPL-05, plus TMPL-04's char-by-char/prose defect shape): no rendered
+    line may consist of nothing but a lone dash glyph, across all 9 templates plus the
+    ReportLab (--no-template) path, when fed the malformed fixture (missing
+    position/company, and languages emitted as a bare prose string)."""
+    assert len(TEMPLATES) == 9, f"expected 9 templates, found {len(TEMPLATES)}"
+    lone_dash_glyphs = {"-", "—"}  # "-" and "—"
+    offenders: list[str] = []
+    for template in TEMPLATES:
+        out = Path(tempfile.mkdtemp()) / f"{template.stem}.pdf"
+        result = _run("--config", str(MALFORMED_FIXTURE), "--template", str(template), "--out", str(out))
+        if result.returncode != 0:
+            offenders.append(f"{template.name}: render exited {result.returncode}: {result.stderr}")
+            continue
+        text = _pdf_text(out)
+        for line in text.splitlines():
+            if line.strip() in lone_dash_glyphs:
+                offenders.append(f"{template.name}: lone dash glyph line found: {line!r}")
+    out = Path(tempfile.mkdtemp()) / "reportlab.pdf"
+    result = _run("--config", str(MALFORMED_FIXTURE), "--no-template", "--out", str(out))
+    if result.returncode != 0:
+        offenders.append(f"--no-template (ReportLab): render exited {result.returncode}: {result.stderr}")
+    else:
+        text = _pdf_text(out)
+        for line in text.splitlines():
+            if line.strip() in lone_dash_glyphs:
+                offenders.append(f"--no-template (ReportLab): lone dash glyph line found: {line!r}")
+    assert not offenders, "lone dash glyph line found:\n" + "\n".join(offenders)
 
 
 def main() -> int:
