@@ -10,6 +10,13 @@
 # entire history via git-filter-repo, older milestone tags can point at commits whose
 # .github/workflows/*.yml content differs from what the automatic token has already
 # been allowed to push, which trips that protection on `git push --force origin <tag>`.
+#
+# IMPORTANT: raw `git push`/`git tag` calls (used directly inside
+# gmj_bootstrap_releases.py, not through `gh`) authenticate via the git credential
+# helper that actions/checkout@v4 configures at job start from ITS OWN `token:` input —
+# NOT from a later step's GH_TOKEN env var. Both must be set to PUBLIC_REPO_PAT: the
+# checkout `token:` input (for raw `git push`) AND each step's GH_TOKEN env var (for
+# `gh` CLI calls like `gh release delete`/`gh release create`).
 name: Release
 
 on:
@@ -27,6 +34,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.PUBLIC_REPO_PAT }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
