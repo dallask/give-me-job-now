@@ -562,7 +562,7 @@
         <div class="section-header on-navy">{{ labels.experience | default('Experience') }}</div>
         {% for exp in candidate.professional_experience %}
         <div class="exp-entry">
-          <div class="exp-company">{{ exp.company | e }} <span class="exp-pos">— {{ exp.position | e }}</span></div>
+          <div class="exp-company">{% if exp.company %}{{ exp.company | e }}{% endif %}{% if exp.position %} <span class="exp-pos">— {{ exp.position | e }}</span>{% endif %}</div>
           {% if exp.duration %}<div class="exp-role">{{ exp.duration | e }}</div>{% endif %}
           {% if exp.achievements %}
           <div class="exp-desc">{{ exp.achievements[0] | truncate(165, True, '…') }}</div>
