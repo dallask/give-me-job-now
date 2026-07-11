@@ -118,6 +118,23 @@ orchestrates, it never re-judges a gate.
    renders:
    `Bash: python3 scripts/pipeline/gmj_batch.py mark --batch <batch_id> --run-id <per_type_run_id> --status delivered`.
 
+6. **Completeness backstop.** The hub is structurally forbidden from declaring the batch done
+   or printing the final per-offer summary (step 7 / `## Result` below) until this step passes.
+   Immediately after step 5's dispatch loop appears to have exhausted every offer's 3 runs, run
+   `Bash: python3 scripts/pipeline/gmj_batch.py resume --batch <batch_id>` before the hub is
+   allowed to declare the batch done. Any output other than `nothing to resume` means the batch
+   is NOT done — the hub MUST loop back to step 4 (the existing bounded greedy-refill dispatch)
+   and keep dispatching, never dispatch the run_ids `resume` lists directly: `resume`'s output
+   is NOT cap-aware, and dispatching it directly would bypass `gmj_dispatch_cap.py` and ignore
+   `max_parallel_offers`. Only when `resume` prints `nothing to resume` may the hub proceed to
+   step 7.
+
+7. **Status summary.** Once step 6's `resume` call confirms `nothing to resume`, run
+   `Bash: python3 scripts/pipeline/gmj_batch.py status --batch <batch_id>` — its stdout is the
+   authoritative source of the final per-offer summary. The hub renders that table as
+   human-readable prose in the `## Result` section below; it never re-derives or edits the
+   underlying per-offer/per-artifact-type verdicts itself.
+
 ## Per-(offer, artifact_type) gate isolation — never batched
 
 **Load-bearing invariant:** there is exactly **one `state.json` per `run_id`**, and Gate A
@@ -160,6 +177,15 @@ skipped).
   concurrently in flight at once — `gmj_dispatch_cap.py` reads this frozen value.
 - **`--resume <batch_id>`** — resume an existing batch (explicit); auto-detect the latest
   batch under `.pipeline/batches/` when the id is omitted.
+
+## Result
+
+Summarize outcomes using the `gmj_batch.py status` subcommand's per-offer table (step 7) —
+enumerated once per offer, per artifact type, e.g. `cv: delivered, cover_letter: delivered,
+interview_prep: pending — Gate B retry 1/2` rendered per offer instead of per single run. List
+**absolute paths** of delivered artifacts from spoke envelopes, and state next actions. The hub
+never re-derives or edits the per-offer/per-artifact-type verdicts itself — they come from
+`status`'s stdout alone (step 7), never hub-authored prose.
 
 ## CLI-only invocation
 
