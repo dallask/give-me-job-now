@@ -328,20 +328,38 @@ def _entries_from_doc(doc: object, origin: str) -> list[dict]:
 
     Accepts BOTH the wrapped ``{..., "shortlist": [<entry>, ...]}`` document that the real
     gmj-offer-scout per-board worker emits (and that shortlist.sample.json is) AND a bare JSON list
-    of entry objects. Any other top-level type is an error. Every dict entry is passed through
-    ``_normalize_entry()`` (fills schema-declared gaps with safe defaults, never drops) here --
-    BEFORE entries reach ``merge()`` -- so ``merge()``'s ``canonical_key``/``score`` computation
-    always operates on a normalized entry, with ``origin`` available for the unusable-entry
-    warning (PIPE-03/04).
+    of entry objects. A dict top level may ALSO use the exact hard-coded alias key ``entries``
+    instead of ``shortlist`` (D-05) -- this is the ONLY recognized alias, never a generic
+    "any single key" tolerance. A dict with neither ``shortlist`` nor ``entries`` fails loud
+    (``ValueError``, never a silent empty list) naming the offending file (``origin``) and the
+    actual top-level keys found, so a drifted/malformed per-board worker output can never
+    silently resolve to "0 offers" (GUIDE-02). Any other top-level type is likewise an error.
+    Every dict entry is passed through ``_normalize_entry()`` (fills schema-declared gaps with
+    safe defaults, never drops) here -- BEFORE entries reach ``merge()`` -- so ``merge()``'s
+    ``canonical_key``/``score`` computation always operates on a normalized entry, with
+    ``origin`` available for the unusable-entry warning (PIPE-03/04). This top-level-key
+    detection is a DIFFERENT contract than ``_normalize_entry()``'s per-field gap-fill: an
+    unrecognized top-level shape fails loud here, it is never gap-filled.
     """
     if isinstance(doc, list):
         entries = doc
     elif isinstance(doc, dict):
-        entries = doc.get("shortlist", [])
+        if "shortlist" in doc:
+            entries = doc["shortlist"]
+        elif "entries" in doc:
+            entries = doc["entries"]
+        else:
+            found_keys = sorted(doc.keys())
+            raise ValueError(
+                f"{origin}: top-level object has neither a 'shortlist' nor an 'entries' key "
+                f"(found keys: {found_keys})"
+            )
     else:
-        raise ValueError(f"{origin}: top-level JSON must be a list or an object with 'shortlist'")
+        raise ValueError(
+            f"{origin}: top-level JSON must be a list or an object with 'shortlist' or 'entries'"
+        )
     if not isinstance(entries, list):
-        raise ValueError(f"{origin}: 'shortlist' must be a JSON array")
+        raise ValueError(f"{origin}: 'shortlist'/'entries' must be a JSON array")
     return [_normalize_entry(e, origin) for e in entries if isinstance(e, dict)]
 
 

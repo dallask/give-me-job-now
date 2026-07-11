@@ -562,7 +562,7 @@
         <div class="section-header on-navy">{{ labels.experience | default('Experience') }}</div>
         {% for exp in candidate.professional_experience %}
         <div class="exp-entry">
-          <div class="exp-company">{{ exp.company | e }} <span class="exp-pos">— {{ exp.position | e }}</span></div>
+          <div class="exp-company">{% if exp.company %}{{ exp.company | e }}{% endif %}{% if exp.position %} <span class="exp-pos">— {{ exp.position | e }}</span>{% endif %}</div>
           {% if exp.duration %}<div class="exp-role">{{ exp.duration | e }}</div>{% endif %}
           {% if exp.achievements %}
           <div class="exp-desc">{{ exp.achievements[0] | truncate(165, True, '…') }}</div>
@@ -722,7 +722,7 @@
       {% endif %}
 
       <!-- LANGUAGE BARS -->
-      {% if candidate.languages %}
+      {% if candidate.languages | languages_rows %}
       <div class="lang-section">
         <div class="section-header on-white">{{ labels.language | default('Language') }}</div>
         {%- set prof_map = {
@@ -736,7 +736,7 @@
           'elementary': 35,
           'beginner': 20
         } -%}
-        {% for lang in candidate.languages %}
+        {% for lang in candidate.languages | languages_rows %}
         {%- set key = lang.proficiency | default('') | lower -%}
         {%- set pct = prof_map[key] | default(65) -%}
         <div class="lang-entry">

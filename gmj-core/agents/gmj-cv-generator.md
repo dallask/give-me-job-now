@@ -33,6 +33,7 @@ color: teal
 ## Template choice (ask before rendering)
 
 - If the orchestrator prompt **already** specifies the mode (`--no-template` or an explicit `--template templates/cv/<file>.html`), verify that HTML path exists when applicable, then proceed to **Commands**.
+- **Config default (D-07):** When the orchestrator prompt does NOT specify `--no-template`/`--template` and the user has not been asked yet, `gmj_render_cv.py` itself resolves a template from `config/preferences.yaml`'s `cv:` block (`cv.default`/`cv.mode`) before falling back to `baxter.html` — this happens automatically inside the script; the agent does not need to read `preferences.yaml` itself or pass an extra flag for this case. The agent's own 'ask the user' step below, and any orchestrator-supplied `--template`/`--no-template` flag, are explicit caller intent and ALWAYS short-circuit this config-driven default (same precedence tier as an explicit `--template` flag).
 - Otherwise **ask the user** which CV template to use: **built-in ReportLab** (`--no-template`) or **HTML** under `templates/cv/` (name the `.html` file, e.g. `default.html`, `enhancv-inspired.html`).
 - **Validate HTML paths**: only accept real template files at `templates/cv/*.html` (use `Read`/`Glob`/`LS` to confirm they exist). Reject any `--template` argument containing `..` or an absolute path — the slug must resolve to a real file directly under `templates/cv/`.
 - **By-name slug render (TEMPLATE-06)**: **any** stored template under `templates/cv/` is renderable by name via `--template templates/cv/<slug>.html` with **no per-template wiring** — this includes newly generated branded templates produced this phase (e.g. `gmj-baseline.html` and any slug the `gmj-template-creator` spoke writes). A freshly generated slug is a first-class render option the moment its `.html` file exists; nothing in `gmj_render_cv.py` or this agent needs to be changed to render it.
@@ -197,7 +198,23 @@ is invisible to the operator unless the dispatching agent explicitly surfaces it
 - Do **not** hand-author PDF binaries or document bodies; always render through the Python
   scripts — `gmj_render_cv.py` (CV), `gmj_render_cover_letter.py` (cover letter), and
   `gmj_render_interview_prep.py` (interview prep). This covers both legacy and draft mode.
-- End with an `agent_result_v1` JSON block as your **final output** — unless you emitted `ORCHESTRATOR_HANDOFF`, in which case use `"status": "handoff"` and set `handoff_target` (see below).
+- See "Final Output — MANDATORY" below before sending your final message.
+
+## Final Output — MANDATORY
+
+Every message you send that ends your turn — success, failure, retry, or handoff — MUST
+end with a fenced ```agent_result_v1``` JSON block. This is enforced by a hard-halt hook;
+omitting it blocks the entire pipeline run for every other agent waiting on you.
+
+Before sending your final message, self-check:
+1. Does this message end my turn (no further tool calls planned)?
+2. If yes: does my message contain a fenced ```agent_result_v1``` block as the LAST thing
+   I write?
+3. If the block is missing, add it now — do not send the message without it.
+
+Schema: `.claude/skills/gmj-agent-output-contract/SKILL.md`. Exception: if you emitted
+`ORCHESTRATOR_HANDOFF` (the prototype-image branch above), use `"status": "handoff"` and set
+`handoff_target` instead of a normal envelope — see "Output contract" below for the exact shape.
 
 ## Output contract
 

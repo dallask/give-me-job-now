@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render candidate YAML to PDF: defaults to templates/cv/baxter.html via Jinja2 + WeasyPrint, falling back to the built-in ReportLab layout (--no-template, WeasyPrint/Jinja2 unavailable, or default template missing)."""
+"""Render candidate YAML to PDF: defaults to the config-resolved template (config/preferences.yaml's cv: block, falling back to templates/cv/baxter.html when unconfigured), via Jinja2 + WeasyPrint, falling back to the built-in ReportLab layout (--no-template, WeasyPrint/Jinja2 unavailable, or default template missing)."""
 
 from __future__ import annotations
 
@@ -21,7 +21,11 @@ from xml.sax.saxutils import escape
 # Same import idiom as scripts/cv/gmj_draft_to_cv_yaml.py (scripts/artifacts on sys.path).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "artifacts"))
 from gmj_schema_fields import CONTACT, WEBSITE_GROUPS  # noqa: E402  (both must be USED, not just imported)
-from gmj_format_fields import contact_lines  # noqa: E402  (single-owner shared formatter, PIPE-02)
+from gmj_format_fields import contact_lines, languages_rows  # noqa: E402  (single-owner shared formatter, PIPE-02)
+
+# Sibling-module import (scripts/cv/ itself) for the config-driven template resolver (TMPL-01/02).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from gmj_cv_template_config import resolve_template, DOCUMENTED_DEFAULT_TEMPLATE  # noqa: E402
 
 LANGS = ("en", "ua", "ru")
 DEFAULT_LANG = "en"
@@ -300,9 +304,10 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
         for block in tech:
             if not isinstance(block, dict):
                 continue
-            rt = block.get("resume_title") or "Skills"
+            rt = block.get("resume_title")
             skills = block.get("skills") or []
-            story.append(Paragraph(f"<b>{escape(str(rt))}</b>", body_style))
+            if rt:
+                story.append(Paragraph(f"<b>{escape(str(rt))}</b>", body_style))
             if isinstance(skills, list):
                 story.append(Paragraph(", ".join(str(s) for s in skills).replace("&", "&amp;"), body_style))
             story.append(Spacer(1, 4))
@@ -312,17 +317,16 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
         story.append(Paragraph(f"<b>{escape(lbl('core_skills', 'Core skills'))}</b>", h2_style))
         story.append(Paragraph(", ".join(str(s) for s in skills_flat).replace("&", "&amp;"), body_style))
 
-    langs = candidate.get("languages") or []
+    langs = languages_rows(candidate.get("languages"))
     if langs:
         story.append(Paragraph(f"<b>{escape(lbl('languages', 'Languages'))}</b>", h2_style))
         for row in langs:
-            if isinstance(row, dict):
-                story.append(
-                    Paragraph(
-                        f"• {row.get('language','')}: {row.get('proficiency','')}".replace("&", "&amp;"),
-                        body_style,
-                    )
+            story.append(
+                Paragraph(
+                    f"• {row.get('language','')}: {row.get('proficiency','')}".replace("&", "&amp;"),
+                    body_style,
                 )
+            )
 
     exp = candidate.get("professional_experience") or []
     if exp:
@@ -330,9 +334,10 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
         for job in exp:
             if not isinstance(job, dict):
                 continue
-            header_text = f"{job.get('position','')} — {job.get('company','')}"
+            header_text = " — ".join(x for x in (job.get("position"), job.get("company")) if x)
             meta = " | ".join(x for x in (job.get("location"), job.get("duration")) if x)
-            story.append(Paragraph(f"<b>{header_text}</b>".replace("&", "&amp;"), body_style))
+            if header_text:
+                story.append(Paragraph(f"<b>{header_text}</b>".replace("&", "&amp;"), body_style))
             if meta:
                 story.append(Paragraph(meta.replace("&", "&amp;"), subtitle_style))
             # role_progression is a schema-declared experience field (EXPERIENCE_FIELDS)
@@ -429,6 +434,7 @@ def render_weasyprint_html(
         autoescape=select_autoescape(["html", "xml"]),
     )
     env.filters["contact_lines"] = contact_lines
+    env.filters["languages_rows"] = languages_rows
     tpl = env.get_template(template_path.name)
     br = repo_root.resolve()
     base_uri = br.as_uri()
@@ -483,6 +489,15 @@ def main() -> int:
         help="Force built-in ReportLab layout (overriding the default baxter.html template)",
     )
     parser.add_argument(
+        "--state",
+        type=Path,
+        default=None,
+        help=(
+            "Optional path to this offer's state.json for per-offer template rotation "
+            "keying (random/all mode, D-05). Absent = unkeyed per-invocation pick."
+        ),
+    )
+    parser.add_argument(
         "--lang",
         default=None,
         choices=list(LANGS),
@@ -521,7 +536,14 @@ def main() -> int:
     elif explicit_template:
         tpl = args.template.expanduser().resolve()
     else:
-        tpl = (repo_root / "templates" / "cv" / "baxter.html").resolve()
+        resolved_name = resolve_template(
+            explicit_template=None,
+            no_template=False,
+            prefs_path=repo_root / "config" / "preferences.yaml",
+            state_path=args.state.expanduser().resolve() if args.state else None,
+            templates_dir=repo_root / "templates" / "cv",
+        )
+        tpl = (repo_root / "templates" / "cv" / resolved_name).resolve()
     use_html = tpl is not None
 
     if use_html:

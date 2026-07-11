@@ -41,7 +41,7 @@
   {% if candidate.expertise %}
   <h2>{{ labels.technical_expertise | default('Technical expertise') }}</h2>
   {% for block in candidate.expertise %}
-    <p><strong>{{ block.resume_title }}</strong></p>
+    {% if block.resume_title %}<p><strong>{{ block.resume_title }}</strong></p>{% endif %}
     <p class="skills">{{ block.skills | join(', ') }}</p>
   {% endfor %}
   {% endif %}
@@ -51,11 +51,13 @@
   <p>{{ candidate.skills | join(', ') }}</p>
   {% endif %}
 
-  {% if candidate.languages %}
+  {% if candidate.languages | languages_rows %}
   <h2>{{ labels.languages | default('Languages') }}</h2>
   <ul>
-    {% for row in candidate.languages %}
-    <li>{{ row.language }} — {{ row.proficiency }}</li>
+    {% for row in candidate.languages | languages_rows %}
+    {% if row.language or row.proficiency %}
+    <li>{{ row.language or '' }}{% if row.language and row.proficiency %} — {% endif %}{{ row.proficiency or '' }}</li>
+    {% endif %}
     {% endfor %}
   </ul>
   {% endif %}
@@ -63,7 +65,9 @@
   {% if candidate.professional_experience %}
   <h2>{{ labels.experience | default('Experience') }}</h2>
   {% for job in candidate.professional_experience %}
-    <p><strong>{{ job.position }} — {{ job.company }}</strong></p>
+    {% if job.position or job.company %}
+    <p><strong>{{ job.position or '' }}{% if job.position and job.company %} — {% endif %}{{ job.company or '' }}</strong></p>
+    {% endif %}
     <p class="muted">{{ job.location or '' }} {% if job.duration %}| {{ job.duration }}{% endif %}</p>
     {% if job.company_description %}<p>{{ job.company_description }}</p>{% endif %}
     {% if job.achievements %}
@@ -78,7 +82,9 @@
   <h2>{{ labels.education | default('Education') }}</h2>
   <ul>
     {% for row in candidate.education %}
-    <li>{{ row.program }} — {{ row.institution }} ({{ row.duration }})</li>
+    {% if row.program or row.institution or row.duration %}
+    <li>{{ row.program or '' }}{% if row.program and row.institution %} — {% endif %}{{ row.institution or '' }}{% if row.duration %} ({{ row.duration }}){% endif %}</li>
+    {% endif %}
     {% endfor %}
   </ul>
   {% endif %}

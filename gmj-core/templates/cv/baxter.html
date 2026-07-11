@@ -515,12 +515,12 @@
         <hr class="side-divider" />
 
         <!-- LANGUAGES -->
-        {% if candidate.languages %}
+        {% if candidate.languages | languages_rows %}
         <div class="side-heading">
           <span class="dot-icon"></span>
           <span class="label">{{ labels.languages | default('Languages') }}</span>
         </div>
-        {% for lang in candidate.languages %}
+        {% for lang in candidate.languages | languages_rows %}
         <div class="lang-item">
           <span class="lang-name">{{ lang.language | e }}</span>
           {% if lang.proficiency %}&nbsp;—&nbsp;{{ lang.proficiency | e }}{% endif %}
@@ -634,7 +634,7 @@
         </div>
         {% for block in candidate.expertise %}
         <div class="tech-group">
-          <div class="tech-title" style="text-transform: none;">{{ block.resume_title | e }}</div>
+          {% if block.resume_title %}<div class="tech-title" style="text-transform: none;">{{ block.resume_title | e }}</div>{% endif %}
           <div class="tech-skills">{{ block.skills | join(', ') }}</div>
         </div>
         {% endfor %}
