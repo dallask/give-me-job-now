@@ -620,6 +620,65 @@ def test_dual_shape_loader() -> None:  # WR-04 dual-shape board loader
         )
 
 
+def test_entries_key_alias_merges() -> None:  # D-05/D-07 direction 1: 'entries' alias merges
+    # A per-board file whose top level is {"entries": [...]} (no "shortlist" key) must merge
+    # successfully via the CLI (exit 0), and the entry must survive into the written shortlist --
+    # proving the original silent-drop-to-empty-list bug no longer reproduces.
+    entries = [
+        _entry("SoftPeak", "Lead PHP Engineer", "https://www.work.ua/",
+               "https://www.work.ua/j/1", salary=4000, mode="remote"),
+    ]
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        board = cwd / "entries_alias.json"
+        board.write_text(
+            json.dumps({"kind": "offer_shortlist", "schema_version": "1.0", "entries": entries}),
+            encoding="utf-8",
+        )
+        src = _write_yaml(cwd / "sources.yaml", _SOURCES)
+        pref = _write_yaml(cwd / "preferences.yaml", _PREFS)
+        result = _cli(
+            ["--board-file", str(board), "--sources", str(src),
+             "--preferences", str(pref), "--out", ".pipeline/entries_alias.json"],
+            cwd=cwd,
+        )
+        assert result.returncode == 0, f"'entries'-keyed board must load (exit 0): {result.stderr}"
+        shortlist = json.loads((cwd / ".pipeline/entries_alias.json").read_text())["shortlist"]
+        assert len(shortlist) == 1, f"'entries'-keyed entry must survive to output: {shortlist}"
+
+
+def test_unrecognized_top_level_key_fails_loud() -> None:  # D-05/D-07 direction 2: fail loud
+    # A per-board file whose top level is a dict with neither "shortlist" nor "entries" must
+    # fail loud (exit 1) via the CLI, naming both the existing "Invalid board input" prefix
+    # (from main()'s except block) AND the two recognized keys -- never silently resolve to 0.
+    with tempfile.TemporaryDirectory() as tmp:
+        cwd = Path(tmp)
+        board = cwd / "unrecognized_key.json"
+        board.write_text(
+            json.dumps({"kind": "offer_shortlist", "schema_version": "1.0", "offers": []}),
+            encoding="utf-8",
+        )
+        src = _write_yaml(cwd / "sources.yaml", _SOURCES)
+        pref = _write_yaml(cwd / "preferences.yaml", _PREFS)
+        result = _cli(
+            ["--board-file", str(board), "--sources", str(src),
+             "--preferences", str(pref), "--out", ".pipeline/unrecognized_key.json"],
+            cwd=cwd,
+        )
+        assert result.returncode == 1, (
+            f"a dict with neither 'shortlist' nor 'entries' must be an error (exit 1): {result.stdout}"
+        )
+        assert "Invalid board input" in result.stderr, (
+            f"stderr must carry main()'s existing 'Invalid board input' prefix: {result.stderr}"
+        )
+        assert "'shortlist'" in result.stderr and "'entries'" in result.stderr, (
+            f"stderr must name the two recognized keys: {result.stderr}"
+        )
+        assert not (cwd / ".pipeline/unrecognized_key.json").exists(), (
+            "no shortlist must be written when the top-level key is unrecognized"
+        )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
