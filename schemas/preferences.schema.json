@@ -51,6 +51,22 @@
         }
       },
       "additionalProperties": false
+    },
+    "cv": {
+      "type": "object",
+      "description": "CV template selection config (TMPL-01/TMPL-02). Self-contained: additionalProperties:false is scoped to this object ONLY.",
+      "properties": {
+        "templates": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "default": { "type": "string" },
+        "mode": {
+          "type": "string",
+          "enum": ["default", "random", "all"]
+        }
+      },
+      "additionalProperties": false
     }
   },
   "properties": {
@@ -80,7 +96,8 @@
       "type": "string",
       "enum": ["firecrawl"],
       "description": "Opt-in web-search/scrape provider override for gmj-offer-scout. Absent (default) = WebSearch/WebFetch. 'firecrawl' routes board searches through scripts/offers/gmj_firecrawl_search.py instead. Never widens config/sources.yaml scope — the same sites/cities/languages allow-list applies regardless of provider."
-    }
+    },
+    "cv": { "$ref": "#/$defs/cv" }
   },
   "additionalProperties": false
 }
