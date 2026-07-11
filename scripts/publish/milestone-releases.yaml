@@ -69,3 +69,15 @@ releases:
     notes: |
       Public site documentation and traceability closeout (Phase 40):
       - Promoted the already-shipped public marketing/docs site and its GitHub Pages publish workflow to Validated/Complete status in PROJECT.md and REQUIREMENTS.md (SITE-01..04), with zero application code touched
+  - tag: v6.0.0
+    anchor_message: "fix(47): WR-02 soften overstated phase-completion claim in 47-09-SUMMARY.md"
+    date: "2026-07-10"
+    title: "v6.0.0 — Pipeline Hardening, Ops Tooling & Site Rebuild"
+    notes: |
+      Pipeline hardening, ops tooling, and public site rebuild (Phases 41-47):
+      - Pipeline reliability fixes: Gate A fixture-drift repair, deterministic offer-language detection, shortlist schema/liveness signal, cap-exhaustion propose_raise contract
+      - Repo hygiene restructure: sources/ narrowed to intake-only, output/ established as the single generated-content root, interactive confirm-gated cleanup wizard
+      - rules/*.md repo-root placement reaffirmed with documented rationale
+      - Optional search/scrape integration spike closed NO-GO (no board-specific capability gap found)
+      - Public site rebuilt on Next.js App Router with SCSS design tokens and MDX-authored docs, new CI build workflow and publish path
+      - Documentation refresh bringing docs/*.md and site MDX content current with everything shipped
