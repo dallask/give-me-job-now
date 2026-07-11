@@ -123,6 +123,29 @@ def test_offer_scout_documents_shortlist_as_sole_canonical_key() -> None:
     )
 
 
+def test_orchestrator_documents_hook_error_retry_protocol() -> None:
+    # GUIDE-01 gap closure (04-04-PLAN.md): locks the bounded HOOK_ERROR contract-violation
+    # retry protocol into gmj-orchestrator.md so it cannot silently regress.
+    t = _read(ORCHESTRATOR)
+    assert "HOOK_ERROR" in t, (
+        "gmj-orchestrator.md must document the HOOK_ERROR contract-violation retry trigger "
+        "(GUIDE-01, 04-04-PLAN.md gap closure)"
+    )
+    assert "gmj_check_envelope_retry.py" in t, (
+        "gmj-orchestrator.md must name gmj_check_envelope_retry.py as the deterministic "
+        "bounded-retry verdict script (GUIDE-01, 04-04-PLAN.md gap closure)"
+    )
+    assert "retry_exhausted" in t, (
+        "gmj-orchestrator.md must document the 'retry_exhausted' hard-stop branch, not just "
+        "the happy retry path (GUIDE-01, 04-04-PLAN.md gap closure)"
+    )
+    tl = t.lower()
+    assert "only you" in tl and "call `task`" in tl, (
+        "gmj-orchestrator.md must keep the single-Task-holder invariant alongside the new "
+        "HOOK_ERROR retry protocol (T-11-08, 04-04-PLAN.md gap closure)"
+    )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

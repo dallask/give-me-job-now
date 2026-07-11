@@ -62,6 +62,53 @@ passed, whether the retry cap is hit, or whether an artifact is deliverable. The
 | `gmj_check_delivery.py` | `scripts/pipeline/gmj_check_delivery.py` | Refuse delivery unless Gate A ∧ Gate B are recorded pass |
 | `gmj_check_render_quality.py` | `scripts/pipeline/gmj_check_render_quality.py` | Advisory-only structural QA pass (missing sections / clipped content / empty/overlapping regions) on a rendered `cv`-type PDF; always exits 0 and never blocks delivery — explicitly NOT a third gate (Phase 51, QA-01/QA-02/QA-03) |
 | `gmj_dispatch_cap.py` | `scripts/pipeline/gmj_dispatch_cap.py` | Given the batch manifest, each offer's run states, and the frozen `max_parallel_offers` cap, decide which run_ids are dispatchable right now — never the model |
+| `gmj_check_envelope_retry.py` | `scripts/pipeline/gmj_check_envelope_retry.py` | Bounded, per-dispatch-id `agent_result_v1` contract-violation (HOOK_ERROR) retry counter/cap — 2-way: `first_attempt` (exit 0) / `retry_exhausted` (exit 1); structurally separate from `gmj_check_cap.py`'s Gate A/B content retry cap |
+
+## Envelope contract-violation retry (HOOK_ERROR)
+
+After **every** `Task(<spoke>)` dispatch (§2.c of the [control loop](#2-loop) below), if the tool
+result surfaces `HOOK_ERROR: agent_result_v1 contract violation from subagent '<name>'` (the
+literal stderr string `gmj-collective-handoff-contract.sh` emits on its hard-halt exit 1 when a
+spoke's final message is missing/malformed its mandatory fenced ```agent_result_v1``` block —
+see `.claude/skills/gmj-agent-output-contract/SKILL.md`), this is **NOT** a silent-continue
+condition and **NOT** an immediate unbounded retry loop — it is a single bounded, scripted retry,
+following this exact protocol:
+
+1. **Detect.** A `HOOK_ERROR: agent_result_v1 contract violation ...` from the just-completed
+   `Task(<spoke>)` dispatch is the trigger. Do not improvise a response — go straight to step 2.
+2. **Consult the deterministic verdict BEFORE deciding anything** — never decide retry-vs-stop by
+   your own judgment, exactly like the Gate A/B cap check. Run:
+   ```
+   python3 scripts/pipeline/gmj_check_envelope_retry.py --state <root>/runs/<run_id>/envelope_retries.json --dispatch-id <the exact next_step/DAG-node string just dispatched>
+   ```
+   (no `--increment`) — `<root>` is the SAME resolved pipeline root from
+   [init_run](#1-init_run); `--dispatch-id` is the exact `next_step`/DAG-node string
+   `gmj_route.py` just returned for this dispatch (e.g. `gmj-artifact-composer`, or a
+   per-artifact-type variant like `gmj-artifact-composer-cv` when you need to distinguish
+   concurrent per-type dispatches of the same spoke within one run — see the script's own
+   docstring for the exact convention).
+   - **`first_attempt` (exit 0):** run the SAME script again with `--increment` to record this
+     retry, then re-dispatch the **EXACT SAME spoke** via `Task` (same `subagent_type`, same
+     `pipeline_run_id`, same input artifact paths) with ONE added corrective line quoting the
+     hook's own violation message verbatim, e.g.: "Your previous turn ended without the required
+     fenced \`\`\`agent_result_v1\`\`\` block — see
+     .claude/skills/gmj-agent-output-contract/SKILL.md and end THIS message with one before you
+     stop." Never silently drop the retry, never substitute a different spoke, never skip the
+     `--increment` call.
+   - **`retry_exhausted` (exit 1):** **HARD STOP.** Do not dispatch this spoke a third time and
+     do not advance `gmj_route.py`. Emit a hard-stop report naming the offending spoke and the
+     literal hook violation text, exactly like the existing Gate A/B cap-exhaustion hard-stop
+     report (see step **e** → Exit 1 in the [control loop](#2-loop) below) — reuse that
+     reporting shape/tone rather than inventing a new one.
+3. **Separate counters, no cross-contamination.** This retry budget is SEPARATE from and never
+   shares state with the Gate A/B content retry-cap (`gmj_check_cap.py` / `gmj_record_retry.py`)
+   — a spoke can legitimately consume both its one envelope-contract retry AND, independently,
+   its Gate A/B content retries in the same run; neither counter observes or decrements the
+   other.
+4. **Uniform across all 5 spokes.** This protocol applies identically to all 5 collective spokes
+   — `gmj-offer-scout`, `gmj-artifact-composer`, `gmj-truth-verifier`, `gmj-fit-evaluator`,
+   `gmj-cv-generator` — never a special case for one agent, matching D-03's uniform-hardening
+   precedent from `04-01-PLAN.md`.
 
 ## Control loop (per offer, per artifact type)
 
