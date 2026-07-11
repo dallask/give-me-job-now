@@ -122,6 +122,53 @@ def test_resolve_kind_rejects_unknown() -> None:
     raise AssertionError("resolve_kind should reject an unknown kind")
 
 
+def _artifact_draft_with_notes(notes_raw_fragment: str) -> str:
+    """Return a raw artifact_draft envelope JSON string with `notes` set to a raw
+    (already-JSON-quoted) fragment, so the caller controls exactly what backslash
+    sequence lands inside the string literal — reproducing the real failure class
+    from validate-envelope.log (a bare backslash inside the `notes` free-text field
+    breaking json.loads() before schema validation ever runs)."""
+    template = (SAMPLES / "artifact_draft.valid.json").read_text(encoding="utf-8")
+    envelope = json.loads(template)
+    envelope["notes"] = "placeholder"
+    raw = json.dumps(envelope)
+    # Splice the raw fragment in place of the placeholder's JSON string body,
+    # so the bare backslash is not escaped by json.dumps first.
+    return raw.replace('"placeholder"', f'"{notes_raw_fragment}"')
+
+
+def test_repair_pass_fixes_bare_backslash_in_notes() -> None:
+    # Reproduces the exact "Invalid \escape" class from validate-envelope.log: a
+    # Windows-style path fragment in `notes` with an unescaped backslash before a
+    # non-escape character (\U is not a legal JSON escape).
+    raw = _artifact_draft_with_notes(r"See output at C:\Users\report.pdf")
+    # Sanity: this raw string is genuinely invalid JSON before repair.
+    try:
+        json.loads(raw)
+        raise AssertionError("fixture must be invalid JSON before repair")
+    except json.JSONDecodeError:
+        pass
+    result = _run(["--stdin", "--kind", "artifact_draft"], stdin=raw)
+    assert result.returncode == 0, result.stderr
+
+
+def test_repair_pass_does_not_mask_unrecoverable_syntax_error() -> None:
+    # A truncated/missing closing brace is unrelated to backslash escaping and
+    # must NOT be silently swallowed by the repair pass.
+    template = (SAMPLES / "artifact_draft.valid.json").read_text(encoding="utf-8")
+    truncated = template.rstrip()[:-1]  # drop the final closing brace
+    result = _run(["--stdin", "--kind", "artifact_draft"], stdin=truncated)
+    assert result.returncode != 0
+    assert "Invalid JSON:" in result.stderr, result.stderr
+
+
+def test_repair_pass_is_noop_on_already_valid_envelopes() -> None:
+    for kind in KINDS:
+        payload = (SAMPLES / f"{kind}.valid.json").read_text(encoding="utf-8")
+        result = _run(["--stdin", "--kind", kind], stdin=payload)
+        assert result.returncode == 0, (kind, result.stderr)
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
