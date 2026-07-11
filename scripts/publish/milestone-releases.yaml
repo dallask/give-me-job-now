@@ -81,3 +81,14 @@ releases:
       - Optional search/scrape integration spike closed NO-GO (no board-specific capability gap found)
       - Public site rebuilt on Next.js App Router with SCSS design tokens and MDX-authored docs, new CI build workflow and publish path
       - Documentation refresh bringing docs/*.md and site MDX content current with everything shipped
+  - tag: v7.0.0
+    anchor_message: "docs(52): close Claude Evals feasibility spike (NO-GO/NOT-NOW)"
+    date: "2026-07-10"
+    title: "v7.0.0 — Search Expansion, Offer Selection UX & Ops Automation"
+    notes: |
+      Search expansion, offer-selection UX, and ops automation (Phases 48-52):
+      - Firecrawl search integration reversing Phase 45's NO-GO, opt-in search_provider preference with .env-only credentials and a same-commit scope-guard hook extension
+      - Ranked offer-selection UX: score-sorted shortlist, bounded top-3/top-5/all/custom narrowing prompt in human-in-the-loop mode, deterministic top-3 default in autonomous mode
+      - Ops automation: cron/launchd-schedulable wrapper with a fail-closed fcntl.flock overlap guard
+      - Post-generation QA reviewer: advisory PyMuPDF render-quality check for missing-section/clipped-content/empty-overlapping defects
+      - Claude Evals feasibility investigation closed NO-GO/NOT-NOW against this repo's hand-rolled eval harnesses
