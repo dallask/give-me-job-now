@@ -2,6 +2,14 @@
 # Runs inside give-me-job-now itself (this file ships there via the sanitize-and-mirror
 # publisher). Triggers on push to main — which is exactly what gmj_publish_mirror.sh's
 # force-push does on every publish, so no cross-repo dispatch is needed.
+#
+# Tag/release steps use secrets.PUBLIC_REPO_PAT (a repo secret configured directly on
+# give-me-job-now), not the automatic secrets.GITHUB_TOKEN: GitHub hard-blocks the
+# automatic token from ever pushing changes to .github/workflows/* content, with no
+# `permissions:` override possible. Since every mirror publish rewrites this repo's
+# entire history via git-filter-repo, older milestone tags can point at commits whose
+# .github/workflows/*.yml content differs from what the automatic token has already
+# been allowed to push, which trips that protection on `git push --force origin <tag>`.
 name: Release
 
 on:
@@ -35,7 +43,7 @@ jobs:
 
       - name: Prune orphaned tags/releases from previous mirror rewrites
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PUBLIC_REPO_PAT }}
         run: |
           set -euo pipefail
           # Every publish-mirror run force-rewrites this repo's entire history from
@@ -59,7 +67,7 @@ jobs:
 
       - name: Backfill real milestone releases (idempotent — recreated fresh every run)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PUBLIC_REPO_PAT }}
         run: python3 scripts/publish/gmj_bootstrap_releases.py
 
       # python-semantic-release 10.x CLI surface (verified against the installed
@@ -70,8 +78,8 @@ jobs:
       # the release (a no-op for this repo, which ships no Python package).
       - name: Semantic-release for any commits beyond the last milestone
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PUBLIC_REPO_PAT }}
+          GITHUB_TOKEN: ${{ secrets.PUBLIC_REPO_PAT }}
         run: |
           semantic-release version || echo "No release-worthy commits beyond the last milestone tag — nothing to do."
           semantic-release publish || true
