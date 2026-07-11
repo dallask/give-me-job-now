@@ -105,10 +105,10 @@
     {% endfor %}
     {% endif %}
 
-    {% if candidate.languages %}
+    {% if candidate.languages | languages_rows %}
     <h2>{{ labels.languages }}</h2>
     <ul>
-      {% for l in candidate.languages %}
+      {% for l in candidate.languages | languages_rows %}
         <li>{{ l.language }}{% if l.proficiency %} — <em>{{ l.proficiency }}</em>{% endif %}</li>
       {% endfor %}
     </ul>

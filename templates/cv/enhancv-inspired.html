@@ -462,10 +462,10 @@
       </ul>
       {% endif %}
 
-      {% if candidate.languages %}
+      {% if candidate.languages | languages_rows %}
       <h2 class="section-title-main">{{ labels.languages | default('Languages') }}</h2>
       <ul>
-        {% for row in candidate.languages %}
+        {% for row in candidate.languages | languages_rows %}
         <li>{{ row.language }}{% if row.proficiency %} — {{ row.proficiency }}{% endif %}</li>
         {% endfor %}
       </ul>
