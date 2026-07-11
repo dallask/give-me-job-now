@@ -29,6 +29,69 @@ KNOWN_KINDS = ("offer_spec", "artifact_draft", "gate_result")
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_SCHEMA_DIR = REPO_ROOT / "schemas"
 
+# JSON's own legal single-character escapes (RFC 8259 sec. 7) — anything else
+# following a backslash inside a JSON string literal is a syntax error.
+_LEGAL_JSON_ESCAPES = frozenset('"\\/bfnrtu')
+
+
+def _repair_common_escape_errors(raw: str) -> str:
+    """Escape bare backslashes inside JSON string literals so one common,
+    recoverable authoring mistake does not hard-fail json.loads() before schema
+    validation ever runs (04-05 gap closure; see
+    .planning/workstreams/r8-1/phases/04-contract-schema-reliability/04-05-PLAN.md
+    and the ~8 recurring `BLOCK: Invalid JSON: Invalid \\escape: line 6 column
+    174` occurrences recorded in .claude/logs/validate-envelope.log from a single
+    gmj-artifact-composer dispatch retried repeatedly).
+
+    NARROWLY SCOPED: this targets exactly one failure class — a bare `\\` inside
+    a JSON string value that is NOT followed by one of JSON's legal escape
+    characters (`"`, `\\`, `/`, `b`, `f`, `n`, `r`, `t`, `u`). It doubles that
+    bare backslash to `\\\\` so it parses as a literal backslash character,
+    mirroring the real-world cause: a free-text field (e.g. `notes`) containing
+    a Windows path, regex fragment, or LaTeX-style escape that the emitting
+    agent did not double-escape for JSON.
+
+    Every OTHER JSON syntax error class (unbalanced braces, unterminated
+    strings, trailing commas, etc.) is left completely untouched by this
+    function — those must continue to raise json.JSONDecodeError exactly as
+    before this change, via the unmodified `raw` string reaching json.loads()
+    unrepaired when this repair does not apply. Do not expand this function's
+    scope without updating this comment and the plan it cites.
+    """
+    out: list[str] = []
+    in_string = False
+    i = 0
+    n = len(raw)
+    while i < n:
+        ch = raw[i]
+        if not in_string:
+            out.append(ch)
+            if ch == '"':
+                in_string = True
+            i += 1
+            continue
+        # Inside a string literal.
+        if ch == "\\":
+            nxt = raw[i + 1] if i + 1 < n else ""
+            if nxt in _LEGAL_JSON_ESCAPES:
+                # Already a legal escape sequence — copy both chars verbatim.
+                out.append(ch)
+                out.append(nxt)
+                i += 2
+                continue
+            # Bare backslash not followed by a legal escape char — double it.
+            out.append("\\\\")
+            i += 1
+            continue
+        if ch == '"':
+            in_string = False
+            out.append(ch)
+            i += 1
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
 
 def build_registry(schema_dir: Path) -> Registry:
     """Build a Registry from every local schemas/*.schema.json, keyed on its $id.
@@ -107,9 +170,21 @@ def main() -> int:
 
     try:
         envelope = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        print(f"Invalid JSON: {exc}", file=sys.stderr)
-        return 1
+    except json.JSONDecodeError:
+        # Bare-backslash escape errors are the single most common recoverable
+        # failure class observed in practice (see _repair_common_escape_errors'
+        # docstring) — retry once against a narrowly-repaired copy before
+        # failing loud. Any other syntax error class re-raises unchanged.
+        repaired = _repair_common_escape_errors(raw)
+        try:
+            envelope = json.loads(repaired)
+        except json.JSONDecodeError as exc:
+            # Report against whichever parse attempt is closer to the true
+            # remaining problem: if the repair changed nothing, the original
+            # error is exact; if it changed something but still failed, the
+            # repaired-string error is closer to the true remaining problem.
+            print(f"Invalid JSON: {exc}", file=sys.stderr)
+            return 1
     if not isinstance(envelope, dict):
         print("Envelope must be a JSON object.", file=sys.stderr)
         return 1
