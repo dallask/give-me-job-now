@@ -82,3 +82,29 @@ def contact_lines(contact: dict) -> list[str]:
         if handle:
             lines.append(f"{str(label).capitalize()}: {handle}")
     return lines
+
+
+def languages_rows(languages: object) -> list[dict]:
+    """Guard candidate.languages by SHAPE — never iterate a non-list-of-dicts value.
+
+    ``config/candidate.yaml``'s ``languages`` field is documented as a list of
+    ``{language, proficiency}`` dicts, but real composer-emitted drafts have shown up
+    as a bare prose string (TMPL-04, ``03-VERIFICATION.md``'s failed Truth #2 /
+    ``03-REVIEW.md``'s CR-01) — a shape that, iterated naively, explodes character by
+    character into the rendered output. This is the single choke point both
+    ``render_reportlab()`` (direct Python call, mirroring how it already calls
+    :func:`contact_lines`) and every Jinja CV template (via the ``languages_rows``
+    filter, mirroring ``env.filters["contact_lines"]``) route through.
+
+    Any input that is not a ``list`` (a bare string, ``None``, or a single ``dict``)
+    returns ``[]`` — a dict is iterable but iterating it yields its keys as strings,
+    the same character/key-explosion risk as the bare-string case, so the guard is
+    ``isinstance(languages, list)`` specifically, not merely "is not str". Within an
+    otherwise-valid list, any non-dict entries are silently dropped (mirrors
+    ``render_reportlab()``'s existing ``isinstance(row, dict)`` guard for the
+    already-correct case). A well-formed ``list[dict]`` is returned unchanged — same
+    dicts, same order, same length — zero data loss for the already-correct shape.
+    """
+    if not isinstance(languages, list):
+        return []
+    return [row for row in languages if isinstance(row, dict)]
