@@ -28,6 +28,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OFFER_SCOUT = REPO_ROOT / ".claude" / "agents" / "gmj-offer-scout.md"
 ORCHESTRATOR = REPO_ROOT / ".claude" / "agents" / "gmj-orchestrator.md"
+ARTIFACT_COMPOSER = REPO_ROOT / ".claude" / "agents" / "gmj-artifact-composer.md"
+FIT_EVALUATOR = REPO_ROOT / ".claude" / "agents" / "gmj-fit-evaluator.md"
+TRUTH_VERIFIER = REPO_ROOT / ".claude" / "agents" / "gmj-truth-verifier.md"
+CV_GENERATOR = REPO_ROOT / ".claude" / "agents" / "gmj-cv-generator.md"
 
 # Recruiter needle literals — kept in the test only, never in the agent docs.
 RECRUITER_TOKEN = "candidates"
@@ -88,6 +92,34 @@ def test_hub_keeps_single_task_holder() -> None:
     )
     assert "spokes never spawn spokes" in tl or "never spawn other spokes" in tl, (
         "gmj-orchestrator.md must keep the spokes-never-spawn-spokes invariant — T-11-08"
+    )
+
+
+def test_all_collective_agents_have_final_output_mandatory_section() -> None:
+    files = [
+        (OFFER_SCOUT, "gmj-offer-scout.md"),
+        (ARTIFACT_COMPOSER, "gmj-artifact-composer.md"),
+        (FIT_EVALUATOR, "gmj-fit-evaluator.md"),
+        (TRUTH_VERIFIER, "gmj-truth-verifier.md"),
+        (CV_GENERATOR, "gmj-cv-generator.md"),
+    ]
+    for path, label in files:
+        t = _read(path)
+        assert "Final Output" in t, (
+            f"{label} must carry the hardened 'Final Output — MANDATORY' closing section "
+            "(GUIDE-01, D-01/D-02/D-03) — the uniform envelope-emission hardening"
+        )
+
+
+def test_offer_scout_documents_shortlist_as_sole_canonical_key() -> None:
+    t = _read(OFFER_SCOUT)
+    assert "safety net" in t.lower(), (
+        "gmj-offer-scout.md must document the D-06 emphasis: gmj_merge_shortlists.py's "
+        "'entries' alias is a safety net, not a second valid canonical key"
+    )
+    assert "shortlist" in t, (
+        "gmj-offer-scout.md must still document 'shortlist' as the canonical per-board "
+        "top-level key name (GUIDE-02, D-06)"
     )
 
 
