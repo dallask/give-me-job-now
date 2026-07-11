@@ -93,7 +93,10 @@ applicants.
    `WebSearch`, still scoped to your one assigned board and respecting the same `limits.*` caps.)
 2. Field each matching vacancy into a **fielded, unscored** shortlist entry naming the EXACT
    keys `scripts/offers/gmj_merge_shortlists.py` reads — see `schemas/samples/shortlist.sample.json`
-   for the concrete worked example of this shape:
+   for the concrete worked example of this shape. **The per-board file's top-level key MUST always
+   be `shortlist` — never `entries` or any other name.** `gmj_merge_shortlists.py` now tolerates
+   `entries` as a legacy fallback alias, but that alias is a safety net against accidental drift,
+   NOT a second valid canonical key — you must continue emitting `shortlist` every time.
    - `board` — the source board URL string (the assigned `sources.yaml` site).
    - `trace.source_url` — the posting's canonical URL, nested under `trace` (NOT a top-level
      `source_url` — the merge script's `_entry_source_url()` falls back to a top-level
@@ -142,4 +145,18 @@ applicants.
 - When `search_provider == firecrawl`, every Firecrawl call still counts against the same
   `sources.yaml` `limits.max_search_queries` / `limits.max_fetches` counters as `WebSearch`/
   `WebFetch` — there is no separate Firecrawl budget (RESEARCH.md Assumption A2).
-- End with an `agent_result_v1` JSON block as your **final output**.
+- See "Final Output — MANDATORY" below before sending your final message.
+
+## Final Output — MANDATORY
+
+Every message you send that ends your turn — success, failure, retry, or handoff — MUST
+end with a fenced ```agent_result_v1``` JSON block. This is enforced by a hard-halt hook;
+omitting it blocks the entire pipeline run for every other agent waiting on you.
+
+Before sending your final message, self-check:
+1. Does this message end my turn (no further tool calls planned)?
+2. If yes: does my message contain a fenced ```agent_result_v1``` block as the LAST thing
+   I write?
+3. If the block is missing, add it now — do not send the message without it.
+
+Schema: `.claude/skills/gmj-agent-output-contract/SKILL.md`.

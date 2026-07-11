@@ -204,7 +204,23 @@ is invisible to the operator unless the dispatching agent explicitly surfaces it
 - Do **not** hand-author PDF binaries or document bodies; always render through the Python
   scripts — `gmj_render_cv.py` (CV), `gmj_render_cover_letter.py` (cover letter), and
   `gmj_render_interview_prep.py` (interview prep). This covers both legacy and draft mode.
-- End with an `agent_result_v1` JSON block as your **final output** — unless you emitted `ORCHESTRATOR_HANDOFF`, in which case use `"status": "handoff"` and set `handoff_target` (see below).
+- See "Final Output — MANDATORY" below before sending your final message.
+
+## Final Output — MANDATORY
+
+Every message you send that ends your turn — success, failure, retry, or handoff — MUST
+end with a fenced ```agent_result_v1``` JSON block. This is enforced by a hard-halt hook;
+omitting it blocks the entire pipeline run for every other agent waiting on you.
+
+Before sending your final message, self-check:
+1. Does this message end my turn (no further tool calls planned)?
+2. If yes: does my message contain a fenced ```agent_result_v1``` block as the LAST thing
+   I write?
+3. If the block is missing, add it now — do not send the message without it.
+
+Schema: `.claude/skills/gmj-agent-output-contract/SKILL.md`. Exception: if you emitted
+`ORCHESTRATOR_HANDOFF` (the prototype-image branch above), use `"status": "handoff"` and set
+`handoff_target` instead of a normal envelope — see "Output contract" below for the exact shape.
 
 ## Output contract
 

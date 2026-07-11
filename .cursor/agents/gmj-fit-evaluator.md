@@ -100,4 +100,18 @@ Gate B recommendation and the advisory Gate C judgment.
 - Do **not** modify YAML in this role — recommendations only; read-only (`Read, Glob, Grep`,
   no `Write`, no `Bash` — `gmj_score_fit.py` is run by tests/hub).
 - Never re-fetch or paraphrase the offer — read the frozen offer-spec content fields only.
-- End with an `agent_result_v1` JSON block as your **final output** — schema in `.claude/skills/gmj-agent-output-contract/SKILL.md`.
+- See "Final Output — MANDATORY" below before sending your final message.
+
+## Final Output — MANDATORY
+
+Every message you send that ends your turn — success, failure, retry, or handoff — MUST
+end with a fenced ```agent_result_v1``` JSON block. This is enforced by a hard-halt hook;
+omitting it blocks the entire pipeline run for every other agent waiting on you.
+
+Before sending your final message, self-check:
+1. Does this message end my turn (no further tool calls planned)?
+2. If yes: does my message contain a fenced ```agent_result_v1``` block as the LAST thing
+   I write?
+3. If the block is missing, add it now — do not send the message without it.
+
+Schema: `.claude/skills/gmj-agent-output-contract/SKILL.md`.
