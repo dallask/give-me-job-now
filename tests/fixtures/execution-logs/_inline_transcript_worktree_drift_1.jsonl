@@ -1,0 +1,1 @@
+{"message": {"role": "assistant", "content": [{"type": "text", "text": "I diagnosed the failure by hand: the worktree base has diverged from origin because a concurrent sibling-workstream commit landed mid-dispatch, causing a non-fast-forward push rejection. Re-based and retried."}]}}

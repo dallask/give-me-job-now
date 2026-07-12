@@ -1,0 +1,1 @@
+{"message": {"role": "assistant", "content": [{"type": "text", "text": "Same worktree base drift pattern again: base has diverged, merge conflict in STATE.md caused by a parallel workstream's commit landing while this agent was mid-dispatch. Manually re-diagnosed and resolved by rebasing onto the latest integration branch tip."}]}}
