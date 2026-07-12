@@ -39,9 +39,9 @@
 
 ## 🤖 What is give-me-job
 
-**give-me-job** is a hub-and-spoke collective of specialized Claude Code agents, commands,
-skills, and Python scripts that, given a real job offer, autonomously produces a **truthful,
-offer-optimized** set of application artifacts — a CV (PDF), a cover letter, and an
+**give-me-job** is a standalone hub-and-spoke collective of specialized Claude Code agents,
+commands, skills, and Python scripts that, given a real job offer, autonomously produces a
+**truthful, offer-optimized** set of application artifacts — a CV (PDF), a cover letter, and an
 interview-prep document — for one candidate.
 
 ---
@@ -49,7 +49,7 @@ interview-prep document — for one candidate.
 ## 🎯 Core value
 
 Given a real offer, the system produces application artifacts that **provably trace back to the
-candidate's profile** (`config/candidate.yaml`) and **pass mandatory quality gates**. If
+candidate's real profile** (`config/candidate.yaml`) and **pass mandatory quality gates**. If
 everything else fails, the artifacts must never fabricate and must actually target the offer.
 Reframing and emphasis are allowed; invention is hard-blocked.
 
@@ -79,9 +79,32 @@ a retry cap.
 
 ## ⚡ Quickstart
 
-New here? Start with **[docs/installation.md](docs/installation.md)** to set up the Python 3
-render environment and dependencies, then follow **[docs/RUNBOOK.md](docs/RUNBOOK.md)** for an
-end-to-end run against the bundled sample offer + sample candidate data.
+New here? This is the fast path from a fresh clone to your first run.
+
+**Requirements**
+
+- **Python 3.x** — required, for the render/dependency environment. See
+  **[docs/installation.md](docs/installation.md)**.
+- **git** — required, for cloning/updating the repo.
+- **Claude Code** (or **Cursor**, experimental) — Claude Code is the required runtime. Cursor is
+  an alternative, but it's experimental — a CONDITIONAL GO viability spike, not a fully verified
+  runtime path. See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+- **Firecrawl** — optional, opt-in via the `search_provider` key in `config/preferences.yaml`
+  (commented out by default); credentials are `.env`-only.
+
+**Install**
+
+```bash
+bash gmj-core/bin/install.sh
+```
+
+Safe to re-run (idempotent). Full detail: **[docs/installation.md](docs/installation.md)**.
+
+**First command**
+
+Run `/gmj-collective` to launch the interactive hub — the friendliest entry point for a
+new user. For a fully autonomous run instead, use `/gmj-pipeline-run`. For the full
+end-to-end real-offer walkthrough, see **[docs/RUNBOOK.md](docs/RUNBOOK.md)**.
 
 ---
 
@@ -94,14 +117,14 @@ end-to-end run against the bundled sample offer + sample candidate data.
 | [Installation](docs/installation.md) | Set up the Python 3 render environment and install dependencies. |
 | [Configuration](docs/configuration.md) | Config and data files (`candidate.yaml`, `sources.yaml`, CV/overlay YAML) and their stable names. |
 | [Rules](docs/rules.md) | Load-bearing project invariants, read on demand by matching `scope:`. |
-| [Skills](docs/skills.md) | The project skills under `.claude/skills/`. |
+| [Skills](docs/skills.md) | The 10 project skills under `.claude/skills/`. |
 | [Agents](docs/agents.md) | The give-me-job agent roster. |
 | [Commands](docs/commands.md) | The command surface under `.claude/commands/`. |
 | [Flows](docs/flows.md) | The runtime sequences wiring commands and scripts together. |
 | [CLI tools](docs/cli-tools.md) | The deterministic Python script surface under `scripts/`. |
 | [References](docs/references.md) | Contracts, schemas, and the `agent_result_v1` envelope. |
 | [Features](docs/features.md) | Core value, guarantees, and capabilities. |
-| [Runbook](docs/RUNBOOK.md) | End-to-end walkthrough of a run. |
+| [Runbook](docs/RUNBOOK.md) | End-to-end walkthrough of a real-offer run. |
 | [Showcase](docs/SHOWCASE.md) | End-to-end narrative with a concrete walked offer→artifacts example (both gates firing). |
 | [Demo walkthrough](docs/DEMO-WALKTHROUGH.md) | Scripted live demo — exact command sequence, narration beats, and an asciinema recording plan. |
 | [Human testing plan](docs/HUMAN-TESTING-PLAN.md) | Manual verification plan for the collective. |
