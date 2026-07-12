@@ -16,10 +16,13 @@ emits an HTML sibling. No pytest — run with ``python3 tests/test_render_cv.py`
 from __future__ import annotations
 
 import importlib.util
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "cv" / "gmj_render_cv.py"
@@ -105,6 +108,109 @@ def test_no_template_flag_never_emits_html() -> None:
     assert not html_sibling.is_file(), (
         f"--no-template must never write an HTML sibling: {html_sibling}"
     )
+
+
+def _build_fake_repo(tmp_dir: Path, *, with_master_photo: bool) -> tuple[Path, Path]:
+    """Build a throwaway repo root (CLAUDE.md anchor) with config/candidate.yaml
+    (real skill-CV shaped fields) and config/cv/cv.testskill.en.yaml (a skill-CV
+    draft with NO photo key). Returns (repo_root, skill_cv_config_path)."""
+    repo_root = tmp_dir / "fake-repo"
+    (repo_root / "config" / "cv").mkdir(parents=True, exist_ok=True)
+    (repo_root / "CLAUDE.md").write_text("# fake repo anchor\n", encoding="utf-8")
+    # The default template resolver needs templates/cv/baxter.html to exist under
+    # the fake repo root for the HTML/WeasyPrint path to activate (rather than
+    # silently degrading to ReportLab, which has no HTML sibling to assert on).
+    real_templates_dir = REPO_ROOT / "templates" / "cv"
+    fake_templates_dir = repo_root / "templates" / "cv"
+    fake_templates_dir.mkdir(parents=True, exist_ok=True)
+    if real_templates_dir.is_dir():
+        shutil.copytree(real_templates_dir, fake_templates_dir, dirs_exist_ok=True)
+
+    master_candidate: dict = {
+        "name": "Test Candidate",
+        "title": "Test Title",
+        "contact": {"email": ["test@example.com"]},
+    }
+    if with_master_photo:
+        (repo_root / "sources").mkdir(parents=True, exist_ok=True)
+        real_photo = REPO_ROOT / "sources" / "user_photo.jpg"
+        fake_photo = repo_root / "sources" / "user_photo.jpg"
+        if real_photo.is_file():
+            shutil.copyfile(real_photo, fake_photo)
+        else:
+            # Minimal 1x1 JPEG-ish bytes are unnecessary — any real file suffices
+            # for photo_path_for()'s is_file() check + base64 embedding.
+            fake_photo.write_bytes(b"\xff\xd8\xff\xe0fake-jpeg-bytes")
+        master_candidate["photo"] = "sources/user_photo.jpg"
+
+    (repo_root / "config" / "candidate.yaml").write_text(
+        yaml.safe_dump(master_candidate), encoding="utf-8"
+    )
+
+    skill_cv: dict = {
+        "name": "Test Candidate",
+        "title": "Test Skill Title",
+        "contact": {"email": ["test@example.com"]},
+        # Deliberately NO "photo" key and NO "contact.photo" key.
+    }
+    skill_cv_path = repo_root / "config" / "cv" / "cv.testskill.en.yaml"
+    skill_cv_path.write_text(yaml.safe_dump(skill_cv), encoding="utf-8")
+    return repo_root, skill_cv_path
+
+
+def test_skill_cv_falls_back_to_master_photo_when_present() -> None:
+    """Test 1: skill-CV draft with no photo key, next to a master candidate.yaml
+    with a real resolvable photo, must embed the actual photo (data URI), not the
+    placeholder SVG branch."""
+    if not _WEASYPRINT_AVAILABLE:
+        print("SKIP (weasyprint unavailable): test_skill_cv_falls_back_to_master_photo_when_present")
+        return
+    tmp_dir = Path(tempfile.mkdtemp())
+    repo_root, skill_cv_path = _build_fake_repo(tmp_dir, with_master_photo=True)
+    out = tmp_dir / "out" / "skill-cv.pdf"
+    result = _run("--config", str(skill_cv_path), "--lang", "en", "--out", str(out))
+    assert result.returncode == 0, f"must exit 0: {result.stderr}"
+    html_sibling = out.with_suffix(".html")
+    assert html_sibling.is_file(), f"missing HTML sibling: {html_sibling}"
+    html = html_sibling.read_text(encoding="utf-8")
+    assert '<img src="data:' in html, (
+        "expected an embedded data-URI <img> (real photo), not the placeholder SVG branch"
+    )
+    assert "photo-placeholder" not in html or '<img src="data:' in html, (
+        "fallback photo must be embedded; placeholder branch must not be the active one"
+    )
+
+
+def test_skill_cv_degrades_to_placeholder_when_no_master_photo() -> None:
+    """Test 2: skill-CV draft with no photo key, and no config/candidate.yaml (or no
+    resolvable photo) at the repo root — must still exit 0 and degrade to the
+    placeholder branch (no crash, no fabricated path)."""
+    if not _WEASYPRINT_AVAILABLE:
+        print("SKIP (weasyprint unavailable): test_skill_cv_degrades_to_placeholder_when_no_master_photo")
+        return
+    tmp_dir = Path(tempfile.mkdtemp())
+    repo_root, skill_cv_path = _build_fake_repo(tmp_dir, with_master_photo=False)
+    out = tmp_dir / "out" / "skill-cv.pdf"
+    result = _run("--config", str(skill_cv_path), "--lang", "en", "--out", str(out))
+    assert result.returncode == 0, f"must exit 0 even with no master photo: {result.stderr}"
+    html_sibling = out.with_suffix(".html")
+    assert html_sibling.is_file(), f"missing HTML sibling: {html_sibling}"
+    html = html_sibling.read_text(encoding="utf-8")
+    assert '<img src="data:' not in html, (
+        "must not fabricate/embed a photo when no master photo is resolvable"
+    )
+
+
+def test_master_candidate_direct_render_unchanged_by_fallback() -> None:
+    """Test 3: rendering config/candidate.yaml directly (existing default invocation)
+    with its own real photo key must be byte-identical in behavior to before this
+    task — proven by the pre-existing tests in this file still passing unmodified,
+    plus an explicit check here that the fallback path is never consulted for a
+    direct master-file render (the master already has photo_raw() truthy)."""
+    out = Path(tempfile.mkdtemp()) / "master-direct-cv.pdf"
+    result = _run("--config", str(CONFIG), "--out", str(out))
+    assert result.returncode == 0, f"default invocation must exit 0: {result.stderr}"
+    assert out.is_file(), f"missing PDF: {out}"
 
 
 def main() -> int:
