@@ -80,3 +80,11 @@ web/
 .github/workflows/build-site.yml
 .github/workflows/publish-site.yml
 .github/workflows/publish-site-vercel.yml
+
+# Internal development-process docs (an internal asciinema-recording demo
+# script, an internal UAT/sign-off testing matrix, and a meta-spec for an
+# internal test-plan-generator tool) with no external audience value — kept
+# in the private repo but never shipped to the public mirror.
+docs/DEMO-WALKTHROUGH.md
+docs/HUMAN-TESTING-PLAN.md
+docs/TESTPLAN-FORMAT-SPEC.md
