@@ -212,6 +212,28 @@ Before sending your final message, self-check:
    I write?
 3. If the block is missing, add it now — do not send the message without it.
 
+Your dispatch prompt from the hub carries a `final_turn: true` preamble line — that line is
+your cue that THIS turn is the one to close with the block below, not a hint to re-derive on
+your own. A compliant closing message (success path) looks like this:
+
+```agent_result_v1
+{
+  "schema": "agent_result_v1",
+  "agent": "gmj-cv-generator",
+  "pipeline_run_id": "20260101T000000-000000",
+  "status": "success",
+  "artifacts": [
+    {"type": "file", "path": "/abs/path/output/cv/<offer-slug>.pdf"},
+    {"type": "file", "path": "/abs/path/output/cv/<offer-slug>.html"}
+  ],
+  "acceptance_criteria_met": ["crit-pdf-exists"],
+  "acceptance_criteria_failed": [],
+  "next_action": "none",
+  "handoff_target": null,
+  "notes": "Rendered via gmj_render_cv.py; HTML produced"
+}
+```
+
 Schema: `.claude/skills/gmj-agent-output-contract/SKILL.md`. Exception: if you emitted
 `ORCHESTRATOR_HANDOFF` (the prototype-image branch above), use `"status": "handoff"` and set
 `handoff_target` instead of a normal envelope — see "Output contract" below for the exact shape.

@@ -108,4 +108,23 @@ Before sending your final message, self-check:
    I write?
 3. If the block is missing, add it now — do not send the message without it.
 
+Your dispatch prompt from the hub carries a `final_turn: true` preamble line — that line is
+your cue that THIS turn is the one to close with the block below, not a hint to re-derive on
+your own. A compliant closing message looks like this:
+
+```agent_result_v1
+{
+  "schema": "agent_result_v1",
+  "agent": "gmj-fit-evaluator",
+  "pipeline_run_id": "20260101T000000-000000",
+  "status": "success",
+  "artifacts": [{"type": "file", "path": "/abs/path/runs/<run_id>/gate_b_result.json"}],
+  "acceptance_criteria_met": ["crit-must-haves-covered"],
+  "acceptance_criteria_failed": [],
+  "next_action": "none",
+  "handoff_target": null,
+  "notes": "Gate B PASS: 6/6 must-haves covered"
+}
+```
+
 Schema: `.claude/skills/gmj-agent-output-contract/SKILL.md`.
