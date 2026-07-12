@@ -221,10 +221,44 @@ copy_sample "credentials.yaml.sample"  "config/credentials.yaml"
 copy_sample "preferences.yaml.sample"  "config/preferences.yaml"
 
 step "Inject public docs (README + LICENSE)"
-[ -f "$REPO_ROOT/public-assets/README.public.md" ] || fail "Missing $REPO_ROOT/public-assets/README.public.md"
-[ -f "$REPO_ROOT/public-assets/LICENSE" ] || fail "Missing $REPO_ROOT/public-assets/LICENSE"
-cp "$REPO_ROOT/public-assets/README.public.md" "$TMPDIR_CLONE/README.md"
-cp "$REPO_ROOT/public-assets/LICENSE" "$TMPDIR_CLONE/LICENSE"
+[ -f "$REPO_ROOT/LICENSE" ] || fail "Missing $REPO_ROOT/LICENSE"
+[ -f "$REPO_ROOT/README.md" ] || fail "Missing $REPO_ROOT/README.md"
+cp "$REPO_ROOT/LICENSE" "$TMPDIR_CLONE/LICENSE"
+
+# Transform root README.md into the public mirror's README.md by applying the
+# PRIVATE-ONLY/PUBLIC-MIRROR marker convention (documented at the top of README.md
+# itself): PRIVATE-ONLY blocks (markers + everything between them) are deleted;
+# PUBLIC-MIRROR blocks are uncommented (markers deleted, inner content kept verbatim).
+python3 -c "
+import re
+import sys
+
+with open(sys.argv[1], encoding='utf-8') as f:
+    text = f.read()
+
+# Delete each PRIVATE-ONLY block: start marker line, end marker line, and
+# everything between them (non-greedy so multiple separate blocks are each
+# matched independently).
+text = re.sub(
+    r'<!-- PRIVATE-ONLY:START -->\n.*?<!-- PRIVATE-ONLY:END -->\n?',
+    '',
+    text,
+    flags=re.DOTALL,
+)
+
+# Uncomment each PUBLIC-MIRROR block: drop the two wrapper lines, keep the
+# inner content verbatim (it was inert markdown sitting inside one open HTML
+# comment).
+text = re.sub(
+    r'<!-- PUBLIC-MIRROR:START\n(.*?)\nPUBLIC-MIRROR:END -->\n?',
+    lambda m: m.group(1) + '\n',
+    text,
+    flags=re.DOTALL,
+)
+
+with open(sys.argv[2], 'w', encoding='utf-8') as f:
+    f.write(text)
+" "$REPO_ROOT/README.md" "$TMPDIR_CLONE/README.md"
 
 step "Commit the config swap + doc injection (author identity preserved, NOT rewritten)"
 git -C "$TMPDIR_CLONE" add -A
@@ -239,7 +273,8 @@ if [ "$GITLEAKS_PRESENT" -eq 1 ]; then
   GITLEAKS_CONFIG_ARGS=()
   # Read from REPO_ROOT (the private repo), not the filtered clone — .gitleaks.toml
   # is excluded from the mirror (paths-to-remove.txt) so it never ships publicly,
-  # same pattern as public-assets/'s README/LICENSE injection above.
+  # same pattern as the root README.md/LICENSE injection above (also read from
+  # REPO_ROOT, not the filtered clone).
   if [ -f "$REPO_ROOT/.gitleaks.toml" ]; then
     GITLEAKS_CONFIG_ARGS=(--config "$REPO_ROOT/.gitleaks.toml")
   fi
