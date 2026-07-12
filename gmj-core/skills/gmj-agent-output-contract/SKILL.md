@@ -41,6 +41,29 @@ Every spoke agent ends its final message with exactly one fenced `agent_result_v
 | `handoff_target` | Null unless `status: handoff`; then name the next agent |
 | `notes` | One line maximum. Include counts, key metrics, or the reason for handoff. No multiline prose. |
 
+## Escaping free-text fields (notes, reason)
+
+`notes` (and any other free-text string field in this or related envelopes, e.g. `reason` in
+`gate_feedback`) is emitted **inside a JSON string**, so it must be valid JSON, not just readable
+prose. Every literal backslash `\` in the value MUST be doubled to `\\`, and every literal
+double-quote `"` MUST be escaped to `\"`. Newlines are already disallowed by the "one line
+maximum... no multiline prose" rule above — this is a reinforcement, not a new rule.
+
+**Bad** (invalid JSON — `\U` is not a legal JSON escape, so this breaks `json.loads()` before any
+schema check can even run):
+```json
+"notes": "See output at C:\Users\report.pdf"
+```
+
+**Good** (valid JSON — each backslash doubled to a literal backslash character):
+```json
+"notes": "See output at C:\\Users\\report.pdf"
+```
+
+This is a targeted addendum to the `notes` row in the Field rules table above — it does not
+change the one-line-maximum rule, only how backslashes/quotes inside that one line must be
+escaped.
+
 ## Acceptance criteria ID protocol
 
 The orchestrator passes criteria as:
