@@ -503,6 +503,139 @@ def write_testplan(text: str, output_path: Path) -> None:
     output_path.write_text(text, encoding="utf-8")
 
 
+# --------------------------------------------------------------------------- FLOW_MANIFEST
+#
+# The 10-row flow -> command-file -> risk_tier -> requirement_id_override manifest driving
+# main()'s --all mode (Plan 02). Resolves the 3 open design questions RESEARCH.md flagged as
+# blockers (03-RESEARCH.md "Open Questions"), each recorded here as the binding decision and
+# rationale — not just in the plan file — per RESEARCH.md's own framing that this must not be
+# "silently picked without stating why".
+#
+# Decision 1 (flows 2+3, RESEARCH.md Open Question 1): TPGEN-06's success criterion 2 literally
+# requires "all 10 flows have a generated file" and no CONTEXT.md exists to confirm a narrower
+# reading interactively (RESEARCH.md's own recommendation flagged this as needing explicit
+# confirmation, which this planning session cannot obtain without a human present) — so this
+# resolves via the literal-compliant option: generate TWO output files from the single shared
+# source `.claude/commands/gmj-pipeline-run.md`, one per manifest row, each tagged at its own
+# accurate tier rather than collapsing to worst-case-only. Row A: slug="pipeline-run-hitl",
+# risk_tier="local-safe" (flow 2's true tier — the default human-in-the-loop mode, human approves
+# after each gate pass). Row B: slug="pipeline-run-autonomous", risk_tier="live-cost" (flow 3's
+# true tier — real LLM/API spend end to end, no human pause to abort). Both rows source the same
+# command_file; extract()'s own body-scan finds EXEC-07 (the "## CLI-only invocation (EXEC-07)"
+# heading) for both — accurate for both modes since EXEC-07 covers the shared CLI-invocation
+# capability itself, not a mode-specific claim, so no override is needed for either row. This
+# preserves both flows' asymmetric risk profile (Pitfall 2's own warning against flattening it
+# into one tier) and satisfies TPGEN-06's literal "all 10 flows" wording without requiring an
+# unconfirmable interpretive narrowing.
+#
+# Decision 2 (flow 5, RESEARCH.md Open Question 2): source
+# `.claude/commands/gmj-pipeline/scout.md` (the nearest real doc; RESEARCH.md's option (c)), with
+# requirement_id_override="GUIDE-04" — a real, verifiable requirement ID from
+# .planning/REQUIREMENTS.md covering exactly this flow's behavior (missing firecrawl-py
+# dependency surfaces a clear upfront hint before dispatch). Tier: live-cost (per the investigate
+# inventory, still fully scoped by config/sources.yaml's board/geo/language allow-list — a
+# transport-only switch, but live network/LLM spend nonetheless). Output file:
+# docs/test-plans/firecrawl-search.md.
+#
+# Decision 3 (flow 7, RESEARCH.md Open Question 3): hand-construct the IR dict for this one flow,
+# bypassing extract()'s frontmatter-parsing path entirely (RESEARCH.md's recommended option — no
+# second parsing code path added to extract() for a single one-off source shape). Source doc:
+# docs/RUNBOOK.md (named as source_file in the hand-built IR, even though it's not parsed by
+# extract()). requirement_id_override is NOT applicable here since no extract() call happens at
+# all — the hand-built IR's requirement_id field is set directly to "OPS-02", the real ID cited
+# verbatim in scripts/ops/gmj_cron_run.sh's own header comment (lines 4-5). Tier: live-cost
+# (drives the autonomous flow, unattended, repeatedly, per the investigate inventory's own D-14
+# reasoning). Output file: docs/test-plans/scheduled-runs.md.
+#
+# Do NOT include gmj-collective.md or any gmj-pipeline/{freeze,compose,verify,evaluate,generate}.md
+# sub-step file as its own manifest row (RESEARCH.md Pitfall 1: these are internal pipeline steps,
+# not top-level flows in the 10-flow inventory).
+FLOW_MANIFEST: list[dict] = [
+    {
+        "slug": "initial-configuration",
+        "command_file": REPO_ROOT / ".claude" / "commands" / "gmj-interview.md",
+        "risk_tier": "local-safe",
+        "requirement_id_override": None,
+    },
+    {
+        # Decision 1, Row A (flow 2 — HITL mode).
+        "slug": "pipeline-run-hitl",
+        "command_file": REPO_ROOT / ".claude" / "commands" / "gmj-pipeline-run.md",
+        "risk_tier": "local-safe",
+        "requirement_id_override": None,
+    },
+    {
+        # Decision 1, Row B (flow 3 — autonomous mode, same source file as above).
+        "slug": "pipeline-run-autonomous",
+        "command_file": REPO_ROOT / ".claude" / "commands" / "gmj-pipeline-run.md",
+        "risk_tier": "live-cost",
+        "requirement_id_override": None,
+    },
+    {
+        "slug": "multi-offer-batch",
+        "command_file": REPO_ROOT / ".claude" / "commands" / "gmj-batch.md",
+        "risk_tier": "live-cost",
+        "requirement_id_override": None,
+    },
+    {
+        # Decision 2 (flow 5 — Firecrawl): sourced from scout.md, GUIDE-04 override.
+        "slug": "firecrawl-search",
+        "command_file": REPO_ROOT / ".claude" / "commands" / "gmj-pipeline" / "scout.md",
+        "risk_tier": "live-cost",
+        "requirement_id_override": "GUIDE-04",
+    },
+    {
+        "slug": "cv-template",
+        "command_file": REPO_ROOT / ".claude" / "commands" / "gmj-template.md",
+        "risk_tier": "local-safe",
+        "requirement_id_override": None,
+    },
+    {
+        # Decision 3 (flow 7 — scheduled/unattended runs): hand-built IR, no command_file,
+        # bypasses extract() entirely; render() consumes this dict directly.
+        "slug": "scheduled-runs",
+        "command_file": None,
+        "risk_tier": "live-cost",
+        "requirement_id_override": None,
+        "hand_built_ir": {
+            "flow_name": "scheduled-runs",
+            "slug": "scheduled-runs",
+            "description": (
+                "Run the autonomous pipeline (/gmj-batch mode=autonomous) unattended on a "
+                "recurring OS-native schedule (cron or launchd) via "
+                "scripts/ops/gmj_cron_run.sh, with a non-blocking overlap guard."
+            ),
+            "flags": [],
+            "behaviors": [
+                "bash scripts/ops/gmj_cron_run.sh",
+                "launchctl load ~/Library/LaunchAgents/com.gmj.cron-run.plist",
+            ],
+            "requirement_id": "OPS-02",
+            "source_file": "docs/RUNBOOK.md",
+            "risk_tier": "live-cost",
+        },
+    },
+    {
+        "slug": "resume-flow",
+        "command_file": REPO_ROOT / ".claude" / "commands" / "gmj-runs.md",
+        "risk_tier": "read-only",
+        "requirement_id_override": None,
+    },
+    {
+        "slug": "operator-monitoring",
+        "command_file": REPO_ROOT / ".claude" / "commands" / "gmj-dashboard.md",
+        "risk_tier": "local-safe",
+        "requirement_id_override": None,
+    },
+    {
+        "slug": "cleanup-wizard",
+        "command_file": REPO_ROOT / ".claude" / "commands" / "gmj-cleanup-wizard.md",
+        "risk_tier": "destructive-if-confirmed",
+        "requirement_id_override": None,
+    },
+]
+
+
 # --------------------------------------------------------------------------- CLI
 
 def main(argv: list[str] | None = None) -> int:
