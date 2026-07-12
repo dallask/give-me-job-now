@@ -542,6 +542,115 @@ def test_main_missing_command_file_fails_closed() -> None:
         )
 
 
+# --------------------------------------------------------------------------- Phase 3 Task 2: main() --all mode
+
+def test_main_all_mode_generates_one_file_per_manifest_row() -> None:
+    """main(["--all", "--output-dir", tmp]) exits 0 and writes one .md file per FLOW_MANIFEST row."""
+    with tempfile.TemporaryDirectory() as tmp:
+        output_dir = Path(tmp) / "test-plans"
+        exit_code = g.main(["--all", "--output-dir", str(output_dir)])
+
+        assert exit_code == 0, f"main(['--all', ...]) must exit 0, got {exit_code}"
+        written = sorted(p.name for p in output_dir.glob("*.md"))
+        expected = sorted(f"{row['slug']}.md" for row in g.FLOW_MANIFEST)
+        assert written == expected, (
+            f"main(['--all', ...]) must write exactly one .md file per FLOW_MANIFEST row "
+            f"(by slug), got {written}, expected {expected}"
+        )
+        assert len(written) == len(g.FLOW_MANIFEST) == 10, (
+            f"expected exactly 10 files written, got {len(written)}"
+        )
+
+
+def test_main_all_mode_reports_each_row_failure_individually() -> None:
+    """A single bad manifest row's failure is reported without aborting the other 9 rows.
+
+    Verified at the loop-body level directly (not via a full main() subprocess run), by
+    temporarily monkeypatching g.FLOW_MANIFEST with a manifest-shaped list where one row's
+    command_file points at a nonexistent path -- this deterministically exercises the
+    per-row try/except without depending on any real command file's content.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        output_dir = Path(tmp) / "test-plans"
+        fixture = _write_fixture(tmp, "gmj-fixture-flow.md", _FIXTURE_COMMAND_DOC)
+        bad_manifest = [
+            {
+                "slug": "bad-row",
+                "command_file": Path(tmp) / "gmj-does-not-exist.md",
+                "risk_tier": "read-only",
+                "requirement_id_override": None,
+            },
+            {
+                "slug": "good-row",
+                "command_file": fixture,
+                "risk_tier": "read-only",
+                "requirement_id_override": None,
+            },
+        ]
+
+        original_manifest = g.FLOW_MANIFEST
+        try:
+            g.FLOW_MANIFEST = bad_manifest
+            import io
+            captured_stderr = io.StringIO()
+            original_stderr = sys.stderr
+            sys.stderr = captured_stderr
+            try:
+                exit_code = g.main(["--all", "--output-dir", str(output_dir)])
+            finally:
+                sys.stderr = original_stderr
+        finally:
+            g.FLOW_MANIFEST = original_manifest
+
+        stderr_text = captured_stderr.getvalue()
+        assert exit_code == 1, (
+            f"main(['--all', ...]) must exit 1 when any row fails, got {exit_code}"
+        )
+        assert "FAIL: bad-row" in stderr_text, (
+            f"main(['--all', ...]) must print a FAIL:-prefixed message naming the failing "
+            f"row's slug, got stderr: {stderr_text!r}"
+        )
+        good_output = output_dir / "good-row.md"
+        assert good_output.is_file(), (
+            f"main(['--all', ...]) must still write the other (good) rows' output files "
+            f"even when one row fails -- per-row fail-closed, not whole-batch fail-closed, "
+            f"but found no {good_output}"
+        )
+        bad_output = output_dir / "bad-row.md"
+        assert not bad_output.is_file(), (
+            f"main(['--all', ...]) must not write an output file for the failing row, but "
+            f"found {bad_output}"
+        )
+
+
+def test_main_single_invocation_mode_unchanged() -> None:
+    """The pre-existing --command-file/--output single-invocation CLI contract still works,
+    now requiring the new --risk-tier flag (extract()'s risk_tier became required in Plan 01).
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        command_file = _write_fixture(tmp, "gmj-fixture-flow.md", _FIXTURE_COMMAND_DOC)
+        output_path = Path(tmp) / "out" / "fixture-flow.md"
+
+        exit_code = g.main([
+            "--command-file", str(command_file),
+            "--output", str(output_path),
+            "--risk-tier", "read-only",
+        ])
+
+        assert exit_code == 0, (
+            f"main() with --command-file/--output/--risk-tier must exit 0, got {exit_code}"
+        )
+        assert output_path.is_file(), (
+            f"main() single-invocation mode must write the output file, but {output_path} "
+            f"does not exist"
+        )
+        text = output_path.read_text(encoding="utf-8")
+        assert "REQ-01" in text, (
+            f"single-invocation output must contain the fixture's REQ-01 requirement ID, "
+            f"got:\n{text}"
+        )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
