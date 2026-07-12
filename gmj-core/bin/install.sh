@@ -3,7 +3,8 @@
 #
 # Supports both invocation modes:
 #   - run-in-place: `bash gmj-core/bin/install.sh` from inside an existing checkout.
-#   - fresh-clone:  `curl -fsSL <raw-url>/install.sh | bash` with no local checkout — clones
+#   - fresh-clone:  `curl -fsSL https://raw.githubusercontent.com/dallask/give-me-job-now/main/gmj-core/bin/install.sh | bash`
+#     with no local checkout — clones
 #     the repo into a new directory first, then continues the same flow.
 #
 # Order is load-bearing: prerequisites are checked FIRST, before any git-based mode detection

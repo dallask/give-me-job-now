@@ -137,7 +137,8 @@ end-to-end real-offer walkthrough, see **[docs/RUNBOOK.md](docs/RUNBOOK.md)**.
 
 This is the private working repository — it carries the real candidate profile and real
 generated offer artifacts, so it stays private by design. A **sanitized, PII-free portfolio
-mirror** (synthetic sample data, MIT-licensed) is published separately via
+mirror** (synthetic sample data, MIT-licensed) is published separately at
+**[github.com/dallask/give-me-job-now](https://github.com/dallask/give-me-job-now)** via
 `scripts/publish/gmj_publish_mirror.sh` and its CI wrapper
 (`.github/workflows/publish-mirror.yml`), with an automated semantic-release pipeline
 (`.github/workflows/release.yml`) backfilling a real, honest release history on the mirror.

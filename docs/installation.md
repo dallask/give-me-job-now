@@ -28,10 +28,12 @@ It is safe to re-run — the script is idempotent (INSTALL-02).
 ## Fresh install (no local checkout)
 
 `install.sh` also supports running with no existing checkout on disk — piped straight from
-a `curl` fetch of the raw script:
+a `curl` fetch of the raw script, served from the public
+[`give-me-job-now`](https://github.com/dallask/give-me-job-now) mirror (the script itself must
+be fetchable without auth; the clone it performs still defaults to the private repo below):
 
 ```bash
-curl -fsSL <raw-url>/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/dallask/give-me-job-now/main/gmj-core/bin/install.sh | bash
 ```
 
 In this mode the script clones the repository into a new directory (`give-me-job` by
@@ -53,7 +55,7 @@ install, payload/config staging).
 ```bash
 GMJ_REPO_URL=https://github.com/dallask/give-me-job.git \
 GMJ_INSTALL_DIR=my-give-me-job \
-  bash -c "curl -fsSL <raw-url>/install.sh | bash"
+  bash -c "curl -fsSL https://raw.githubusercontent.com/dallask/give-me-job-now/main/gmj-core/bin/install.sh | bash"
 ```
 
 ---
