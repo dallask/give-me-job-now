@@ -214,7 +214,150 @@ def extract(command_file: Path) -> dict:
     return ir
 
 
-# --------------------------------------------------------------------------- CLI (Task 2)
+# --------------------------------------------------------------------------- render()
+
+def _capability_sentence(ir: dict) -> str:
+    """Build a concrete, non-generic capability sentence from the IR's behavior/flag data.
+
+    Mirrors docs/HUMAN-TESTING-PLAN.md's own `**Proves:** OPS-01 — ...` pattern: names what
+    the test actually demonstrates, drawn from real extracted facts, never generic filler.
+    """
+    parts: list[str] = []
+    description = str(ir.get("description") or "").strip()
+    if description:
+        # Strip a trailing parenthetical requirement-ID citation, e.g. "... (OPS-01)."
+        description = re.sub(r"\s*\([A-Z][A-Z-]*-\d+\)\.?\s*$", "", description).rstrip(". ")
+        if description:
+            parts.append(description)
+    if ir.get("no_bypass_flag"):
+        parts.append("with no confirm-bypass flag anywhere in its CLI")
+    if not parts:
+        parts.append(f"the {ir.get('flow_name') or ir.get('slug') or 'flow'} behaves as documented")
+    return "; ".join(parts) + "."
+
+
+def _render_steps_block(ir: dict) -> list[str]:
+    """Build the Steps section lines for one generated test case, per the Deterministic Backstop Convention."""
+    lines: list[str] = []
+    behaviors = ir.get("behaviors") or ir.get("steps") or []
+    real_commands = [b for b in behaviors if b.strip().startswith(("python3 ", "claude ", "bash "))]
+
+    if real_commands:
+        lines.append("**Steps (live):**")
+        lines.append("```bash")
+        if len(real_commands) > 1:
+            for i, cmd in enumerate(real_commands, start=1):
+                lines.append(f"{i}. {cmd}")
+        else:
+            lines.append(real_commands[0])
+        lines.append("```")
+        lines.append("")
+        lines.append("**Steps (deterministic backstop):**")
+        lines.append("No deterministic backstop exists for this step.")
+    else:
+        lines.append("**Steps:**")
+        lines.append("```bash")
+        source = ir.get("source_file") or "the command file"
+        lines.append(f"# See {source} for the exact invocation.")
+        lines.append("```")
+    return lines
+
+
+def render(ir: dict) -> str:
+    """Consume the extract()-produced IR to build spec-conformant Markdown.
+
+    Produces, in order: (1) title + one-line purpose; (2) setup/precondition checklist
+    (explicit "no preconditions" statement if the IR carries none); (3) one per-test
+    Markdown block with all six required fields in the mandated order (ID heading,
+    **Proves:**, **Why human:**, **Steps** [live/deterministic-backstop sub-labels where a
+    backstop applies], **Expected:**, **PASS criteria:**); (4) a closing
+    generation-provenance note naming the IR's source_file and this module as the
+    generation source (no schema file named, per D-06).
+
+    Raises ValueError if ``ir['requirement_id']`` is missing/empty — render() must fail
+    closed rather than emit a **Proves:** line with no ID or a placeholder, independent of
+    extract()'s own fail-closed guarantee (render() may be called directly with a hand-built
+    or future non-command-file-sourced IR).
+    """
+    requirement_id = ir.get("requirement_id")
+    if not requirement_id:
+        raise ValueError(
+            "render() requires a non-empty ir['requirement_id'] to build a spec-conformant "
+            "**Proves:** line — refusing to emit a placeholder/blank Proves field"
+        )
+
+    flow_name = ir.get("flow_name") or ir.get("slug") or "flow"
+    source_file = ir.get("source_file") or "an unnamed command file"
+
+    lines: list[str] = []
+
+    # (1) Title + one-line purpose.
+    lines.append(f"# Test Plan — {flow_name}")
+    lines.append("")
+    lines.append(f"This file verifies the `{flow_name}` flow for a human operator running it directly.")
+    lines.append("")
+
+    # (2) Setup / precondition checklist.
+    lines.append("## Setup & Preconditions")
+    lines.append("")
+    flags = ir.get("flags") or []
+    if flags:
+        for flag in flags:
+            name = flag.get("name", "")
+            purpose = flag.get("purpose", "")
+            lines.append(f"- `{name}` — {purpose}" if purpose else f"- `{name}`")
+    else:
+        lines.append(
+            "No preconditions — this flow has no setup requirements beyond the repo's "
+            "standard `pip install` step."
+        )
+    lines.append("")
+
+    # (3) Per-test block.
+    lines.append(f"## Test 1 — {flow_name}")
+    lines.append("")
+    lines.append(f"**Proves:** {requirement_id} — {_capability_sentence(ir)}")
+    lines.append("")
+    lines.append(
+        "**Why human:** this flow's behavior is grounded in real command output that "
+        "requires human judgment or a live environment this plain-python3 harness cannot "
+        "exercise on its own."
+    )
+    lines.append("")
+    lines.extend(_render_steps_block(ir))
+    lines.append("")
+    lines.append(
+        f"**Expected:** running the steps above against `{source_file}`'s documented "
+        "behavior produces the outcome described in that file's own frontmatter/body — "
+        "inspect stdout/stderr and any named output paths for the concrete result."
+    )
+    lines.append("")
+    lines.append("**PASS criteria:**")
+    lines.append(
+        f"- A human operator confirms the observed output/state matches {requirement_id}'s "
+        "documented behavior above by reading the real output, not by delegating to a "
+        "script's exit code alone."
+    )
+    lines.append("")
+
+    # (4) Closing generation-provenance note.
+    lines.append("---")
+    lines.append("")
+    lines.append(
+        f"_Generated from `{source_file}` by `scripts/gmj_testplan_gen.py`. This file is "
+        "not an executable artifact — it is prose a human reads and acts on manually._"
+    )
+
+    return "\n".join(lines) + "\n"
+
+
+def write_testplan(text: str, output_path: Path) -> None:
+    """The single filesystem-write call in this module — overwrite output_path."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(text, encoding="utf-8")
+
+
+# --------------------------------------------------------------------------- CLI
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
