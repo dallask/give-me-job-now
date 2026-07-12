@@ -51,6 +51,14 @@ on the same outcome: a single offer fielded into `$defs/offer_content` and froze
    `gmj_detect_language.py` unchanged, per step 2) — the Firecrawl path shortens fielding but does
    NOT skip the language-detection script call or the must/nice classification heuristic for any
    field Firecrawl left empty/absent.
+
+   **GUIDE-03 liveness signal source.** This scope-gated `WebFetch`/Firecrawl fetch already
+   observes the HTTP status/redirect outcome for `source_url` — this observed status is what the
+   hub's pre-freeze liveness check (`scripts/offers/gmj_check_offer_liveness.py`) consumes
+   before calling `gmj_freeze_offer.py`. You do not yourself decide liveness or call that
+   script; you only need to ensure the observed status is available for the hub to pass through.
+   This is a documentation-only clarification of an existing capability — no new tool is added
+   to this agent's `tools:` frontmatter.
 2. Normalize the posting into a **fielded draft** — a `content` object conforming to
    `schemas/offer_spec.schema.json#/$defs/offer_content` (title, company, location, seniority,
    employment_type, language, must_haves, nice_to_haves, responsibilities, source_url,
@@ -114,7 +122,9 @@ applicants.
    input, not a target. The merged, ranked `.pipeline/shortlist.json` is produced by the **hub**
    via `gmj_merge_shortlists.py` over every worker's file — never by you.
 4. Only the **chosen** offer proceeds: field it exactly as in mode A step 2–4 and hand it to
-   `gmj_freeze_offer.py`. Only that single chosen offer is frozen.
+   `gmj_freeze_offer.py`. Only that single chosen offer is frozen. The same GUIDE-03 liveness
+   signal source note from Intake mode A step 1 applies here — the fetch that fielded this
+   offer already observed the status the hub's pre-freeze liveness check consumes.
 
 ## Emits
 
