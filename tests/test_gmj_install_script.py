@@ -533,6 +533,198 @@ def test_post_install_smoke_check_present() -> None:
     )
 
 
+# --- Test 15 (Test A): non-TTY output has zero ANSI escape bytes (wizard UI) ---
+
+def test_non_tty_output_has_zero_ansi_escape_bytes() -> None:
+    """Redirecting stdout to a file guarantees `[ -t 1 ]` is false. The wizard UI layer must
+    detect this and emit plain text — zero `\\x1b`/`\\033` bytes anywhere in stdout."""
+    if shutil.which("node") is None:
+        print("SKIP test_non_tty_output_has_zero_ansi_escape_bytes: node unavailable", file=sys.stderr)
+        return
+
+    checkout = _scratch_checkout()
+    install_sh = checkout / INSTALL_SH_REL
+
+    out_file = Path(tempfile.mkdtemp(prefix="gmj-nontty-out-")) / "stdout.txt"
+    with out_file.open("wb") as fh:
+        cp = subprocess.run(
+            ["bash", str(install_sh)],
+            cwd=str(checkout),
+            stdout=fh,
+            stderr=subprocess.PIPE,
+            timeout=300,
+        )
+    assert cp.returncode == 0, (
+        f"non-TTY install must exit 0: rc={cp.returncode} "
+        f"stderr={cp.stderr.decode(errors='replace').strip()[:800]}"
+    )
+    data = out_file.read_bytes()
+    assert b"\x1b" not in data, (
+        "non-TTY stdout must contain zero ANSI escape bytes (\\x1b), found at least one"
+    )
+
+
+# --- Test 16 (Test B): spinner cleanup is trap-registered and leaves no orphan --
+
+def test_tty_like_run_does_not_leave_orphaned_spinner_process() -> None:
+    """Primary oracle: install.sh must register a `trap ... EXIT` covering spinner cleanup
+    (static/code-inspection check — cheap and non-flaky). Secondary oracle: after a forced
+    prerequisite-failure run exits, no leftover spinner-loop process (matched by the
+    script's own spinner marker) should still be running."""
+    install_sh = REPO_ROOT / INSTALL_SH_REL
+    text = install_sh.read_text(encoding="utf-8")
+
+    assert re.search(r"trap\s+'spinner_stop'\s+EXIT", text), (
+        "install.sh must register a trap 'spinner_stop' ... EXIT so any exit path kills a "
+        "still-running spinner"
+    )
+    assert "spinner_stop" in text and "spinner_start" in text, (
+        "install.sh must define both spinner_start and spinner_stop"
+    )
+
+    # Secondary, best-effort dynamic check: force a failure (missing python3) and confirm no
+    # leftover process matching this script's spinner marker is still running shortly after
+    # the script under test exits.
+    result = _run_install_with_hidden("python3")
+    assert result.returncode == 1, (
+        f"expected exit 1 with python3 hidden: rc={result.returncode} "
+        f"stderr={result.stderr.strip()[:400]}"
+    )
+    if shutil.which("pgrep") is not None:
+        pgrep = subprocess.run(
+            ["pgrep", "-f", "gmj-install-step"],
+            capture_output=True,
+            text=True,
+        )
+        assert pgrep.returncode != 0, (
+            f"found leftover process(es) matching the install.sh temp-log marker after exit: "
+            f"{pgrep.stdout.strip()}"
+        )
+
+
+# --- Test 17 (Test C): failure output includes a remediation hint -------------
+
+def test_missing_prerequisite_failure_includes_remediation_text() -> None:
+    """A missing-python3 failure must now surface a remediation hint (an install link or
+    'run: ...' instruction) distinct from the bare 'not found on PATH' line."""
+    result = _run_install_with_hidden("python3")
+    assert result.returncode == 1, (
+        f"expected exit 1 with python3 hidden: rc={result.returncode} "
+        f"stderr={result.stderr.strip()[:400]}"
+    )
+    combined = result.stdout + result.stderr
+    assert "python3" in combined, f"missing-python3 report must name python3: {combined[:400]}"
+    assert (
+        "https://www.python.org/downloads/" in combined
+        or "install" in combined.lower()
+    ), (
+        f"missing-python3 failure must include a remediation hint (install link or 'run: ...' "
+        f"instruction), not just the bare error: {combined.strip()[:800]}"
+    )
+
+
+# --- Test 18 (Test D): state-aware next-steps branch on config population -----
+
+def test_state_aware_next_steps_branch_on_populated_vs_template_config() -> None:
+    """A checkout with the repo's real (populated) config/candidate.yaml + config/sources.yaml
+    must print the 'already set up' branch text. A checkout with template-shaped config
+    (the shipped .sample content) must instead print the populate-candidate.yaml branch text."""
+    if shutil.which("node") is None:
+        print(
+            "SKIP test_state_aware_next_steps_branch_on_populated_vs_template_config: "
+            "node unavailable",
+            file=sys.stderr,
+        )
+        return
+
+    # Populated case: this repo's own real config, via the shared scratch checkout.
+    checkout = _scratch_checkout()
+    install_sh = checkout / INSTALL_SH_REL
+    populated = run(["bash", str(install_sh)], cwd=checkout, timeout=300)
+    assert populated.returncode == 0, (
+        f"populated-config install must exit 0: {populated.stderr.strip()[:800]}"
+    )
+    assert "already" in populated.stdout.lower() or "looks set up" in populated.stdout.lower(), (
+        f"populated-config next-steps must mention the already-set-up branch: "
+        f"{populated.stdout.strip()[-800:]}"
+    )
+    assert "/gmj-pipeline-run" in populated.stdout, (
+        f"populated-config next-steps must name a concrete run command: "
+        f"{populated.stdout.strip()[-800:]}"
+    )
+
+    # Template-shaped case: a dedicated fresh checkout with candidate.yaml overwritten with
+    # the shipped .sample content before running (the sample templates ship under
+    # gmj-core/config/, not config/ — sources.yaml.sample is byte-identical to this repo's
+    # own config/sources.yaml today, so only candidate.yaml is a meaningful populated-vs-
+    # template signal here).
+    candidate_sample = REPO_ROOT / "gmj-core" / "config" / "candidate.yaml.sample"
+    if not candidate_sample.is_file():
+        print(
+            "SKIP test_state_aware_next_steps_branch_on_populated_vs_template_config: "
+            "gmj-core/config/candidate.yaml.sample not found, cannot construct templated "
+            "checkout",
+            file=sys.stderr,
+        )
+        return
+
+    dedicated = Path(tempfile.mkdtemp(prefix="gmj-templated-checkout-"))
+    clone = subprocess.run(
+        ["git", "clone", str(REPO_ROOT), str(dedicated)],
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    if clone.returncode != 0:
+        print(
+            "SKIP test_state_aware_next_steps_branch_on_populated_vs_template_config: "
+            f"dedicated clone failed: {clone.stderr.strip()[:400]}",
+            file=sys.stderr,
+        )
+        return
+
+    dedicated_candidate = dedicated / "config" / "candidate.yaml"
+    dedicated_candidate.write_bytes(candidate_sample.read_bytes())
+
+    dedicated_install_sh = dedicated / INSTALL_SH_REL
+    templated = run(["bash", str(dedicated_install_sh)], cwd=dedicated, timeout=300)
+    assert templated.returncode == 0, (
+        f"templated-config install must exit 0: {templated.stderr.strip()[:800]}"
+    )
+    assert "populate config/candidate.yaml" in templated.stdout.lower(), (
+        f"templated-config next-steps must mention populating candidate.yaml: "
+        f"{templated.stdout.strip()[-800:]}"
+    )
+
+
+# --- Test 19 (Test E): 5-stage structure guard (static/grep check) ------------
+
+def test_install_sh_still_contains_stage_markers_and_five_stage_total() -> None:
+    """Static guard against an accidental stage-boundary redesign: every stage_header call
+    must reference the literal total 5, and all 5 original stage comment markers must
+    still be present."""
+    install_sh = REPO_ROOT / INSTALL_SH_REL
+    text = install_sh.read_text(encoding="utf-8")
+
+    stage_calls = re.findall(r'stage_header\s+\d+\s+"?\$?STAGE_TOTAL"?', text)
+    assert stage_calls, "install.sh must contain stage_header calls using STAGE_TOTAL"
+
+    stage_total_match = re.search(r'STAGE_TOTAL=5\b', text)
+    assert stage_total_match, "install.sh must define STAGE_TOTAL=5 (literal total of 5 stages)"
+
+    for marker in (
+        "1. Prerequisite",
+        "2. Run-in-place",
+        "3. Idempotent",
+        "4. Delegate config",
+        "5. Next steps",
+    ):
+        assert marker in text, (
+            f"install.sh is missing the original stage-boundary comment marker: {marker!r} "
+            "— guarding against an accidental stage-boundary redesign"
+        )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
