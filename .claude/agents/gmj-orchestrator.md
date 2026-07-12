@@ -40,6 +40,32 @@ pipeline_run_id: <PIPELINE_RUN_ID from session environment, or generate one as Y
 This ID appears in the handoff log and in the spoke's `agent_result_v1` envelope, enabling
 per-run log filtering. It is the same `run_id` frozen into the run-scoped state below.
 
+## Final-turn preamble (structural, not prose)
+
+Every `Task(<spoke>)` prompt you send **must** ALSO include this second mandatory preamble
+line, alongside `pipeline_run_id` — never in place of it:
+
+```
+final_turn: true — end THIS turn with your mandatory agent_result_v1 block (see your own persona doc's "Final Output — MANDATORY" section).
+```
+
+Rationale (04-UAT.md test 1): 04-01's fix put the reminder only in the spoke's own persona
+doc, which live-run evidence proved insufficient — a 100% MISSING_ENVELOPE failure rate
+across all 5 spokes in one live batch dispatch. This preamble line makes the cue arrive WITH
+the dispatch itself, exactly like `pipeline_run_id` is already a non-negotiable per-dispatch
+preamble line, never optional or paraphrased.
+
+The `final_turn: true` line is included in **EVERY** `Task(<spoke>)` prompt — the initial
+dispatch (step **c** in [the control loop](#2-loop) below), the gate-failure recompose
+(`Task(gmj-artifact-composer)` under the "Exit 0 (`continue`)" branch), the
+[HOOK_ERROR retry re-dispatch](#envelope-contract-violation-retry-hook_error), the
+[board-search fan-out](#board-search-fan-out-one-gmj-offer-scout-task-per-board), and the
+[bounded concurrent-offer dispatch](#bounded-concurrent-offer-dispatch) — with **no exception**
+for retries, recomposes, or parallel-fan-out dispatches. Every one of these dispatches ends in
+exactly one spoke turn, so every one of them is structurally a "final turn" from this
+preamble's point of view; there is no "non-final" dispatch variant in this architecture (every
+`Task(<spoke>)` call is a single bounded turn per the two-layer control-plane doctrine below).
+
 ## Two-layer control plane (deterministic scripts + LLM dispatch)
 
 Safety lives **entirely** in a deterministic layer of small single-purpose Python scripts
@@ -92,7 +118,10 @@ following this exact protocol:
    docstring for the exact convention).
    - **`first_attempt` (exit 0):** run the SAME script again with `--increment` to record this
      retry, then re-dispatch the **EXACT SAME spoke** via `Task` (same `subagent_type`, same
-     `pipeline_run_id`, same input artifact paths) with ONE added corrective line quoting the
+     `pipeline_run_id`, same input artifact paths, and still carrying the mandatory
+     `final_turn: true` preamble alongside `pipeline_run_id` — per
+     [Final-turn preamble](#final-turn-preamble-structural-not-prose) above; the retry is not
+     exempt from the standard preamble contract) with ONE added corrective line quoting the
      hook's own violation message verbatim, e.g.: "Your previous turn ended without the required
      fenced \`\`\`agent_result_v1\`\`\` block — see
      .claude/skills/gmj-agent-output-contract/SKILL.md and end THIS message with one before you
@@ -266,8 +295,9 @@ Repeat until `gmj_route.py` signals `status: done` or a hard stop fires:
   `scripts/offers/gmj_check_offer.py --file <offer-spec>` **before every spoke dispatch**
   (INTAKE-02). If it reports STALE, **abort** — never dispatch a spoke against a stale
   offer-spec.
-- **c. Dispatch the spoke via Task.** `Task(<spoke for next_step>)` with the
-  `pipeline_run_id` preamble + the absolute input artifact paths only. Only you call `Task`.
+- **c. Dispatch the spoke via Task.** `Task(<spoke for next_step>)` with **both** mandatory
+  preamble lines — `pipeline_run_id` AND [`final_turn: true`](#final-turn-preamble-structural-not-prose)
+  — plus the absolute input artifact paths only. Only you call `Task`.
   When the dispatched spoke is `gmj-artifact-composer` for a `cover_letter`, ALSO attach the
   optional cover-letter tone hint as a **param string** (see
   [Cover-letter tone hint](#cover-letter-tone-hint-hub-param) below) — a sibling of
@@ -309,9 +339,12 @@ Repeat until `gmj_route.py` signals `status: done` or a hard stop fires:
        `<root>/runs/<run_id>/`** — **NOT** raw `gmj_score_fit.py` stdout (that stdout is a
        `{gate_b, gate_c}` wrapper with no top-level `.content` and would break the
        projection). `record_gate` always runs before `map_feedback` in this loop, so the
-       normalized artifact exists. Then `Task(gmj-artifact-composer)` with the structured
-       `{missing_must_haves, fabricated_claims, gate}` payload **ONLY** — never gate stdout,
-       gate prose, or a transcript. On a `cover_letter` recompose, re-attach the same
+       normalized artifact exists. Then `Task(gmj-artifact-composer)` — still carrying both
+       mandatory preamble lines (`pipeline_run_id` AND `final_turn: true`, per
+       [Final-turn preamble](#final-turn-preamble-structural-not-prose) above; a recompose is
+       not exempt) — with the structured `{missing_must_haves, fabricated_claims, gate}`
+       payload **ONLY** — never gate stdout, gate prose, or a transcript. On a `cover_letter`
+       recompose, re-attach the same
        `cover_letter_tone` param string (see
        [Cover-letter tone hint](#cover-letter-tone-hint-hub-param)) so the tone survives the
        retry — still a param, never a composer-read file.
@@ -403,8 +436,11 @@ For a **board-search** goal (discover the best offers across the configured boar
    are about to make is only a wall-clock optimization layered on top of that global scope
    guard, **not** an extra restriction.
 2. **Fan out per board.** Dispatch **one `gmj-offer-scout` `Task` per board in a SINGLE hub turn**
-   (parallel fan-out). Each Task prompt carries the `pipeline_run_id` preamble, names **exactly
-   one board** for that worker, and passes **artifact/config paths only** (never a transcript).
+   (parallel fan-out). Each Task prompt carries **both** mandatory preamble lines
+   (`pipeline_run_id` AND `final_turn: true`, per
+   [Final-turn preamble](#final-turn-preamble-structural-not-prose) above — a parallel-fan-out
+   dispatch is not exempt), names **exactly one board** for that worker, and passes
+   **artifact/config paths only** (never a transcript).
    Each worker searches only its one assigned board and writes an ephemeral, unscored per-board
    `output/offers/<run>-shortlist.json`.
 3. **Collect.** Gather each worker's per-board entry file path from its `agent_result_v1`
@@ -437,7 +473,10 @@ finish, then starting the next:
    call per dispatchable run_id that is ready for its next DAG step (per that run's own
    `gmj_route.py` next-step decision, unchanged) — up to `cap - in_flight` newly-admitted
    offers — **ALL in the SAME hub turn**, never sequentially waiting for one offer's whole
-   pipeline to finish before starting the next.
+   pipeline to finish before starting the next. Each of these Task prompts still carries both
+   mandatory preamble lines (`pipeline_run_id` AND `final_turn: true`, per
+   [Final-turn preamble](#final-turn-preamble-structural-not-prose) above); a bounded
+   concurrent-offer dispatch is not exempt.
 3. **Mark terminal completions.** As each dispatched run reaches a terminal outcome (delivered
    / gate_exhausted / error), run `scripts/pipeline/gmj_batch.py mark --batch <batch_id>
    --run-id <run_id> --status <terminal-status>`.
