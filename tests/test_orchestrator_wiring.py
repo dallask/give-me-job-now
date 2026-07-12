@@ -32,6 +32,8 @@ CONTROL_SCRIPTS = [
     "gmj_check_delivery.py",
     "gmj_pipeline_run.py",
     "gmj_dispatch_cap.py",
+    "gmj_check_offer_liveness.py",
+    "gmj_check_dependencies.py",
 ]
 # Retired legacy tokens — the old cv-* review/enhance roster, the deliverable gate,
 # the fast-path label, the enhance-cycle constant, and the LLM router — must be ABSENT
@@ -212,6 +214,51 @@ def test_bounded_dispatch_states_completeness_backstop() -> None:
     )
     assert "gmj_batch.py status" in subsection, (
         "hub's Bounded concurrent-offer dispatch subsection must name gmj_batch.py status (T-01-04)"
+    )
+
+
+def test_hub_documents_preflight_liveness_check() -> None:
+    # GUIDE-03: the hub must document the pre-freeze liveness check, advisory-only.
+    hub = _read(HUB_PATH)
+    assert "gmj_check_offer_liveness.py" in hub, (
+        "hub does not reference gmj_check_offer_liveness.py (GUIDE-03)"
+    )
+    assert "before freezing" in hub.lower(), (
+        "hub does not state the liveness check runs before freezing (GUIDE-03)"
+    )
+    assert "advisory" in hub.lower(), (
+        "hub does not mention 'advisory' near the liveness check (GUIDE-03)"
+    )
+
+
+def test_hub_documents_preflight_dependency_check() -> None:
+    # GUIDE-04: the hub must document the pre-dispatch dependency check inside init_run.
+    hub = _read(HUB_PATH)
+    assert "gmj_check_dependencies.py" in hub, (
+        "hub does not reference gmj_check_dependencies.py (GUIDE-04)"
+    )
+    assert (
+        "before the first spoke dispatch" in hub.lower()
+        or "before the first `task()`" in hub.lower()
+    ), "hub does not state the dependency check runs before the first spoke dispatch (GUIDE-04)"
+
+
+def test_hub_documents_guide05_prose_template() -> None:
+    # GUIDE-05: the hub must document the single human-readable guidance template and apply
+    # it at the existing HOOK_ERROR and cap-exhaustion sections.
+    hub = _read(HUB_PATH)
+    assert "GUIDE-05" in hub, "hub does not name the GUIDE-05 prose template section"
+    assert "what happened" in hub, "hub does not state the GUIDE-05 template shape"
+    assert "HOOK_ERROR" in hub and "failure_class" in hub, (
+        "hub does not tie the GUIDE-05 template to both HOOK_ERROR and failure_class surfaces"
+    )
+
+
+def test_offer_scout_documents_liveness_signal_source() -> None:
+    # GUIDE-03: the scout must document its role supplying the observed liveness signal.
+    scout = _read(AGENTS_DIR / "gmj-offer-scout.md")
+    assert "gmj_check_offer_liveness.py" in scout or "liveness" in scout.lower(), (
+        "gmj-offer-scout.md does not mention the liveness signal source (GUIDE-03)"
     )
 
 

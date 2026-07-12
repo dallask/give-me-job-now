@@ -51,8 +51,10 @@ passed, whether the retry cap is hit, or whether an artifact is deliverable. The
 |---|---|---|
 | `gmj_pipeline_run.py` | `scripts/pipeline/gmj_pipeline_run.py` | Validate `--artifact-types` and derive one run_id per requested artifact type (`<run_id>-cv/-cl/-ip`) — hard-fails on any unknown type before any state is frozen |
 | `gmj_state_write.py` | `scripts/pipeline/gmj_state_write.py` | Freeze `execution_mode` + `retry_cap` + `run_id` into `<root>/runs/<run_id>/state.json` at init (`<root>` resolved per [init_run](#1-init_run) below; `.pipeline` is only the fallback) |
+| `gmj_check_dependencies.py` | `scripts/pipeline/gmj_check_dependencies.py` | Advisory-only optional-dependency presence probe (`importlib.util.find_spec()`, no import side effects, no network) over `config/preferences.yaml`'s `search_provider`/`cv:` feature-selector keys — always exits 0, never blocks dispatch |
 | `gmj_route.py` | `scripts/pipeline/gmj_route.py` | Pure `(state, dag) → next_step` — the deterministic router over `config/pipeline.dag.yaml` |
 | `gmj_check_offer.py` | `scripts/offers/gmj_check_offer.py` | Freshness/integrity check of the frozen offer-spec — STALE ⇒ abort |
+| `gmj_check_offer_liveness.py` | `scripts/offers/gmj_check_offer_liveness.py` | Advisory-only posting liveness/staleness verdict computed from an already-observed HTTP status/redirect signal (never fetches itself) — always exits 0, never blocks freeze |
 | `gmj_check_truth.py` | `scripts/artifacts/gmj_check_truth.py` | Gate A (truth) verdict — exit 0/1, **no mode argument** |
 | `gmj_score_fit.py` | `scripts/artifacts/gmj_score_fit.py` | Gate B (target-fit) verdict — exit 0/1, **no mode argument** |
 | `gmj_record_gate.py` | `scripts/pipeline/gmj_record_gate.py` | Write the normalized `gate_result` artifact under `<root>/runs/<run_id>/` AND set `state.gate_results[<node>]` |
@@ -94,12 +96,19 @@ following this exact protocol:
      fenced \`\`\`agent_result_v1\`\`\` block — see
      .claude/skills/gmj-agent-output-contract/SKILL.md and end THIS message with one before you
      stop." Never silently drop the retry, never substitute a different spoke, never skip the
-     `--increment` call.
+     `--increment` call. Also render one prose sentence following the
+     [Human-readable guidance template (GUIDE-05)](#human-readable-guidance-template-guide-05)
+     below, e.g.: "`<spoke>`'s last turn ended without its required `agent_result_v1` block —
+     retrying once with a corrective note before treating this as a hard stop."
    - **`retry_exhausted` (exit 1):** **HARD STOP.** Do not dispatch this spoke a third time and
      do not advance `gmj_route.py`. Emit a hard-stop report naming the offending spoke and the
      literal hook violation text, exactly like the existing Gate A/B cap-exhaustion hard-stop
      report (see step **e** → Exit 1 in the [control loop](#2-loop) below) — reuse that
-     reporting shape/tone rather than inventing a new one.
+     reporting shape/tone rather than inventing a new one. The hard-stop report must ALSO render
+     one prose sentence following the [GUIDE-05 template](#human-readable-guidance-template-guide-05),
+     naming the offending spoke and the literal hook violation text, e.g.: "`<spoke>` failed its
+     one allotted `agent_result_v1` contract retry — stopping this dispatch rather than retrying
+     again."
 3. **Separate counters, no cross-contamination.** This retry budget is SEPARATE from and never
    shares state with the Gate A/B content retry-cap (`gmj_check_cap.py` / `gmj_record_retry.py`)
    — a spoke can legitimately consume both its one envelope-contract retry AND, independently,
@@ -109,6 +118,27 @@ following this exact protocol:
    — `gmj-offer-scout`, `gmj-artifact-composer`, `gmj-truth-verifier`, `gmj-fit-evaluator`,
    `gmj-cv-generator` — never a special case for one agent, matching D-03's uniform-hardening
    precedent from `04-01-PLAN.md`.
+
+## Human-readable guidance template (GUIDE-05)
+
+For every recoverable-error or degraded-condition surface this hub reports, render ONE
+sentence following this template: `"<what happened, one clause> — <what the pipeline is doing
+about it, one clause>."` — sourced ONLY from each script's already-correct structured fields
+(never invented, never omitting concrete counts/reasons already available in the JSON/token
+output). This is a **presentation convention only** — it documents HOW the hub narrates an
+already-correct deterministic verdict, and introduces NO new decision logic anywhere: the
+retry-vs-stop decision stays exactly as `gmj_check_envelope_retry.py`/`gmj_check_cap.py` already
+compute it, unchanged.
+
+This template applies to:
+- The **HOOK_ERROR retry path** — both the `first_attempt` retry branch and the
+  `retry_exhausted` hard-stop branch (see [Envelope contract-violation retry](#envelope-contract-violation-retry-hook_error)
+  above).
+- The **Gate A/B cap-exhaustion hard-stop report** — the `failure_class` (`narrow`/`systemic`)
+  field (see step **e** → Exit 1 in the [control loop](#2-loop) below).
+- The two new advisory checks this phase adds: `gmj_check_offer_liveness.py` (GUIDE-03,
+  pre-freeze) and `gmj_check_dependencies.py` (GUIDE-04, pre-dispatch) — see their respective
+  documented steps below.
 
 ## Control loop (per offer, per artifact type)
 
@@ -155,6 +185,20 @@ existing, correct, DIFFERENT convention for that context; **never** re-seed or o
 in their own context — the hub must distinguish which context it is in (fresh single-offer vs.
 batch-resume) rather than assume one universal seed value.
 
+**Pre-dispatch dependency check (GUIDE-04).** Before the first spoke dispatch of a run — after
+the run-id/state-freeze steps above, explicitly before the first `Task()` call — run
+`scripts/pipeline/gmj_check_dependencies.py --preferences config/preferences.yaml`. This is
+advisory-only: for EVERY reported missing-but-configured dependency, print ONE upfront
+human-readable hint (using the [GUIDE-05 prose template](#human-readable-guidance-template-guide-05))
+before dispatching the spoke that would need it, but NEVER refuse to dispatch or hard-block the
+run based on this verdict alone — a missing optional dependency should be hinted, not used to
+prevent a spoke that would otherwise gracefully degrade (e.g. `search_provider: firecrawl`
+missing `firecrawl-py` should print a hint, not prevent `gmj-offer-scout` from attempting the
+default `WebSearch` path). This check runs ONCE per run (at init_run), not repeated
+per-dispatch, and it never replaces or weakens `gmj_render_cv.py`'s existing
+`except ImportError:` fallback or `gmj_firecrawl_search.py`'s `FIRECRAWL_API_KEY` upfront check
+— both remain unchanged, final safety nets.
+
 ### 2. loop
 
 This entire loop runs independently once per derived run_id (once per requested artifact
@@ -177,6 +221,20 @@ Repeat until `gmj_route.py` signals `status: done` or a hard stop fires:
   [Cover-letter tone hint](#cover-letter-tone-hint-hub-param) below) — a sibling of
   `artifact_type` / `language`, never a file path. The composer still receives input
   artifact paths only.
+
+  **Pre-freeze liveness check (GUIDE-03).** Before freezing a chosen offer (both intake paths —
+  the fresh single-offer freeze and the board-search "only the chosen offer proceeds" step
+  documented in `gmj-offer-scout.md`), run
+  `scripts/offers/gmj_check_offer_liveness.py --url <content.source_url> --http-status <the
+  status the scout's fetch already observed>` (optionally `--discovered-at <ISO-8601>
+  --max-age-days <N>` if a staleness-by-age threshold is configured). This is advisory-only —
+  ALWAYS render its verdict as ONE human-readable line before calling `gmj_freeze_offer.py`,
+  using the [GUIDE-05 prose template](#human-readable-guidance-template-guide-05), but NEVER
+  abort or skip the freeze based on this verdict alone (a false-positive "dead posting" finding
+  must never lose an otherwise-good offer). This is a DIFFERENT concern from the existing
+  `gmj_check_offer.py` hash-tamper freshness check in step **b** above — do not merge or
+  conflate the two; `gmj_check_offer.py` still runs before EVERY dispatch unchanged, while this
+  liveness check runs ONCE per offer, only before its freeze.
 - **d. Spoke emits a file artifact** (an `artifact_draft` or a `gate_result`), never a
   transcript.
 - **e. Gate node?** When the next node is a gate (`gmj-truth-verifier` = Gate A,
@@ -220,7 +278,10 @@ Repeat until `gmj_route.py` signals `status: done` or a hard stop fires:
        artifact, the last gate's reason, AND the new `failure_class`
        (`systemic`/`narrow`) field from the report, so the operator can see at a glance
        whether a further MANUAL cap raise is likely worth attempting, without re-reading the
-       full gate audit trail. Never ship the last attempt.
+       full gate audit trail. Never ship the last attempt. The hard-stop report must ALSO render
+       one prose sentence following the [GUIDE-05 template](#human-readable-guidance-template-guide-05),
+       naming the failing artifact and the `failure_class` value, alongside the existing
+       structured report — this is additive, never a replacement for the structured fields.
 
 ### 3. deliver
 
