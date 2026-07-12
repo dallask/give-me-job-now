@@ -86,6 +86,36 @@ def test_contact_lines_non_dict_contact_returns_empty() -> None:
     assert contact_lines(42) == []
 
 
+def test_contact_lines_strips_doubled_embedded_label_in_media_url() -> None:
+    contact = {"website": {"media": {"linkedin": "LinkedIn: https://linkedin.com/in/example"}}}
+    lines = contact_lines(contact)
+    assert lines == ["Linkedin: https://linkedin.com/in/example"], lines
+
+
+def test_contact_lines_strips_doubled_label_and_trailing_period() -> None:
+    contact = {"website": {"media": {"github": "GitHub: https://github.com/dallask."}}}
+    lines = contact_lines(contact)
+    assert lines == ["Github: https://github.com/dallask"], lines
+
+
+def test_contact_lines_already_correct_shape_unchanged() -> None:
+    contact = {"website": {"media": {"linkedin": "https://www.linkedin.com/in/example/"}}}
+    lines = contact_lines(contact)
+    assert lines == ["Linkedin: https://www.linkedin.com/in/example/"], lines
+
+
+def test_contact_lines_strips_label_case_insensitively_no_space() -> None:
+    contact = {"website": {"media": {"linkedin": "linkedin:https://linkedin.com/in/example"}}}
+    lines = contact_lines(contact)
+    assert lines == ["Linkedin: https://linkedin.com/in/example"], lines
+
+
+def test_contact_lines_messenger_labels_stripped_for_parity() -> None:
+    contact = {"messengers": {"telegram": "Telegram: @example_handle."}}
+    lines = contact_lines(contact)
+    assert lines == ["Telegram: @example_handle"], lines
+
+
 def test_jinja_filter_produces_same_output_as_direct_call() -> None:
     from jinja2 import Environment
 
