@@ -25,6 +25,8 @@ tmp/
 output/cv/*
 !output/cv/.gitkeep
 
+# Also covers output/analysis/self-reflect-report.md (D-06/Phase 06 self-reflection
+# analyzer output — verified via `git check-ignore` in 06-05-PLAN.md's Task 3).
 output/analysis/*
 !output/analysis/.gitkeep
 
