@@ -191,6 +191,16 @@ def test_three_wrapper_kinds_still_resolve_unchanged() -> None:
         assert resolved == kind, (kind, resolved)
 
 
+def test_agent_result_v1_sample_fixture_validates_via_file_mode() -> None:
+    # Proves the fixture-file fixture works through --file mode too (Task 1's
+    # tests above already covered --stdin), matching this file's existing
+    # dual-entry-point test discipline (test_stdin_mode_valid alongside
+    # test_valid_fixtures_exit_zero's --file coverage for the 3 wrapper kinds).
+    result = _run(["--file", str(SAMPLES / "agent_result_v1.valid.json")])
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "OK: agent_result_v1", result.stdout
+
+
 def _artifact_draft_with_notes(notes_raw_fragment: str) -> str:
     """Return a raw artifact_draft envelope JSON string with `notes` set to a raw
     (already-JSON-quoted) fragment, so the caller controls exactly what backslash
