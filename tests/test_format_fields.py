@@ -15,7 +15,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "artifacts"))
-from gmj_format_fields import contact_lines  # noqa: E402
+from gmj_format_fields import contact_lines, expertise_skills_text  # noqa: E402
 
 
 def _no_container_repr(lines: list[str]) -> bool:
@@ -114,6 +114,24 @@ def test_contact_lines_messenger_labels_stripped_for_parity() -> None:
     contact = {"messengers": {"telegram": "Telegram: @example_handle."}}
     lines = contact_lines(contact)
     assert lines == ["Telegram: @example_handle"], lines
+
+
+def test_expertise_skills_text_joins_well_formed_list() -> None:
+    assert expertise_skills_text(["Python", "PHP", "JavaScript"]) == "Python, PHP, JavaScript"
+
+
+def test_expertise_skills_text_leaves_bare_prose_string_unchanged() -> None:
+    prose = "PHP frameworks expertise includes Laravel, Symfony"
+    assert expertise_skills_text(prose) == prose
+
+
+def test_expertise_skills_text_empty_or_none_returns_empty_string() -> None:
+    assert expertise_skills_text(None) == ""
+    assert expertise_skills_text([]) == ""
+
+
+def test_expertise_skills_text_coerces_non_string_items_and_drops_falsy() -> None:
+    assert expertise_skills_text([1, "PHP", None]) == "1, PHP"
 
 
 def test_jinja_filter_produces_same_output_as_direct_call() -> None:
