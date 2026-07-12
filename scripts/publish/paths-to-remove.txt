@@ -47,9 +47,6 @@ scripts/publish/pii-denylist.txt
 # scope just to push a file that does nothing there.
 .github/workflows/publish-mirror.yml
 
-# Internal TUI dashboard design/testing notes — not part of the public project.
-TUI/
-
 # Internal presentation prep material (prompts, speaker notes, review drafts)
 # — not part of the public project.
 Presentation/
