@@ -1,0 +1,15 @@
+{
+  "schema": "agent_result_v1",
+  "schema_version": "1.0",
+  "agent": "gmj-truth-verifier",
+  "pipeline_run_id": "run-2026-07-03-001",
+  "status": "success",
+  "artifacts": [
+    { "type": "file", "path": "/abs/output/analysis/gate-a-verdict.json" }
+  ],
+  "acceptance_criteria_met": ["crit-truth-verified"],
+  "acceptance_criteria_failed": [],
+  "next_action": "none",
+  "handoff_target": null,
+  "notes": "All claims re-grounded against config/candidate.yaml; 0 fabrications found."
+}

@@ -24,6 +24,23 @@ from referencing import Registry, Resource
 # is refused, so `--kind` can never traverse out of the schemas/ base dir.
 KNOWN_KINDS = ("offer_spec", "artifact_draft", "gate_result")
 
+# The bare agent_result_v1 handoff envelope every collective spoke emits as its
+# final message — legitimately carries NO `kind` field at all (only the 3
+# wrapper kinds above add a `kind` const on top of this shared base). Kept
+# deliberately separate from KNOWN_KINDS/`--kind`'s argparse `choices=`: a bare
+# envelope has no `kind` field to override, so `--kind agent_result_v1` stays
+# unreachable via the CLI flag (see resolve_kind()) — only an absent or
+# explicit-but-redundant `kind` field on the envelope itself resolves here, no
+# new CLI-driven path-traversal surface is introduced. Closes the previously
+# PRE-EXISTING, DEFERRED decision D-01 (see 04-RESEARCH.md and 04-UAT.md's
+# gap-closure diagnosis for test 1 —
+# .planning/workstreams/r8-1/phases/04-contract-schema-reliability/04-07-PLAN.md):
+# a genuinely valid, schema-conforming agent_result_v1 handoff envelope was
+# logging a spurious `BLOCK: unknown kind None/'agent_result_v1'` because this
+# 4th resolvable kind was never dispatched to its own already-existing
+# schemas/agent_result_v1.schema.json file.
+BARE_ENVELOPE_KIND = "agent_result_v1"
+
 # Fixed base dir: the repo's schemas/ directory (this file lives at
 # scripts/contracts/gmj_validate_envelope.py, so repo root is two parents up).
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -109,10 +126,28 @@ def build_registry(schema_dir: Path) -> Registry:
 def resolve_kind(explicit_kind: str | None, envelope: dict) -> str:
     """Return the validated kind to dispatch on, or raise ValueError.
 
-    An explicit `--kind` wins; otherwise the envelope's own `kind` field is used.
-    The result must be in the constrained KNOWN_KINDS allowlist.
+    An explicit `--kind` wins and MUST be one of the constrained KNOWN_KINDS
+    allowlist (unchanged behavior — `--kind` can never resolve to
+    BARE_ENVELOPE_KIND, since a bare envelope has no `kind` field to override).
+
+    Otherwise, the envelope's own `kind` field is used: if it is absent
+    (`None`) or exactly `"agent_result_v1"` (a redundant-but-valid self-label
+    some emitters add), this resolves to BARE_ENVELOPE_KIND, validated
+    directly against schemas/agent_result_v1.schema.json. Any other value
+    must still be one of the 3 wrapper KNOWN_KINDS, or this raises ValueError
+    exactly as before — this branch is strictly additive, never a replacement
+    for the existing wrapper-kind dispatch.
     """
-    kind = explicit_kind if explicit_kind is not None else envelope.get("kind")
+    if explicit_kind is not None:
+        if explicit_kind not in KNOWN_KINDS:
+            raise ValueError(
+                f"unknown kind {explicit_kind!r}; expected one of {', '.join(KNOWN_KINDS)}"
+            )
+        return explicit_kind
+
+    kind = envelope.get("kind")
+    if kind is None or kind == BARE_ENVELOPE_KIND:
+        return BARE_ENVELOPE_KIND
     if kind not in KNOWN_KINDS:
         raise ValueError(
             f"unknown kind {kind!r}; expected one of {', '.join(KNOWN_KINDS)}"

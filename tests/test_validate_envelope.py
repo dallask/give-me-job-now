@@ -122,6 +122,85 @@ def test_resolve_kind_rejects_unknown() -> None:
     raise AssertionError("resolve_kind should reject an unknown kind")
 
 
+def _bare_agent_result_v1_envelope() -> dict:
+    """A minimal, schema-conforming bare agent_result_v1 envelope with NO
+    `kind` field — the exact shape every collective spoke emits per
+    .claude/skills/gmj-agent-output-contract/SKILL.md's canonical schema."""
+    return {
+        "schema": "agent_result_v1",
+        "schema_version": "1.0",
+        "agent": "gmj-truth-verifier",
+        "pipeline_run_id": "run-2026-07-12-001",
+        "status": "success",
+        "artifacts": [
+            {"type": "file", "path": "/abs/output/analysis/gate-a-verdict.json"}
+        ],
+        "acceptance_criteria_met": ["crit-truth-verified"],
+        "acceptance_criteria_failed": [],
+        "next_action": "none",
+        "handoff_target": None,
+        "notes": "All claims re-grounded against config/candidate.yaml; 0 fabrications found.",
+    }
+
+
+def test_bare_agent_result_v1_envelope_no_kind_field_validates() -> None:
+    # Reproduces the exact "unknown kind None" BLOCK scenario from
+    # validate-envelope.log (04-UAT.md gap-closure test 1), now fixed.
+    envelope = _bare_agent_result_v1_envelope()
+    assert "kind" not in envelope
+    payload = json.dumps(envelope)
+    result = _run(["--stdin"], stdin=payload)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "OK: agent_result_v1", result.stdout
+
+
+def test_explicit_kind_agent_result_v1_field_validates() -> None:
+    # Reproduces the second observed BLOCK variant: an envelope that adds a
+    # redundant "kind": "agent_result_v1" field (unknown kind 'agent_result_v1').
+    envelope = _bare_agent_result_v1_envelope()
+    envelope["kind"] = "agent_result_v1"
+    payload = json.dumps(envelope)
+    result = _run(["--stdin"], stdin=payload)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "OK: agent_result_v1", result.stdout
+
+
+def test_bare_agent_result_v1_still_rejects_genuine_violation() -> None:
+    # A bare envelope missing a required field (status) must still fail loud
+    # with a structured <field/path>: <message> stderr line — the fix does
+    # not loosen genuine-violation detection.
+    envelope = _bare_agent_result_v1_envelope()
+    del envelope["status"]
+    payload = json.dumps(envelope)
+    result = _run(["--stdin"], stdin=payload)
+    assert result.returncode != 0
+    assert ": " in result.stderr, result.stderr
+    assert "status" in result.stderr, result.stderr
+
+
+def test_three_wrapper_kinds_still_resolve_unchanged() -> None:
+    # resolve_kind() itself still returns the correct wrapper kind for an
+    # envelope that DOES carry one of the 3 wrapper `kind` values — proving
+    # the new bare-envelope branch is additive, never a replacement.
+    for kind in KINDS:
+        envelope = json.loads(
+            (SAMPLES / f"{kind}.valid.json").read_text(encoding="utf-8")
+        )
+        assert envelope.get("kind") == kind
+        resolved = validate_envelope.resolve_kind(None, envelope)
+        assert resolved == kind, (kind, resolved)
+
+
+def test_agent_result_v1_sample_fixture_validates_via_file_mode() -> None:
+    # Proves the fixture-file fixture works through --file mode too (Task 1's
+    # tests above already covered --stdin), matching this file's existing
+    # dual-entry-point test discipline (test_stdin_mode_valid alongside
+    # test_valid_fixtures_exit_zero's --file coverage for the 3 wrapper kinds).
+    result = _run(["--file", str(SAMPLES / "agent_result_v1.valid.json")])
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "OK: agent_result_v1", result.stdout
+
+
 def _artifact_draft_with_notes(notes_raw_fragment: str) -> str:
     """Return a raw artifact_draft envelope JSON string with `notes` set to a raw
     (already-JSON-quoted) fragment, so the caller controls exactly what backslash
