@@ -51,6 +51,7 @@ passed, whether the retry cap is hit, or whether an artifact is deliverable. The
 |---|---|---|
 | `gmj_pipeline_run.py` | `scripts/pipeline/gmj_pipeline_run.py` | Validate `--artifact-types` and derive one run_id per requested artifact type (`<run_id>-cv/-cl/-ip`) — hard-fails on any unknown type before any state is frozen |
 | `gmj_state_write.py` | `scripts/pipeline/gmj_state_write.py` | Freeze `execution_mode` + `retry_cap` + `run_id` into `<root>/runs/<run_id>/state.json` at init (`<root>` resolved per [init_run](#1-init_run) below; `.pipeline` is only the fallback) |
+| `gmj_check_leftover_artifacts.py` | `scripts/pipeline/gmj_check_leftover_artifacts.py` | **CONTRACT DEVIATION** — run as the FIRST pre-flight action of `init_run`, before any `Task()` dispatch; scans `output/artifacts/<offer-slug>/` for PARTIAL draft sets; always exits 0 on a successful scan (a scan that completed, regardless of findings count), but its non-empty findings are **NOT** purely advisory — they feed the genuine, blocking CLEAN-02 human-choice gate in `human_in_the_loop` mode (see [Leftover artifact detection](#leftover-artifact-detection-clean-01-02-03) below); the CHOICE/blocking behavior lives entirely in the hub's control-loop logic, never in this script's own exit code |
 | `gmj_check_dependencies.py` | `scripts/pipeline/gmj_check_dependencies.py` | Advisory-only optional-dependency presence probe (`importlib.util.find_spec()`, no import side effects, no network) over `config/preferences.yaml`'s `search_provider`/`cv:` feature-selector keys — always exits 0, never blocks dispatch |
 | `gmj_route.py` | `scripts/pipeline/gmj_route.py` | Pure `(state, dag) → next_step` — the deterministic router over `config/pipeline.dag.yaml` |
 | `gmj_check_offer.py` | `scripts/offers/gmj_check_offer.py` | Freshness/integrity check of the frozen offer-spec — STALE ⇒ abort |
@@ -139,6 +140,50 @@ This template applies to:
 - The two new advisory checks this phase adds: `gmj_check_offer_liveness.py` (GUIDE-03,
   pre-freeze) and `gmj_check_dependencies.py` (GUIDE-04, pre-dispatch) — see their respective
   documented steps below.
+- The **autonomous-mode leftover-artifact default** — `gmj_check_leftover_artifacts.py` /
+  `leftover_artifacts_default` (CLEAN-01/02/03) — the applied default is always rendered as one
+  GUIDE-05-style logged line, never a silent decision; see
+  [Leftover artifact detection](#leftover-artifact-detection-clean-01-02-03) below.
+
+## Leftover artifact detection (CLEAN-01/02/03)
+
+This check is consulted at **exactly ONE point** — `init_run`, before the existing GUIDE-04
+dependency check, and explicitly **before any `Task()` call** — mirroring how `execution_mode`
+is itself consulted at exactly one point (see [Mode gates only the pause](#mode-gates-only-the-pause-never-the-gate)
+below). Detection runs ONLY at `/gmj-pipeline-run`'s entry point (per 06-CONTEXT.md's locked
+Trigger-points decision) — it is **not** added to `/gmj-batch` or the per-step wrapper commands
+in this phase.
+
+1. **Detection (CLEAN-01).** Run
+   `scripts/pipeline/gmj_check_leftover_artifacts.py --output-dir output` via `Bash`. This is
+   advisory DATA-gathering only — it always exits 0 on a successful scan (see the script's own
+   module docstring). The scan target is explicitly `output/artifacts/<offer-slug>/` — **never**
+   `.pipeline/runs/`, a different, unrelated concept. If findings are empty, proceed straight
+   into the existing GUIDE-04 dependency check with no message printed.
+
+2. **`human_in_the_loop` branch (CLEAN-02, the genuine choice gate).** On a non-empty finding,
+   render ONE GUIDE-05-style line naming the partial offer-slug(s) and their present/missing
+   artifact types, PLUS an explicit two-option question: proceed using the existing artifacts
+   as-is, OR run `python3 scripts/gmj_cleanup_wizard.py` **yourself**, in your own terminal, to
+   clear generated output first, then re-run the pipeline. The hub does NOT and can **never**
+   invoke `scripts/gmj_cleanup_wizard.py` via `Bash` itself — it is a `questionary`-driven
+   interactive CLI with no non-interactive bypass by design, and Claude Code's `Bash` tool has
+   no PTY/stdin passthrough, so attempting this would hang the session. The hub **waits** for an
+   explicit reply before continuing — this is a genuine decision gate, a **choice**, unlike
+   GUIDE-03/04's pure advisory hints, which never pause. "Proceed" resumes the control loop
+   unchanged; "clean" ends this turn with the human instructed to re-invoke the pipeline once
+   they've run the wizard themselves.
+
+3. **`autonomous` branch (CLEAN-03, deterministic default + logging).** On a non-empty finding
+   in `autonomous` mode, read the FROZEN `leftover_artifacts_default` value from `state.json`
+   (written by `gmj_state_write.py` at this same `init_run` step, alongside
+   `execution_mode`/`retry_cap` — **never** re-read `config/pipeline.config.yaml` mid-run).
+   Apply it without blocking: `proceed` continues the control loop unchanged; `clean` is out of
+   scope for this phase (no new non-interactive deletion script exists — if
+   `leftover_artifacts_default` somehow resolves to `clean` while no human is present, the hub
+   falls back to `proceed` and still logs this explicitly, since building an autonomous deletion
+   path was explicitly deferred). Either way, ALWAYS render one GUIDE-05-style logged line
+   naming the applied default and the finding count — never a silent decision.
 
 ## Control loop (per offer, per artifact type)
 
@@ -184,6 +229,13 @@ existing, correct, DIFFERENT convention for that context; **never** re-seed or o
 `current_step` for an already-initialized batch-derived `run_id`. Both conventions are correct
 in their own context — the hub must distinguish which context it is in (fresh single-offer vs.
 batch-resume) rather than assume one universal seed value.
+
+**Leftover-artifact detection (CLEAN-01/02/03).** As the FIRST pre-flight action of `init_run` —
+immediately after the run-id/state-freeze steps above, and strictly **before** the GUIDE-04
+dependency check below and **before any `Task()`** dispatch — run
+`scripts/pipeline/gmj_check_leftover_artifacts.py --output-dir output`. See
+[Leftover artifact detection](#leftover-artifact-detection-clean-01-02-03) above for the full
+detection/choice-gate/autonomous-default protocol.
 
 **Pre-dispatch dependency check (GUIDE-04).** Before the first spoke dispatch of a run — after
 the run-id/state-freeze steps above, explicitly before the first `Task()` call — run
