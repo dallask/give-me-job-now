@@ -50,8 +50,11 @@ _FLAG_SECTION_HEADINGS = ("flags", "usage")
 
 # A single documented flag line looks like: "- **`--repo-root <path>`** — testability-only. ..."
 # or "- `--foo`: some purpose." Capture the flag token and the rest of the line as purpose.
+# The purpose group (and its leading separator) is optional -- a terse `` - `--dry-run` ``
+# bullet with no trailing dash/colon/em-dash description still matches (purpose=None),
+# rather than silently dropping the flag from the extracted list entirely.
 _FLAG_LINE_RE = re.compile(
-    r"^-\s*\*{0,2}`(?P<flag>--[\w-]+(?:\s+<[\w-]+>)?)`\*{0,2}\s*[—:-]\s*(?P<purpose>.+)$"
+    r"^-\s*\*{0,2}`(?P<flag>--[\w-]+(?:\s+<[\w-]+>)?)`\*{0,2}\s*(?:[—:-]\s*(?P<purpose>.+))?$"
 )
 
 
@@ -114,10 +117,11 @@ def _extract_flags(body: str) -> list[dict[str, str]]:
         stripped = line.strip()
         flag_match = _FLAG_LINE_RE.match(stripped)
         if flag_match:
+            purpose = flag_match.group("purpose")
             flags.append(
                 {
                     "name": flag_match.group("flag").split()[0],
-                    "purpose": flag_match.group("purpose").strip(),
+                    "purpose": purpose.strip() if purpose else "",
                 }
             )
             continue
