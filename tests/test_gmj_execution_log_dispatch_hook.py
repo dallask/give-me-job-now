@@ -239,6 +239,221 @@ def test_active_workstream_state_preferred_over_stale_top_level_state() -> None:
     )
 
 
+def _seed_fake_gsd_tools(tmp: Path) -> None:
+    """Seed a dummy gsd-tools.cjs file so the hook's layered path resolution finds
+    it inside the isolated CLAUDE_PROJECT_DIR, independent of the host machine's
+    real $HOME/.claude/gsd-core install. Content is irrelevant — the fake `node`
+    stub below never actually executes it, only inspects argv."""
+    gsd_tools_dir = tmp / ".claude" / "gsd-core" / "bin"
+    gsd_tools_dir.mkdir(parents=True, exist_ok=True)
+    (gsd_tools_dir / "gsd-tools.cjs").write_text("// fake gsd-tools.cjs stub for tests\n", encoding="utf-8")
+
+
+def _build_fake_node_resolver(
+    stub_dir: Path,
+    *,
+    workstream_name: str | None,
+    sleep_seconds: float | None = None,
+) -> None:
+    """Write a fake `node` executable onto stub_dir that recognizes exactly the
+    invocation shape the hook performs (`node <gsd-tools-path> workstream get
+    --raw`) and echoes a stubbed workstream name (or sleeps past the timeout
+    guard, for the never-blocks test). Any other invocation shape falls through
+    to a real `node` if present, so this stub does not break unrelated callers."""
+    real_node = shutil.which("node") or "/usr/bin/env node"
+    script = stub_dir / "node"
+    if sleep_seconds is not None:
+        body = f"""#!/usr/bin/env sh
+case "$*" in
+  *"workstream get --raw"*)
+    sleep {sleep_seconds}
+    echo "should-never-be-seen"
+    exit 0
+    ;;
+esac
+exec {real_node} "$@"
+"""
+    else:
+        echoed = workstream_name if workstream_name is not None else "none"
+        body = f"""#!/usr/bin/env sh
+case "$*" in
+  *"workstream get --raw"*)
+    echo "{echoed}"
+    exit 0
+    ;;
+esac
+exec {real_node} "$@"
+"""
+    script.write_text(body, encoding="utf-8")
+    script.chmod(0o755)
+
+
+def _seed_workstream(tmp: Path, name: str, phase_name: str) -> Path:
+    """Copy STATE_EXECUTING into .planning/workstreams/<name>/STATE.md, editing
+    current_phase_name to a distinct value so the resulting JSONL entry's
+    phase_name field unambiguously identifies which candidate won."""
+    ws_dir = tmp / ".planning" / "workstreams" / name
+    ws_dir.mkdir(parents=True, exist_ok=True)
+    ws_state = ws_dir / "STATE.md"
+    text = STATE_EXECUTING.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    new_lines = []
+    for line in lines:
+        if line.startswith("current_phase_name:"):
+            new_lines.append(f"current_phase_name: {phase_name}")
+        else:
+            new_lines.append(line)
+    ws_state.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    return ws_state
+
+
+def test_session_scoped_workstream_preferred_over_newer_unrelated_workstream_mtime() -> None:
+    """Direct regression test for the exact live failure mode 06-VERIFICATION.md
+    reproduced: a concurrently-active but unrelated workstream's STATE.md winning
+    by mtime alone must NOT happen once the session-scoped resolver is available
+    and validated."""
+    tmp = Path(tempfile.mkdtemp(prefix="dispatch-hook-"))
+    _seed_fake_gsd_tools(tmp)
+
+    alpha_state = _seed_workstream(tmp, "alpha", "alpha-phase")
+    beta_state = _seed_workstream(tmp, "beta", "beta-phase")
+    gamma_state = _seed_workstream(tmp, "gamma", "gamma-phase")
+
+    # Force beta to have the strictly newest mtime of the three — the one the
+    # existing mtime-only logic would incorrectly pick.
+    _touch_newer(beta_state, seconds_newer_than=alpha_state)
+    _touch_newer(beta_state, seconds_newer_than=gamma_state)
+
+    stub_dir = Path(tempfile.mkdtemp(prefix="fake-node-"))
+    _build_fake_node_resolver(stub_dir, workstream_name="gamma")
+
+    result = _run_in_dir(
+        STOP_STDIN_JSON,
+        tmp,
+        extra_env={"PATH": f"{stub_dir}:{os.environ.get('PATH', '')}"},
+    )
+    assert result.returncode == 0, (
+        f"hook must never block; got {result.returncode}\nstderr: {result.stderr}"
+    )
+    entries = _parsed_gsd_workflow_entries(tmp)
+    assert len(entries) == 1, f"expected exactly one gsd-workflow JSONL entry; got {entries}"
+    entry = entries[0]
+    assert entry.get("phase_name") == "gamma-phase", (
+        "session-resolved workstream (gamma) must win over merely-newest-mtime "
+        f"workstream (beta); got {entry}"
+    )
+    assert entry.get("workstream") == "gamma", (
+        f"workstream field must record the session-resolved winner; got {entry}"
+    )
+
+
+def test_session_scoped_workstream_ignored_when_directory_absent() -> None:
+    """The hook must confirm the resolved name's STATE.md actually exists on disk
+    before using it, never blindly trust the resolver's string output."""
+    tmp = Path(tempfile.mkdtemp(prefix="dispatch-hook-"))
+    _seed_fake_gsd_tools(tmp)
+
+    # Only one real candidate workstream; the resolver names a nonexistent one.
+    _seed_workstream(tmp, "real-ws", "real-ws-phase")
+
+    stub_dir = Path(tempfile.mkdtemp(prefix="fake-node-"))
+    _build_fake_node_resolver(stub_dir, workstream_name="ghost")
+
+    result = _run_in_dir(
+        STOP_STDIN_JSON,
+        tmp,
+        extra_env={"PATH": f"{stub_dir}:{os.environ.get('PATH', '')}"},
+    )
+    assert result.returncode == 0, (
+        f"hook must never block; got {result.returncode}\nstderr: {result.stderr}"
+    )
+    entries = _parsed_gsd_workflow_entries(tmp)
+    assert len(entries) == 1, f"expected exactly one gsd-workflow JSONL entry; got {entries}"
+    entry = entries[0]
+    assert entry.get("phase_name") == "real-ws-phase", (
+        f"must fall back to mtime-based selection (real-ws) when resolver names a "
+        f"nonexistent workstream directory (ghost); got {entry}"
+    )
+    assert entry.get("workstream") == "mtime-fallback", (
+        f"workstream field must record mtime-fallback when the resolved name's "
+        f"directory does not exist; got {entry}"
+    )
+
+
+def test_session_scoped_resolver_unavailable_falls_back_to_mtime() -> None:
+    """Regression guard: with no fake resolver stub on PATH at all (simulating
+    gsd-tools/node being unavailable or the lookup returning empty/none), the
+    hook must still correctly fall back to the existing mtime-based selection
+    exactly as it did before this plan."""
+    tmp = Path(tempfile.mkdtemp(prefix="dispatch-hook-"))
+    # No _seed_fake_gsd_tools call — no gsd-tools.cjs present anywhere reachable
+    # by the hook's layered resolution in this isolated PATH.
+    older_state = _seed_workstream(tmp, "older-ws", "older-ws-phase")
+    newer_state = _seed_workstream(tmp, "newer-ws", "newer-ws-phase")
+    _touch_newer(newer_state, seconds_newer_than=older_state)
+
+    # Strip PATH down to just what's needed for the hook's own non-gsd-tools
+    # subprocess calls (sh, python3, coreutils) — simulates node/gsd-tools truly
+    # being unreachable, without a fake resolver stub of any kind.
+    result = _run_in_dir(STOP_STDIN_JSON, tmp)
+    assert result.returncode == 0, (
+        f"hook must never block; got {result.returncode}\nstderr: {result.stderr}"
+    )
+    entries = _parsed_gsd_workflow_entries(tmp)
+    assert len(entries) == 1, f"expected exactly one gsd-workflow JSONL entry; got {entries}"
+    entry = entries[0]
+    assert entry.get("phase_name") == "newer-ws-phase", (
+        f"must fall back to mtime-based selection (newer-ws) when no session-scoped "
+        f"resolver is reachable; got {entry}"
+    )
+    assert entry.get("workstream") == "mtime-fallback", (
+        f"workstream field must record mtime-fallback when the resolver tier never "
+        f"fires; got {entry}"
+    )
+
+
+def test_session_scoped_lookup_never_blocks_on_slow_resolver() -> None:
+    """The new lookup must inherit the same TIMEOUT_BIN guard already used for the
+    writer/self-reflect subprocess calls in this hook — a resolver that sleeps
+    past the timeout must not hang the hook."""
+    tmp = Path(tempfile.mkdtemp(prefix="dispatch-hook-"))
+    _seed_fake_gsd_tools(tmp)
+    only_state = _seed_workstream(tmp, "only-ws", "only-ws-phase")
+
+    stub_dir = Path(tempfile.mkdtemp(prefix="fake-node-"))
+    # Sleep well past the hook's own 10s $TIMEOUT_BIN guard, but keep the test's
+    # own bound comfortably under its subprocess.run(timeout=60) ceiling.
+    _build_fake_node_resolver(stub_dir, workstream_name=None, sleep_seconds=15)
+
+    start = datetime.now(timezone.utc)
+    result = _run_in_dir(
+        STOP_STDIN_JSON,
+        tmp,
+        extra_env={"PATH": f"{stub_dir}:{os.environ.get('PATH', '')}"},
+    )
+    elapsed = (datetime.now(timezone.utc) - start).total_seconds()
+
+    assert result.returncode == 0, (
+        f"hook must never block on a slow resolver; got {result.returncode}\n"
+        f"stderr: {result.stderr}"
+    )
+    assert elapsed < 30, (
+        f"hook must fall back well before the resolver's 15s sleep completes "
+        f"(bounded by the 10s $TIMEOUT_BIN guard); took {elapsed}s"
+    )
+    entries = _parsed_gsd_workflow_entries(tmp)
+    assert len(entries) == 1, f"expected exactly one gsd-workflow JSONL entry; got {entries}"
+    entry = entries[0]
+    assert entry.get("phase_name") == "only-ws-phase", (
+        f"must fall back to mtime-based selection when the resolver hangs past "
+        f"the timeout guard; got {entry}"
+    )
+    assert entry.get("workstream") == "mtime-fallback", (
+        f"workstream field must record mtime-fallback when the resolver times out; "
+        f"got {entry}"
+    )
+
+
 def test_stale_top_level_state_preferred_when_newer_than_workstream_state() -> None:
     """Inverse of the CR-01 regression: when the top-level STATE.md is genuinely the
     most-recently-modified candidate, it must still win (mtime-based selection, not an
