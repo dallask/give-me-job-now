@@ -11,8 +11,10 @@
 #      and shell out to `gmj_execution_log_writer.py`, appending one `gsd-workflow`-
 #      tagged JSONL line to .planning/execution-logs/gsd-workflow-<date>.jsonl.
 #   2. AUTO-FIRE (Gap 2 / D-05): bound the live execution-logs directory to a small
-#      recent-date staging window and auto-run `gmj_self_reflect.py` (report-only,
-#      NEVER --apply), refreshing output/analysis/self-reflect-report.md.
+#      recent-date staging window and auto-run `gmj_self_reflect.py` (report-only —
+#      this hook's auto-fire call site never includes the apply flag; auto-fire is
+#      report-generation only, matching D-07's never-auto-apply constraint),
+#      refreshing output/analysis/self-reflect-report.md.
 #
 # KNOWN, DISCLOSED LIMITATION: Claude Code's `Stop` event fires once per top-level
 # agent turn, not once per exact GSD loop-hook point (execute:pre/execute:wave:post/
@@ -121,6 +123,42 @@ python3 "${SCRIPTS_ROOT}/scripts/gmj_execution_log_writer.py" \
   --log-dir "$LOG_DIR" \
   >/dev/null 2>&1 || true
 
+# ---------------------------------------------------------------------------
+# 2. AUTO-FIRE: stage only the 2 most-recent calendar dates (today + yesterday, UTC)
+#    of tool-calls-*.jsonl / gsd-workflow-*.jsonl into a fresh temp dir (never point
+#    the analyzer directly at the live, unbounded LOG_DIR — RESEARCH.md Common
+#    Pitfall 4 / Open Question 3), then auto-run gmj_self_reflect.py against that
+#    bounded staging dir. Every step (mktemp, copy, invocation, cleanup) is
+#    individually guarded so a failure anywhere degrades to a no-op rather than
+#    propagating a non-zero exit from this hook. ROADMAP SC3's "run ... after a
+#    command/flow/agent/skill/test completes" is satisfied via this same Stop event
+#    the dispatch step above uses — one hook, two independent best-effort side
+#    effects sharing the identical trigger point and non-blocking contract.
+# ---------------------------------------------------------------------------
+
+(
+  STAGING_DIR=$(mktemp -d 2>/dev/null) || exit 0
+  trap 'rm -rf "$STAGING_DIR" 2>/dev/null || true' EXIT INT TERM
+
+  TODAY=$(date -u '+%Y-%m-%d' 2>/dev/null) || exit 0
+  YESTERDAY=$(date -u -v-1d '+%Y-%m-%d' 2>/dev/null || date -u -d 'yesterday' '+%Y-%m-%d' 2>/dev/null) || YESTERDAY=""
+
+  if [ -d "$LOG_DIR" ]; then
+    for d in "$TODAY" "$YESTERDAY"; do
+      [ -z "$d" ] && continue
+      for f in "${LOG_DIR}/tool-calls-${d}.jsonl" "${LOG_DIR}/gsd-workflow-${d}.jsonl"; do
+        [ -f "$f" ] && cp "$f" "$STAGING_DIR/" 2>/dev/null || true
+      done
+    done
+  fi
+
+  mkdir -p "${PROJECT_DIR}/output/analysis" 2>/dev/null || true
+  python3 "${SCRIPTS_ROOT}/scripts/gmj_self_reflect.py" \
+    --log-dir "$STAGING_DIR" \
+    --output "${PROJECT_DIR}/output/analysis/self-reflect-report.md" \
+    >/dev/null 2>&1 || true
+) || true
+
 # D-09/REFLECT-05: this hook never blocks — unconditional success exit regardless of
-# whether the dispatch above succeeded.
+# whether the dispatch/auto-fire steps above succeeded.
 exit 0

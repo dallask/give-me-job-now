@@ -245,9 +245,13 @@ def test_auto_fire_never_blocks_on_crashing_analyzer() -> None:
     _seed_state(tmp, STATE_EXECUTING)
     _seed_bounded_window_logs(tmp)
 
-    # Point PATH at a directory with no python3 binary at all, so the analyzer
-    # invocation itself cannot even launch.
+    # Point PATH at a directory containing only `sh` (symlinked from its real
+    # location) and no `python3` at all, so the analyzer invocation itself cannot
+    # even launch — while subprocess.run(["sh", ...]) can still resolve `sh`.
+    sh_real = shutil.which("sh")
+    assert sh_real, "test environment must have a resolvable `sh` on PATH"
     broken_path_dir = Path(tempfile.mkdtemp(prefix="broken-path-"))
+    os.symlink(sh_real, broken_path_dir / "sh")
     result = _run_in_dir(
         STOP_STDIN_JSON,
         tmp,
