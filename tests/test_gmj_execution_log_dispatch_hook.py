@@ -10,6 +10,9 @@ EXECUTED hook — not an agent self-report:
   ``gmj_execution_log_writer.py``, writing a ``gsd-workflow``-tagged JSONL entry with
   ``point: "execute:post"``, and NEVER returns a blocking exit code under any input
   (missing STATE.md, malformed frontmatter).
+- Task 2 (Tests 6-9): bounds and auto-fires ``gmj_self_reflect.py`` against a small
+  recent-file staging window (not the full unbounded log history), never passes ``--apply``,
+  and never blocks even if the analyzer subprocess is unreachable/crashing.
 
 The hook runs with ``CLAUDE_PROJECT_DIR`` pointed at an isolated temp dir, so assertions
 never touch the real repo's ``.planning/`` or ``output/`` trees.
@@ -23,6 +26,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -31,6 +35,7 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures" / "execution-logs"
 
 STATE_EXECUTING = FIXTURES / "dispatch_state_executing.md"
 STATE_MISSING_FRONTMATTER = FIXTURES / "dispatch_state_missing_frontmatter.md"
+NORMAL_RUN_JSONL = FIXTURES / "normal-run.jsonl"
 
 STOP_STDIN_JSON = json.dumps({"hook_event_name": "Stop"})
 
@@ -160,6 +165,108 @@ def test_hook_never_returns_blocking_exit_code() -> None:
             f"hook must never return a blocking exit code for fixture={fixture}; "
             f"got {result.returncode}\nstderr: {result.stderr}"
         )
+
+
+# --------------------------------------------------------------------------- Task 2 tests
+
+
+def _seed_bounded_window_logs(tmp: Path) -> Path:
+    """Seed today's tool-calls-<date>.jsonl with normal-run.jsonl content."""
+    log_dir = tmp / ".planning" / "execution-logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    dest = log_dir / f"tool-calls-{today}.jsonl"
+    shutil.copy(NORMAL_RUN_JSONL, dest)
+    return log_dir
+
+
+def test_auto_fire_invokes_self_reflect_and_writes_report() -> None:
+    tmp = Path(tempfile.mkdtemp(prefix="dispatch-hook-"))
+    _seed_state(tmp, STATE_EXECUTING)
+    _seed_bounded_window_logs(tmp)
+    result = _run_in_dir(STOP_STDIN_JSON, tmp)
+    assert result.returncode == 0, (
+        f"hook must never block; got {result.returncode}\nstderr: {result.stderr}"
+    )
+    report_path = tmp / "output" / "analysis" / "self-reflect-report.md"
+    assert report_path.is_file(), f"expected a self-reflect-report.md written at {report_path}"
+    text = report_path.read_text(encoding="utf-8")
+    assert text.strip(), f"report must be non-empty; got: {text!r}"
+    assert "STATUS:" in text, f"report must contain the STATUS: footer line; got: {text!r}"
+
+
+def test_auto_fire_window_is_bounded_not_full_history() -> None:
+    tmp = Path(tempfile.mkdtemp(prefix="dispatch-hook-"))
+    _seed_state(tmp, STATE_EXECUTING)
+    log_dir = tmp / ".planning" / "execution-logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    # 5 distinct old dates (5+ days apart), each with a distinguishing marker command,
+    # plus today's file seeded from normal-run.jsonl.
+    now = datetime.now(timezone.utc)
+    old_marker = "OLD_DATE_MARKER_COMMAND_should_not_appear_in_bounded_window"
+    for i in range(1, 6):
+        old_date = (now - timedelta(days=5 * i)).strftime("%Y-%m-%d")
+        old_file = log_dir / f"tool-calls-{old_date}.jsonl"
+        old_entry = {
+            "ts": f"{old_date}T00:00:00.000Z",
+            "source": "tool-call",
+            "event": "PreToolUse",
+            "tool_name": "Bash",
+            "outcome": "observed",
+            "artifacts": [],
+            "command": old_marker,
+        }
+        old_file.write_text(json.dumps(old_entry) + "\n", encoding="utf-8")
+
+    today = now.strftime("%Y-%m-%d")
+    today_file = log_dir / f"tool-calls-{today}.jsonl"
+    shutil.copy(NORMAL_RUN_JSONL, today_file)
+
+    result = _run_in_dir(STOP_STDIN_JSON, tmp)
+    assert result.returncode == 0, (
+        f"hook must never block; got {result.returncode}\nstderr: {result.stderr}"
+    )
+
+    report_path = tmp / "output" / "analysis" / "self-reflect-report.md"
+    assert report_path.is_file(), f"expected a self-reflect-report.md written at {report_path}"
+    text = report_path.read_text(encoding="utf-8")
+    assert old_marker not in text, (
+        f"bounded window must NOT include 5-day-old-and-older files; found marker in report: {text!r}"
+    )
+
+    # Confirm the live log directory itself was never mutated (copy, not move).
+    live_files = sorted(log_dir.glob("tool-calls-*.jsonl"))
+    assert len(live_files) == 6, f"live log dir must retain all 6 original files; got {live_files}"
+
+
+def test_auto_fire_never_blocks_on_crashing_analyzer() -> None:
+    tmp = Path(tempfile.mkdtemp(prefix="dispatch-hook-"))
+    _seed_state(tmp, STATE_EXECUTING)
+    _seed_bounded_window_logs(tmp)
+
+    # Point PATH at a directory with no python3 binary at all, so the analyzer
+    # invocation itself cannot even launch.
+    broken_path_dir = Path(tempfile.mkdtemp(prefix="broken-path-"))
+    result = _run_in_dir(
+        STOP_STDIN_JSON,
+        tmp,
+        extra_env={"PATH": str(broken_path_dir)},
+    )
+    assert result.returncode == 0, (
+        f"hook must never block even with a broken python3 PATH; got {result.returncode}\n"
+        f"stderr: {result.stderr}"
+    )
+
+
+def test_auto_fire_never_passes_apply_flag() -> None:
+    hook_source = HOOK.read_text(encoding="utf-8")
+    # Static assertion: --apply must never appear anywhere in this hook's source,
+    # belt-and-braces against ever accidentally triggering a fix-apply path.
+    assert "--apply" not in hook_source, (
+        "gmj-execution-log-dispatch.sh must never pass --apply to gmj_self_reflect.py "
+        "(D-07 never-auto-apply constraint)"
+    )
 
 
 def main() -> int:
