@@ -21,7 +21,7 @@ from xml.sax.saxutils import escape
 # Same import idiom as scripts/cv/gmj_draft_to_cv_yaml.py (scripts/artifacts on sys.path).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "artifacts"))
 from gmj_schema_fields import CONTACT, WEBSITE_GROUPS  # noqa: E402  (both must be USED, not just imported)
-from gmj_format_fields import contact_lines, languages_rows  # noqa: E402  (single-owner shared formatter, PIPE-02)
+from gmj_format_fields import contact_lines, languages_rows, expertise_skills_text  # noqa: E402  (single-owner shared formatter, PIPE-02)
 
 # Sibling-module import (scripts/cv/ itself) for the config-driven template resolver (TMPL-01/02).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -137,6 +137,33 @@ def photo_path_for(candidate: dict, repo_root: Path) -> Path | None:
     else:
         path = path.resolve()
     return path if path.is_file() else None
+
+
+def _master_candidate_photo(repo_root: Path, lang: str) -> str | None:
+    """Return the master config/candidate.yaml's raw (unresolved) photo path string,
+    only if it resolves to a real, existing file. Guarded: never raises — a missing
+    or malformed master file returns None so the render degrades to the placeholder
+    branch instead of crashing (T-02-12).
+
+    ``lang`` is accepted for symmetry with load_candidate() but the master photo
+    path is language-independent (overlay files never redefine ``photo``), so it is
+    read directly from the base master file without merging an overlay.
+    """
+    master_path = repo_root / "config" / "candidate.yaml"
+    if not master_path.is_file():
+        return None
+    try:
+        master = yaml.safe_load(master_path.read_text(encoding="utf-8"))
+    except (yaml.YAMLError, OSError):
+        return None
+    if not isinstance(master, dict):
+        return None
+    raw = photo_raw(master)
+    if not raw:
+        return None
+    if not photo_path_for(master, repo_root):
+        return None
+    return raw
 
 
 def candidate_for_template(candidate: dict, repo_root: Path) -> dict:
@@ -308,8 +335,9 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
             skills = block.get("skills") or []
             if rt:
                 story.append(Paragraph(f"<b>{escape(str(rt))}</b>", body_style))
-            if isinstance(skills, list):
-                story.append(Paragraph(", ".join(str(s) for s in skills).replace("&", "&amp;"), body_style))
+            skills_text = expertise_skills_text(skills)
+            if skills_text:
+                story.append(Paragraph(skills_text.replace("&", "&amp;"), body_style))
             story.append(Spacer(1, 4))
 
     skills_flat = candidate.get("skills") or []
@@ -354,14 +382,17 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
             story.append(Spacer(1, 6))
 
     edu = candidate.get("education") or []
-    if edu:
+    edu_rows = [
+        row for row in edu
+        if isinstance(row, dict) and (row.get("institution") or row.get("program"))
+    ]
+    if edu_rows:
         story.append(Paragraph(f"<b>{escape(lbl('education', 'Education'))}</b>", h2_style))
-        for row in edu:
-            if isinstance(row, dict):
-                line = " — ".join(
-                    x for x in (row.get("program"), row.get("institution"), row.get("duration")) if x
-                )
-                story.append(Paragraph(line.replace("&", "&amp;"), body_style))
+        for row in edu_rows:
+            line = " — ".join(
+                x for x in (row.get("program"), row.get("institution"), row.get("duration")) if x
+            )
+            story.append(Paragraph(line.replace("&", "&amp;"), body_style))
 
     projects = candidate.get("independent_projects") or []
     if isinstance(projects, list) and projects:
@@ -435,6 +466,7 @@ def render_weasyprint_html(
     )
     env.filters["contact_lines"] = contact_lines
     env.filters["languages_rows"] = languages_rows
+    env.filters["expertise_skills_text"] = expertise_skills_text
     tpl = env.get_template(template_path.name)
     br = repo_root.resolve()
     base_uri = br.as_uri()
@@ -510,6 +542,17 @@ def main() -> int:
     candidate = load_candidate(config_path, lang)
     repo_root = repo_root_from_config(config_path)
     labels = _load_labels(repo_root, lang)
+
+    # Photo forwarding fallback (02-UAT.md gap 1): a per-offer skill-CV draft
+    # (config/cv/cv.[skill].[lang].yaml) never carries a photo key forward from the
+    # master config/candidate.yaml. Only activate for the skill-CV branch when the
+    # draft itself has no photo — full-profile (master) renders already have their
+    # own photo key and must stay untouched (T-02-10).
+    if _is_skill_cv(config_path) and not photo_raw(candidate):
+        fallback_photo = _master_candidate_photo(repo_root, lang)
+        if fallback_photo:
+            candidate = dict(candidate)
+            candidate["photo"] = fallback_photo
 
     date_part = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H:%M:%S")
     if _is_skill_cv(config_path):

@@ -32,6 +32,27 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gmj_schema_fields import CONTACT, WEBSITE_GROUPS  # noqa: E402
 
 
+def _label_and_punctuation_safe(label: str, value: str) -> str:
+    """Format a single ``f"{label.capitalize()}: {value}"`` line, stripping a
+    pre-existing "Label: " prefix already embedded in ``value`` (case-insensitive,
+    matching this same key's own synthesized label, with or without a following
+    space) and at most one trailing sentence-punctuation character (``.``/``,``/
+    ``;``) — but ONLY when that character is not immediately preceded by ``/``,
+    which preserves real trailing-slash URLs while removing sentence-appended
+    punctuation after a bare domain/path (02-UAT.md gap 3).
+    """
+    text = str(value).strip()
+    canonical_label = str(label).capitalize()
+    for prefix_label in (canonical_label, str(label)):
+        prefix = f"{prefix_label}:"
+        if text[: len(prefix)].casefold() == prefix.casefold():
+            text = text[len(prefix):].lstrip()
+            break
+    if text and text[-1] in ".,;" and (len(text) < 2 or text[-2] != "/"):
+        text = text[:-1]
+    return f"{canonical_label}: {text}"
+
+
 def contact_lines(contact: dict) -> list[str]:
     """Build contact strings by SHAPE — never by string-formatting a bare container.
 
@@ -75,12 +96,12 @@ def contact_lines(contact: dict) -> list[str]:
         media = media if isinstance(media, dict) else {}
         for label, url in media.items():
             if url:
-                lines.append(f"{str(label).capitalize()}: {url}")
+                lines.append(_label_and_punctuation_safe(label, url))
     messengers = contact.get(messengers_key)
     messengers = messengers if isinstance(messengers, dict) else {}
     for label, handle in messengers.items():
         if handle:
-            lines.append(f"{str(label).capitalize()}: {handle}")
+            lines.append(_label_and_punctuation_safe(label, handle))
     return lines
 
 
@@ -108,3 +129,35 @@ def languages_rows(languages: object) -> list[dict]:
     if not isinstance(languages, list):
         return []
     return [row for row in languages if isinstance(row, dict)]
+
+
+def expertise_skills_text(skills: object) -> str:
+    """Guard ``candidate.expertise[N].skills`` by SHAPE — never iterate a bare string.
+
+    ``config/candidate.yaml``'s per-block ``expertise[N].skills`` field is documented as
+    a list of short term strings, but a real composer-emitted draft has shown up as a
+    single already-display-ready prose string (e.g. "PHP frameworks expertise includes
+    Laravel, Symfony, ..." — 02-UAT.md gap 4/TMPL-04-adjacent). Jinja's ``join`` filter
+    iterates any string character-by-character, exploding it into an unreadable
+    single-letter-comma-joined mess. This is the SINGLE shared choke point both render
+    backends route through: the Jinja/WeasyPrint template path (``baxter.html``) via the
+    ``expertise_skills_text`` filter, and ``render_reportlab()`` (``scripts/cv/gmj_render_cv.py``)
+    via a direct call — mirroring how :func:`languages_rows` is the shared shape-guard for
+    ``candidate.languages``. ``render_reportlab()`` previously had its own inline
+    ``isinstance(skills, list)`` check that silently dropped bare-string skills instead of
+    splitting them character-by-character (a narrower symptom of the same defect class,
+    caught by code review and closed by routing it through this same helper).
+
+    A ``list`` input is joined with ``", "`` after coercing each item with ``str()`` and
+    dropping falsy entries — parity with ``render_reportlab()``'s pre-existing
+    ``", ".join(str(s) for s in skills)`` list-rendering behavior. A
+    non-empty string input (the real defect shape) is returned UNCHANGED as a single
+    value — it is already display-ready text, not a container to iterate. Any other
+    input (``None``, ``{}``, an empty string, other types) returns ``""`` — the same
+    "no crash, no garbage" contract as this module's other helpers.
+    """
+    if isinstance(skills, list):
+        return ", ".join(str(s) for s in skills if s)
+    if isinstance(skills, str) and skills:
+        return skills
+    return ""

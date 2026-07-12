@@ -32,6 +32,7 @@ traceback (D-09, no hard-fail on misconfiguration).
 
 from __future__ import annotations
 
+import fcntl
 import json
 import random
 import re
@@ -173,12 +174,22 @@ def _pick_rotation(pool: list[str], mode: str, state_path: Path | None) -> str:
             chosen = random.choice(pool)
             return chosen
         counter_path = state_path.parent.parent / _ROTATION_COUNTER_FILENAME
-        counter = _read_json_dict(counter_path)
-        next_index = counter.get("next_index")
-        if not isinstance(next_index, int) or isinstance(next_index, bool) or next_index < 0:
-            next_index = 0
-        chosen = pool[next_index % len(pool)]
-        _write_json_dict(counter_path, {"next_index": next_index + 1})
+        counter_path.parent.mkdir(parents=True, exist_ok=True)
+        lock_path = counter_path.with_suffix(".json.lock")
+        # Exclusive fcntl.flock for the ENTIRE read-modify-write critical section, same
+        # idiom gmj_batch.py uses for its own shared manifest.json (CONC-03) — this counter
+        # is genuinely concurrently written under parallel offer fan-out (02-REVIEW.md CR-02).
+        with open(lock_path, "w") as lockf:
+            fcntl.flock(lockf, fcntl.LOCK_EX)
+            try:
+                counter = _read_json_dict(counter_path)
+                next_index = counter.get("next_index")
+                if not isinstance(next_index, int) or isinstance(next_index, bool) or next_index < 0:
+                    next_index = 0
+                chosen = pool[next_index % len(pool)]
+                _write_json_dict(counter_path, {"next_index": next_index + 1})
+            finally:
+                fcntl.flock(lockf, fcntl.LOCK_UN)
         _record_resolved_template(state_path, chosen)
         return chosen
 
