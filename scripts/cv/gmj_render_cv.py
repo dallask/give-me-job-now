@@ -21,7 +21,7 @@ from xml.sax.saxutils import escape
 # Same import idiom as scripts/cv/gmj_draft_to_cv_yaml.py (scripts/artifacts on sys.path).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "artifacts"))
 from gmj_schema_fields import CONTACT, WEBSITE_GROUPS  # noqa: E402  (both must be USED, not just imported)
-from gmj_format_fields import contact_lines, languages_rows  # noqa: E402  (single-owner shared formatter, PIPE-02)
+from gmj_format_fields import contact_lines, languages_rows, expertise_skills_text  # noqa: E402  (single-owner shared formatter, PIPE-02)
 
 # Sibling-module import (scripts/cv/ itself) for the config-driven template resolver (TMPL-01/02).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -462,6 +462,7 @@ def render_weasyprint_html(
     )
     env.filters["contact_lines"] = contact_lines
     env.filters["languages_rows"] = languages_rows
+    env.filters["expertise_skills_text"] = expertise_skills_text
     tpl = env.get_template(template_path.name)
     br = repo_root.resolve()
     base_uri = br.as_uri()
