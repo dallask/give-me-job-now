@@ -65,3 +65,27 @@ Presentation/
 # gitleaks step now reads .gitleaks.toml from $REPO_ROOT directly (same
 # pattern as public-assets/'s README/LICENSE injection), not from this mirror.
 .gitleaks.toml
+
+# This file contains unredacted real PII (a phone number and personal email
+# addresses) not caught by the --replace-text redaction pass in
+# gmj_publish_mirror.sh — an active leak in the current public mirror.
+# git-filter-repo path lines are literal and match the path byte-for-byte,
+# including this filename's embedded space, so no quoting/escaping is needed.
+sources/CV compilation.txt
+
+# The web/ folder has no functional CI/deploy role in the public mirror: the
+# live Vercel deploy runs from this private repo's feature/gsd branch, and
+# gmj_publish_mirror.sh only ever pushes feature/gsd to the public remote's
+# main branch — feature/gsd itself never exists in the mirror's history, so
+# nothing in web/ can execute there.
+web/
+
+# GitHub Pages support is being dropped as a public deploy path, so these
+# three workflow files ship no working CI to the mirror: build-site.yml is
+# scoped to web/** (dead once web/ above is excluded), publish-site.yml is
+# already documented elsewhere as dormant/broken, and
+# publish-site-vercel.yml's push trigger targets feature/gsd — a branch
+# absent from the mirror, so it can never fire there either.
+.github/workflows/build-site.yml
+.github/workflows/publish-site.yml
+.github/workflows/publish-site-vercel.yml
