@@ -34,6 +34,7 @@ CONTROL_SCRIPTS = [
     "gmj_dispatch_cap.py",
     "gmj_check_offer_liveness.py",
     "gmj_check_dependencies.py",
+    "gmj_check_leftover_artifacts.py",
 ]
 # Retired legacy tokens — the old cv-* review/enhance roster, the deliverable gate,
 # the fast-path label, the enhance-cycle constant, and the LLM router — must be ABSENT
@@ -268,6 +269,116 @@ def test_pipeline_commands_exist() -> None:
     for step in ["scout", "freeze", "compose", "verify", "evaluate", "generate"]:
         path = COMMANDS_DIR / "gmj-pipeline" / f"{step}.md"
         assert path.is_file(), f"missing .claude/commands/gmj-pipeline/{step}.md"
+
+
+def test_hub_references_leftover_check_script() -> None:
+    # CLEAN-01: the hub must reference the new leftover-artifact detection script.
+    hub = _read(HUB_PATH)
+    assert "gmj_check_leftover_artifacts.py" in hub, (
+        "hub does not reference gmj_check_leftover_artifacts.py (CLEAN-01)"
+    )
+
+
+def test_leftover_check_runs_before_guide04_and_before_dispatch() -> None:
+    # CLEAN-02: the leftover check must be documented as running BEFORE the existing
+    # GUIDE-04 dependency check and before any Task() dispatch, per 06-CONTEXT.md's
+    # locked Trigger-points decision (detection is the FIRST init_run action).
+    hub = _read(HUB_PATH)
+    leftover_idx = hub.index("gmj_check_leftover_artifacts.py")
+    guide04_idx = hub.index("gmj_check_dependencies.py")
+    assert leftover_idx < guide04_idx, (
+        "hub must mention gmj_check_leftover_artifacts.py BEFORE gmj_check_dependencies.py "
+        "(CLEAN-02: leftover check runs first in init_run)"
+    )
+    # A phrase equivalent to "before the first spoke dispatch"/"before any Task()" must
+    # appear near the leftover-check mention (within the same section).
+    nearby = hub[leftover_idx : leftover_idx + 2000].lower()
+    assert "before any `task()`" in nearby or "before the first spoke dispatch" in nearby or (
+        "before any task()" in nearby
+    ), (
+        "hub does not state the leftover check runs before any Task()/first spoke dispatch "
+        "near its gmj_check_leftover_artifacts.py mention (CLEAN-02)"
+    )
+
+
+def test_hub_documents_genuine_choice_gate_not_advisory_hint() -> None:
+    # CLEAN-02: the new section must be a genuine, blocking choice gate -- distinguish it
+    # from a pure advisory hint (GUIDE-03/04 never block; this is the one exception).
+    hub = _read(HUB_PATH)
+    heading = "## Leftover artifact detection (CLEAN-01/02/03)"
+    assert heading in hub, f"hub does not contain the new section heading: {heading!r}"
+    start = hub.index(heading)
+    # Scan to the next top-level '## ' heading after this one, or end of file.
+    next_heading_idx = hub.find("\n## ", start + len(heading))
+    section_end = next_heading_idx if next_heading_idx != -1 else len(hub)
+    section = hub[start:section_end]
+    lowered = section.lower()
+    assert "choice" in lowered or "choose" in lowered, (
+        "new CLEAN-01/02/03 section does not contain 'choice'/'choose' language"
+    )
+    assert "wait" in lowered or "waits" in lowered, (
+        "new CLEAN-01/02/03 section does not state the hub WAITS for a reply"
+    )
+
+
+def test_hub_never_invokes_cleanup_wizard_via_bash() -> None:
+    # CLEAN-02 / T-06-06: every line mentioning gmj_cleanup_wizard.py must either carry a
+    # "never"/"NEVER" token on the same line, or be unambiguously framed as an instruction
+    # FOR THE HUMAN to run themselves (never paired with a Bash: / Bash( call pattern).
+    hub = _read(HUB_PATH)
+    assert "gmj_cleanup_wizard.py" in hub, "hub does not name scripts/gmj_cleanup_wizard.py"
+    human_run_framing_found = False
+    for line in hub.splitlines():
+        if "gmj_cleanup_wizard.py" not in line:
+            continue
+        lowered = line.lower()
+        assert not (
+            ("bash:" in lowered or "bash(" in lowered) and "gmj_cleanup_wizard.py" in line
+        ), f"hub pairs a Bash call pattern with gmj_cleanup_wizard.py on the same line: {line!r}"
+        if "yourself" in lowered or "your own terminal" in lowered:
+            human_run_framing_found = True
+    assert human_run_framing_found, (
+        "hub does not have at least one gmj_cleanup_wizard.py line framed as "
+        "human-run-themselves ('yourself' / 'your own terminal')"
+    )
+
+
+def test_hub_documents_autonomous_default_logged() -> None:
+    # CLEAN-03: the autonomous-mode branch must read leftover_artifacts_default from state
+    # and always render a GUIDE-05-style logged line naming the applied default.
+    hub = _read(HUB_PATH)
+    assert "leftover_artifacts_default" in hub, (
+        "hub does not mention leftover_artifacts_default (CLEAN-03)"
+    )
+    # Reuse the GUIDE-05 baseline assertions, then add one more: the GUIDE-05 template's
+    # "applies to" list (or the new section itself) names the leftover-detection surface.
+    assert "GUIDE-05" in hub, "hub does not name the GUIDE-05 prose template section"
+    assert "what happened" in hub, "hub does not state the GUIDE-05 template shape"
+    guide05_idx = hub.index("## Human-readable guidance template (GUIDE-05)")
+    applies_to_idx = hub.index("This template applies to:", guide05_idx)
+    next_heading_idx = hub.find("\n## ", applies_to_idx)
+    applies_to_section = hub[applies_to_idx : next_heading_idx if next_heading_idx != -1 else len(hub)]
+    assert (
+        "gmj_check_leftover_artifacts.py" in applies_to_section
+        or "leftover_artifacts_default" in applies_to_section
+    ), (
+        "GUIDE-05's 'applies to' bullet list does not name gmj_check_leftover_artifacts.py "
+        "or leftover_artifacts_default as a surface the template applies to (CLEAN-03)"
+    )
+
+
+def test_hub_documents_output_artifacts_scan_target() -> None:
+    # 06-RESEARCH.md Pitfall 3 guard: the new section must explicitly name
+    # output/artifacts as the detection scan target, never .pipeline/runs.
+    hub = _read(HUB_PATH)
+    heading = "## Leftover artifact detection (CLEAN-01/02/03)"
+    assert heading in hub, f"hub does not contain the new section heading: {heading!r}"
+    start = hub.index(heading)
+    next_heading_idx = hub.find("\n## ", start + len(heading))
+    section = hub[start : next_heading_idx if next_heading_idx != -1 else len(hub)]
+    assert "output/artifacts" in section, (
+        "new CLEAN-01/02/03 section does not name output/artifacts as the scan target"
+    )
 
 
 def main() -> int:
