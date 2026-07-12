@@ -204,11 +204,23 @@ def _extract_requirement_id(frontmatter: dict, body: str, command_file: Path) ->
 
 
 def _extract_no_bypass_flag(body: str) -> bool:
-    """True if the body explicitly states no confirm-bypass flag exists (cleanup-wizard-style)."""
+    """True if the body explicitly states no confirm-bypass flag exists (cleanup-wizard-style).
+
+    Requires a near-adjacency match between "no", "bypass", and "flag" (within ~40 chars of
+    each other, same sentence) rather than mere whole-body word co-occurrence — a body that
+    merely mentions "bypass" and "flag" near unrelated "no" tokens elsewhere (e.g. "no way to
+    bypass validation, but does support a --flag for other purposes") must not false-positive.
+    """
     lowered = body.lower()
-    return "no bypass flag" in lowered or (
-        "no" in lowered and "bypass" in lowered and "flag" in lowered
-    )
+    if "no bypass flag" in lowered:
+        return True
+    # Tight adjacency: "no" must be followed, within a handful of tokens (tolerating
+    # Markdown punctuation like "**"/backticks between words), directly by "bypass flag" as
+    # a unit — this rejects wide-window whole-sentence co-occurrence false positives such as
+    # "no way to bypass validation, but does support a --flag for other purposes" or
+    # "no automatic bypass exists; the flag --dry-run is separate", where "bypass" and
+    # "flag" are not actually asserting the non-existence of a bypass flag together.
+    return bool(re.search(r"\bno\b[\W_]*(?:\S+[\W_]+){0,4}bypass\W*flag\b", lowered))
 
 
 def extract(command_file: Path) -> dict:
