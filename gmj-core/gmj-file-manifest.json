@@ -1,7 +1,4 @@
 {
-  "version": "1.0.0",
-  "timestamp": "2026-07-12T10:14:50.136Z",
-  "mode": "full",
   "files": {
     "gmj-core/VERSION": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
     "gmj-core/agents/gmj-artifact-composer.md": "3660d985818d5f3a9285658533a08e164886468047cb24a004486e440746f3d3",
@@ -94,6 +91,7 @@
     "gmj-core/scripts/gmj_build_payload.py": "ffb6c0233721f2ef6301fcfa303e090feedaf0d4ccaae77da967254c877d6bde",
     "gmj-core/scripts/gmj_cleanup_report.py": "e4117e16791cbe29f6b3193fd64e21605eb12e1d07ec8e204f05826c741e9e7d",
     "gmj-core/scripts/gmj_cleanup_wizard.py": "4d3f670cfae4bc12fe93791443564ade5f210a8129ade16f98f63573b0a67804",
+    "gmj-core/scripts/gmj_execution_log_writer.py": "f1013f604c05dd187dbd8b05b34c830f237228386f00631acc872d0077354738",
     "gmj-core/scripts/offers/gmj_check_offer.py": "9c37fea0b0c6d6b0d08611b92f48d7ab4eedabfab8a757bb8d971e98672b2bfa",
     "gmj-core/scripts/offers/gmj_detect_language.py": "4dead6207193f82016d62fc1564f6456a599149ee2d86728bdf47a8b0cf1ec37",
     "gmj-core/scripts/offers/gmj_firecrawl_search.py": "80615badbf1636969dd642838aaea4eb0841cf697738254548746b0b402d14dc",
@@ -138,5 +136,8 @@
     "gmj-core/templates/cv/enhancv.html": "f7815ef52e5df5919f77383bf0d5a7242c70d7b14d5610aa6adbb8b4a3d58c1f",
     "gmj-core/templates/cv/gmj-baseline.html": "63801b29f9512fee457ec9bbe95edd74d2ec09c3646e9f23980b18703ceef126",
     "gmj-core/templates/cv/mark-smith-navy.html": "2d9cbbfe823829090ffe581c153a2e70cd5b0b425ccf5e0736a6a1c9b1722c03"
-  }
+  },
+  "mode": "full",
+  "timestamp": "2026-07-12T10:14:50.136Z",
+  "version": "1.0.0"
 }
