@@ -92,7 +92,14 @@ def _split_frontmatter(text: str, command_file: Path) -> tuple[dict, str]:
 
 
 def _extract_flags(body: str) -> list[dict[str, str]]:
-    """Scan body for '## Usage'/'## Flags'-style sections and pull documented flag lines."""
+    """Scan body for '## Usage'/'## Flags'-style sections and pull documented flag lines.
+
+    A documented flag's purpose text may soft-wrap across multiple Markdown source lines
+    within the same list item (a continuation line is indented and does not itself start a
+    new `-`/`*` bullet or heading) — those continuation lines are folded into the same
+    flag's ``purpose`` string so the extracted text is never silently truncated mid-sentence
+    at the source file's line-wrap point.
+    """
     flags: list[dict[str, str]] = []
     lines = body.splitlines()
     in_flag_section = False
@@ -104,7 +111,8 @@ def _extract_flags(body: str) -> list[dict[str, str]]:
             continue
         if not in_flag_section:
             continue
-        flag_match = _FLAG_LINE_RE.match(line.strip())
+        stripped = line.strip()
+        flag_match = _FLAG_LINE_RE.match(stripped)
         if flag_match:
             flags.append(
                 {
@@ -112,6 +120,11 @@ def _extract_flags(body: str) -> list[dict[str, str]]:
                     "purpose": flag_match.group("purpose").strip(),
                 }
             )
+            continue
+        # Continuation line: indented (part of the same list item), non-blank, and not
+        # itself a new bullet/heading — fold it onto the most recently captured flag.
+        if flags and line.strip() and line[:1] in (" ", "\t") and not stripped.startswith(("-", "*", "#")):
+            flags[-1]["purpose"] = (flags[-1]["purpose"] + " " + stripped).strip()
     return flags
 
 
@@ -241,6 +254,18 @@ def _render_steps_block(ir: dict) -> list[str]:
     lines: list[str] = []
     behaviors = ir.get("behaviors") or ir.get("steps") or []
     real_commands = [b for b in behaviors if b.strip().startswith(("python3 ", "claude ", "bash "))]
+
+    # A bare `claude ...` REPL-entry line with no script/tool argument (e.g.
+    # `claude --dangerously-skip-permissions`) documents an *alternative* way to reach a
+    # live TTY session, not a distinct sequential step — many command docs show it beside
+    # the flow's own script invocation as "either way requires a live TTY", not "run both in
+    # order". Drop it whenever a real script-invocation command (one naming a `.py`/`.sh`
+    # file) is present alongside it, so Non-Executability Criterion 2 (no uninterrupted
+    # multi-command copy-paste-run-all block) isn't violated by bundling two independent
+    # entry points into one numbered sequence.
+    script_commands = [c for c in real_commands if re.search(r"\.(py|sh)\b", c)]
+    if script_commands and len(script_commands) != len(real_commands):
+        real_commands = script_commands
 
     if real_commands:
         lines.append("**Steps (live):**")
