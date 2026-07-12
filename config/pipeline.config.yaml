@@ -1,10 +1,13 @@
-# config/pipeline.config.yaml — dual-mode + retry-cap + max-parallel-offers knobs (EXEC-01,
-# GUARD-03, CONC-01).
+# config/pipeline.config.yaml — dual-mode + retry-cap + max-parallel-offers + leftover-artifacts
+# knobs (EXEC-01, GUARD-03, CONC-01, CLEAN-03).
 #
-# These three operator-authored knobs govern how a pipeline run executes:
+# These four operator-authored knobs govern how a pipeline run executes:
 #   - execution_mode: whether the run pauses for human approval or runs autonomously.
 #   - retry_cap: the maximum number of enhance/generate retry cycles a run may spend.
 #   - max_parallel_offers: how many offers' pipelines may run concurrently in one batch.
+#   - leftover_artifacts_default: what autonomous mode does when a new run detects a
+#     partial artifact set left over from a prior run (proceed with it, or require a
+#     human to clean it up first).
 #
 # FREEZE CONTRACT: at run start, gmj_state_write.py copies these values into
 # .pipeline/runs/<run_id>/state.json (the run-scoped state). Every downstream control
@@ -28,3 +31,9 @@ retry_cap: 2
 # Default 3 — a small, safe default mirroring the conservative retry_cap: 2 precedent,
 # per 35-CONTEXT.md.
 max_parallel_offers: 3
+
+# One of: proceed | clean. Default "proceed" — the safe, non-destructive default matching
+# this repo's existing advisory-first bias (GUIDE-03/04 never block; this is the one new
+# exception, and it defaults to the NON-destructive choice). Consulted only when CLEAN-01's
+# detection finds a non-empty result AND execution_mode == autonomous.
+leftover_artifacts_default: proceed
