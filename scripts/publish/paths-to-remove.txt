@@ -47,12 +47,6 @@ scripts/publish/pii-denylist.txt
 # scope just to push a file that does nothing there.
 .github/workflows/publish-mirror.yml
 
-# public-assets/ is the SOURCE for the injected README.md + LICENSE (read from
-# $REPO_ROOT, not the temp clone — see gmj_publish_mirror.sh's "Inject public
-# docs" step), so removing the directory itself from mirrored history does not
-# break that injection; it just avoids shipping a redundant copy.
-public-assets/
-
 # Internal TUI dashboard design/testing notes — not part of the public project.
 TUI/
 
@@ -63,7 +57,7 @@ Presentation/
 # Internal gitleaks scan config (this repo's own manifest-hash false-positive
 # allowlist) — not relevant to the public repo. Safe to strip: the publisher's
 # gitleaks step now reads .gitleaks.toml from $REPO_ROOT directly (same
-# pattern as public-assets/'s README/LICENSE injection), not from this mirror.
+# pattern as the root README.md/LICENSE injection), not from this mirror.
 .gitleaks.toml
 
 # This file contains unredacted real PII (a phone number and personal email

@@ -102,16 +102,19 @@ scripted/CI use — see the GitHub Action below).
 7. **Verification gate (hard)** — PII-denylist: `git grep`s every line of the real denylist across
    **all** history refs in the filtered clone, at this point (redacted, but *before* the public
    docs injection below) — any hit aborts (naming only the fact of a hit + ref, never printing the
-   token value). This ordering is deliberate: `public-assets/README.public.md`/`LICENSE` are
+   token value). This ordering is deliberate: the root `README.md`/`LICENSE` injected below are
    human-authored, human-reviewed public content (e.g. an intentional author name/site credit) that
    would otherwise false-positive against the same tokens used to catch *accidental* leaks in the
    bulk historical commit corpus. The gate protects the historical data; it does not re-scan
    curated public-facing content added after it.
 8. Overwrites `config/candidate.yaml` (+ `.ua`/`.ru` overlays), `config/credentials.yaml`, and
    `config/preferences.yaml` in the temp clone with the `gmj-core/config/*.sample` payloads, then
-   injects `public-assets/README.public.md` → `README.md` and `public-assets/LICENSE` → `LICENSE`,
-   committing all of it as one swap commit (the real commit author identity is **preserved**, not
-   rewritten — only this one swap commit is added as the new HEAD).
+   injects the repo's own root `README.md` and `LICENSE`: `LICENSE` is copied as-is (no
+   transform), and `README.md` is passed through the `PRIVATE-ONLY`/`PUBLIC-MIRROR` marker
+   transform (see the convention documented at the top of `README.md` itself for the
+   authoritative definition) before being written to the clone as `README.md`, committing all of
+   it as one swap commit (the real commit author identity is **preserved**, not rewritten — only
+   this one swap commit is added as the new HEAD).
 9. **Verification gate (hard-when-present)** — gitleaks: if `gitleaks` is present, runs
    `gitleaks detect` over the **full final state** (including the just-injected docs) as a second
    hard gate — a different class of check (secret patterns, not name-matching), so it's safe to run
