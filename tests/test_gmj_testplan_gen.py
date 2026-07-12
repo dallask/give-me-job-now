@@ -176,6 +176,59 @@ def test_extract_missing_frontmatter_raises() -> None:
         )
 
 
+def test_extract_behaviors_never_picks_up_prose_outside_numbered_lists_and_code_blocks() -> None:
+    """_extract_behaviors()/extract() must never pick up plain-prose sentences.
+
+    This is a structural guarantee (not an accident of the current narrow scanner): prose
+    sentences that live outside a numbered list item and outside a fenced code block --
+    including ones that happen to contain bypass-flag tokens like ``--yes``/``--force`` --
+    must never end up in the IR's ``behaviors`` list. This is what actually keeps
+    ``test_render_no_bypass_phrasing_and_human_applied_pass_criteria``'s "never leaks"
+    assertion true; that render-level test alone is a weak proxy (WR-02) because it only
+    proves today's fixture happens not to trigger a leak, not that leakage is structurally
+    impossible.
+    """
+    prose_fixture = """\
+# /gmj-fixture-flow — a synthetic fixture command doc
+
+---
+allowed-tools: Bash(*)
+description: A synthetic fixture flow for extractor testing (REQ-01).
+---
+
+## What to do
+
+This is a synthetic fixture flow, satisfying **REQ-01** in its body too.
+
+## Interaction flow
+
+There is **no** `--yes`/`--force`/`-y`/`--no-confirm` bypass flag anywhere in this CLI --
+the confirm prompt can never be skipped non-interactively.
+
+1. **First step.** Do the first thing.
+
+```bash
+python3 scripts/gmj_fixture_flow.py --repo-root <path>
+```
+"""
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = _write_fixture(tmp, "gmj-fixture-flow.md", prose_fixture)
+        ir = g.extract(fixture)
+
+        behaviors = ir.get("behaviors") or []
+        joined = " ".join(behaviors).lower()
+        for forbidden in ("--yes", "--force", "-y", "--no-confirm"):
+            assert forbidden not in joined, (
+                f"_extract_behaviors() must never pick up a bare-prose sentence outside a "
+                f"numbered list item or code block -- found forbidden token {forbidden!r} "
+                f"in extracted behaviors: {behaviors!r}"
+            )
+        assert any("first step" in b.lower() for b in behaviors), (
+            f"sanity check: the real numbered-list item must still be extracted, "
+            f"got behaviors: {behaviors!r}"
+        )
+
+
 # --------------------------------------------------------------------------- Task 2: render()
 
 def _synthetic_ir(requirement_id: str = "REQ-01") -> dict:
