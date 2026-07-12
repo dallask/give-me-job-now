@@ -651,6 +651,50 @@ def test_main_single_invocation_mode_unchanged() -> None:
         )
 
 
+# --------------------------------------------------------------------------- Plan 03 Task 1: real-repo rollout
+
+def test_all_ten_flow_plans_exist_on_disk() -> None:
+    """Real-repo-state assertion (not a tempdir fixture): every FLOW_MANIFEST row has a
+    generated docs/test-plans/<slug>.md file on disk, and live-cost/destructive-if-confirmed
+    rows' files carry the structural warning block while read-only/local-safe rows' files do
+    not -- the real-file equivalent of the synthetic-IR render() warning-block tests, proving
+    the end-to-end --all pipeline (not just the unit-level render() function) produces the
+    structurally-distinct warning behavior TPGEN-06 requires.
+
+    Uses len(g.FLOW_MANIFEST) rather than a hard-coded 10 so this stays correct if the
+    manifest count is ever legitimately revised (RESEARCH.md Validation Architecture Wave 0
+    gap #2: "no test currently asserts file count").
+    """
+    output_dir = REPO_ROOT / "docs" / "test-plans"
+    on_disk = {p.name for p in output_dir.glob("*.md")}
+    expected = {f"{row['slug']}.md" for row in g.FLOW_MANIFEST}
+
+    assert on_disk == expected, (
+        f"docs/test-plans/*.md must contain exactly one file per FLOW_MANIFEST row, "
+        f"got {sorted(on_disk)}, expected {sorted(expected)}"
+    )
+    assert len(on_disk) == len(g.FLOW_MANIFEST), (
+        f"expected exactly len(FLOW_MANIFEST)={len(g.FLOW_MANIFEST)} files on disk, "
+        f"got {len(on_disk)}"
+    )
+
+    warn_tiers = {"live-cost", "destructive-if-confirmed"}
+    for row in g.FLOW_MANIFEST:
+        plan_path = output_dir / f"{row['slug']}.md"
+        text = plan_path.read_text(encoding="utf-8")
+        has_warning = "⚠️" in text
+        if row["risk_tier"] in warn_tiers:
+            assert has_warning, (
+                f"{plan_path} is tagged risk_tier={row['risk_tier']!r} (a warn-worthy tier) "
+                f"but its generated text contains no ⚠️ warning block"
+            )
+        else:
+            assert not has_warning, (
+                f"{plan_path} is tagged risk_tier={row['risk_tier']!r} (not a warn-worthy "
+                f"tier) but its generated text unexpectedly contains a ⚠️ warning block"
+            )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
