@@ -139,6 +139,33 @@ def photo_path_for(candidate: dict, repo_root: Path) -> Path | None:
     return path if path.is_file() else None
 
 
+def _master_candidate_photo(repo_root: Path, lang: str) -> str | None:
+    """Return the master config/candidate.yaml's raw (unresolved) photo path string,
+    only if it resolves to a real, existing file. Guarded: never raises — a missing
+    or malformed master file returns None so the render degrades to the placeholder
+    branch instead of crashing (T-02-12).
+
+    ``lang`` is accepted for symmetry with load_candidate() but the master photo
+    path is language-independent (overlay files never redefine ``photo``), so it is
+    read directly from the base master file without merging an overlay.
+    """
+    master_path = repo_root / "config" / "candidate.yaml"
+    if not master_path.is_file():
+        return None
+    try:
+        master = yaml.safe_load(master_path.read_text(encoding="utf-8"))
+    except (yaml.YAMLError, OSError):
+        return None
+    if not isinstance(master, dict):
+        return None
+    raw = photo_raw(master)
+    if not raw:
+        return None
+    if not photo_path_for(master, repo_root):
+        return None
+    return raw
+
+
 def candidate_for_template(candidate: dict, repo_root: Path) -> dict:
     """Copy candidate dict; drop invalid photo paths so HTML img does not break."""
     out = dict(candidate)
@@ -510,6 +537,17 @@ def main() -> int:
     candidate = load_candidate(config_path, lang)
     repo_root = repo_root_from_config(config_path)
     labels = _load_labels(repo_root, lang)
+
+    # Photo forwarding fallback (02-UAT.md gap 1): a per-offer skill-CV draft
+    # (config/cv/cv.[skill].[lang].yaml) never carries a photo key forward from the
+    # master config/candidate.yaml. Only activate for the skill-CV branch when the
+    # draft itself has no photo — full-profile (master) renders already have their
+    # own photo key and must stay untouched (T-02-10).
+    if _is_skill_cv(config_path) and not photo_raw(candidate):
+        fallback_photo = _master_candidate_photo(repo_root, lang)
+        if fallback_photo:
+            candidate = dict(candidate)
+            candidate["photo"] = fallback_photo
 
     date_part = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H:%M:%S")
     if _is_skill_cv(config_path):
