@@ -82,6 +82,7 @@ STATE_MD=$(printf '%s\n' "$CANDIDATES" | grep -v '^$' | xargs ls -t 2>/dev/null 
 
 PHASE=""
 PLAN=""
+PHASE_NAME=""
 OUTCOME="checkpoint"
 
 if [ -n "$STATE_MD" ] && [ -f "$STATE_MD" ]; then
@@ -90,7 +91,7 @@ import sys
 
 state_path = sys.argv[1]
 phase = ''
-plan = ''
+phase_name = ''
 status = ''
 try:
     with open(state_path, 'r', encoding='utf-8') as fh:
@@ -107,24 +108,26 @@ try:
                 if line.startswith('current_phase:'):
                     phase = line.split(':', 1)[1].strip().strip('\"').strip(chr(39))
                 elif line.startswith('current_phase_name:'):
-                    # This hook has no dedicated 'current plan number' frontmatter
-                    # field to key off; per this plan's own <behavior> spec, derive
-                    # --plan from current_phase_name (a stable per-phase identifier)
-                    # rather than leaving it unpopulated.
-                    plan = line.split(':', 1)[1].strip().strip('\"').strip(chr(39))
+                    # WR-02: this hook has no dedicated 'current plan number'
+                    # frontmatter field to key off. current_phase_name is a
+                    # descriptive phase-name label, not the short plan-number
+                    # identifier gmj_execution_log_writer.py's own docstring
+                    # documents for --plan (e.g. '03'). Carry it separately as
+                    # phase_name via --extra-json instead of overloading --plan.
+                    phase_name = line.split(':', 1)[1].strip().strip('\"').strip(chr(39))
                 elif line.startswith('status:'):
                     status = line.split(':', 1)[1].strip().strip('\"').strip(chr(39))
 except Exception:
     phase = ''
-    plan = ''
+    phase_name = ''
     status = ''
 print(phase)
-print(plan)
+print(phase_name)
 print(status)
 " "$STATE_MD" 2>/dev/null || true)
 
   PHASE=$(printf '%s\n' "$PARSED" | sed -n '1p')
-  PLAN=$(printf '%s\n' "$PARSED" | sed -n '2p')
+  PHASE_NAME=$(printf '%s\n' "$PARSED" | sed -n '2p')
   STATUS=$(printf '%s\n' "$PARSED" | sed -n '3p')
 
   case "$STATUS" in
@@ -134,12 +137,27 @@ print(status)
   esac
 fi
 
+# WR-02: --plan intentionally stays unpopulated here — this hook has no source of
+# the short plan-number identifier the writer's own docstring documents for --plan
+# (e.g. '03'); current_phase_name is a descriptive label, not that identifier, so it
+# is carried separately via --extra-json's phase_name key rather than overloading
+# --plan with a value that wouldn't group/sort the way the writer's contract implies.
+EXTRA_JSON=""
+if [ -n "$PHASE_NAME" ]; then
+  EXTRA_JSON=$(PHASE_NAME="$PHASE_NAME" python3 -c "
+import json
+import os
+print(json.dumps({'phase_name': os.environ.get('PHASE_NAME', '')}))
+" 2>/dev/null || true)
+fi
+
 $TIMEOUT_BIN python3 "${SCRIPTS_ROOT}/scripts/gmj_execution_log_writer.py" \
   --point execute:post \
   --outcome "$OUTCOME" \
   ${PHASE:+--phase "$PHASE"} \
   ${PLAN:+--plan "$PLAN"} \
   --log-dir "$LOG_DIR" \
+  ${EXTRA_JSON:+--extra-json "$EXTRA_JSON"} \
   >/dev/null 2>&1 || true
 
 # ---------------------------------------------------------------------------

@@ -102,7 +102,11 @@ def test_stop_event_writes_gsd_workflow_entry() -> None:
     entry = entries[0]
     assert entry["source"] == "gsd-workflow", f"entry must be source=gsd-workflow; got {entry}"
     assert entry.get("phase"), f"phase must be derived from fixture STATE.md; got {entry}"
-    assert entry.get("plan") is not None, f"plan must be derived (non-null); got {entry}"
+    # WR-02 regression: --plan must stay null (this hook has no short plan-number
+    # identifier source); the descriptive current_phase_name label is carried
+    # separately as phase_name, not overloaded into plan.
+    assert entry.get("plan") is None, f"plan must stay null (WR-02); got {entry}"
+    assert entry.get("phase_name"), f"phase_name must be derived from fixture STATE.md; got {entry}"
     assert entry["outcome"] in ("pass", "fail", "halt", "checkpoint"), (
         f"outcome must be in the 4-word vocabulary; got {entry}"
     )
