@@ -23,6 +23,24 @@
 # dispatch would produce. This tradeoff is accepted, not an oversight (see this
 # plan's <objective> and docs/execution-log-wiring.md).
 #
+# 06-07 gap-closure: STATE.md discovery gains a preferred SESSION-SCOPED
+# workstream-resolution tier ahead of the mtime-based candidate selection below
+# (06-06/CR-01's fix). Live-verified during 06-07's own planning: with 3+ workstreams
+# concurrently active in this repo (its actual normal operating mode), mtime recency
+# alone is not a valid proxy for "the workstream whose own turn just ended" — every
+# concurrent Claude Code session here shares the same CLAUDE_PROJECT_DIR, so only a
+# SESSION-scoped signal (not a project-scoped one) can disambiguate. GSD core already
+# ships this exact mechanism: `gsd-tools workstream get --raw` resolves a
+# session-scoped active-workstream pointer keyed off TERM_SESSION_ID/ITERM_SESSION_ID
+# (and related terminal/session env vars), stored per-session under
+# $TMPDIR/gsd-workstream-sessions/<project-hash>/. A Stop-event hook subprocess is a
+# child of that same terminal session and inherits its session env vars, so this
+# resolver call sees exactly what the interactive session saw. This tier is strictly
+# ADDITIVE: the mtime-based selection below remains fully intact as the fallback path
+# for every environment where node/gsd-tools.cjs are unavailable, the lookup times
+# out, or the session-scoped pointer has not been populated (e.g. a non-interactive/CI
+# invocation with no terminal session at all).
+#
 # Non-blocking posture mirrors .claude/hooks/gmj-execution-log.sh exactly: no `set -e`;
 # every mkdir/write/subprocess call individually guarded with `|| true`; unconditional
 # `exit 0` at the very end on every code path, including all early-return branches.
@@ -60,25 +78,78 @@ if [ -z "$TIMEOUT_BIN" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 1. DISPATCH: locate STATE.md. Gather every candidate — the top-level file (if
-#    present) and every per-workstream STATE.md — and pick whichever was modified
-#    most recently. This reflects which one is actually being actively written to
-#    right now, without reimplementing GSD's full workstream-resolution logic
-#    (session pointers, active-workstream file, etc.) inside this lightweight POSIX
-#    sh hook. A hardcoded "top-level always wins" precedence would unconditionally
-#    shadow an actively-executing workstream's STATE.md with a stale top-level one
-#    (CR-01) whenever both happen to exist, which is the common case in
-#    multi-workstream projects.
+# 1a. SESSION-SCOPED RESOLUTION TIER (06-07 gap-closure, ahead of the mtime-based
+#     selection below): resolve the gsd-tools.cjs entry point via the same layered
+#     fallback shape used elsewhere in GSD-invoking tooling (project-local install
+#     first, then $HOME/.claude/gsd-core/bin/gsd-tools.cjs, then a PATH lookup).
+#     Every step degrades to skipping this tier entirely on any failure — never an
+#     error, never a hang (wrapped in the same $TIMEOUT_BIN guard already used
+#     below for the writer/self-reflect subprocess calls).
+# ---------------------------------------------------------------------------
+
+RESOLVED_WORKSTREAM=""
+
+GSD_TOOLS_PATH=""
+if [ -f "${PROJECT_DIR}/gsd-core/bin/gsd-tools.cjs" ]; then
+  GSD_TOOLS_PATH="${PROJECT_DIR}/gsd-core/bin/gsd-tools.cjs"
+elif [ -f "${PROJECT_DIR}/.claude/gsd-core/bin/gsd-tools.cjs" ]; then
+  GSD_TOOLS_PATH="${PROJECT_DIR}/.claude/gsd-core/bin/gsd-tools.cjs"
+elif [ -f "${HOME}/.claude/gsd-core/bin/gsd-tools.cjs" ]; then
+  GSD_TOOLS_PATH="${HOME}/.claude/gsd-core/bin/gsd-tools.cjs"
+else
+  GSD_TOOLS_CANDIDATE=$(command -v gsd-tools 2>/dev/null) || true
+  [ -n "$GSD_TOOLS_CANDIDATE" ] && GSD_TOOLS_PATH="$GSD_TOOLS_CANDIDATE"
+fi
+
+if command -v node >/dev/null 2>&1 && [ -n "$GSD_TOOLS_PATH" ]; then
+  WS_RAW=$($TIMEOUT_BIN node "$GSD_TOOLS_PATH" workstream get --raw 2>/dev/null || true)
+  WS_RAW=$(printf '%s' "$WS_RAW" | tr -d '[:space:]')
+
+  # Defensive validation before this untrusted subprocess-stdout string ever flows
+  # into a filesystem path (T-06-07-01): non-empty, not the literal sentinel "none",
+  # and a conservative safe-filename pattern (letters/digits/hyphen/underscore/dot
+  # only) — reject anything shaped like a path traversal attempt.
+  if [ -n "$WS_RAW" ] && [ "$WS_RAW" != "none" ]; then
+    case "$WS_RAW" in
+      *[!a-zA-Z0-9._-]*) WS_RAW="" ;;
+      *..*) WS_RAW="" ;;
+      "" | . | ..) WS_RAW="" ;;
+    esac
+  else
+    WS_RAW=""
+  fi
+
+  if [ -n "$WS_RAW" ] && [ -f "${PROJECT_DIR}/.planning/workstreams/${WS_RAW}/STATE.md" ]; then
+    RESOLVED_WORKSTREAM="$WS_RAW"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# 1b. DISPATCH: locate STATE.md. When the session-scoped tier above resolved and
+#     validated a workstream, its STATE.md is used directly (it is authoritative —
+#     it identifies the workstream whose own terminal session actually triggered
+#     this Stop event, not merely whichever candidate has the newest mtime).
+#     Otherwise, fall through to the existing mtime-based selection (CR-01's fix,
+#     unchanged): gather every candidate — the top-level file (if present) and
+#     every per-workstream STATE.md — and pick whichever was modified most
+#     recently. A hardcoded "top-level always wins" precedence would unconditionally
+#     shadow an actively-executing workstream's STATE.md with a stale top-level one
+#     (CR-01) whenever both happen to exist, which is the common case in
+#     multi-workstream projects.
 # ---------------------------------------------------------------------------
 
 STATE_MD=""
-CANDIDATES=""
-[ -f "${PROJECT_DIR}/.planning/STATE.md" ] && CANDIDATES="${PROJECT_DIR}/.planning/STATE.md"
-WS_CANDIDATES=$(find "${PROJECT_DIR}/.planning/workstreams" -maxdepth 2 -name "STATE.md" -type f 2>/dev/null)
-if [ -n "$WS_CANDIDATES" ]; then
-  CANDIDATES=$(printf '%s\n%s' "$CANDIDATES" "$WS_CANDIDATES")
+if [ -n "$RESOLVED_WORKSTREAM" ]; then
+  STATE_MD="${PROJECT_DIR}/.planning/workstreams/${RESOLVED_WORKSTREAM}/STATE.md"
+else
+  CANDIDATES=""
+  [ -f "${PROJECT_DIR}/.planning/STATE.md" ] && CANDIDATES="${PROJECT_DIR}/.planning/STATE.md"
+  WS_CANDIDATES=$(find "${PROJECT_DIR}/.planning/workstreams" -maxdepth 2 -name "STATE.md" -type f 2>/dev/null)
+  if [ -n "$WS_CANDIDATES" ]; then
+    CANDIDATES=$(printf '%s\n%s' "$CANDIDATES" "$WS_CANDIDATES")
+  fi
+  STATE_MD=$(printf '%s\n' "$CANDIDATES" | grep -v '^$' | xargs ls -t 2>/dev/null | head -1)
 fi
-STATE_MD=$(printf '%s\n' "$CANDIDATES" | grep -v '^$' | xargs ls -t 2>/dev/null | head -1)
 
 PHASE=""
 PLAN=""
@@ -142,14 +213,24 @@ fi
 # (e.g. '03'); current_phase_name is a descriptive label, not that identifier, so it
 # is carried separately via --extra-json's phase_name key rather than overloading
 # --plan with a value that wouldn't group/sort the way the writer's contract implies.
-EXTRA_JSON=""
-if [ -n "$PHASE_NAME" ]; then
-  EXTRA_JSON=$(PHASE_NAME="$PHASE_NAME" python3 -c "
+#
+# 06-07: also record which discovery tier actually sourced STATE.md — the resolved,
+# validated session-scoped workstream name when tier 1a won, or the literal string
+# "mtime-fallback" when the existing mtime tier was used instead (including when no
+# STATE.md was found at all). Makes the discovery path's own decision auditable
+# directly from the log entry, without re-deriving it by hand after the fact.
+WORKSTREAM_FIELD="mtime-fallback"
+[ -n "$RESOLVED_WORKSTREAM" ] && WORKSTREAM_FIELD="$RESOLVED_WORKSTREAM"
+
+EXTRA_JSON=$(PHASE_NAME="$PHASE_NAME" WORKSTREAM_FIELD="$WORKSTREAM_FIELD" python3 -c "
 import json
 import os
-print(json.dumps({'phase_name': os.environ.get('PHASE_NAME', '')}))
+payload = {'workstream': os.environ.get('WORKSTREAM_FIELD', 'mtime-fallback')}
+phase_name = os.environ.get('PHASE_NAME', '')
+if phase_name:
+    payload['phase_name'] = phase_name
+print(json.dumps(payload))
 " 2>/dev/null || true)
-fi
 
 $TIMEOUT_BIN python3 "${SCRIPTS_ROOT}/scripts/gmj_execution_log_writer.py" \
   --point execute:post \
