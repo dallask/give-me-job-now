@@ -1,0 +1,18 @@
+{
+  "description": "Expected shape of a gsd-workflow JSONL entry for an execute:post dispatch, used by tests/test_gmj_execution_log_writer.py to assert on scripts/gmj_execution_log_writer.py's CLI output. Not stdin for the writer itself (the writer is CLI-arg-driven, not stdin-driven) -- this fixture documents the invocation-to-entry mapping for a concrete example.",
+  "cli_args": {
+    "point": "execute:post",
+    "phase": "6",
+    "plan": "03",
+    "wave": "2",
+    "outcome": "pass"
+  },
+  "expected_entry_fields": {
+    "source": "gsd-workflow",
+    "point": "execute:post",
+    "phase": "6",
+    "plan": "03",
+    "wave": "2",
+    "outcome": "pass"
+  }
+}
