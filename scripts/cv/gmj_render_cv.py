@@ -381,14 +381,17 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
             story.append(Spacer(1, 6))
 
     edu = candidate.get("education") or []
-    if edu:
+    edu_rows = [
+        row for row in edu
+        if isinstance(row, dict) and (row.get("institution") or row.get("program"))
+    ]
+    if edu_rows:
         story.append(Paragraph(f"<b>{escape(lbl('education', 'Education'))}</b>", h2_style))
-        for row in edu:
-            if isinstance(row, dict):
-                line = " — ".join(
-                    x for x in (row.get("program"), row.get("institution"), row.get("duration")) if x
-                )
-                story.append(Paragraph(line.replace("&", "&amp;"), body_style))
+        for row in edu_rows:
+            line = " — ".join(
+                x for x in (row.get("program"), row.get("institution"), row.get("duration")) if x
+            )
+            story.append(Paragraph(line.replace("&", "&amp;"), body_style))
 
     projects = candidate.get("independent_projects") or []
     if isinstance(projects, list) and projects:

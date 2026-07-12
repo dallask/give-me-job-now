@@ -14,6 +14,10 @@
 #   3. TMPL-05: a `professional_experience` entry with `role_progression`,
 #      `company_description`, and `achievements` but NO `position` and NO `company`
 #      key (both omitted entirely).
+#   4. 02-UAT.md gap 2: an `education` list with exactly one entry whose `institution`
+#      is an empty string and no `program`/`duration`/`location` keys at all —
+#      reproducing the confirmed real-world composer-draft shape that rendered an
+#      "Education" header with a blank entry underneath it.
 #
 # Consumed via `gmj_render_cv.py --config` (same root-mapping shape load_candidate()
 # already accepts — no `contact`/`photo` required, kept minimal).
@@ -48,3 +52,9 @@ professional_experience:
     achievements:
       - "Led migration of legacy monolith to a service-oriented architecture"
       - "Mentored 4 junior engineers"
+
+# 02-UAT.md gap 2 defect shape: a one-item education list with an empty institution
+# field and no other content keys — must render no Education heading at all, not a
+# header followed by a blank entry.
+education:
+  - institution: ""

@@ -485,15 +485,19 @@
           {% endfor %}
         </ul>
 
-        <hr class="side-divider" />
-
         <!-- EDUCATION -->
-        {% if candidate.education %}
+        {%- set edu_ns = namespace(has_content=false) -%}
+        {%- for edu in candidate.education | default([]) -%}
+          {%- if edu.institution or edu.program -%}{%- set edu_ns.has_content = true -%}{%- endif -%}
+        {%- endfor -%}
+        {% if edu_ns.has_content %}
+        <hr class="side-divider" />
         <div class="side-heading">
           <span class="dot-icon"></span>
           <span class="label">{{ labels.education | default('Education') }}</span>
         </div>
         {% for edu in candidate.education %}
+        {% if edu.institution or edu.program %}
         <div class="entry-item">
           <div class="entry-name-row">
             <span class="entry-bullet"></span>
@@ -509,6 +513,7 @@
           <div class="entry-sub">{{ edu.location | e }}</div>
           {% endif %}
         </div>
+        {% endif %}
         {% endfor %}
         {% endif %}
 
