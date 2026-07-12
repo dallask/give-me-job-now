@@ -48,18 +48,25 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 1. DISPATCH: locate STATE.md (first-match-wins: top-level, then most-recently
-#    -modified per-workstream candidate), parse phase/plan/status, map to outcome,
-#    and invoke the writer.
+# 1. DISPATCH: locate STATE.md. Gather every candidate — the top-level file (if
+#    present) and every per-workstream STATE.md — and pick whichever was modified
+#    most recently. This reflects which one is actually being actively written to
+#    right now, without reimplementing GSD's full workstream-resolution logic
+#    (session pointers, active-workstream file, etc.) inside this lightweight POSIX
+#    sh hook. A hardcoded "top-level always wins" precedence would unconditionally
+#    shadow an actively-executing workstream's STATE.md with a stale top-level one
+#    (CR-01) whenever both happen to exist, which is the common case in
+#    multi-workstream projects.
 # ---------------------------------------------------------------------------
 
 STATE_MD=""
-if [ -f "${PROJECT_DIR}/.planning/STATE.md" ]; then
-  STATE_MD="${PROJECT_DIR}/.planning/STATE.md"
-else
-  STATE_MD=$(find "${PROJECT_DIR}/.planning/workstreams" -maxdepth 2 -name "STATE.md" -type f 2>/dev/null \
-    -exec ls -t {} + 2>/dev/null | head -1)
+CANDIDATES=""
+[ -f "${PROJECT_DIR}/.planning/STATE.md" ] && CANDIDATES="${PROJECT_DIR}/.planning/STATE.md"
+WS_CANDIDATES=$(find "${PROJECT_DIR}/.planning/workstreams" -maxdepth 2 -name "STATE.md" -type f 2>/dev/null)
+if [ -n "$WS_CANDIDATES" ]; then
+  CANDIDATES=$(printf '%s\n%s' "$CANDIDATES" "$WS_CANDIDATES")
 fi
+STATE_MD=$(printf '%s\n' "$CANDIDATES" | grep -v '^$' | xargs ls -t 2>/dev/null | head -1)
 
 PHASE=""
 PLAN=""
