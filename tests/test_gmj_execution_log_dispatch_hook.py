@@ -13,6 +13,9 @@ EXECUTED hook — not an agent self-report:
 - Task 2 (Tests 6-9): bounds and auto-fires ``gmj_self_reflect.py`` against a small
   recent-file staging window (not the full unbounded log history), never passes ``--apply``,
   and never blocks even if the analyzer subprocess is unreachable/crashing.
+- WR-03 regression tests: STATE.md discovery precedence between the top-level file and
+  per-workstream candidates, keyed on most-recent mtime (CR-01 fix), not a hardcoded
+  top-level-always-wins order.
 
 The hook runs with ``CLAUDE_PROJECT_DIR`` pointed at an isolated temp dir, so assertions
 never touch the real repo's ``.planning/`` or ``output/`` trees.
@@ -35,6 +38,7 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures" / "execution-logs"
 
 STATE_EXECUTING = FIXTURES / "dispatch_state_executing.md"
 STATE_MISSING_FRONTMATTER = FIXTURES / "dispatch_state_missing_frontmatter.md"
+STATE_STALE_COMPLETE = FIXTURES / "dispatch_state_stale_complete.md"
 NORMAL_RUN_JSONL = FIXTURES / "normal-run.jsonl"
 
 STOP_STDIN_JSON = json.dumps({"hook_event_name": "Stop"})
@@ -102,7 +106,11 @@ def test_stop_event_writes_gsd_workflow_entry() -> None:
     entry = entries[0]
     assert entry["source"] == "gsd-workflow", f"entry must be source=gsd-workflow; got {entry}"
     assert entry.get("phase"), f"phase must be derived from fixture STATE.md; got {entry}"
-    assert entry.get("plan") is not None, f"plan must be derived (non-null); got {entry}"
+    # WR-02 regression: --plan must stay null (this hook has no short plan-number
+    # identifier source); the descriptive current_phase_name label is carried
+    # separately as phase_name, not overloaded into plan.
+    assert entry.get("plan") is None, f"plan must stay null (WR-02); got {entry}"
+    assert entry.get("phase_name"), f"phase_name must be derived from fixture STATE.md; got {entry}"
     assert entry["outcome"] in ("pass", "fail", "halt", "checkpoint"), (
         f"outcome must be in the 4-word vocabulary; got {entry}"
     )
@@ -165,6 +173,98 @@ def test_hook_never_returns_blocking_exit_code() -> None:
             f"hook must never return a blocking exit code for fixture={fixture}; "
             f"got {result.returncode}\nstderr: {result.stderr}"
         )
+
+
+# --------------------------------------------------- WR-03: discovery precedence tests
+
+
+def _touch_older(path: Path, *, seconds_older_than: Path) -> None:
+    """Set path's mtime to be strictly older than seconds_older_than's mtime."""
+    reference_mtime = seconds_older_than.stat().st_mtime
+    older_mtime = reference_mtime - 3600
+    os.utime(path, (older_mtime, older_mtime))
+
+
+def _touch_newer(path: Path, *, seconds_newer_than: Path) -> None:
+    """Set path's mtime to be strictly newer than seconds_newer_than's mtime."""
+    reference_mtime = seconds_newer_than.stat().st_mtime
+    newer_mtime = reference_mtime + 3600
+    os.utime(path, (newer_mtime, newer_mtime))
+
+
+def test_workstream_state_md_used_when_no_top_level_state() -> None:
+    """Fallback path: workstream STATE.md is discovered when no top-level STATE.md exists."""
+    tmp = Path(tempfile.mkdtemp(prefix="dispatch-hook-"))
+    ws_dir = tmp / ".planning" / "workstreams" / "testplan-gen"
+    ws_dir.mkdir(parents=True, exist_ok=True)
+    ws_state = ws_dir / "STATE.md"
+    shutil.copy(STATE_EXECUTING, ws_state)
+    result = _run_in_dir(STOP_STDIN_JSON, tmp)
+    assert result.returncode == 0, (
+        f"hook must never block; got {result.returncode}\nstderr: {result.stderr}"
+    )
+    entries = _parsed_gsd_workflow_entries(tmp)
+    assert len(entries) == 1, f"expected exactly one gsd-workflow JSONL entry; got {entries}"
+    assert entries[0]["outcome"] == "pass", (
+        f"outcome must be derived from the workstream STATE.md's executing status; got {entries[0]}"
+    )
+
+
+def test_active_workstream_state_preferred_over_stale_top_level_state() -> None:
+    """Regression test for CR-01: an actively-executing workstream's STATE.md must not
+    be shadowed by a stale/completed top-level STATE.md, regardless of the hardcoded
+    top-level-first precedence CR-01 removed. Selection is by most-recent mtime."""
+    tmp = Path(tempfile.mkdtemp(prefix="dispatch-hook-"))
+    _seed_state(tmp, STATE_STALE_COMPLETE)
+    top_level_state = tmp / ".planning" / "STATE.md"
+
+    ws_dir = tmp / ".planning" / "workstreams" / "active-ws"
+    ws_dir.mkdir(parents=True, exist_ok=True)
+    ws_state = ws_dir / "STATE.md"
+    shutil.copy(STATE_EXECUTING, ws_state)
+
+    # Force the workstream STATE.md to have a strictly newer mtime than the stale
+    # top-level one, independent of filesystem copy-timing granularity.
+    _touch_newer(ws_state, seconds_newer_than=top_level_state)
+
+    result = _run_in_dir(STOP_STDIN_JSON, tmp)
+    assert result.returncode == 0, (
+        f"hook must never block; got {result.returncode}\nstderr: {result.stderr}"
+    )
+    entries = _parsed_gsd_workflow_entries(tmp)
+    assert len(entries) == 1, f"expected exactly one gsd-workflow JSONL entry; got {entries}"
+    assert entries[0]["outcome"] == "pass", (
+        "must reflect the actively-executing workstream, not the stale top-level "
+        f"STATE.md (outcome would be 'checkpoint' if the stale file won); got {entries[0]}"
+    )
+
+
+def test_stale_top_level_state_preferred_when_newer_than_workstream_state() -> None:
+    """Inverse of the CR-01 regression: when the top-level STATE.md is genuinely the
+    most-recently-modified candidate, it must still win (mtime-based selection, not an
+    unconditional workstream-first flip)."""
+    tmp = Path(tempfile.mkdtemp(prefix="dispatch-hook-"))
+    ws_dir = tmp / ".planning" / "workstreams" / "active-ws"
+    ws_dir.mkdir(parents=True, exist_ok=True)
+    ws_state = ws_dir / "STATE.md"
+    shutil.copy(STATE_EXECUTING, ws_state)
+
+    _seed_state(tmp, STATE_STALE_COMPLETE)
+    top_level_state = tmp / ".planning" / "STATE.md"
+
+    # Force the top-level STATE.md to have a strictly newer mtime than the workstream one.
+    _touch_newer(top_level_state, seconds_newer_than=ws_state)
+
+    result = _run_in_dir(STOP_STDIN_JSON, tmp)
+    assert result.returncode == 0, (
+        f"hook must never block; got {result.returncode}\nstderr: {result.stderr}"
+    )
+    entries = _parsed_gsd_workflow_entries(tmp)
+    assert len(entries) == 1, f"expected exactly one gsd-workflow JSONL entry; got {entries}"
+    assert entries[0]["outcome"] == "checkpoint", (
+        "must reflect the newer top-level STATE.md (status: 'Awaiting next milestone' maps "
+        f"to outcome=checkpoint), not the older workstream STATE.md; got {entries[0]}"
+    )
 
 
 # --------------------------------------------------------------------------- Task 2 tests

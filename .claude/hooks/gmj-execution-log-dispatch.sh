@@ -47,22 +47,42 @@ else
   SCRIPTS_ROOT="$PROJECT_DIR"
 fi
 
+# WR-01: wall-clock timeout guard for both python3 subprocess calls below. `|| true`
+# only protects against a non-zero exit, not a hang — a hung subprocess would never
+# reach `exit 0`, contradicting this hook's own non-blocking contract. `timeout` is
+# GNU coreutils and not guaranteed present on macOS by default (only via Homebrew's
+# `coreutils`, as `gtimeout`); when neither is found this degrades to no timeout at
+# all (best-effort, matching every other guard in this hook).
+TIMEOUT_BIN=""
+command -v timeout >/dev/null 2>&1 && TIMEOUT_BIN="timeout 10"
+if [ -z "$TIMEOUT_BIN" ]; then
+  command -v gtimeout >/dev/null 2>&1 && TIMEOUT_BIN="gtimeout 10"
+fi
+
 # ---------------------------------------------------------------------------
-# 1. DISPATCH: locate STATE.md (first-match-wins: top-level, then most-recently
-#    -modified per-workstream candidate), parse phase/plan/status, map to outcome,
-#    and invoke the writer.
+# 1. DISPATCH: locate STATE.md. Gather every candidate — the top-level file (if
+#    present) and every per-workstream STATE.md — and pick whichever was modified
+#    most recently. This reflects which one is actually being actively written to
+#    right now, without reimplementing GSD's full workstream-resolution logic
+#    (session pointers, active-workstream file, etc.) inside this lightweight POSIX
+#    sh hook. A hardcoded "top-level always wins" precedence would unconditionally
+#    shadow an actively-executing workstream's STATE.md with a stale top-level one
+#    (CR-01) whenever both happen to exist, which is the common case in
+#    multi-workstream projects.
 # ---------------------------------------------------------------------------
 
 STATE_MD=""
-if [ -f "${PROJECT_DIR}/.planning/STATE.md" ]; then
-  STATE_MD="${PROJECT_DIR}/.planning/STATE.md"
-else
-  STATE_MD=$(find "${PROJECT_DIR}/.planning/workstreams" -maxdepth 2 -name "STATE.md" -type f 2>/dev/null \
-    -exec ls -t {} + 2>/dev/null | head -1)
+CANDIDATES=""
+[ -f "${PROJECT_DIR}/.planning/STATE.md" ] && CANDIDATES="${PROJECT_DIR}/.planning/STATE.md"
+WS_CANDIDATES=$(find "${PROJECT_DIR}/.planning/workstreams" -maxdepth 2 -name "STATE.md" -type f 2>/dev/null)
+if [ -n "$WS_CANDIDATES" ]; then
+  CANDIDATES=$(printf '%s\n%s' "$CANDIDATES" "$WS_CANDIDATES")
 fi
+STATE_MD=$(printf '%s\n' "$CANDIDATES" | grep -v '^$' | xargs ls -t 2>/dev/null | head -1)
 
 PHASE=""
 PLAN=""
+PHASE_NAME=""
 OUTCOME="checkpoint"
 
 if [ -n "$STATE_MD" ] && [ -f "$STATE_MD" ]; then
@@ -71,7 +91,7 @@ import sys
 
 state_path = sys.argv[1]
 phase = ''
-plan = ''
+phase_name = ''
 status = ''
 try:
     with open(state_path, 'r', encoding='utf-8') as fh:
@@ -88,24 +108,26 @@ try:
                 if line.startswith('current_phase:'):
                     phase = line.split(':', 1)[1].strip().strip('\"').strip(chr(39))
                 elif line.startswith('current_phase_name:'):
-                    # This hook has no dedicated 'current plan number' frontmatter
-                    # field to key off; per this plan's own <behavior> spec, derive
-                    # --plan from current_phase_name (a stable per-phase identifier)
-                    # rather than leaving it unpopulated.
-                    plan = line.split(':', 1)[1].strip().strip('\"').strip(chr(39))
+                    # WR-02: this hook has no dedicated 'current plan number'
+                    # frontmatter field to key off. current_phase_name is a
+                    # descriptive phase-name label, not the short plan-number
+                    # identifier gmj_execution_log_writer.py's own docstring
+                    # documents for --plan (e.g. '03'). Carry it separately as
+                    # phase_name via --extra-json instead of overloading --plan.
+                    phase_name = line.split(':', 1)[1].strip().strip('\"').strip(chr(39))
                 elif line.startswith('status:'):
                     status = line.split(':', 1)[1].strip().strip('\"').strip(chr(39))
 except Exception:
     phase = ''
-    plan = ''
+    phase_name = ''
     status = ''
 print(phase)
-print(plan)
+print(phase_name)
 print(status)
 " "$STATE_MD" 2>/dev/null || true)
 
   PHASE=$(printf '%s\n' "$PARSED" | sed -n '1p')
-  PLAN=$(printf '%s\n' "$PARSED" | sed -n '2p')
+  PHASE_NAME=$(printf '%s\n' "$PARSED" | sed -n '2p')
   STATUS=$(printf '%s\n' "$PARSED" | sed -n '3p')
 
   case "$STATUS" in
@@ -115,12 +137,27 @@ print(status)
   esac
 fi
 
-python3 "${SCRIPTS_ROOT}/scripts/gmj_execution_log_writer.py" \
+# WR-02: --plan intentionally stays unpopulated here — this hook has no source of
+# the short plan-number identifier the writer's own docstring documents for --plan
+# (e.g. '03'); current_phase_name is a descriptive label, not that identifier, so it
+# is carried separately via --extra-json's phase_name key rather than overloading
+# --plan with a value that wouldn't group/sort the way the writer's contract implies.
+EXTRA_JSON=""
+if [ -n "$PHASE_NAME" ]; then
+  EXTRA_JSON=$(PHASE_NAME="$PHASE_NAME" python3 -c "
+import json
+import os
+print(json.dumps({'phase_name': os.environ.get('PHASE_NAME', '')}))
+" 2>/dev/null || true)
+fi
+
+$TIMEOUT_BIN python3 "${SCRIPTS_ROOT}/scripts/gmj_execution_log_writer.py" \
   --point execute:post \
   --outcome "$OUTCOME" \
   ${PHASE:+--phase "$PHASE"} \
   ${PLAN:+--plan "$PLAN"} \
   --log-dir "$LOG_DIR" \
+  ${EXTRA_JSON:+--extra-json "$EXTRA_JSON"} \
   >/dev/null 2>&1 || true
 
 # ---------------------------------------------------------------------------
@@ -153,7 +190,7 @@ python3 "${SCRIPTS_ROOT}/scripts/gmj_execution_log_writer.py" \
   fi
 
   mkdir -p "${PROJECT_DIR}/output/analysis" 2>/dev/null || true
-  python3 "${SCRIPTS_ROOT}/scripts/gmj_self_reflect.py" \
+  $TIMEOUT_BIN python3 "${SCRIPTS_ROOT}/scripts/gmj_self_reflect.py" \
     --log-dir "$STAGING_DIR" \
     --output "${PROJECT_DIR}/output/analysis/self-reflect-report.md" \
     >/dev/null 2>&1 || true
