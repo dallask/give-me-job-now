@@ -335,8 +335,9 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
             skills = block.get("skills") or []
             if rt:
                 story.append(Paragraph(f"<b>{escape(str(rt))}</b>", body_style))
-            if isinstance(skills, list):
-                story.append(Paragraph(", ".join(str(s) for s in skills).replace("&", "&amp;"), body_style))
+            skills_text = expertise_skills_text(skills)
+            if skills_text:
+                story.append(Paragraph(skills_text.replace("&", "&amp;"), body_style))
             story.append(Spacer(1, 4))
 
     skills_flat = candidate.get("skills") or []

@@ -139,15 +139,18 @@ def expertise_skills_text(skills: object) -> str:
     single already-display-ready prose string (e.g. "PHP frameworks expertise includes
     Laravel, Symfony, ..." — 02-UAT.md gap 4/TMPL-04-adjacent). Jinja's ``join`` filter
     iterates any string character-by-character, exploding it into an unreadable
-    single-letter-comma-joined mess. This is the single choke point the Jinja/WeasyPrint
-    template path (``baxter.html``) routes through via the ``expertise_skills_text``
-    filter, mirroring how :func:`languages_rows` is the shared shape-guard for
-    ``candidate.languages`` and how ``render_reportlab()`` already guards this same field
-    with its own ``isinstance(skills, list)`` check (``scripts/cv/gmj_render_cv.py``).
+    single-letter-comma-joined mess. This is the SINGLE shared choke point both render
+    backends route through: the Jinja/WeasyPrint template path (``baxter.html``) via the
+    ``expertise_skills_text`` filter, and ``render_reportlab()`` (``scripts/cv/gmj_render_cv.py``)
+    via a direct call — mirroring how :func:`languages_rows` is the shared shape-guard for
+    ``candidate.languages``. ``render_reportlab()`` previously had its own inline
+    ``isinstance(skills, list)`` check that silently dropped bare-string skills instead of
+    splitting them character-by-character (a narrower symptom of the same defect class,
+    caught by code review and closed by routing it through this same helper).
 
     A ``list`` input is joined with ``", "`` after coercing each item with ``str()`` and
-    dropping falsy entries — parity with ``render_reportlab()``'s existing
-    ``", ".join(str(s) for s in skills)`` behavior, not a new ReportLab code path. A
+    dropping falsy entries — parity with ``render_reportlab()``'s pre-existing
+    ``", ".join(str(s) for s in skills)`` list-rendering behavior. A
     non-empty string input (the real defect shape) is returned UNCHANGED as a single
     value — it is already display-ready text, not a container to iterate. Any other
     input (``None``, ``{}``, an empty string, other types) returns ``""`` — the same

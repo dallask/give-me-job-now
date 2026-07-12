@@ -1,0 +1,21 @@
+# Minimal, isolated CV-YAML fixture reproducing ONE specific defect shape: a
+# `expertise[N].skills` value that is a bare already-display-ready prose string
+# instead of a list — 02-UAT.md gap 4 / the ReportLab-backend regression caught by
+# 02-REVIEW.md (render_reportlab() silently dropping this content instead of routing
+# it through expertise_skills_text() like the Jinja/WeasyPrint path already did).
+#
+# Deliberately NOT combined into tests/fixtures/cv.malformed.sample.yaml — that
+# shared fixture's content footprint is layout-sensitive (extending it shifted page
+# breaks and tripped an unrelated pre-existing lone-dash-glyph rendering issue in
+# 2 other templates). Kept isolated so this regression test's assertions are never
+# coupled to unrelated template layout behavior.
+#
+# Consumed via `gmj_render_cv.py --config` (same root-mapping shape load_candidate()
+# already accepts — no `contact`/`photo` required, kept minimal).
+
+name: "Alex Fictional"
+title: "Software Engineer"
+
+expertise:
+  - resume_title: "Cloud infrastructure"
+    skills: "AWS, GCP, and Kubernetes expertise across multi-region deployments"

@@ -52,6 +52,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "cv" / "gmj_render_cv.py"
 CONFIG = REPO_ROOT / "config" / "candidate.yaml"
 MALFORMED_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "cv.malformed.sample.yaml"
+EXPERTISE_BARE_STRING_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "cv.expertise-bare-string-skills.sample.yaml"
 TEMPLATES_DIR = REPO_ROOT / "templates" / "cv"
 TEMPLATES = sorted(TEMPLATES_DIR.glob("*.html"))
 
@@ -380,6 +381,35 @@ def test_certifications_bullet_uses_self_correcting_pseudo_element() -> None:
     edu_block = src[edu_start:edu_end]
     assert 'class="entry-bullet"' in edu_block, (
         "Education's own entry-bullet markup was unexpectedly removed/changed"
+    )
+
+
+def test_bare_string_expertise_skills_preserved_by_reportlab_and_baxter() -> None:
+    """Code-review finding (02-REVIEW.md): render_reportlab() had its own inline
+    ``isinstance(skills, list)`` guard that silently DROPPED a bare-string ``skills``
+    value instead of routing it through ``expertise_skills_text()`` like the
+    Jinja/WeasyPrint path already did — the same defect class 02-05 was built to close,
+    just relocated to the ReportLab backend. Proves the actual rendered text contains the
+    fixture's bare-string content, not that it's merely absent from an error path."""
+    needle = "AWS, GCP, and Kubernetes expertise across multi-region deployments"
+
+    out_rl = Path(tempfile.mkdtemp()) / "reportlab.pdf"
+    result = _run("--config", str(EXPERTISE_BARE_STRING_FIXTURE), "--no-template", "--out", str(out_rl))
+    assert result.returncode == 0, f"--no-template (ReportLab) render failed: {result.stderr}"
+    rl_text = _pdf_text(out_rl)
+    assert needle in rl_text, (
+        f"ReportLab backend dropped or mangled bare-string expertise skills; "
+        f"expected {needle!r} in extracted text, got:\n{rl_text}"
+    )
+
+    baxter = next(t for t in TEMPLATES if t.name == "baxter.html")
+    out_baxter = Path(tempfile.mkdtemp()) / "baxter.pdf"
+    result = _run("--config", str(EXPERTISE_BARE_STRING_FIXTURE), "--template", str(baxter), "--out", str(out_baxter))
+    assert result.returncode == 0, f"baxter.html render failed: {result.stderr}"
+    baxter_text = _pdf_text(out_baxter)
+    assert needle in baxter_text, (
+        f"baxter.html dropped or mangled bare-string expertise skills; "
+        f"expected {needle!r} in extracted text, got:\n{baxter_text}"
     )
 
 
