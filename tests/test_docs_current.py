@@ -60,6 +60,14 @@ AGENTS = {p.stem for p in (REPO_ROOT / ".claude/agents").glob("gmj-*.md")}
 SKILLS = {p.name for p in (REPO_ROOT / ".claude/skills").glob("gmj-*") if p.is_dir()}
 HOOKS = {p.stem for p in (REPO_ROOT / ".claude/hooks").glob("gmj-*.sh")}
 SCRIPTS = {p.name for p in (REPO_ROOT / "scripts").rglob("gmj_*.py")}
+
+# Planned-script allow-list: a script named in a spec/design doc for a future phase of an
+# in-progress milestone, not yet built. Each entry must be removed once the named script exists
+# on disk — the point is a *temporary, tracked* forward-reference, not a permanent escape hatch.
+# gmj_testplan_gen.py: testplan-gen workstream v11.0, TPGEN-03, Phase 2 (docs/TESTPLAN-FORMAT-SPEC.md
+# names it as the Phase 1 spec's worked-example subject before Phase 2 builds it).
+PLANNED_SCRIPTS = {"gmj_testplan_gen.py"}
+SCRIPTS |= PLANNED_SCRIPTS
 CMD_FILES = set((REPO_ROOT / ".claude/commands").glob("gmj-*.md")) | set(
     (REPO_ROOT / ".claude/commands/gmj-pipeline").glob("*.md")
 )
