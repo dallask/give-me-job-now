@@ -1,0 +1,6 @@
+{"ts": "2026-07-12T09:56:01.123Z", "source": "tool-call", "event": "PreToolUse", "tool_name": "Bash", "outcome": "observed", "artifacts": [], "command": "python3 tests/test_gmj_execution_log_hook.py"}
+{"ts": "2026-07-12T09:56:05.456Z", "source": "tool-call", "event": "PostToolUse", "tool_name": "Write", "outcome": "observed", "artifacts": [".claude/hooks/gmj-execution-log.sh"]}
+{"ts": "2026-07-12T09:57:10.789Z", "source": "tool-call", "event": "PreToolUse", "tool_name": "Bash", "outcome": "observed", "artifacts": [], "command": "git status --short"}
+{"ts": "2026-07-12T09:58:02.001Z", "source": "tool-call", "event": "PostToolUse", "tool_name": "Edit", "outcome": "observed", "artifacts": [".claude/settings.json"]}
+{"ts": "2026-07-12T09:59:20.333Z", "source": "gsd-workflow", "point": "execute:wave:post", "phase": "6", "plan": "02", "wave": "1", "outcome": "pass"}
+{"ts": "2026-07-12T10:00:00.987Z", "source": "tool-call", "event": "PreToolUse", "tool_name": "Bash", "outcome": "observed", "artifacts": [], "command": "git commit -m \"feat(06-02): add execution log hook\""}
