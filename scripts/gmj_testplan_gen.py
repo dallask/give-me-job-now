@@ -276,8 +276,13 @@ def _capability_sentence(ir: dict) -> str:
     parts: list[str] = []
     description = str(ir.get("description") or "").strip()
     if description:
-        # Strip a trailing parenthetical requirement-ID citation, e.g. "... (OPS-01)."
-        description = re.sub(r"\s*\([A-Z][A-Z-]*-\d+\)\.?\s*$", "", description).rstrip(". ")
+        # Strip a parenthetical requirement-ID citation wherever it occurs in the
+        # description, not just at the very end -- render() already prepends the
+        # requirement_id via "**Proves:** {requirement_id} — ...", so a mid-sentence
+        # citation (the frontmatter description-field fallback explicitly scans for, per
+        # this module's own docstring) must not survive into the capability sentence and
+        # duplicate the ID.
+        description = re.sub(r"\s*\([A-Z][A-Z-]*-\d+\)\.?", "", description).strip(". ").strip()
         if description:
             parts.append(description)
     if ir.get("no_bypass_flag"):
