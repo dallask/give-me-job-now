@@ -48,6 +48,11 @@ REQUIREMENT_ID_RE = re.compile(r"\b([A-Z][A-Z-]*-\d+)\b")
 # Section headings whose body text is scanned for documented CLI flags.
 _FLAG_SECTION_HEADINGS = ("flags", "usage")
 
+# The 4 frozen risk-tier names, reused verbatim from the `investigate` milestone's own
+# taxonomy (never re-derived here) -- see
+# .planning/workstreams/investigate/phases/01-flow-inventory-approach-comparison/01-FLOW-INVENTORY-AND-COMPARISON.md.
+_VALID_RISK_TIERS = {"read-only", "local-safe", "live-cost", "destructive-if-confirmed"}
+
 # A single documented flag line looks like: "- **`--repo-root <path>`** — testability-only. ..."
 # or "- `--foo`: some purpose." Capture the flag token and the rest of the line as purpose.
 # The purpose group (and its leading separator) is optional -- a terse `` - `--dry-run` ``
@@ -227,23 +232,57 @@ def _extract_no_bypass_flag(body: str) -> bool:
     return bool(re.search(r"\bno\b[\W_]*(?:\S+[\W_]+){0,4}bypass\W*flag\b", lowered))
 
 
-def extract(command_file: Path) -> dict:
+def _validate_risk_tier(risk_tier: str, command_file: Path) -> str:
+    """Fail-closed validation of ``risk_tier`` against the 4 frozen tier names.
+
+    Mirrors ``_extract_requirement_id``'s raise-with-filename-context style exactly: any
+    value not in ``_VALID_RISK_TIERS`` (typo, omission, or invented tier name) raises
+    ``ValueError`` naming both the offending file and the invalid value — never silently
+    defaulting to ``read-only``/no-warning.
+    """
+    if risk_tier not in _VALID_RISK_TIERS:
+        raise ValueError(
+            f"{command_file}: risk_tier {risk_tier!r} is not one of the 4 frozen tiers "
+            f"{sorted(_VALID_RISK_TIERS)}"
+        )
+    return risk_tier
+
+
+def extract(command_file: Path, risk_tier: str, requirement_id_override: str | None = None) -> dict:
     """Parse ``command_file`` (a ``.claude/commands/*.md`` file) into an in-memory dict IR.
 
     Reads the frontmatter (``---``-fenced, YAML) and body, pulling out: ``flow_name``/
     ``slug`` (derived from the filename), the frontmatter ``description``, a ``flags`` list
     (name + purpose, scanned from Usage/Flags-style sections), a ``behaviors`` list (real
-    commands/interaction steps scanned from body prose/code blocks), a ``requirement_id``
-    (mandatory — raises if absent), and a ``no_bypass_flag`` boolean fact when the body
-    states one explicitly. Returns a plain dict (D-02's YAML-shaped IR) — never writes
-    anything to disk (D-03: in-memory only).
+    commands/interaction steps scanned from body prose/code blocks), a ``requirement_id``,
+    and a ``no_bypass_flag`` boolean fact when the body states one explicitly. Returns a
+    plain dict (D-02's YAML-shaped IR) — never writes anything to disk (D-03: in-memory
+    only).
+
+    ``risk_tier`` is required and validated fail-closed against the 4 frozen tier names
+    (``_VALID_RISK_TIERS``) via ``_validate_risk_tier`` — an unrecognized value raises
+    ``ValueError`` immediately, before any other extraction work. Every IR this function
+    returns carries a validated ``risk_tier`` key (always present, unlike the optional
+    ``no_bypass_flag`` key).
+
+    ``requirement_id_override``, when truthy, is used verbatim as ``ir["requirement_id"]``
+    instead of calling ``_extract_requirement_id()`` — this bypasses the fail-closed raise
+    for command files that carry no citable requirement-ID token of their own. The override
+    is trusted human-supplied input (per the security threat model: it is a planning-time
+    discipline that the override cites a real requirement, not a code-level check) and is
+    never re-validated against a real requirements doc by this function. When
+    ``requirement_id_override`` is falsy/omitted, the existing fail-closed
+    ``_extract_requirement_id()`` behavior is preserved unchanged.
 
     Raises ``FileNotFoundError`` if ``command_file`` does not exist; raises ``ValueError``
-    if the frontmatter fence is missing/malformed, the fenced block does not parse to a
-    YAML mapping, or no requirement-ID token is found anywhere in the file.
+    if ``risk_tier`` is not one of the 4 frozen tiers, if the frontmatter fence is
+    missing/malformed, the fenced block does not parse to a YAML mapping, or (absent an
+    override) no requirement-ID token is found anywhere in the file.
     """
     if not command_file.is_file():
         raise FileNotFoundError(f"command file not found: {command_file}")
+
+    _validate_risk_tier(risk_tier, command_file)
 
     text = command_file.read_text(encoding="utf-8")
     frontmatter, body = _split_frontmatter(text, command_file)
@@ -252,7 +291,10 @@ def extract(command_file: Path) -> dict:
     description = str(frontmatter.get("description") or "")
     flags = _extract_flags(body)
     behaviors = _extract_behaviors(body)
-    requirement_id = _extract_requirement_id(frontmatter, body, command_file)
+    if requirement_id_override:
+        requirement_id = requirement_id_override
+    else:
+        requirement_id = _extract_requirement_id(frontmatter, body, command_file)
     no_bypass_flag = _extract_no_bypass_flag(body)
 
     ir: dict = {
@@ -263,6 +305,7 @@ def extract(command_file: Path) -> dict:
         "behaviors": behaviors,
         "requirement_id": requirement_id,
         "source_file": str(command_file),
+        "risk_tier": risk_tier,
     }
     if no_bypass_flag:
         ir["no_bypass_flag"] = True
@@ -270,6 +313,26 @@ def extract(command_file: Path) -> dict:
 
 
 # --------------------------------------------------------------------------- render()
+
+# Warning body text for the 2 warn-worthy risk tiers, keyed by exact tier name. Only
+# "live-cost" and "destructive-if-confirmed" get entries -- "read-only"/"local-safe" are
+# deliberately absent so `.get(risk_tier)` returning None for those two IS the omission
+# mechanism (no explicit if/else branch needed to skip them). Each tier's prose names its
+# own real blast radius; never a generic sentence shared across tiers.
+_TIER_WARNINGS: dict[str, str] = {
+    "live-cost": (
+        "**live-cost**: Running this flow's live steps incurs real LLM/API spend and makes "
+        "real external network calls. There is no human pause to abort mid-run in "
+        "autonomous mode. Confirm cost expectations before running the live steps."
+    ),
+    "destructive-if-confirmed": (
+        "**destructive-if-confirmed**: This flow can permanently delete real local data if "
+        "a human confirms the deletion prompt. Run only against a disposable fixture "
+        "directory, never a real working copy with data you need, unless deletion is the "
+        "intended outcome."
+    ),
+}
+
 
 def _capability_sentence(ir: dict) -> str:
     """Build a concrete, non-generic capability sentence from the IR's behavior/flag data.
@@ -366,6 +429,17 @@ def render(ir: dict) -> str:
     # (1) Title + one-line purpose.
     lines.append(f"# Test Plan — {flow_name}")
     lines.append("")
+
+    # Tier-aware structural warning block -- present only for live-cost/
+    # destructive-if-confirmed tiers (an omitted _TIER_WARNINGS entry for
+    # read-only/local-safe IS the omission mechanism; render() stays tolerant of any of
+    # the 4 valid tier strings and never raises on tier value here -- validation belongs
+    # in extract()/_validate_risk_tier).
+    warning = _TIER_WARNINGS.get(ir.get("risk_tier"))
+    if warning:
+        lines.append(f"> ⚠️ {warning}")
+        lines.append("")
+
     lines.append(f"This file verifies the `{flow_name}` flow for a human operator running it directly.")
     lines.append("")
 
