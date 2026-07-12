@@ -137,6 +137,12 @@ def _extract_behaviors(body: str) -> list[str]:
     placeholder; an empty list means the caller must decide if that is acceptable (extract()
     only raises for the mandatory requirement_id, not for behaviors, since behaviors are
     Claude's Discretion per 02-CONTEXT.md).
+
+    A numbered list item's text may soft-wrap across multiple Markdown source lines, mirroring
+    ``_extract_flags()``'s continuation-folding: those continuation lines are folded onto the
+    same behavior string so the extracted text is never silently truncated mid-sentence at the
+    source file's line-wrap point. Both leading and trailing ``**`` bold markers are stripped
+    from the captured text.
     """
     behaviors: list[str] = []
     lines = body.splitlines()
@@ -147,11 +153,31 @@ def _extract_behaviors(body: str) -> list[str]:
             in_code_block = not in_code_block
             continue
         if in_code_block and stripped:
-            behaviors.append(stripped)
+            if not stripped.startswith("#"):
+                behaviors.append(stripped)
             continue
-        numbered_match = re.match(r"^\d+\.\s+\*{0,2}(.+)$", stripped)
+        numbered_match = re.match(r"^\d+\.\s+(.+)$", stripped)
         if numbered_match:
-            behaviors.append(numbered_match.group(1).strip())
+            # Strip a leading bold-title marker pair, e.g. "**Checkbox selection.**  A ..."
+            # -> "Checkbox selection.  A ..." — the closing "**" typically lands right after
+            # the short bold title, not at the end of the (possibly still-wrapping) line, so
+            # this cannot be anchored with a trailing "$" the way the numbering prefix can.
+            text = numbered_match.group(1).strip()
+            text = re.sub(r"^\*\*(.+?)\*\*", r"\1", text, count=1)
+            behaviors.append(text.strip())
+            continue
+        # Continuation line: indented (part of the same list item), non-blank, and not
+        # itself a new bullet/heading/numbered-item — fold it onto the most recently
+        # captured behavior, mirroring _extract_flags()'s continuation handling.
+        if (
+            behaviors
+            and not in_code_block
+            and line.strip()
+            and line[:1] in (" ", "\t")
+            and not stripped.startswith(("-", "*", "#", "```"))
+            and not re.match(r"^\d+\.\s", stripped)
+        ):
+            behaviors[-1] = (behaviors[-1] + " " + stripped).strip()
     return behaviors
 
 
