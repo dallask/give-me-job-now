@@ -59,6 +59,7 @@ def _load(path: Path) -> dict:
 
 
 _GOOD_CONFIG = "execution_mode: human_in_the_loop\nretry_cap: 2\n"
+_GOOD_CONFIG_WITH_LEFTOVER = _GOOD_CONFIG + "leftover_artifacts_default: proceed\n"
 
 
 def test_freezes_mode_cap_run_id_preserving_siblings() -> None:
@@ -139,6 +140,56 @@ def test_bad_execution_mode_in_config_rejected() -> None:
     result = _run("--state", str(state), "--config", str(cfg), "--run-id", "demo6")
     assert result.returncode == 1, "invalid execution_mode enum must be rejected"
     assert "Traceback" not in result.stderr, "must not dump a traceback"
+
+
+def test_run_config_freeze_defaults_leftover_artifacts_default_from_config() -> None:
+    state = _seed_state()
+    cfg = _write_config(_GOOD_CONFIG_WITH_LEFTOVER)
+    result = _run("--state", str(state), "--config", str(cfg), "--run-id", "demo7")
+    assert result.returncode == 0, result.stderr
+    data = _load(state)
+    assert data["leftover_artifacts_default"] == "proceed", (
+        f"expected leftover_artifacts_default='proceed' from config, got {data.get('leftover_artifacts_default')!r}"
+    )
+
+
+def test_cli_leftover_artifacts_default_override_wins() -> None:
+    state = _seed_state()
+    cfg = _write_config(_GOOD_CONFIG_WITH_LEFTOVER)
+    result = _run(
+        "--state", str(state), "--config", str(cfg),
+        "--run-id", "demo8", "--leftover-artifacts-default", "clean",
+    )
+    assert result.returncode == 0, result.stderr
+    assert _load(state)["leftover_artifacts_default"] == "clean", (
+        "CLI --leftover-artifacts-default override must win over the config value"
+    )
+
+
+def test_invalid_leftover_artifacts_default_exits_one_no_traceback() -> None:
+    state = _seed_state()
+    cfg = _write_config(_GOOD_CONFIG)
+    result = _run(
+        "--state", str(state), "--config", str(cfg),
+        "--run-id", "demo9", "--leftover-artifacts-default", "bogus_value",
+    )
+    assert result.returncode == 1, "invalid leftover_artifacts_default enum must be rejected"
+    assert result.stderr.strip() != "", "error must go to stderr"
+    assert "Traceback" not in result.stderr, "must not dump a traceback"
+
+
+def test_leftover_artifacts_default_coexists_with_execution_mode_and_retry_cap() -> None:
+    state = _seed_state()
+    cfg = _write_config(_GOOD_CONFIG_WITH_LEFTOVER)
+    result = _run("--state", str(state), "--config", str(cfg), "--run-id", "demo10")
+    assert result.returncode == 0, result.stderr
+    data = _load(state)
+    assert data["execution_mode"] == "human_in_the_loop"
+    assert data["retry_cap"] == 2
+    assert data["leftover_artifacts_default"] == "proceed"
+    # Sibling keys survive untouched, matching the existing freeze-contract assertion shape.
+    for key, val in SEED_STATE.items():
+        assert data[key] == val, f"{key} must be preserved on freeze"
 
 
 def main() -> int:
