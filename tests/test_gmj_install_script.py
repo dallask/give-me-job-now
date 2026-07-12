@@ -390,6 +390,149 @@ def test_fresh_clone_refuses_preexisting_symlink_install_dir() -> None:
     )
 
 
+# --- Test 12: full requirements aggregation installs every requirements file (INSTALL-01) --
+
+def test_full_requirements_aggregation_installs_all_files() -> None:
+    """Regression proof for the aggregation-loop fix: install.sh must install packages from
+    ALL of scripts/*/requirements.txt and scripts/requirements-*.txt (9 files today), not
+    just the 4 previously hard-coded ones. Checks one representative package unique to each
+    of the four previously-missing requirements files, plus requirements-cleanup.txt."""
+    if shutil.which("node") is None:
+        print("SKIP test_full_requirements_aggregation_installs_all_files: node unavailable", file=sys.stderr)
+        return
+
+    checkout = _scratch_checkout()
+    install_sh = checkout / INSTALL_SH_REL
+
+    result = run(["bash", str(install_sh)], cwd=checkout, timeout=300)
+    assert result.returncode == 0, (
+        f"install must exit 0: rc={result.returncode} stderr={result.stderr.strip()[:800]}"
+    )
+    assert "Traceback" not in result.stderr, f"install.sh crashed: {result.stderr}"
+
+    venv_python = checkout / ".venv" / "bin" / "python"
+    assert venv_python.is_file(), f"install.sh did not create {venv_python}"
+
+    # One representative package per previously-missing requirements file:
+    #   scripts/offers/requirements.txt      -> firecrawl-py (module: firecrawl)
+    #   scripts/runtime/requirements.txt     -> claude-agent-sdk (module: claude_agent_sdk)
+    #   scripts/requirements-cleanup.txt     -> questionary (module: questionary)
+    #   scripts/publish/requirements.txt     -> python-semantic-release (no top-level import;
+    #                                          checked via `pip show`)
+    import_check = run(
+        [str(venv_python), "-c", "import firecrawl, claude_agent_sdk, questionary; print('OK')"],
+        cwd=checkout,
+        timeout=30,
+    )
+    assert import_check.returncode == 0, (
+        "expected firecrawl, claude_agent_sdk, questionary all importable post-install "
+        f"(aggregation bug regression): rc={import_check.returncode} "
+        f"stdout={import_check.stdout.strip()[:400]} stderr={import_check.stderr.strip()[:400]}"
+    )
+    assert "OK" in import_check.stdout, import_check.stdout
+
+    pip_show = run(
+        [str(venv_python), "-m", "pip", "show", "python-semantic-release"],
+        cwd=checkout,
+        timeout=30,
+    )
+    assert pip_show.returncode == 0, (
+        "expected python-semantic-release (scripts/publish/requirements.txt) installed "
+        f"post-install: rc={pip_show.returncode} stderr={pip_show.stderr.strip()[:400]}"
+    )
+
+
+# --- Test 13: Python version floor rejects an old interpreter (INSTALL-03) ---
+
+def test_python_version_floor_rejects_old_interpreter() -> None:
+    """A shadow-PATH python3 shim reporting a version below the 3.9 floor must cause
+    install.sh to exit 1, name the required minimum version in stderr, and leave no .venv
+    directory behind — BEFORE any venv is created.
+
+    Uses a dedicated fresh checkout (git clone, like tests 7/10/11) rather than the shared
+    `_scratch_checkout()` cache — other tests in this module install into that shared
+    checkout's `.venv`, which would make the "no .venv left behind" assertion meaningless
+    if run after them."""
+    checkout = Path(tempfile.mkdtemp(prefix="gmj-oldpython-checkout-"))
+    clone = subprocess.run(
+        ["git", "clone", str(REPO_ROOT), str(checkout)],
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert clone.returncode == 0, f"dedicated checkout clone failed: {clone.stderr}"
+    install_sh = checkout / INSTALL_SH_REL
+
+    shadow = Path(tempfile.mkdtemp(prefix="gmj-oldpython-shadow-"))
+    shim = shadow / "python3"
+    shim.write_text(
+        "#!/usr/bin/env bash\n"
+        'if [ "$1" = "--version" ]; then\n'
+        '  echo "Python 3.8.10"\n'
+        "  exit 0\n"
+        "fi\n"
+        'if [ "$1" = "-c" ]; then\n'
+        "  exit 1\n"
+        "fi\n"
+        "exit 1\n",
+        encoding="utf-8",
+    )
+    shim.chmod(shim.stat().st_mode | 0o111)
+
+    # Prepend the shim directory ahead of the real PATH so the fake python3 shadows the
+    # real interpreter, while every other binary (git, node, npx, bash itself) still
+    # resolves normally (make_shadow_path()'s precedence-preserving approach, applied here
+    # as a minimal standalone prefix since only python3 needs shadowing).
+    env = dict(os.environ, PATH=f"{shadow}{os.pathsep}{os.environ.get('PATH', '')}")
+
+    venv_dir = checkout / ".venv"
+    # Guard: fail loudly (not silently pass) if a leftover .venv from a prior test run
+    # would make the "no .venv left behind" assertion meaningless.
+    assert not venv_dir.is_dir(), f"pre-existing {venv_dir} would invalidate this test"
+
+    result = run(["bash", str(install_sh)], cwd=checkout, env=env, timeout=30)
+    assert result.returncode == 1, (
+        f"expected exit 1 with an old python3 shim on PATH: rc={result.returncode} "
+        f"stdout={result.stdout.strip()[:400]} stderr={result.stderr.strip()[:400]}"
+    )
+    assert "3.9" in result.stderr, (
+        f"aggregated report must name the required minimum version (3.9): {result.stderr}"
+    )
+    assert "Traceback" not in result.stderr, result.stderr
+    assert not venv_dir.is_dir(), (
+        "install.sh must not create .venv when the python3 version-floor check fails "
+        f"(found {venv_dir})"
+    )
+
+
+# --- Test 14: post-install smoke check is present (static/grep check) --------
+
+def test_post_install_smoke_check_present() -> None:
+    """Static assertion (same style as tests 8/9): install.sh must contain an import-based
+    smoke check block, positioned after the pip-install loop and before the gmj-tools.cjs
+    delegate call."""
+    install_sh = REPO_ROOT / INSTALL_SH_REL
+    text = install_sh.read_text(encoding="utf-8")
+
+    pip_loop_idx = text.find("scripts/*/requirements.txt")
+    assert pip_loop_idx != -1, "install.sh must contain the requirements-aggregation loop"
+
+    smoke_check_idx = text.find("import yaml")
+    assert smoke_check_idx != -1, (
+        "install.sh must contain a post-install import-based smoke check (e.g. "
+        "'import yaml, jsonschema, ...')"
+    )
+    assert smoke_check_idx > pip_loop_idx, (
+        "the post-install smoke check must come AFTER the pip-install aggregation loop"
+    )
+
+    delegate_idx = text.find("gmj-tools.cjs install")
+    assert delegate_idx != -1, "install.sh must contain the gmj-tools.cjs install delegate call"
+    assert smoke_check_idx < delegate_idx, (
+        "the post-install smoke check must come BEFORE the gmj-tools.cjs delegate call"
+    )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

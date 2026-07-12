@@ -103,44 +103,51 @@ Installer behavior:
 
 ---
 
+## Prerequisites
+
+`install.sh` requires **Python 3.9 or newer**. The check runs before any `.venv` is
+created, as part of the same aggregate-then-report prerequisite section that checks
+`git`/`node`/`npx`/`pip` — a too-old interpreter is reported alongside any other missing
+prerequisite in one aggregated stderr report, never a raw traceback.
+
 ## Python render dependencies
 
 The CV / cover-letter / interview-prep renderers require a Python 3 environment.
 `install.sh` bootstraps and reuses a project-local `.venv` and installs every dependency
 file through `.venv/bin/python -m pip` — **never a bare system `pip`/`pip3`** — so installs
-stay tied to that venv's own interpreter rather than polluting the system Python. If you are
-installing manually instead of running `install.sh`, create and activate the same `.venv`
-first, then install through it (same order `install.sh` uses):
+stay tied to that venv's own interpreter rather than polluting the system Python.
+
+`install.sh` **aggregates and installs every `scripts/*/requirements.txt` and
+`scripts/requirements-*.txt` file** it finds, mirroring this repo's own CI pattern in
+[`.github/workflows/tests.yml`](../.github/workflows/tests.yml) exactly — the loop
+self-extends as new subsystem requirements files are added, so the installer and CI never
+drift out of sync. The full current set:
+
+- `scripts/contracts/requirements.txt` — envelope validation (`jsonschema`)
+- `scripts/dashboard/requirements.txt` — the `gmj-dashboard` Textual TUI cockpit (`textual`)
+- `scripts/cv/requirements.txt` — the render stack: **reportlab** (built-in ReportLab CV
+  layout engine), **PyYAML**, **Jinja2**, **pypdf**, plus document-extraction support
+  (`python-docx`, `openpyxl`, `Pillow`, `PyMuPDF`). **WeasyPrint** ships in the same file
+  and stays optional (only needed for HTML-template rendering)
+- `scripts/preferences/requirements.txt` — the preferences validator
+  (`gmj_validate_preferences.py`): `PyYAML` + `jsonschema`
+- `scripts/offers/requirements.txt` — offer discovery: `firecrawl-py`, `python-dotenv`
+- `scripts/pipeline/requirements.txt` — pipeline control: `PyMuPDF`, `PyYAML`
+- `scripts/publish/requirements.txt` — release automation: `python-semantic-release`,
+  `PyYAML`
+- `scripts/runtime/requirements.txt` — the EXPERIMENTAL Claude Agent SDK runtime prototype:
+  `claude-agent-sdk`
+- `scripts/requirements-cleanup.txt` — the cleanup wizard (root-level file, matched by the
+  second glob term, not `scripts/*/requirements.txt`): `questionary`
+
+If you are installing manually instead of running `install.sh`, create and activate the
+same `.venv` first, then install through it (same aggregation `install.sh` uses):
 
 ```bash
 python3 -m venv .venv
-```
-
-Envelope validation requires `jsonschema`:
-
-```bash
-.venv/bin/python -m pip install -r scripts/contracts/requirements.txt
-```
-
-The `gmj-dashboard` Textual TUI cockpit requires a pinned `textual`:
-
-```bash
-.venv/bin/python -m pip install -r scripts/dashboard/requirements.txt
-```
-
-This installs the render stack — notably **reportlab** (the built-in ReportLab CV layout
-engine), **PyYAML**, **Jinja2**, and **pypdf** — plus the document-extraction support
-libraries (`python-docx`, `openpyxl`, `Pillow`, `PyMuPDF`). **WeasyPrint** ships in the same
-file and stays optional (only needed for HTML-template rendering):
-
-```bash
-.venv/bin/python -m pip install -r scripts/cv/requirements.txt
-```
-
-The preferences validator (`gmj_validate_preferences.py`) requires `PyYAML` + `jsonschema`:
-
-```bash
-.venv/bin/python -m pip install -r scripts/preferences/requirements.txt
+for req in scripts/*/requirements.txt scripts/requirements-*.txt; do
+  .venv/bin/python -m pip install -r "$req"
+done
 ```
 
 ---
@@ -155,6 +162,16 @@ font install is required**. If DejaVu is unavailable the renderer falls back to 
 ---
 
 ## Verifying an install
+
+`install.sh` runs a **post-install import smoke check automatically** right after the
+requirements-aggregation loop: it imports one representative core package from each
+always-required requirements file (`yaml`, `jsonschema`, `textual`, `reportlab`, `jinja2`)
+through the newly-installed `.venv/bin/python` and prints `OK` on success. WeasyPrint and
+`firecrawl-py` are intentionally excluded from this check — WeasyPrint has documented
+optional system-library failure modes, and `firecrawl-py` is optional/API-key-gated, so
+neither should false-fail a legitimately optional/degraded install. If the smoke check
+fails, `install.sh` prints a clear stderr message naming the failure and exits 1 — never a
+raw Python traceback.
 
 On the target host, in a fresh Claude Code session, confirm the four acceptance checks:
 
