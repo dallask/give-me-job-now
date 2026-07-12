@@ -28,6 +28,7 @@
 
 - [🤖 What is give-me-job](#-what-is-give-me-job)
 - [🎯 Core value](#-core-value)
+- [✨ Features](#-features)
 - [🔀 Hub-and-spoke model](#-hub-and-spoke-model)
 - [🔒 Truthfulness guarantee](#-truthfulness-guarantee)
 - [⚡ Quickstart](#-quickstart)
@@ -55,6 +56,54 @@ Given a real offer, the system produces application artifacts that **provably tr
 candidate's real profile** (`config/candidate.yaml`) and **pass mandatory quality gates**. If
 everything else fails, the artifacts must never fabricate and must actually target the offer.
 Reframing and emphasis are allowed; invention is hard-blocked.
+
+---
+
+## ✨ Features
+
+### End-to-end cycle
+
+- From interview to real, ready-to-send application documents
+- Self-reflection — enhance loops re-check and improve drafts before they reach the gates
+- Human-in-the-loop mode — pauses for approval after each gate passes
+- Autonomous mode — runs unattended end to end, gates still non-bypassable
+
+### Interview mode
+
+- Guided interview capturing the candidate's experience, preferences, education, and certifications
+- Configuration built from the candidate's real answers, not assumptions
+
+### Vacancy scraping
+
+- Searches vacancies against the candidate’s preferences
+- Smart search and parsing across listings
+- Multiple job boards at a time
+
+### Document composing
+
+- CV preparation (HTML + PDF versions)
+- CV template generation
+- Evaluation and enhancement passes
+- Visual layout rendering
+
+### Truthfulness & fit gates
+
+- Hard-blocked fabrication — every claim traces back to candidate.yaml
+- Non-bypassable target-fit coverage gate
+- Gates enforced identically in human-in-the-loop and autonomous mode
+
+### Anti-drift safeguards
+
+- Bounded input budget per spoke
+- No-progress early-stop on retry loops
+- Artifact-only handoff as an architectural invariant
+
+### Operator capabilities
+
+- Dual-mode execution with a bounded retry cap
+- Parallel fan-out with sequential gates
+- Bounded-concurrency multi-offer batches
+- Live operator UI cockpit
 
 ---
 
