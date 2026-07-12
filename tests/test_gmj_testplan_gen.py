@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Contract for scripts/gmj_testplan_gen.py (TPGEN-03/TPGEN-04).
+"""Contract for scripts/gmj_testplan_gen.py (TPGEN-03/TPGEN-04, TPGEN-05/TPGEN-06).
 
 Plain-python3 self-running harness (NO pytest) — run with
 ``python3 tests/test_gmj_testplan_gen.py``. Mirrors
@@ -17,6 +17,14 @@ Markdown output (all six per-test fields in order, document scaffolding,
 non-executability-compliant phrasing), the render()-side fail-closed guard on a missing/
 empty requirement_id, and the CLI's extract->render->write wiring with fail-closed error
 handling.
+
+Phase 3 Task 1 tests cover ``extract()``'s new ``risk_tier`` (required, fail-closed
+validated against the 4 frozen tiers) and ``requirement_id_override`` (optional bypass of
+the missing-requirement-ID raise) parameters.
+
+Phase 3 Task 2 tests cover ``render()``'s new tier-aware structural warning block: present
+(and positionally correct) for ``live-cost``/``destructive-if-confirmed`` tiers, fully
+omitted for ``read-only``/``local-safe`` tiers.
 
 HARD CONSTRAINT: synthetic fixtures live under their own ``tempfile.TemporaryDirectory()``
 context manager. This file mutates nothing under the real repo's ``docs/`` or ``output/``
@@ -97,7 +105,7 @@ def test_extract_returns_ir_with_expected_fields() -> None:
     """extract() on a valid fixture returns a dict IR with all required fields populated."""
     with tempfile.TemporaryDirectory() as tmp:
         fixture = _write_fixture(tmp, "gmj-fixture-flow.md", _FIXTURE_COMMAND_DOC)
-        ir = g.extract(fixture)
+        ir = g.extract(fixture, risk_tier="read-only")
 
         assert isinstance(ir, dict), f"extract() must return a dict, got {type(ir)}"
         assert ir.get("flow_name") or ir.get("slug"), (
@@ -124,7 +132,7 @@ def test_extract_returns_ir_with_expected_fields() -> None:
 def test_extract_real_cleanup_wizard_command_file() -> None:
     """extract() against the real gmj-cleanup-wizard.md sources OPS-01 and --repo-root."""
     real_path = REPO_ROOT / ".claude" / "commands" / "gmj-cleanup-wizard.md"
-    ir = g.extract(real_path)
+    ir = g.extract(real_path, risk_tier="destructive-if-confirmed")
 
     flag_names = {f.get("name") for f in ir.get("flags", [])}
     assert "--repo-root" in flag_names, (
@@ -148,7 +156,7 @@ def test_extract_nonexistent_file_raises() -> None:
 
     raised = False
     try:
-        g.extract(missing)
+        g.extract(missing, risk_tier="read-only")
     except (FileNotFoundError, OSError) as exc:
         raised = True
         assert str(missing) in str(exc) or missing.name in str(exc), (
@@ -164,7 +172,7 @@ def test_extract_missing_frontmatter_raises() -> None:
 
         raised = False
         try:
-            g.extract(fixture)
+            g.extract(fixture, risk_tier="read-only")
         except ValueError as exc:
             raised = True
             assert str(fixture) in str(exc) or fixture.name in str(exc), (
@@ -213,7 +221,7 @@ python3 scripts/gmj_fixture_flow.py --repo-root <path>
 """
     with tempfile.TemporaryDirectory() as tmp:
         fixture = _write_fixture(tmp, "gmj-fixture-flow.md", prose_fixture)
-        ir = g.extract(fixture)
+        ir = g.extract(fixture, risk_tier="read-only")
 
         behaviors = ir.get("behaviors") or []
         joined = " ".join(behaviors).lower()
@@ -226,6 +234,72 @@ python3 scripts/gmj_fixture_flow.py --repo-root <path>
         assert any("first step" in b.lower() for b in behaviors), (
             f"sanity check: the real numbered-list item must still be extracted, "
             f"got behaviors: {behaviors!r}"
+        )
+
+
+# --------------------------------------------------------------------------- Phase 3 Task 1: risk_tier / requirement_id_override
+
+def test_extract_risk_tier_field_present() -> None:
+    """extract(fixture, risk_tier=...) round-trips all 4 frozen tier values into the IR unchanged."""
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = _write_fixture(tmp, "gmj-fixture-flow.md", _FIXTURE_COMMAND_DOC)
+        for tier in ("read-only", "local-safe", "live-cost", "destructive-if-confirmed"):
+            ir = g.extract(fixture, risk_tier=tier)
+            assert ir["risk_tier"] == tier, (
+                f"extract(risk_tier={tier!r}) must produce ir['risk_tier'] == {tier!r}, "
+                f"got: {ir.get('risk_tier')!r}"
+            )
+
+
+def test_extract_invalid_risk_tier_raises() -> None:
+    """extract() with a risk_tier not in the frozen 4-tier set raises ValueError naming file + value."""
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = _write_fixture(tmp, "gmj-fixture-flow.md", _FIXTURE_COMMAND_DOC)
+
+        raised = False
+        try:
+            g.extract(fixture, risk_tier="critical")
+        except ValueError as exc:
+            raised = True
+            message = str(exc)
+            assert str(fixture) in message or fixture.name in message, (
+                f"extract() must name the offending file in its risk_tier ValueError, got: {exc}"
+            )
+            assert "critical" in message, (
+                f"extract() must name the invalid risk_tier value in its ValueError, got: {exc}"
+            )
+        assert raised, (
+            "extract() must raise ValueError when risk_tier is not one of the 4 frozen tiers"
+        )
+
+
+def test_extract_requirement_id_override_bypasses_missing_id() -> None:
+    """requirement_id_override bypasses the missing-requirement-ID raise, using the override verbatim."""
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = _write_fixture(tmp, "gmj-no-req-id.md", _FIXTURE_NO_REQUIREMENT_ID)
+        ir = g.extract(fixture, risk_tier="read-only", requirement_id_override="OPS-02")
+
+        assert ir["requirement_id"] == "OPS-02", (
+            f"extract() with requirement_id_override='OPS-02' against a fixture with no "
+            f"citable requirement-ID token must produce ir['requirement_id'] == 'OPS-02' "
+            f"exactly (the override value verbatim), got: {ir.get('requirement_id')!r}"
+        )
+
+
+def test_extract_no_override_still_raises_on_missing_id() -> None:
+    """Without an override, extract() still raises ValueError on a fixture with no requirement ID."""
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = _write_fixture(tmp, "gmj-no-req-id.md", _FIXTURE_NO_REQUIREMENT_ID)
+
+        raised = False
+        try:
+            g.extract(fixture, risk_tier="read-only")
+        except ValueError:
+            raised = True
+        assert raised, (
+            "extract() without requirement_id_override must still raise ValueError on a "
+            "fixture with no citable requirement-ID token -- the override is opt-in, never "
+            "a silent default that weakens the existing fail-closed guarantee"
         )
 
 
@@ -332,23 +406,110 @@ def test_render_no_bypass_phrasing_and_human_applied_pass_criteria() -> None:
         )
 
 
+# --------------------------------------------------------------------------- Phase 3 Task 2: tier-aware warning block
+
+def test_render_warning_block_for_live_cost_tier() -> None:
+    """render() on a live-cost IR positions a '> ⚠️' warning between the title and purpose lines."""
+    ir = _synthetic_ir()
+    ir["risk_tier"] = "live-cost"
+    text = g.render(ir)
+
+    title_idx = text.find("# Test Plan")
+    warn_idx = text.find("> ⚠️")
+    purpose_idx = text.find("This file verifies")
+    assert title_idx != -1 and warn_idx != -1 and purpose_idx != -1, (
+        f"render() output missing title/warning/purpose markers, got:\n{text}"
+    )
+    assert title_idx < warn_idx < purpose_idx, (
+        f"render() must position the '> ⚠️' warning strictly between the title and purpose "
+        f"lines, got indices title={title_idx}, warn={warn_idx}, purpose={purpose_idx}"
+    )
+    assert "live-cost" in text, "warning text must name the live-cost tier"
+    lowered = text.lower()
+    assert "spend" in lowered or "network" in lowered or "api" in lowered, (
+        f"live-cost warning text must name the real blast radius (LLM/API spend or network "
+        f"calls), not a generic templated sentence, got:\n{text}"
+    )
+
+
+def test_render_warning_block_for_destructive_tier() -> None:
+    """render() on a destructive-if-confirmed IR positions a distinct '> ⚠️' warning, worded differently from live-cost."""
+    ir = _synthetic_ir()
+    ir["risk_tier"] = "destructive-if-confirmed"
+    text = g.render(ir)
+
+    title_idx = text.find("# Test Plan")
+    warn_idx = text.find("> ⚠️")
+    purpose_idx = text.find("This file verifies")
+    assert title_idx < warn_idx < purpose_idx, (
+        f"render() must position the '> ⚠️' warning strictly between the title and purpose "
+        f"lines, got indices title={title_idx}, warn={warn_idx}, purpose={purpose_idx}"
+    )
+    assert "destructive-if-confirmed" in text, "warning text must name the destructive tier"
+    lowered = text.lower()
+    assert "delet" in lowered, (
+        f"destructive-if-confirmed warning text must name the real blast radius (local-data "
+        f"deletion), got:\n{text}"
+    )
+
+    live_cost_ir = _synthetic_ir()
+    live_cost_ir["risk_tier"] = "live-cost"
+    live_cost_text = g.render(live_cost_ir)
+    live_cost_warn_line = live_cost_text.split("> ⚠️", 1)[1].split("\n", 1)[0]
+    destructive_warn_line = text.split("> ⚠️", 1)[1].split("\n", 1)[0]
+    assert live_cost_warn_line != destructive_warn_line, (
+        "live-cost and destructive-if-confirmed warning text must be distinct wording, "
+        "never a copy-pasted generic sentence shared across tiers"
+    )
+
+
+def test_render_no_warning_block_for_read_only_tier() -> None:
+    """render() on a read-only IR emits zero '⚠️' occurrences -- full omission."""
+    ir = _synthetic_ir()
+    ir["risk_tier"] = "read-only"
+    text = g.render(ir)
+
+    assert "⚠️" not in text, (
+        f"render() must fully omit the warning block for read-only tier (zero '⚠️' "
+        f"occurrences), got:\n{text}"
+    )
+
+
+def test_render_no_warning_block_for_local_safe_tier() -> None:
+    """render() on a local-safe IR emits zero '⚠️' occurrences -- full omission."""
+    ir = _synthetic_ir()
+    ir["risk_tier"] = "local-safe"
+    text = g.render(ir)
+
+    assert "⚠️" not in text, (
+        f"render() must fully omit the warning block for local-safe tier (zero '⚠️' "
+        f"occurrences), got:\n{text}"
+    )
+
+
 def test_main_wires_extract_render_write() -> None:
-    """main(), given a fixture command-file and --output, exits 0 and writes render(extract()) output."""
+    """render(extract(path, risk_tier=...)) wiring works directly (main()'s own --risk-tier
+    CLI wiring is Plan 02's concern, not this plan's -- see 03-01-PLAN.md verification
+    section). main() itself, unmodified in this plan, now fails closed (TypeError from
+    extract()'s new required risk_tier parameter) rather than succeeding -- this is expected
+    and acceptable at the end of this plan.
+    """
     with tempfile.TemporaryDirectory() as tmp:
         command_file = _write_fixture(tmp, "gmj-fixture-flow.md", _FIXTURE_COMMAND_DOC)
         output_path = Path(tmp) / "out" / "fixture-flow.md"
 
         exit_code = g.main(["--command-file", str(command_file), "--output", str(output_path)])
 
-        assert exit_code == 0, f"main() must exit 0 on success, got {exit_code}"
-        assert output_path.is_file(), f"main() must write the output file at {output_path}"
-
-        direct_text = g.render(g.extract(command_file))
-        written_text = output_path.read_text(encoding="utf-8")
-        assert written_text == direct_text, (
-            "main()'s written output must exactly match render(extract(path)) called directly "
-            "-- proves the CLI wires extract -> render -> write correctly"
+        assert exit_code == 1, (
+            f"main() is not updated to pass risk_tier= in this plan (Plan 02's concern) -- "
+            f"it must fail closed (exit 1) rather than silently succeed, got {exit_code}"
         )
+        assert not output_path.is_file(), (
+            f"main()'s fail-closed path must not write the output file, but found {output_path}"
+        )
+
+        direct_text = g.render(g.extract(command_file, risk_tier="read-only"))
+        assert direct_text, "render(extract(path, risk_tier=...)) direct wiring must still work"
 
 
 def test_main_missing_command_file_fails_closed() -> None:
