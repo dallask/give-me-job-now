@@ -8,6 +8,24 @@
 
 **The last job agency you'll ever need. Point it at the vacancies, set your "I-deserve-a-billion-dollar-salary" filter, and go take a nap. Feed it a real job offer. It returns a truthful, laser-targeted CV, cover letter, and interview-prep — zero fabrication, no excuses.**
 
+<!--
+  README.md marker convention (single source of truth for the private repo's live
+  GitHub rendering AND the public mirror's README.md — see scripts/publish/gmj_publish_mirror.sh):
+
+  - A private-only block opens with its own HTML comment holding just the start marker
+    (literally "PRIVATE-ONLY" + colon + "START"), wraps real markdown that renders normally
+    here, and closes with its own HTML comment holding just the end marker ("PRIVATE-ONLY" +
+    colon + "END"). The publish transform deletes the marker lines AND everything between them.
+  - A public-mirror block is a SINGLE HTML comment spanning multiple lines — it opens with a
+    line starting the comment and holding the start marker ("PUBLIC-MIRROR" + colon + "START",
+    comment left open), holds the public-equivalent markdown on the following lines (inert /
+    invisible here since it sits inside one open HTML comment), then closes with a line holding
+    the end marker ("PUBLIC-MIRROR" + colon + "END") followed by the comment-close sequence.
+    The publish transform uncomments this block: deletes the two wrapper lines, keeps the
+    inner content verbatim.
+-->
+
+<!-- PRIVATE-ONLY:START -->
 <p align="center">
     <a href="docs/installation.md"><img src="https://img.shields.io/badge/python-3.x-blue?logo=python&logoColor=white" alt="Python"/></a>
     <a href="docs/ARCHITECTURE.md"><img src="https://img.shields.io/badge/architecture-hub--and--spoke-informational" alt="Architecture"/></a>
@@ -19,6 +37,19 @@
     <a href=".planning/ROADMAP.md"><img src="https://img.shields.io/badge/releases-v1.0%20--%20v4.0-blue?logo=git&logoColor=white" alt="Releases"/></a>
     <a href=".github/workflows/tests.yml"><img src="https://img.shields.io/badge/tests-CI-yellowgreen?logo=pytest&logoColor=white" alt="Tests"/></a>
 </p>
+<!-- PRIVATE-ONLY:END -->
+<!-- PUBLIC-MIRROR:START
+<p align="center">
+    <a href="docs/installation.md"><img src="https://img.shields.io/badge/python-3.x-blue?logo=python&logoColor=white" alt="Python"/></a>
+    <a href="docs/ARCHITECTURE.md"><img src="https://img.shields.io/badge/architecture-hub--and--spoke-informational" alt="Architecture"/></a>
+    <a href="https://github.com/anthropics/claude-code"><img src="https://img.shields.io/badge/built%20with-Claude%20Code-6b4fbb?logo=anthropic&logoColor=white" alt="Built with Claude Code"/></a>
+    <a href="https://github.com/dallask/give-me-job-now/releases"><img src="https://img.shields.io/github/v/release/dallask/give-me-job-now?logo=git&logoColor=white" alt="Releases"/></a>
+    <a href="#-license"><img src="https://img.shields.io/github/license/dallask/give-me-job-now?logo=opensourceinitiative&logoColor=white" alt="License"/></a>
+    <a href="http://example.com"><img src="https://img.shields.io/badge/author-Ievgen%20Kyvgyla-orange?logo=homepage&logoColor=white" alt="Author"/></a>
+    <a href="#-documentation-index"><img src="https://img.shields.io/badge/docs-16%20guides-blueviolet?logo=readthedocs&logoColor=white" alt="Docs"/></a>
+    <a href="https://github.com/dallask/give-me-job-now/actions/workflows/tests.yml"><img src="https://img.shields.io/badge/tests-CI-yellowgreen?logo=pytest&logoColor=white" alt="Tests"/></a>
+</p>
+PUBLIC-MIRROR:END -->
 
 </div>
 
@@ -33,7 +64,9 @@
 - [🔒 Truthfulness guarantee](#-truthfulness-guarantee)
 - [⚡ Quickstart](#-quickstart)
 - [📚 Documentation index](#-documentation-index)
+<!-- PRIVATE-ONLY:START -->
 - [🌐 Public portfolio mirror](#-public-portfolio-mirror)
+<!-- PRIVATE-ONLY:END -->
 - [💬 Support](#-support)
 - [🙏 Acknowledgements](#-acknowledgements)
 - [⚠️ Warning](#-warning)
@@ -183,6 +216,7 @@ end-to-end real-offer walkthrough, see **[docs/RUNBOOK.md](docs/RUNBOOK.md)**.
 
 ---
 
+<!-- PRIVATE-ONLY:START -->
 ## 🌐 Public portfolio mirror
 
 This is the private working repository — it carries the real candidate profile and real
@@ -195,6 +229,7 @@ mirror** (synthetic sample data, MIT-licensed) is published separately at
 See `scripts/publish/README.md` for the full operator runbook.
 
 ---
+<!-- PRIVATE-ONLY:END -->
 
 ## 💬 Support
 
@@ -229,11 +264,16 @@ Feel free to ping me about any issues. I'll do my best to ignore them.
 
 ## 📄 License
 
+<!-- PRIVATE-ONLY:START -->
 This private repository is **not currently licensed for redistribution** — it contains a real
 candidate profile and real generated application artifacts, and stays closed by design. The
 **public portfolio mirror** (see [above](#-public-portfolio-mirror)) ships a sanitized, synthetic
 copy of the code under the **MIT License** — see that mirror's own `LICENSE` file
-(sourced from [`public-assets/LICENSE`](public-assets/LICENSE) in this repo).
+(sourced from this repository's own root `LICENSE` file).
+<!-- PRIVATE-ONLY:END -->
+<!-- PUBLIC-MIRROR:START
+MIT — see [LICENSE](LICENSE).
+PUBLIC-MIRROR:END -->
 
 ---
 
