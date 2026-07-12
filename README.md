@@ -35,6 +35,7 @@
 - [🌐 Public portfolio mirror](#-public-portfolio-mirror)
 - [💬 Support](#-support)
 - [🙏 Acknowledgements](#-acknowledgements)
+- [⚠️ Warning](#-warning)
 - [📄 License](#-license)
 
 ---
@@ -164,6 +165,16 @@ formatting conventions are all downstream of that project. PDF/document renderin
 [ReportLab](https://www.reportlab.com/), [Jinja2](https://jinja.palletsprojects.com/), and
 optionally [WeasyPrint](https://weasyprint.org/); configuration parsing uses
 [PyYAML](https://pyyaml.org/).
+
+---
+
+## ⚠️ Warning
+
+This project is under active development.
+Use at your own risk.
+If something can break, it will — probably right when you need it most.
+That's totally fine, bugs are just unannounced features.
+Feel free to ping me about any issues. I'll do my best to ignore them.
 
 ---
 
