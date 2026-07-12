@@ -263,6 +263,7 @@ def _seed_state(
         config=Path(config),
         execution_mode=execution_mode,
         retry_cap=retry_cap,
+        leftover_artifacts_default=None,
     )
     # _freeze_run_config prints its own structured stderr message and returns 1 on any error
     # (bad run_id charset, missing/invalid config, bad execution_mode/retry_cap).
