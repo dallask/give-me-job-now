@@ -1,0 +1,9 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "scripts/gmj_self_reflect.py",
+    "old_string": "foo",
+    "new_string": "bar"
+  }
+}

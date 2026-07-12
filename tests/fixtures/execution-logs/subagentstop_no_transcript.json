@@ -1,0 +1,5 @@
+{
+  "hook_event_name": "SubagentStop",
+  "agent_id": "agent-does-not-exist-12345",
+  "transcript_path": "/nonexistent/path/to/transcript.jsonl"
+}
