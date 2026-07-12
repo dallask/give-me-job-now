@@ -47,6 +47,18 @@ else
   SCRIPTS_ROOT="$PROJECT_DIR"
 fi
 
+# WR-01: wall-clock timeout guard for both python3 subprocess calls below. `|| true`
+# only protects against a non-zero exit, not a hang — a hung subprocess would never
+# reach `exit 0`, contradicting this hook's own non-blocking contract. `timeout` is
+# GNU coreutils and not guaranteed present on macOS by default (only via Homebrew's
+# `coreutils`, as `gtimeout`); when neither is found this degrades to no timeout at
+# all (best-effort, matching every other guard in this hook).
+TIMEOUT_BIN=""
+command -v timeout >/dev/null 2>&1 && TIMEOUT_BIN="timeout 10"
+if [ -z "$TIMEOUT_BIN" ]; then
+  command -v gtimeout >/dev/null 2>&1 && TIMEOUT_BIN="gtimeout 10"
+fi
+
 # ---------------------------------------------------------------------------
 # 1. DISPATCH: locate STATE.md. Gather every candidate — the top-level file (if
 #    present) and every per-workstream STATE.md — and pick whichever was modified
@@ -122,7 +134,7 @@ print(status)
   esac
 fi
 
-python3 "${SCRIPTS_ROOT}/scripts/gmj_execution_log_writer.py" \
+$TIMEOUT_BIN python3 "${SCRIPTS_ROOT}/scripts/gmj_execution_log_writer.py" \
   --point execute:post \
   --outcome "$OUTCOME" \
   ${PHASE:+--phase "$PHASE"} \
@@ -160,7 +172,7 @@ python3 "${SCRIPTS_ROOT}/scripts/gmj_execution_log_writer.py" \
   fi
 
   mkdir -p "${PROJECT_DIR}/output/analysis" 2>/dev/null || true
-  python3 "${SCRIPTS_ROOT}/scripts/gmj_self_reflect.py" \
+  $TIMEOUT_BIN python3 "${SCRIPTS_ROOT}/scripts/gmj_self_reflect.py" \
     --log-dir "$STAGING_DIR" \
     --output "${PROJECT_DIR}/output/analysis/self-reflect-report.md" \
     >/dev/null 2>&1 || true
