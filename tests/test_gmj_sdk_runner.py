@@ -156,18 +156,32 @@ def test_validate_envelope_rejects_malformed_dict() -> None:
     assert errors, "expected validate_envelope to reject an invalid status enum"
     assert any("status" in e for e in errors), errors
 
-    # (b) a bare shared-base dict with NO kind/schema_version at all — the exact shape a
-    # hand-rolled bare-base check would wrongly accept; must be rejected here.
-    no_kind = {
+    # (b) a bare shared-base dict with NO kind/schema_version at all, but a genuinely
+    # invalid status enum value — must still be rejected. (Plan 04-07 made a WELL-FORMED
+    # bare agent_result_v1 envelope with no `kind` field a valid, resolvable shape — see
+    # case (c) below — so this case now targets an actual schema violation instead of the
+    # mere absence of `kind`.)
+    no_kind_bad_status = {
+        "schema": "agent_result_v1",
+        "status": "bogus",
+        "agent": "x",
+        "notes": "ok",
+        "artifacts": [],
+    }
+    errors2 = gmj_sdk_runner.validate_envelope(no_kind_bad_status)
+    assert errors2, "expected validate_envelope to reject a malformed dict with no kind"
+    assert any("status" in e for e in errors2), errors2
+
+    # (c) a WELL-FORMED bare shared-base dict with NO kind field at all — the exact shape
+    # every collective spoke emits — must validate cleanly (Plan 04-07, D-01).
+    bare_valid = {
         "schema": "agent_result_v1",
         "status": "success",
         "agent": "x",
         "notes": "ok",
         "artifacts": [],
     }
-    errors2 = gmj_sdk_runner.validate_envelope(no_kind)
-    assert errors2, "expected validate_envelope to reject a dict with no kind"
-    assert any("kind" in e for e in errors2), errors2
+    assert gmj_sdk_runner.validate_envelope(bare_valid) == []
 
 
 def test_validate_envelope_rejects_non_dict_cleanly() -> None:
