@@ -21,6 +21,7 @@ import io
 import json
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -246,6 +247,86 @@ def test_all_mode_round_robins_across_distinct_state_paths() -> None:
         assert picked_a_again == picked_a, (
             "a repeat call on the SAME state_path must reuse the original pick (D-05), "
             f"got {picked_a_again!r} != {picked_a!r}"
+        )
+
+
+def test_all_mode_rotation_counter_survives_genuinely_concurrent_threads() -> None:
+    """02-REVIEW.md CR-02 regression: the shared ``_cv_rotation_counter.json`` under
+    ``cv.mode: all`` is genuinely concurrently written by parallel offer dispatch
+    (`.claude/CLAUDE.md`'s "Parallel fan-out, sequential gates" rule). Mirrors
+    ``tests/test_gmj_batch_manifest_concurrency.py``'s ``threading.Barrier`` pattern to force
+    REAL overlap (not sequenced by the Python call stack) — before the ``fcntl.flock`` fix, two
+    threads racing this exact scenario could both read the same ``next_index``, both write back
+    ``next_index + 1``, and silently lose one increment / assign a duplicate rotation slot to two
+    different offers.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        prefs_path = _write_prefs(
+            tmp_path,
+            {
+                "templates": ["a.html", "b.html", "c.html"],
+                "default": "a.html",
+                "mode": "all",
+            },
+        )
+        templates_dir = _make_templates_dir(tmp_path, ["a.html", "b.html", "c.html"])
+        runs_dir = tmp_path / "runs"
+        runs_dir.mkdir(parents=True, exist_ok=True)
+        offer_ids = [f"offer-{i}" for i in range(8)]
+        state_paths = {oid: runs_dir / oid / "state.json" for oid in offer_ids}
+
+        barrier = threading.Barrier(len(offer_ids))
+        results: dict[str, str] = {}
+        results_lock = threading.Lock()
+        errors: list[BaseException] = []
+        errors_lock = threading.Lock()
+
+        def worker(offer_id: str) -> None:
+            barrier.wait()  # maximize genuine overlap of concurrent attempts
+            try:
+                picked = tc.resolve_template(
+                    explicit_template=None,
+                    no_template=False,
+                    prefs_path=prefs_path,
+                    state_path=state_paths[offer_id],
+                    templates_dir=templates_dir,
+                )
+                with results_lock:
+                    results[offer_id] = picked
+            except BaseException as exc:  # noqa: BLE001 -- must never crash under contention
+                with errors_lock:
+                    errors.append(exc)
+
+        threads = [threading.Thread(target=worker, args=(oid,)) for oid in offer_ids]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors, f"genuinely concurrent rotation picks must never crash: {errors}"
+        assert len(results) == len(offer_ids), (
+            f"every genuinely concurrent caller's pick must land, none lost: {results}"
+        )
+
+        counter_path = runs_dir / tc._ROTATION_COUNTER_FILENAME
+        counter = json.loads(counter_path.read_text(encoding="utf-8"))
+        assert counter["next_index"] == len(offer_ids), (
+            f"the shared counter must advance by exactly one per caller with no lost updates "
+            f"under real concurrency, expected {len(offer_ids)}, got {counter['next_index']!r}"
+        )
+
+        # Round-robin coverage: with a proper lock, each of the 8 concurrent callers must have
+        # been assigned a DISTINCT rotation slot (index 0..7 mod 3 templates) -- a lost update
+        # would manifest as two offers colliding on the same slot/template pair.
+        from collections import Counter
+
+        picks = Counter(results.values())
+        # 8 offers over a 3-template pool round-robins as {a: 3, b: 3, c: 2} in some order --
+        # the exact multiset the lock-protected counter must produce with zero lost increments.
+        assert sorted(picks.values()) == [2, 3, 3], (
+            f"expected a clean 3/3/2 round-robin split over 8 offers / 3 templates with no lost "
+            f"increments, got {dict(picks)}"
         )
 
 
