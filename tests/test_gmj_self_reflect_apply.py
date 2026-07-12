@@ -20,6 +20,7 @@ Covers:
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -240,16 +241,23 @@ def test_prose_only_finding_refuses_rather_than_fabricating() -> None:
 
 
 def test_script_never_creates_a_git_commit_itself() -> None:
-    """The apply script must not shell out to `git commit` — commit ownership stays
-    at the command layer (.claude/commands/gsd-self-reflect.md), per the plan."""
+    """The apply script must not shell out to `git commit`/`git add` — commit
+    ownership stays at the command layer (.claude/commands/gsd-self-reflect.md),
+    per the plan. Checks for actual invocation call-sites (subprocess/os.system
+    calls referencing "git commit"/"git add"), not prose mentions in comments or
+    docstrings describing this design constraint."""
     source = SCRIPT.read_text(encoding="utf-8")
     check(
-        "script source contains no 'git commit' invocation",
-        "git commit" not in source,
+        "script has no subprocess/os.system call invoking git commit",
+        not re.search(r"(subprocess\.\w+|os\.system)\([^)]*git commit", source),
     )
     check(
-        "script source contains no 'git add' invocation",
-        "git add" not in source,
+        "script has no subprocess/os.system call invoking git add",
+        not re.search(r"(subprocess\.\w+|os\.system)\([^)]*git add", source),
+    )
+    check(
+        "script imports no subprocess module at all (no shell-out capability)",
+        "import subprocess" not in source and "os.system" not in source,
     )
 
 
