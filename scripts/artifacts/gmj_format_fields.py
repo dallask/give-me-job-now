@@ -32,6 +32,27 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gmj_schema_fields import CONTACT, WEBSITE_GROUPS  # noqa: E402
 
 
+def _label_and_punctuation_safe(label: str, value: str) -> str:
+    """Format a single ``f"{label.capitalize()}: {value}"`` line, stripping a
+    pre-existing "Label: " prefix already embedded in ``value`` (case-insensitive,
+    matching this same key's own synthesized label, with or without a following
+    space) and at most one trailing sentence-punctuation character (``.``/``,``/
+    ``;``) — but ONLY when that character is not immediately preceded by ``/``,
+    which preserves real trailing-slash URLs while removing sentence-appended
+    punctuation after a bare domain/path (02-UAT.md gap 3).
+    """
+    text = str(value).strip()
+    canonical_label = str(label).capitalize()
+    for prefix_label in (canonical_label, str(label)):
+        prefix = f"{prefix_label}:"
+        if text[: len(prefix)].casefold() == prefix.casefold():
+            text = text[len(prefix):].lstrip()
+            break
+    if text and text[-1] in ".,;" and (len(text) < 2 or text[-2] != "/"):
+        text = text[:-1]
+    return f"{canonical_label}: {text}"
+
+
 def contact_lines(contact: dict) -> list[str]:
     """Build contact strings by SHAPE — never by string-formatting a bare container.
 
@@ -75,12 +96,12 @@ def contact_lines(contact: dict) -> list[str]:
         media = media if isinstance(media, dict) else {}
         for label, url in media.items():
             if url:
-                lines.append(f"{str(label).capitalize()}: {url}")
+                lines.append(_label_and_punctuation_safe(label, url))
     messengers = contact.get(messengers_key)
     messengers = messengers if isinstance(messengers, dict) else {}
     for label, handle in messengers.items():
         if handle:
-            lines.append(f"{str(label).capitalize()}: {handle}")
+            lines.append(_label_and_punctuation_safe(label, handle))
     return lines
 
 
