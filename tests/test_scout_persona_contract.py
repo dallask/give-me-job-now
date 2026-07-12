@@ -146,6 +146,44 @@ def test_orchestrator_documents_hook_error_retry_protocol() -> None:
     )
 
 
+def test_orchestrator_documents_final_turn_preamble() -> None:
+    # 04-06-PLAN.md Task 1/Task 3: locks the mandatory final_turn: true preamble line into
+    # gmj-orchestrator.md's Task-dispatch contract, additive to (never replacing) the existing
+    # pipeline_run_id preamble.
+    t = _read(ORCHESTRATOR)
+    assert "final_turn: true" in t, (
+        "gmj-orchestrator.md must document the mandatory 'final_turn: true' Task-dispatch "
+        "preamble line (04-06-PLAN.md gap closure)"
+    )
+    assert "pipeline_run_id" in t, (
+        "gmj-orchestrator.md must still document 'pipeline_run_id' alongside the new "
+        "final_turn preamble — additive, never a replacement (04-06-PLAN.md gap closure)"
+    )
+
+
+def test_all_collective_agents_have_final_turn_worked_example() -> None:
+    # 04-06-PLAN.md Task 2/Task 3: every one of the 5 collective agent docs must carry the new
+    # worked-example addendum (final_turn cue + a fenced agent_result_v1 block), not just
+    # gmj-orchestrator.md's dispatch-side documentation from Task 1.
+    files = [
+        (OFFER_SCOUT, "gmj-offer-scout.md"),
+        (ARTIFACT_COMPOSER, "gmj-artifact-composer.md"),
+        (FIT_EVALUATOR, "gmj-fit-evaluator.md"),
+        (TRUTH_VERIFIER, "gmj-truth-verifier.md"),
+        (CV_GENERATOR, "gmj-cv-generator.md"),
+    ]
+    for path, label in files:
+        t = _read(path)
+        assert "final_turn" in t, (
+            f"{label} must name the 'final_turn' dispatch cue in its Final Output — "
+            "MANDATORY section (04-06-PLAN.md gap closure)"
+        )
+        assert "```agent_result_v1" in t, (
+            f"{label} must include a literal worked fenced ```agent_result_v1``` block "
+            "(04-06-PLAN.md gap closure)"
+        )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
