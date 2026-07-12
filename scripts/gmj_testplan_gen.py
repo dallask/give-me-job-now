@@ -638,25 +638,65 @@ FLOW_MANIFEST: list[dict] = [
 
 # --------------------------------------------------------------------------- CLI
 
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "docs" / "test-plans"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Deterministic extractor+renderer: turn a .claude/commands/*.md file into a "
-            "docs/TESTPLAN-FORMAT-SPEC.md-conformant Markdown test-plan file."
+            "docs/TESTPLAN-FORMAT-SPEC.md-conformant Markdown test-plan file. Supports EITHER "
+            "a single-invocation mode (--command-file/--output/--risk-tier) OR a manifest-"
+            "driven multi-flow mode (--all[/--output-dir]) generating one file per "
+            "FLOW_MANIFEST row."
         )
     )
-    parser.add_argument(
-        "--command-file", type=Path, required=True,
-        help="Path to the .claude/commands/*.md file to extract from (any flow's command doc).",
+    mode_group = parser.add_mutually_exclusive_group(required=True)
+    mode_group.add_argument(
+        "--command-file", type=Path,
+        help="Path to the .claude/commands/*.md file to extract from (single-invocation mode).",
+    )
+    mode_group.add_argument("--all",
+        action="store_true",
+        help="Manifest-driven mode: generate one test-plan file per FLOW_MANIFEST row.",
     )
     parser.add_argument(
-        "--output", type=Path, required=True,
-        help="Markdown test-plan output path (overwritten each run).",
+        "--output", type=Path,
+        help="Markdown test-plan output path (single-invocation mode only; overwritten each run).",
+    )
+    parser.add_argument(
+        "--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR,
+        help=(
+            "Directory the --all mode writes its generated files into (default: "
+            "docs/test-plans/), one file per FLOW_MANIFEST row named '<slug>.md'."
+        ),
+    )
+    parser.add_argument("--risk-tier",
+        choices=sorted(_VALID_RISK_TIERS),
+        help="Risk tier for the single-invocation --command-file/--output path (required with that mode).",
+    )
+    parser.add_argument(
+        "--requirement-id-override",
+        help="Optional requirement-ID override for the single-invocation --command-file/--output path.",
     )
     args = parser.parse_args(argv)
 
+    if args.all:
+        return _run_all_mode(args.output_dir)
+
+    if not args.output:
+        print("FAIL: --output is required with --command-file", file=sys.stderr)
+        return 1
+    if not args.risk_tier:
+        print("FAIL: --risk-tier is required with --command-file", file=sys.stderr)
+        return 1
+
     try:
-        ir = extract(args.command_file)
+        ir = extract(
+            args.command_file,
+            risk_tier=args.risk_tier,
+            requirement_id_override=args.requirement_id_override,
+        )
         text = render(ir)
     except Exception as exc:  # noqa: BLE001  fail-closed: never write a degraded output
         print(f"FAIL: {exc}", file=sys.stderr)
@@ -664,6 +704,46 @@ def main(argv: list[str] | None = None) -> int:
 
     write_testplan(text, args.output)
     print(f"wrote {args.output}")
+    return 0
+
+
+def _run_all_mode(output_dir: Path) -> int:
+    """Manifest-driven multi-flow generation: one file per FLOW_MANIFEST row, per-row fail-closed.
+
+    Each row's extract/render/write sequence is wrapped in its own try/except so one bad row
+    (e.g. a future command-file edit that breaks frontmatter parsing) cannot silently suppress
+    or abort another row's correctly-generated output. Flow 7's row (the one carrying a
+    'hand_built_ir' key, per Decision 3) skips extract() entirely and calls render() directly on
+    the pre-built IR dict.
+    """
+    failed_slugs: list[str] = []
+    for row in FLOW_MANIFEST:
+        slug = row["slug"]
+        try:
+            hand_built_ir = row.get("hand_built_ir")
+            if hand_built_ir:
+                ir = hand_built_ir
+            else:
+                ir = extract(
+                    row["command_file"],
+                    risk_tier=row["risk_tier"],
+                    requirement_id_override=row.get("requirement_id_override"),
+                )
+            text = render(ir)
+            write_testplan(text, output_dir / f"{slug}.md")
+        except Exception as exc:  # noqa: BLE001  per-row fail-closed: never abort the whole batch
+            print(f"FAIL: {slug}: {exc}", file=sys.stderr)
+            failed_slugs.append(slug)
+            continue
+
+    if failed_slugs:
+        print(
+            f"FAIL: {len(failed_slugs)}/{len(FLOW_MANIFEST)} flows failed: {failed_slugs}",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"wrote {len(FLOW_MANIFEST)} test plans to {output_dir}")
     return 0
 
 
