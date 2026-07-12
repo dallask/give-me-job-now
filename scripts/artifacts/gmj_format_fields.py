@@ -129,3 +129,32 @@ def languages_rows(languages: object) -> list[dict]:
     if not isinstance(languages, list):
         return []
     return [row for row in languages if isinstance(row, dict)]
+
+
+def expertise_skills_text(skills: object) -> str:
+    """Guard ``candidate.expertise[N].skills`` by SHAPE — never iterate a bare string.
+
+    ``config/candidate.yaml``'s per-block ``expertise[N].skills`` field is documented as
+    a list of short term strings, but a real composer-emitted draft has shown up as a
+    single already-display-ready prose string (e.g. "PHP frameworks expertise includes
+    Laravel, Symfony, ..." — 02-UAT.md gap 4/TMPL-04-adjacent). Jinja's ``join`` filter
+    iterates any string character-by-character, exploding it into an unreadable
+    single-letter-comma-joined mess. This is the single choke point the Jinja/WeasyPrint
+    template path (``baxter.html``) routes through via the ``expertise_skills_text``
+    filter, mirroring how :func:`languages_rows` is the shared shape-guard for
+    ``candidate.languages`` and how ``render_reportlab()`` already guards this same field
+    with its own ``isinstance(skills, list)`` check (``scripts/cv/gmj_render_cv.py``).
+
+    A ``list`` input is joined with ``", "`` after coercing each item with ``str()`` and
+    dropping falsy entries — parity with ``render_reportlab()``'s existing
+    ``", ".join(str(s) for s in skills)`` behavior, not a new ReportLab code path. A
+    non-empty string input (the real defect shape) is returned UNCHANGED as a single
+    value — it is already display-ready text, not a container to iterate. Any other
+    input (``None``, ``{}``, an empty string, other types) returns ``""`` — the same
+    "no crash, no garbage" contract as this module's other helpers.
+    """
+    if isinstance(skills, list):
+        return ", ".join(str(s) for s in skills if s)
+    if isinstance(skills, str) and skills:
+        return skills
+    return ""

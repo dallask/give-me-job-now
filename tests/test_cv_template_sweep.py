@@ -344,6 +344,45 @@ def test_no_language_row_explosion_with_malformed_data() -> None:
     assert not offenders, "language-row-explosion regression found:\n" + "\n".join(offenders)
 
 
+def test_certifications_bullet_uses_self_correcting_pseudo_element() -> None:
+    """02-UAT.md gap 5: baxter.html's Certifications bullet must use the same
+    self-correcting ::before pseudo-element pattern already proven for
+    .job-bullets li::before, not the shared .entry-bullet fixed-margin-top nudge
+    (which does not reliably center against Certifications' variable-length/
+    wrapping title text). Education's own .entry-bullet markup must be untouched —
+    this is a Certifications-only scoped fix per 02-UAT.md's root-cause diagnosis."""
+    baxter = TEMPLATES_DIR / "baxter.html"
+    src = baxter.read_text(encoding="utf-8")
+    start = src.index("<!-- CERTIFICATIONS -->")
+    # Find this block's matching {% endfor %} (the one closing the certifications loop,
+    # i.e. the next endfor after the for-loop that immediately follows the comment).
+    loop_start = src.index("{% for cert in candidate.certifications %}", start)
+    end = src.index("{% endfor %}", loop_start) + len("{% endfor %}")
+    cert_block = src[start:end]
+    assert 'class="entry-bullet"' not in cert_block, (
+        "Certifications markup still references the shared fixed-nudge .entry-bullet "
+        "span — the self-correcting ::before replacement was not actually wired in"
+    )
+    assert "cert-entry-title" in cert_block, (
+        "Certifications markup does not reference a new self-correcting bullet class"
+    )
+    # The new class's ::before rule must be defined in the <style> block (not just
+    # referenced in markup) — grep the stylesheet region specifically.
+    style_start = src.index("<style")
+    style_end = src.index("</style>")
+    style_block = src[style_start:style_end]
+    assert ".cert-entry-title::before" in style_block, (
+        "No ::before rule defined for the new Certifications bullet class in <style>"
+    )
+    # Education's own entry-bullet/entry-name-row markup must remain untouched.
+    edu_start = src.index("<!-- EDUCATION -->")
+    edu_end = src.index("<!-- LANGUAGES -->")
+    edu_block = src[edu_start:edu_end]
+    assert 'class="entry-bullet"' in edu_block, (
+        "Education's own entry-bullet markup was unexpectedly removed/changed"
+    )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

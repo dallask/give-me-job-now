@@ -197,6 +197,26 @@
       margin-top: 4px;
     }
 
+    /* Certifications-only bullet: self-correcting ::before pseudo-element pinned
+       against this title line's own baseline via position:absolute + line-height,
+       same pattern as .job-bullets li::before (below) — unlike .entry-bullet's fixed
+       margin-top nudge, this self-corrects for wrapped/variable-length title text
+       (02-UAT.md gap 5). Scoped to Certifications only; Education keeps .entry-bullet/
+       .entry-name-row untouched. */
+    .cert-entry-title {
+      position: relative;
+      padding-left: 12px;
+    }
+
+    .cert-entry-title::before {
+      content: "\2022";
+      position: absolute;
+      left: 1pt;
+      color: var(--yellow);
+      font-size: 10pt;
+      line-height: 1.1;
+    }
+
     .entry-title {
       font-size: 8pt;
       font-weight: 700;
@@ -485,15 +505,19 @@
           {% endfor %}
         </ul>
 
-        <hr class="side-divider" />
-
         <!-- EDUCATION -->
-        {% if candidate.education %}
+        {%- set edu_ns = namespace(has_content=false) -%}
+        {%- for edu in candidate.education | default([]) -%}
+          {%- if edu.institution or edu.program -%}{%- set edu_ns.has_content = true -%}{%- endif -%}
+        {%- endfor -%}
+        {% if edu_ns.has_content %}
+        <hr class="side-divider" />
         <div class="side-heading">
           <span class="dot-icon"></span>
           <span class="label">{{ labels.education | default('Education') }}</span>
         </div>
         {% for edu in candidate.education %}
+        {% if edu.institution or edu.program %}
         <div class="entry-item">
           <div class="entry-name-row">
             <span class="entry-bullet"></span>
@@ -509,6 +533,7 @@
           <div class="entry-sub">{{ edu.location | e }}</div>
           {% endif %}
         </div>
+        {% endif %}
         {% endfor %}
         {% endif %}
 
@@ -538,10 +563,7 @@
         </div>
         {% for cert in candidate.certifications %}
         <div class="entry-item">
-          <div class="entry-name-row">
-            <span class="entry-bullet"></span>
-            <span class="entry-title">{{ cert.issuer | e }}{% if cert.year %} · {{ cert.year }}{% endif %}</span>
-          </div>
+          <div class="entry-title cert-entry-title">{{ cert.issuer | e }}{% if cert.year %} · {{ cert.year }}{% endif %}</div>
           {% if cert.credentials %}
           {% for cred in cert.credentials %}
           <div class="entry-sub">{{ cred | e }}</div>
@@ -635,7 +657,7 @@
         {% for block in candidate.expertise %}
         <div class="tech-group">
           {% if block.resume_title %}<div class="tech-title" style="text-transform: none;">{{ block.resume_title | e }}</div>{% endif %}
-          <div class="tech-skills">{{ block.skills | join(', ') }}</div>
+          <div class="tech-skills">{{ block.skills | expertise_skills_text }}</div>
         </div>
         {% endfor %}
         {% endif %}
