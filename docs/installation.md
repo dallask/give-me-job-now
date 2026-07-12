@@ -173,6 +173,24 @@ neither should false-fail a legitimately optional/degraded install. If the smoke
 fails, `install.sh` prints a clear stderr message naming the failure and exits 1 — never a
 raw Python traceback.
 
+### Wizard output
+
+`install.sh` presents its 5 stages as a colored wizard when run in an interactive terminal:
+bold cyan `[N/5]` stage headers, a green checkmark on each successful step, and an animated
+spinner (bash-only, no dependency) during long-running steps (venv creation, each
+per-requirements-file `pip install`, `git clone` in fresh-clone mode, and the
+`gmj-tools.cjs install` delegate call). When stdout is **not** a TTY (piped, redirected, or
+run in CI) the script automatically falls back to the same information as plain,
+spinner-free text — zero ANSI escape bytes are ever written to non-TTY output. On any step
+failure the script prints a red failure banner, a remediation hint specific to that failure
+mode (e.g. an install link, a `pyenv`/package-manager suggestion, or a manual re-run command
+with `--verbose`), and the tail of the real captured command output — never a raw,
+uncaptured error dump. The final "Next steps" block is state-aware: it inspects
+`config/candidate.yaml` and `config/sources.yaml` and leads with whichever guidance is
+actually relevant — "run your first real offer" when both look populated, or "populate
+candidate.yaml" (with a pointer to `/gmj-interview`) when candidate.yaml still looks
+template-shaped.
+
 On the target host, in a fresh Claude Code session, confirm the four acceptance checks:
 
 1. The `gmj-*` hooks fire.
