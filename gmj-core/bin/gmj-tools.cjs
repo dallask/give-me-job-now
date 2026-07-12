@@ -35,8 +35,12 @@ const CORE_ROOT = path.resolve(__dirname, '..'); // <src-root>/gmj-core
 const SRC_ROOT = path.resolve(CORE_ROOT, '..'); // <src-root>
 const MANIFEST_PATH = path.join(CORE_ROOT, 'gmj-file-manifest.json');
 
-// The two pip requirements files a fresh install must install (post-install hint).
-const REQUIREMENTS_HINT = 'scripts/cv/requirements.txt scripts/contracts/requirements.txt';
+// Prose description of the full aggregated requirements-file set a fresh install must
+// install (post-install hint) — mirrors install.sh's glob loop and
+// .github/workflows/tests.yml's pattern (`scripts/*/requirements.txt
+// scripts/requirements-*.txt`), not a hand-enumerated file list, so this hint never goes
+// stale relative to install.sh's actual (self-extending) behavior.
+const REQUIREMENTS_HINT = 'every scripts/*/requirements.txt and scripts/requirements-*.txt file';
 
 // --- Path containment (threat T-18-01) --------------------------------------
 function realpathIfExists(p) {
@@ -375,8 +379,8 @@ function cmdInstall(targetArg) {
       `  app-code overwritten: ${counts.overwritten}, user-data scaffolded: ${counts.scaffolded}, ` +
       `user-data preserved: ${counts.preserved}\n` +
       `  settings.json: ${settingsResult.wrote ? 'merged' : 'unchanged (idempotent)'}\n` +
-      `\nNext: install the Python dependencies:\n` +
-      `  pip install -r ${REQUIREMENTS_HINT}\n`
+      `\nNext: install the Python dependencies (${REQUIREMENTS_HINT}), e.g.:\n` +
+      `  for req in scripts/*/requirements.txt scripts/requirements-*.txt; do pip install -r "$req"; done\n`
   );
   return 0;
 }

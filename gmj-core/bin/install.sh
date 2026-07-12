@@ -29,6 +29,16 @@ check_bin python3 "Install Python 3: https://www.python.org/downloads/"
 check_bin node    "Install Node.js: https://nodejs.org/"
 check_bin npx     "npx ships with Node.js (npm >=5.2); install/upgrade Node.js: https://nodejs.org/"
 
+# Python minimum-version floor. Guarded by `command -v python3` so a genuinely-missing
+# python3 is reported once via the check_bin path above, never a second confusing
+# "version check failed" message — this participates in the same aggregate-then-report
+# array as every other prerequisite, not a separate ad-hoc exit.
+if command -v python3 >/dev/null 2>&1; then
+  if ! python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)" >/dev/null 2>&1; then
+    missing+=("  - python3: found $(python3 --version 2>&1) but a minimum of Python 3.9 is required.")
+  fi
+fi
+
 # Pip resolution: prefer `python3 -m pip` (ties it to the just-detected python3 interpreter),
 # fall back to a bare `pip3`/`pip` binary only if that fails (37-RESEARCH.md Pitfall 4).
 if command -v python3 >/dev/null 2>&1; then
@@ -44,6 +54,24 @@ if [ "${#missing[@]}" -gt 0 ]; then
   printf '%s\n' "${missing[@]}" >&2
   exit 1
 fi
+
+# --- OS/WSL detection (label only — never gates or changes install behavior) --
+#
+# WSL is bash/POSIX-compatible with native Linux, so this is purely a diagnostic label
+# printed in the "Mode: ..." line below; it must never branch subsequent install logic.
+# `uname -s` gives the primary OS family; for the Linux case, `/proc/version` is checked
+# for a case-insensitive "microsoft"/"wsl" substring (the standard, documented portable
+# WSL-detection technique) to relabel it WSL.
+OS_LABEL="$(uname -s)"
+case "$OS_LABEL" in
+  Darwin) OS_LABEL="macOS" ;;
+  Linux)
+    OS_LABEL="Linux"
+    if [ -r /proc/version ] && grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null; then
+      OS_LABEL="WSL"
+    fi
+    ;;
+esac
 
 # --- 2. Run-in-place vs. fresh-clone mode detection (git is guaranteed present here) --
 
@@ -81,7 +109,7 @@ if [ -z "${REPO_ROOT:-}" ]; then
 fi
 
 cd "$REPO_ROOT"
-echo "Mode: $MODE — repo root: $REPO_ROOT"
+echo "Mode: $MODE — repo root: $REPO_ROOT — OS: $OS_LABEL"
 
 # --- 3. Idempotent .venv bootstrap + Python dependency installation ---------
 
@@ -92,10 +120,26 @@ fi
 # Always through .venv/bin/python -m pip — never a bare system pip3/pip binary, so every
 # install is tied to the venv's own interpreter regardless of what a stray system pip3
 # resolves to (37-RESEARCH.md Pitfall 4).
-.venv/bin/python -m pip install -r scripts/contracts/requirements.txt
-.venv/bin/python -m pip install -r scripts/dashboard/requirements.txt
-.venv/bin/python -m pip install -r scripts/cv/requirements.txt
-.venv/bin/python -m pip install -r scripts/preferences/requirements.txt
+#
+# Full requirements aggregation: mirrors .github/workflows/tests.yml's exact glob pair
+# (`scripts/*/requirements.txt scripts/requirements-*.txt`) so this loop self-extends as
+# new subsystem requirements files are added, the same as CI — never a hand-enumerated
+# file list, which is what silently under-installed dependencies before this fix.
+for req in scripts/*/requirements.txt scripts/requirements-*.txt; do
+  echo "Installing $req"
+  .venv/bin/python -m pip install -r "$req"
+done
+
+# --- Post-install validation: import smoke check on the core always-required -
+# packages (one representative import per always-required requirements file). WeasyPrint
+# and firecrawl-py are intentionally excluded — WeasyPrint has documented optional
+# system-library failure modes (see docs/installation.md) and firecrawl-py is
+# optional/API-key-gated, so neither should false-fail a legitimately optional/degraded
+# install.
+.venv/bin/python -c "import yaml, jsonschema, textual, reportlab, jinja2; print('OK')" || {
+  echo "ERROR: post-install validation failed — one or more core packages (PyYAML, jsonschema, textual, reportlab, Jinja2) failed to import from .venv. Re-run this script, or install manually per docs/installation.md." >&2
+  exit 1
+}
 
 # --- 4. Delegate config/hook staging (never reimplemented — INSTALL-04) -----
 
@@ -110,6 +154,7 @@ node gmj-core/bin/gmj-tools.cjs install .
 
 echo ""
 echo "Next steps:"
+echo "  Activate the venv: source .venv/bin/activate"
 echo "  1. Populate config/candidate.yaml with your profile."
 echo "  2. Set your search scope in config/sources.yaml."
 echo "  3. Run a first real offer per docs/RUNBOOK.md."
