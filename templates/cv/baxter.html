@@ -197,6 +197,26 @@
       margin-top: 4px;
     }
 
+    /* Certifications-only bullet: self-correcting ::before pseudo-element pinned
+       against this title line's own baseline via position:absolute + line-height,
+       same pattern as .job-bullets li::before (below) — unlike .entry-bullet's fixed
+       margin-top nudge, this self-corrects for wrapped/variable-length title text
+       (02-UAT.md gap 5). Scoped to Certifications only; Education keeps .entry-bullet/
+       .entry-name-row untouched. */
+    .cert-entry-title {
+      position: relative;
+      padding-left: 12px;
+    }
+
+    .cert-entry-title::before {
+      content: "\2022";
+      position: absolute;
+      left: 1pt;
+      color: var(--yellow);
+      font-size: 10pt;
+      line-height: 1.1;
+    }
+
     .entry-title {
       font-size: 8pt;
       font-weight: 700;
@@ -543,10 +563,7 @@
         </div>
         {% for cert in candidate.certifications %}
         <div class="entry-item">
-          <div class="entry-name-row">
-            <span class="entry-bullet"></span>
-            <span class="entry-title">{{ cert.issuer | e }}{% if cert.year %} · {{ cert.year }}{% endif %}</span>
-          </div>
+          <div class="entry-title cert-entry-title">{{ cert.issuer | e }}{% if cert.year %} · {{ cert.year }}{% endif %}</div>
           {% if cert.credentials %}
           {% for cred in cert.credentials %}
           <div class="entry-sub">{{ cred | e }}</div>
