@@ -92,6 +92,19 @@ releases:
       - Ops automation: cron/launchd-schedulable wrapper with a fail-closed fcntl.flock overlap guard
       - Post-generation QA reviewer: advisory PyMuPDF render-quality check for missing-section/clipped-content/empty-overlapping defects
       - Claude Evals feasibility investigation closed NO-GO/NOT-NOW against this repo's hand-rolled eval harnesses
+  - tag: v8.0.0
+    anchor_message: "docs(07): mark Phase 7 complete — USECASES-01/02 shipped; milestone v8.0 all 7 phases done"
+    date: "2026-07-10"
+    title: "v8.0.0 — Site Design Polish & Component Consistency"
+    notes: |
+      Site design polish and component consistency (7 phases):
+      - Tailwind v4 + DaisyUI 5 foundation install with a custom theme mapped to _tokens.scss
+      - Base layout/typography/token fixes
+      - Header/sidebar scroll-visibility bug pair fixed
+      - DaisyUI component adoption across tables/buttons/tooltips
+      - Site-wide Flowbite icon pack adoption behind the existing Icon.tsx API
+      - Post-review polish fixes: icon regressions, favicon, border-radius, body font-size
+      - A /usecases page pulled into scope by user request
   - tag: v9.0.0
     anchor_message: "feat(02-01): add 4-step walkthrough section to how-to page"
     date: "2026-07-11"
@@ -99,3 +112,12 @@ releases:
     notes: |
       Quick-start and how-to documentation for the public site (2 phases, 2 plans):
       - Sequential 4-step "Install -> Configure -> Run -> Review" walkthrough inserted into /how-to, reusing 100% existing SCSS classes and linking out to README.md Quickstart and /docs#runbook
+  - tag: v10.0.0
+    anchor_message: "docs: update retrospective for v10.0 (ci workstream)"
+    date: "2026-07-11"
+    title: "v10.0.0 — CI/Release Automation"
+    notes: |
+      CI/release automation (3 phases):
+      - Backfilled the 3 missing release entries (v5.0.0, v6.0.0, v7.0.0) plus a mid-milestone v9.0.0 backfill into this same milestone-releases.yaml file
+      - Verified release.yml/gmj_bootstrap_releases.py end-to-end against the live public mirror (idempotent re-run, 3 real defects found and fixed: anchor cross-repo survivability, a GITHUB_TOKEN workflow-permission block switched to a PUBLIC_REPO_PAT secret, checkout-token staleness)
+      - Added scripts/publish/gmj_check_milestone_releases.py (deterministic gap-detection script) plus an advisory pytest wrapper auto-discovered by tests.yml, so a future shipped milestone can never silently miss its release entry again
