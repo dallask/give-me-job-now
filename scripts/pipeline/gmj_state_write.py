@@ -8,14 +8,16 @@ existing state key is ever dropped and ``.pipeline/state.json`` is created when 
    (recorded only when BOTH are supplied). This code never computes the hash — it only
    records the value produced by the executed ``gmj_freeze_offer.py`` (T-02-09).
 
-2. Run-config freeze (EXEC-01, GUARD-03): when ``--run-id`` is supplied, copies
-   ``execution_mode`` + ``retry_cap`` from ``config/pipeline.config.yaml`` (with optional
-   CLI overrides) into the run-scoped state, plus the sanitized ``run_id``. Downstream
-   control decisions read this FROZEN copy, never the config file mid-run (Pattern 1,
-   T-07-03). The config is loaded via ``yaml.safe_load`` (never ``yaml.load``) with an
-   ``isinstance(dict)`` guard; ``retry_cap`` must be an int excluding bool (T-07-02). The
-   ``run_id`` is sanitized to ``^[A-Za-z0-9._-]+$`` — "/" and ".." are rejected before it
-   can become a run-dir path component (V12 path-traversal, T-07-01).
+2. Run-config freeze (EXEC-01, GUARD-03, CLEAN-03): when ``--run-id`` is supplied, copies
+   ``execution_mode`` + ``retry_cap`` + ``leftover_artifacts_default`` from
+   ``config/pipeline.config.yaml`` (with optional CLI overrides) into the run-scoped
+   state, plus the sanitized ``run_id``. Downstream control decisions read this FROZEN
+   copy, never the config file mid-run (Pattern 1, T-07-03). The config is loaded via
+   ``yaml.safe_load`` (never ``yaml.load``) with an ``isinstance(dict)`` guard;
+   ``retry_cap`` must be an int excluding bool (T-07-02); ``leftover_artifacts_default``
+   must be one of ``proceed`` | ``clean`` (T-06-03). The ``run_id`` is sanitized to
+   ``^[A-Za-z0-9._-]+$`` — "/" and ".." are rejected before it can become a run-dir path
+   component (V12 path-traversal, T-07-01).
 
 ``gmj_route.py`` stays a pure ``(state, dag) -> decision`` function and gains NO config logic.
 All error paths print a structured stderr message and return 1 — never a traceback.
@@ -32,11 +34,12 @@ from pathlib import Path
 import yaml
 
 _EXECUTION_MODES = ("human_in_the_loop", "autonomous")
+_LEFTOVER_DEFAULTS = ("proceed", "clean")
 _RUN_ID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
 def _freeze_run_config(state: dict, args: argparse.Namespace) -> int:
-    """Freeze execution_mode + retry_cap + run_id into ``state`` in place.
+    """Freeze execution_mode + retry_cap + leftover_artifacts_default + run_id into ``state`` in place.
 
     Returns 0 on success, 1 (after a structured stderr message) on any validation error.
     """
@@ -80,9 +83,27 @@ def _freeze_run_config(state: dict, args: argparse.Namespace) -> int:
         print("retry_cap must be non-negative.", file=sys.stderr)
         return 1
 
+    # leftover_artifacts_default: CLI override wins over the config value (CLEAN-03).
+    # A config omitting the key entirely defaults to "proceed" (the safe, non-destructive
+    # choice) for backward compatibility with configs predating this key; an explicitly
+    # supplied invalid value (CLI or config) is still rejected below.
+    leftover_artifacts_default = (
+        args.leftover_artifacts_default
+        if args.leftover_artifacts_default is not None
+        else cfg.get("leftover_artifacts_default", "proceed")
+    )
+    if leftover_artifacts_default not in _LEFTOVER_DEFAULTS:
+        print(
+            f"leftover_artifacts_default must be one of {_LEFTOVER_DEFAULTS}; "
+            f"got {leftover_artifacts_default!r}.",
+            file=sys.stderr,
+        )
+        return 1
+
     # Read-modify-preserve: set frozen keys, keep every sibling key.
     state["execution_mode"] = execution_mode
     state["retry_cap"] = retry_cap
+    state["leftover_artifacts_default"] = leftover_artifacts_default
     state.setdefault("run_id", run_id)
     return 0
 
@@ -115,6 +136,16 @@ def main() -> int:
         type=int,
         default=None,
         help="Optional CLI override for retry_cap (wins over the config value).",
+    )
+    parser.add_argument(
+        "--leftover-artifacts-default",
+        default=None,
+        help=(
+            "Optional CLI override for leftover_artifacts_default (wins over the config "
+            "value). Not constrained by argparse choices= so an invalid value is rejected "
+            "via the same structured stderr message + exit 1 path as an invalid config "
+            "value, matching test_invalid_leftover_artifacts_default_exits_one_no_traceback."
+        ),
     )
     parser.add_argument(
         "--run-id",
