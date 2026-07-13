@@ -93,7 +93,7 @@ releases:
       - Post-generation QA reviewer: advisory PyMuPDF render-quality check for missing-section/clipped-content/empty-overlapping defects
       - Claude Evals feasibility investigation closed NO-GO/NOT-NOW against this repo's hand-rolled eval harnesses
   - tag: v8.0.0
-    anchor_message: "docs(07): mark Phase 7 complete — USECASES-01/02 shipped; milestone v8.0 all 7 phases done"
+    anchor_message: "feat(03-01): wire pytest-xdist parallel execution into CI (PERF-05)"
     date: "2026-07-10"
     title: "v8.0.0 — Site Design Polish & Component Consistency"
     notes: |
@@ -106,14 +106,14 @@ releases:
       - Post-review polish fixes: icon regressions, favicon, border-radius, body font-size
       - A /usecases page pulled into scope by user request
   - tag: v9.0.0
-    anchor_message: "feat(02-01): add 4-step walkthrough section to how-to page"
+    anchor_message: "feat(03-07): route remaining 4 templates' languages loop through languages_rows filter"
     date: "2026-07-11"
     title: "v9.0.0 — Quick Start & How-To Docs"
     notes: |
       Quick-start and how-to documentation for the public site (2 phases, 2 plans):
       - Sequential 4-step "Install -> Configure -> Run -> Review" walkthrough inserted into /how-to, reusing 100% existing SCSS classes and linking out to README.md Quickstart and /docs#runbook
   - tag: v10.0.0
-    anchor_message: "docs: update retrospective for v10.0 (ci workstream)"
+    anchor_message: "feat(03-02): add gmj_check_milestone_releases.py gap-detection CLI"
     date: "2026-07-11"
     title: "v10.0.0 — CI/Release Automation"
     notes: |
@@ -122,7 +122,7 @@ releases:
       - Verified release.yml/gmj_bootstrap_releases.py end-to-end against the live public mirror (idempotent re-run, 3 real defects found and fixed: anchor cross-repo survivability, a GITHUB_TOKEN workflow-permission block switched to a PUBLIC_REPO_PAT secret, checkout-token staleness)
       - Added scripts/publish/gmj_check_milestone_releases.py (deterministic gap-detection script) plus an advisory pytest wrapper auto-discovered by tests.yml, so a future shipped milestone can never silently miss its release entry again
   - tag: v11.0.0
-    anchor_message: "docs: record v11.0 milestone entry and retrospective (testplan-gen)"
+    anchor_message: "feat(07-05): harden education-row rendering with single-owner validation helper (PIPEFIX-02)"
     date: "2026-07-13"
     title: "v11.0.0 — Automated Test-Plan Generator"
     notes: |
