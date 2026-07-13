@@ -406,11 +406,24 @@ def _capability_sentence(ir: dict) -> str:
     if not parts:
         parts.append(f"the {ir.get('flow_name') or ir.get('slug') or 'flow'} behaves as documented")
     return "; ".join(parts) + "."
+
+
+# Matches a slash-command follow-up line typed inside a live Claude Code session after
+# `claude ...` has already put the operator at the REPL (e.g. `/gmj-pipeline-run`,
+# `/gmj-batch --resume`, `/gmj-runs run inspect <id>`) — these lines never start with
+# python3/claude/bash but are still real, runnable-as-typed commands per
+# docs/TESTPLAN-FORMAT-SPEC.md's Steps field requirement (CR-02).
+_SLASH_COMMAND_RE = re.compile(r"^/gmj-[\w-]+\b")
+
+
 def _render_steps_block(ir: dict) -> list[str]:
     """Build the Steps section lines for one generated test case, per the Deterministic Backstop Convention."""
     lines: list[str] = []
     behaviors = ir.get("behaviors") or ir.get("steps") or []
-    real_commands = [b for b in behaviors if b.strip().startswith(("python3 ", "claude ", "bash "))]
+    real_commands = [
+        b for b in behaviors
+        if b.strip().startswith(("python3 ", "claude ", "bash ")) or _SLASH_COMMAND_RE.match(b.strip())
+    ]
 
     # A bare `claude ...` REPL-entry line with no script/tool argument (e.g.
     # `claude --dangerously-skip-permissions`) documents an *alternative* way to reach a
@@ -424,15 +437,58 @@ def _render_steps_block(ir: dict) -> list[str]:
     if script_commands and len(script_commands) != len(real_commands):
         real_commands = script_commands
 
+    # A `claude ...` REPL-entry line followed by exactly one slash-command follow-up line
+    # (its primary invocation) is a genuine 2-step sequence: enter the REPL, then type the
+    # command (CR-02). Any FURTHER slash-command lines beyond that first follow-up (e.g.
+    # `/gmj-batch --resume`, `/gmj-runs run inspect <id>`) are documented alternative
+    # subcommands/modes, not additional sequential steps -- keep only the primary follow-up
+    # so the rendered Steps block stays a genuine ordered sequence, never a bundle of
+    # independent alternatives (CR-03's Non-Executability Criterion 2).
+    claude_lines = [c for c in real_commands if c.strip().startswith("claude ")]
+    slash_lines = [c for c in real_commands if _SLASH_COMMAND_RE.match(c.strip())]
+    if claude_lines and slash_lines and len(slash_lines) > 1:
+        real_commands = [c for c in real_commands if c not in slash_lines[1:]]
+
+    # Independent, mutually-exclusive script-invocation alternatives (e.g. the same script
+    # run with vs. without `--manage`) are not a sequence either -- surface each as its own
+    # sub-block with an explicit "run ONE of the following" note between the judgment
+    # points, rather than numbering them together inside one fenced block (CR-03). Compare
+    # only the invocation itself (strip any trailing `# ...` inline comment first, then
+    # split off the first `--flag`), so a same-script/different-flag pair like
+    # `gmj_dashboard.py            # read-only ...` vs `gmj_dashboard.py --manage   # ...`
+    # is correctly recognized as sharing one base command.
+    def _base_command(c: str) -> str:
+        no_comment = re.split(r"\s+#", c.strip(), maxsplit=1)[0].strip()
+        return re.split(r"\s+--", no_comment, maxsplit=1)[0].strip()
+
+    is_alternatives = (
+        len(real_commands) > 1
+        and not claude_lines
+        and len({_base_command(c) for c in real_commands}) == 1
+    )
+
     if real_commands:
         lines.append("**Steps (live):**")
-        lines.append("```bash")
-        if len(real_commands) > 1:
+        if is_alternatives:
+            lines.append(
+                "Run ONE of the following, not both — these are independent, "
+                "mutually-exclusive entry points. Inspect the output before proceeding."
+            )
+            for i, cmd in enumerate(real_commands, start=1):
+                lines.append("")
+                lines.append(f"Option {i}:")
+                lines.append("```bash")
+                lines.append(cmd)
+                lines.append("```")
+        elif len(real_commands) > 1:
+            lines.append("```bash")
             for i, cmd in enumerate(real_commands, start=1):
                 lines.append(f"{i}. {cmd}")
+            lines.append("```")
         else:
+            lines.append("```bash")
             lines.append(real_commands[0])
-        lines.append("```")
+            lines.append("```")
         lines.append("")
         lines.append("**Steps (deterministic backstop):**")
         lines.append("No deterministic backstop exists for this step.")
