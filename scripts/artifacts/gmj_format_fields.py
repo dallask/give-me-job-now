@@ -24,6 +24,8 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
+_MALFORMED_ROW_PREVIEW_LEN = 80
+
 # Both gmj_schema_fields.py and this file live in scripts/artifacts/ — plain same-dir
 # import, no sys.path insert needed within this file itself. (Callers importing THIS
 # module from elsewhere are responsible for putting scripts/artifacts/ on sys.path,
@@ -161,3 +163,58 @@ def expertise_skills_text(skills: object) -> str:
     if isinstance(skills, str) and skills:
         return skills
     return ""
+
+
+def education_rows(education: object) -> list[dict]:
+    """Guard ``candidate.education`` by SHAPE — never treat a malformed row as a record.
+
+    ``config/candidate.yaml``'s ``education`` field is documented as a list of
+    ``{institution, program, duration, location}`` dicts, but the draft-to-CV-YAML
+    bridge (``gmj_draft_to_cv_yaml.py``) has been shown to write a BARE STRING as a
+    list element when a composer citation targets a whole-object ``source_span`` like
+    ``education[0]`` instead of a specific field within it (PIPEFIX-02, per
+    07-RESEARCH.md's confirmed root-cause reproduction) — the entire claim-text string
+    becomes the list item, so ``education`` becomes a list of strings, not dicts. This
+    is the SINGLE shared choke point both render backends route through, mirroring
+    :func:`languages_rows`'s existing single-owner shape-guard pattern:
+
+    - ``render_reportlab()`` (``scripts/cv/gmj_render_cv.py``) calls this directly,
+      replacing its previous inline
+      ``[row for row in edu if isinstance(row, dict) and (row.get('institution') or
+      row.get('program'))]`` list comprehension (same filtering predicate, now with
+      the added warning side effect below).
+    - The Jinja/``baxter.html`` render path consumes this indirectly: it is called as
+      a Python pre-filter inside ``candidate_for_template()`` BEFORE the candidate
+      dict reaches the Jinja template render call, so ``baxter.html``'s existing
+      ``edu.institution``/``edu.program`` guards become a redundant second layer
+      rather than the only line of defense.
+
+    Unlike :func:`languages_rows` (which silently drops malformed rows with zero
+    signal), a REJECTED row here is not silent: every non-dict value, or a dict
+    missing both ``institution`` and ``program``, is dropped AND a single structured
+    warning is printed to stderr naming the row's index and a truncated preview of its
+    actual value — the "loud warning on malformed row shape" hardening this task
+    implements (T-07-10, 07-RESEARCH.md's Open Question 2). This never raises; the
+    render must still exit 0.
+
+    A non-``list`` input (``None``, a bare string, a dict) returns ``[]`` without
+    warning — the field is simply absent/not-a-list, not a malformed-row-within-a-list
+    case, mirroring :func:`languages_rows`'s top-level guard.
+    """
+    if not isinstance(education, list):
+        return []
+    rows: list[dict] = []
+    for idx, row in enumerate(education):
+        if isinstance(row, dict) and (row.get("institution") or row.get("program")):
+            rows.append(row)
+            continue
+        preview = repr(row)
+        if len(preview) > _MALFORMED_ROW_PREVIEW_LEN:
+            preview = preview[:_MALFORMED_ROW_PREVIEW_LEN] + "..."
+        print(
+            f"Warning: skipping malformed education row at index {idx} "
+            f"(expected a dict with 'institution' or 'program', got {type(row).__name__}: "
+            f"{preview})",
+            file=sys.stderr,
+        )
+    return rows
