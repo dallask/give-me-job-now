@@ -31,6 +31,7 @@ HOOK = REPO_ROOT / ".claude" / "hooks" / "gmj-execution-log.sh"
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "execution-logs"
 
 PRETOOLUSE_BASH = FIXTURES / "pretooluse_bash.json"
+PRETOOLUSE_READ = FIXTURES / "pretooluse_read.json"
 POSTTOOLUSE_WRITE = FIXTURES / "posttooluse_write.json"
 POSTTOOLUSE_EDIT = FIXTURES / "posttooluse_edit.json"
 SUBAGENTSTOP_NO_TRANSCRIPT = FIXTURES / "subagentstop_no_transcript.json"
@@ -95,6 +96,31 @@ def test_bash_call_writes_jsonl_entry() -> None:
     assert entry["tool_name"] == "Bash", f"entry must record tool_name=Bash; got {entry}"
     assert entry["outcome"] == "observed", f"observability entry outcome must be 'observed'; got {entry}"
     assert "ts" in entry and entry["ts"], f"entry must include an ISO8601 ts field; got {entry}"
+
+
+def test_read_call_records_artifact_path() -> None:
+    # REFLECT-06: proves a Read tool-call payload (the exact fixture shape a real
+    # Claude Code session sends) produces a correctly-shaped JSONL entry via the
+    # real hook script - tool_name Read, event PreToolUse, source tool-call, and a
+    # non-empty artifacts array containing the fixture's file_path value. This is
+    # the same shape REFLECT-02 already requires for Write/Edit entries, now proven
+    # for Read too.
+    result, tmp = _run_in_dir(_read_payload(PRETOOLUSE_READ))
+    assert result.returncode == 0, (
+        f"hook must never block (exit 0); got {result.returncode}\nstderr: {result.stderr}"
+    )
+    entries = _parsed_entries(tmp)
+    assert len(entries) == 1, f"expected exactly one JSONL entry; got {len(entries)}: {entries}"
+    entry = entries[0]
+    assert entry["source"] == "tool-call", f"entry must be tagged source=tool-call; got {entry}"
+    assert entry["event"] == "PreToolUse", f"entry must record the hook event name; got {entry}"
+    assert entry["tool_name"] == "Read", f"entry must record tool_name=Read; got {entry}"
+    assert isinstance(entry.get("artifacts"), list) and entry["artifacts"], (
+        f"artifacts must be a non-empty array (REFLECT-02 shape, now proven for Read); got {entry}"
+    )
+    assert "config/candidate.yaml" in entry["artifacts"], (
+        f"artifacts must contain the fixture's file_path value; got {entry}"
+    )
 
 
 def test_write_call_records_artifact_path() -> None:
