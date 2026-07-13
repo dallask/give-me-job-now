@@ -51,6 +51,12 @@ output/vacancies/*
 output/logs/*
 !output/logs/.gitkeep
 
+# GSD execution logs (per-session tool-call/workflow telemetry written by
+# .claude/hooks/gmj-execution-log*.sh) — churn every session, no reason to be
+# version-controlled (keep directory tree via .gitkeep).
+.planning/execution-logs/*
+!.planning/execution-logs/.gitkeep
+
 # sources/{artifacts,offers,analysis,research,vacancies}/ are intake-only in
 # name but have historically leaked live pipeline-generated output (STRUCT-01
 # floor per ROADMAP success criterion 1); keep these ignore blocks standing on
