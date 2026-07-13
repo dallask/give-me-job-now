@@ -35,6 +35,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import gmj_testplan_gen as g  # noqa: E402  (module under test)
+import gmj_testplan_signals as sig  # noqa: E402  (Phase 4 signal-table data module)
 
 _COMMAND_FILE = REPO_ROOT / ".claude" / "commands" / "gmj-cleanup-wizard.md"
 _COMMITTED_FILE = REPO_ROOT / "docs" / "test-plans" / "cleanup-wizard.md"
@@ -75,8 +76,18 @@ def test_committed_file_is_byte_identical_to_fresh_generator_run() -> None:
         # risk_tier became a required extract() parameter in Phase 3 Plan 01 (after this
         # drift guard was originally written in Phase 2) -- "destructive-if-confirmed" is
         # the real, FLOW_MANIFEST-declared tier for the cleanup-wizard row, matching what
-        # the committed file was actually generated with.
-        fresh = g.render(g.extract(_COMMAND_FILE_RELATIVE, risk_tier="destructive-if-confirmed"))
+        # the committed file was actually generated with. signal_table became a Phase 4
+        # extract() parameter (Plan 01) -- _run_all_mode() passes
+        # SIGNAL_TABLE_BY_SLUG["cleanup-wizard"] for this row (Plan 02 Task 1's fail-closed
+        # wiring), so this drift guard must pass the identical value to stay a true
+        # apples-to-apples comparison against what actually produced the committed file.
+        fresh = g.render(
+            g.extract(
+                _COMMAND_FILE_RELATIVE,
+                risk_tier="destructive-if-confirmed",
+                signal_table=sig.SIGNAL_TABLE_BY_SLUG["cleanup-wizard"],
+            )
+        )
     finally:
         os.chdir(original_cwd)
 
@@ -140,15 +151,35 @@ def test_committed_file_has_no_bypass_phrasing_or_scripted_check_as_criterion() 
     real committed file rather than a synthetic fixture -- makes Task 1's manual
     Non-Executability Criterion 4 verification pass mechanically repeatable on every future
     test run, not a one-time confirmation that could silently bit-rot (T-02-09).
+
+    Phase 4's signal-table Fail Signal cell for cleanup-wizard documents the ABSENCE of a
+    bypass flag verbatim ("No `--yes`/`--force`/`-y`/`--no-confirm` bypass flag exists
+    anywhere...") -- this is the intended safety statement, not an instruction to use one, so
+    the forbidden-token check below is scoped to reject only an actual bypass INSTRUCTION: a
+    forbidden token is allowed only when it is part of that same documented-absence
+    slash-separated list (i.e. it or an immediately preceding sibling token in the list is
+    directly preceded by "no").
     """
     committed = _committed_text()
     lowered = committed.lower()
 
-    for forbidden in ("--yes", "--force", "-y", "--no-confirm"):
-        assert forbidden not in lowered, (
-            f"committed docs/test-plans/cleanup-wizard.md must never contain a raw "
-            f"bypass-flag instruction: {forbidden!r}"
-        )
+    forbidden_tokens = ("--yes", "--force", "-y", "--no-confirm")
+    # Matches the documented-absence slash-list shape verbatim, e.g.
+    # "no `--yes`/`--force`/`-y`/`--no-confirm` bypass flag" -- any ordering/subset of the 4
+    # tokens is tolerated as long as the list itself is introduced by "no" and ends with
+    # "bypass flag" (the exact safety-statement pattern this file's own extractor emits).
+    absence_list_re = re.compile(
+        r"no\s+(?:`[\w-]+`/?)+\s*bypass\s*flag"
+    )
+
+    for forbidden in forbidden_tokens:
+        for match in re.finditer(re.escape(forbidden), lowered):
+            window = lowered[max(0, match.start() - 60) : match.end() + 80]
+            assert absence_list_re.search(window), (
+                f"committed docs/test-plans/cleanup-wizard.md must never contain a raw "
+                f"bypass-flag instruction: {forbidden!r} (found outside a documented-absence "
+                f"'no ...bypass flag' phrase) -- context: {window!r}"
+            )
 
     assert "run assert_pass" not in lowered, (
         "committed docs/test-plans/cleanup-wizard.md must never phrase a PASS-criteria "

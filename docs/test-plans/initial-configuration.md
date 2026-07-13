@@ -23,7 +23,10 @@ No deterministic backstop exists for this step.
 **Expected:** running the steps above against `.claude/commands/gmj-interview.md`'s documented behavior produces the outcome described in that file's own frontmatter/body — inspect stdout/stderr and any named output paths for the concrete result.
 
 **PASS criteria:**
-- A human operator confirms the observed output/state matches INTERVIEW-01's documented behavior above by reading the real output, not by delegating to a script's exit code alone.
+
+| Pass Signal | Fail Signal | Signal Source | Semantic Caveat |
+|---|---|---|---|
+| `config/preferences.yaml` is written and validates against `schemas/preferences.schema.json` (root `additionalProperties: false`) **and** passes `scripts/preferences/gmj_validate_preferences.py`'s shape-plus-subset-of-`sources.yaml` check | `gmj_validate_preferences.py` rejects the file — shape violation, or a `scope.sites`/`scope.cities`/`scope.languages` array that is not a subset of `config/sources.yaml`'s corresponding array | `schemas/preferences.schema.json` (`scope.sites`/`scope.cities`/`scope.languages`, `additionalProperties: false`) + `scripts/preferences/gmj_validate_preferences.py` (subset-of-sources.yaml runtime check) | The interviewer's *gap-detection* judgment — asking only about real gaps in the candidate profile, one at a time — is an LLM judgment call; the validator gate only checks the resulting YAML's shape/subset-of-scope, never whether the interview asked the right questions |
 
 ---
 

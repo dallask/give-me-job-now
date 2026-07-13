@@ -35,7 +35,10 @@ No deterministic backstop exists for this step.
 **Expected:** running the steps above against `.claude/commands/gmj-dashboard.md`'s documented behavior produces the outcome described in that file's own frontmatter/body — inspect stdout/stderr and any named output paths for the concrete result.
 
 **PASS criteria:**
-- A human operator confirms the observed output/state matches DOCS-01's documented behavior above by reading the real output, not by delegating to a script's exit code alone.
+
+| Pass Signal | Fail Signal | Signal Source | Semantic Caveat |
+|---|---|---|---|
+| No single pass/fail signal exists for "monitoring" itself — it is a read-only projection, never an action with a terminal state. The nearest qualitative check is that the dashboard's displayed rollup values agree byte-for-byte with the same facts `/gmj-runs` would print: the dashboard is correct if and only if its `DashboardModel.snapshot()` projection matches `gmj_runs.py`'s own read of the identical `.pipeline/runs/**/state.json` and `batch_manifest.json` files, re-read fresh from disk on each open with no stale caching and no new write path | No terminal fail state exists for the monitoring flow itself. The nearest observable failure would be the board falling out of sync with disk state, but per design this cannot happen since every value is re-derived fresh, nothing new; state honestly: no discrete pass/fail signal exists for this flow, the qualitative check is agreement with `/gmj-runs`'s own values on the same underlying file | `scripts/dashboard/gmj_dashboard_model.py`'s `DashboardModel.snapshot()` + `scripts/pipeline/gmj_runs.py`'s equivalent read of the same `.pipeline/runs/**/state.json` and `.pipeline/runs/**/batch_manifest.json` files (both read-only default; `--manage` opts into a separate mutating action layer out of this flow's default scope) | None — fully mechanical |
 
 ---
 
