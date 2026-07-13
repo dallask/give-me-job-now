@@ -172,11 +172,15 @@ def test_real_nine_files_produce_nine_valid_cursor_agents() -> None:
         assert text.count("---\n") >= 2, f"{name} is not structurally parseable: {text[:200]}"
 
 
-# --- Test 5: readonly split matches the 39-RESEARCH.md table -----------------
+# --- Test 5: readonly split matches the current .claude/agents/ tool grants --
+#
+# gmj-truth-verifier.md and gmj-fit-evaluator.md moved from the 39-RESEARCH.md table's
+# readonly_true bucket to readonly_false in phase 07 (PIPEFIX-03): both gained a narrowly
+# scoped Write tool for their own gate-result output files (07-04-PLAN.md).
 
 def test_readonly_split_matches_research_table() -> None:
     dest = _generate_real_into_tempdir()
-    readonly_true = {"gmj-truth-verifier.md", "gmj-fit-evaluator.md"}
+    readonly_true = set()
     all_files = {
         "gmj-artifact-composer.md",
         "gmj-candidate-analyzer.md",

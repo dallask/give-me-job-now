@@ -42,7 +42,12 @@ def _run(*args: str) -> subprocess.CompletedProcess:
 
 
 def _tmp_path(name: str) -> Path:
-    return Path(tempfile.mkdtemp()) / name
+    # Rooted under output/cv/ (gitignored, repo-anchored) rather than the system tempdir:
+    # gmj_render_cv.py's repo_root_from_config() now fails loudly on a --config path with no
+    # CLAUDE.md/.claude/ ancestry (PIPEFIX-04) -- a bare system tempdir has none.
+    scratch_root = REPO_ROOT / "output" / "cv"
+    scratch_root.mkdir(parents=True, exist_ok=True)
+    return Path(tempfile.mkdtemp(dir=str(scratch_root))) / name
 
 
 def _scalar_leaves(node: object) -> list:
@@ -226,8 +231,17 @@ def test_bridge_round_trip_to_pdf() -> None:
     assert pdf.is_file(), "gmj_render_cv.py must produce a PDF"
 
     text = "".join(page.extract_text() or "" for page in PdfReader(str(pdf)).pages)
-    assert name_claim in text, f"PDF text must contain the candidate name {name_claim!r}"
-    assert skill_claim in text, f"PDF text must contain the expertise skill {skill_claim!r}"
+    # Whitespace-insensitive: pypdf's text extraction drops the separator between adjacent
+    # ReportLab text-drawing calls for some embedded fonts (a known extraction quirk, not a
+    # visual rendering defect -- see 07-CONTEXT.md's deferred render-quality note). This test
+    # proves content presence, not layout/kerning, so compare with whitespace collapsed.
+    collapsed = "".join(text.split())
+    assert "".join(name_claim.split()) in collapsed, (
+        f"PDF text must contain the candidate name {name_claim!r}"
+    )
+    assert "".join(skill_claim.split()) in collapsed, (
+        f"PDF text must contain the expertise skill {skill_claim!r}"
+    )
 
 
 def main() -> int:

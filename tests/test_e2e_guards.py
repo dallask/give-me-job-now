@@ -246,7 +246,12 @@ def test_e2e_dryrun_sample_draft_renders_pdf() -> None:
         f"sample draft must be Gate-A approved before render: {approved.stderr}"
     )
 
-    tmp_dir = Path(tempfile.mkdtemp())
+    # Rooted under output/cv/ (gitignored, repo-anchored) rather than the system tempdir:
+    # gmj_render_cv.py's repo_root_from_config() now fails loudly on a config path with no
+    # CLAUDE.md/.claude/ ancestry (PIPEFIX-04) -- a bare system tempdir has none.
+    scratch_root = REPO_ROOT / "output" / "cv"
+    scratch_root.mkdir(parents=True, exist_ok=True)
+    tmp_dir = Path(tempfile.mkdtemp(dir=str(scratch_root)))
     cv_yaml = tmp_dir / "cv.yaml"
 
     # (b) span-driven bridge: approved claim.text -> CV-YAML (Plan-01 gmj_draft_to_cv_yaml.py).

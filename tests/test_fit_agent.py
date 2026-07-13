@@ -5,7 +5,10 @@ Runnable as a plain assertion script (no pytest), matching the repo convention o
 ``python3 tests/test_*.py``. Each test proves a STATIC wiring invariant over
 ``.claude/agents/gmj-fit-evaluator.md`` — never LLM scoring accuracy. The invariants are:
 
-- the frontmatter ``tools:`` line is exactly ``Read, Glob, Grep`` (no ``Write``/``Bash``),
+- the frontmatter ``tools:`` line is exactly ``Read, Write, Glob, Grep`` (no ``Bash``) — the
+  ``Write`` grant is narrowly scoped by convention to this agent's own gate-result output
+  files under ``output/artifacts/<offer-slug>/`` (PIPEFIX-03, 07-04-PLAN.md), never
+  ``config/candidate.yaml`` or the frozen offer-spec,
 - the body references the gmj-fit-rubric skill as its scoring authority,
 - it instructs emitting a ``coverage_map`` (claims → must-have IDs),
 - it emits a Gate C (``gate: "C"``) structurally separate from the Gate B verdict,
@@ -35,13 +38,12 @@ def _tools_line(text: str) -> str:
     raise AssertionError("no `tools:` frontmatter line found")
 
 
-def test_tools_are_read_only() -> None:
+def test_tools_grant_scoped_write() -> None:
     line = _tools_line(_text())
-    assert line.strip() == "tools: Read, Glob, Grep", (
-        f"tools line must be exactly `tools: Read, Glob, Grep`, got: {line!r}"
+    assert line.strip() == "tools: Read, Write, Glob, Grep", (
+        f"tools line must be exactly `tools: Read, Write, Glob, Grep`, got: {line!r}"
     )
     low = line.lower()
-    assert "write" not in low, "gmj-fit-evaluator must NOT have Write in tools"
     assert "bash" not in low, "gmj-fit-evaluator must NOT have Bash in tools"
 
 
