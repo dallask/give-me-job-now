@@ -918,12 +918,20 @@ def _run_all_mode(output_dir: Path) -> int:
             if hand_built_ir:
                 ir = hand_built_ir
             else:
+                signal_table = _signals.SIGNAL_TABLE_BY_SLUG.get(slug)
+                if not signal_table:
+                    raise ValueError(
+                        f"{slug}: no signal_table entry in "
+                        "gmj_testplan_signals.SIGNAL_TABLE_BY_SLUG -- every --all-mode row must "
+                        "have a matching signal-table entry (fail-closed, never falls back to "
+                        "the old ungrounded bullet)"
+                    )
                 ir = extract(
                     row["command_file"],
                     risk_tier=row["risk_tier"],
                     requirement_id_override=row.get("requirement_id_override"),
                     flow_slug_override=row.get("flow_slug_override"),
-                    signal_table=_signals.SIGNAL_TABLE_BY_SLUG.get(row["slug"]),
+                    signal_table=signal_table,
                 )
             text = render(ir)
             write_testplan(text, output_dir / f"{slug}.md")

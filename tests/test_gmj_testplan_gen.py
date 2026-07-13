@@ -1143,6 +1143,84 @@ def test_render_none_fully_mechanical_literal_reads_naturally() -> None:
     )
 
 
+# --------------------------------------------------------------------------- Phase 4 Plan 02 Task 1: --all-mode fail-closed signal-table guard
+
+def test_run_all_mode_passes_signal_table_per_row() -> None:
+    """main(['--all', ...]) against the real FLOW_MANIFEST/SIGNAL_TABLE_BY_SLUG produces 10
+    files, every one carrying the new 4-column signal-table header and zero old-bullet residue.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        output_dir = Path(tmp) / "test-plans"
+        exit_code = g.main(["--all", "--output-dir", str(output_dir)])
+
+        assert exit_code == 0, f"main(['--all', ...]) must exit 0, got {exit_code}"
+        written = sorted(output_dir.glob("*.md"))
+        assert len(written) == 10, f"expected exactly 10 files written, got {len(written)}: {written}"
+        for path in written:
+            text = path.read_text(encoding="utf-8")
+            assert "| Pass Signal | Fail Signal | Signal Source | Semantic Caveat |" in text, (
+                f"{path} must contain the 4-column signal-table header, got:\n{text}"
+            )
+            assert "A human operator confirms the observed output/state matches" not in text, (
+                f"{path} must not contain the old generic PASS-criteria bullet, got:\n{text}"
+            )
+
+
+def test_run_all_mode_fails_closed_on_missing_signal_table_entry() -> None:
+    """A FLOW_MANIFEST row whose slug has no SIGNAL_TABLE_BY_SLUG entry is reported as a
+    per-row FAIL (fail-closed) -- never silently regenerated with the old ungrounded bullet --
+    while every other real row still succeeds normally.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        output_dir = Path(tmp) / "test-plans"
+        bad_slug = "no-such-slug-fixture"
+        assert bad_slug not in sig.SIGNAL_TABLE_BY_SLUG, (
+            f"test fixture assumption broken: {bad_slug!r} unexpectedly has a "
+            f"SIGNAL_TABLE_BY_SLUG entry"
+        )
+        bad_row = dict(g.FLOW_MANIFEST[0])
+        bad_row["slug"] = bad_slug
+        bogus_manifest = [bad_row] + [dict(row) for row in g.FLOW_MANIFEST[1:]]
+
+        original_manifest = g.FLOW_MANIFEST
+        try:
+            g.FLOW_MANIFEST = bogus_manifest
+            import io
+            captured_stderr = io.StringIO()
+            original_stderr = sys.stderr
+            sys.stderr = captured_stderr
+            try:
+                exit_code = g.main(["--all", "--output-dir", str(output_dir)])
+            finally:
+                sys.stderr = original_stderr
+        finally:
+            g.FLOW_MANIFEST = original_manifest
+
+        stderr_text = captured_stderr.getvalue()
+        assert exit_code == 1, (
+            f"main(['--all', ...]) must exit 1 when the missing-signal-table row fails, got {exit_code}"
+        )
+        assert f"FAIL: {bad_slug}" in stderr_text, (
+            f"main(['--all', ...]) must print a FAIL:-prefixed message naming the row with no "
+            f"signal_table entry, got stderr: {stderr_text!r}"
+        )
+        assert "no signal_table entry" in stderr_text, (
+            f"the fail-closed error must explain the missing signal_table entry, got stderr: "
+            f"{stderr_text!r}"
+        )
+        bad_output = output_dir / f"{bad_slug}.md"
+        assert not bad_output.is_file(), (
+            f"main(['--all', ...]) must not write an output file for the row with no "
+            f"signal_table entry, but found {bad_output}"
+        )
+        for row in g.FLOW_MANIFEST[1:]:
+            good_output = output_dir / f"{row['slug']}.md"
+            assert good_output.is_file(), (
+                f"main(['--all', ...]) must still write every other real row's output file "
+                f"even when one row fails (per-row fail-closed), but found no {good_output}"
+            )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
