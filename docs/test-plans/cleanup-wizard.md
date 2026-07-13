@@ -25,7 +25,10 @@ No deterministic backstop exists for this step.
 **Expected:** running the steps above against `.claude/commands/gmj-cleanup-wizard.md`'s documented behavior produces the outcome described in that file's own frontmatter/body — inspect stdout/stderr and any named output paths for the concrete result.
 
 **PASS criteria:**
-- A human operator confirms the observed output/state matches OPS-01's documented behavior above by reading the real output, not by delegating to a script's exit code alone.
+
+| Pass Signal | Fail Signal | Signal Source | Semantic Caveat |
+|---|---|---|---|
+| The single `questionary.confirm(default=False)` prompt returns `True` — the ONLY gate to a delete action; the safety guarantee is the presence of that mandatory interactive confirm gate. Declining (Enter alone, or any non-confirm) short-circuits before the confirm prompt is ever shown, resulting in zero deletions | There is no failure mode distinct from "user declined" — this is a destructive-if-confirmed flow whose only two terminal states are "confirmed -> deletions executed" and "declined/no input -> zero deletions." No `--yes`/`--force`/`-y`/`--no-confirm` bypass flag exists anywhere in the argparse surface, verified by a dedicated regression test | `scripts/gmj_cleanup_wizard.py`'s `questionary.confirm(default=False)` return value + `tests/test_gmj_cleanup_wizard.py::test_no_bypass_flag_in_argparse` (the machine-verified absence-of-bypass regression guard) + `--repo-root` flag (testability-only, documented as not a bypass path) | None — fully mechanical |
 
 ---
 

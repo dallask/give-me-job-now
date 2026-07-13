@@ -789,7 +789,10 @@ def test_main_all_mode_reports_each_row_failure_individually() -> None:
     Verified at the loop-body level directly (not via a full main() subprocess run), by
     temporarily monkeypatching g.FLOW_MANIFEST with a manifest-shaped list where one row's
     command_file points at a nonexistent path -- this deterministically exercises the
-    per-row try/except without depending on any real command file's content.
+    per-row try/except without depending on any real command file's content. The "good-row"
+    slug reuses a real SIGNAL_TABLE_BY_SLUG key ("cleanup-wizard") so it is not itself rejected
+    by this plan's new fail-closed missing-signal-table guard (Task 1) -- the lookup keys off
+    the manifest row's own "slug" field, so flow_slug_override does not affect it.
     """
     with tempfile.TemporaryDirectory() as tmp:
         output_dir = Path(tmp) / "test-plans"
@@ -802,10 +805,11 @@ def test_main_all_mode_reports_each_row_failure_individually() -> None:
                 "requirement_id_override": None,
             },
             {
-                "slug": "good-row",
+                "slug": "cleanup-wizard",
                 "command_file": fixture,
                 "risk_tier": "read-only",
                 "requirement_id_override": None,
+                "flow_slug_override": "good-row",
             },
         ]
 
@@ -831,7 +835,7 @@ def test_main_all_mode_reports_each_row_failure_individually() -> None:
             f"main(['--all', ...]) must print a FAIL:-prefixed message naming the failing "
             f"row's slug, got stderr: {stderr_text!r}"
         )
-        good_output = output_dir / "good-row.md"
+        good_output = output_dir / "cleanup-wizard.md"
         assert good_output.is_file(), (
             f"main(['--all', ...]) must still write the other (good) rows' output files "
             f"even when one row fails -- per-row fail-closed, not whole-batch fail-closed, "
@@ -1141,6 +1145,128 @@ def test_render_none_fully_mechanical_literal_reads_naturally() -> None:
         f"render() must render the exact D-04 literal string inside the Semantic Caveat "
         f"table cell, got:\n{text}"
     )
+
+
+# --------------------------------------------------------------------------- Phase 4 Plan 02 Task 1: --all-mode fail-closed signal-table guard
+
+def test_run_all_mode_passes_signal_table_per_row() -> None:
+    """main(['--all', ...]) against the real FLOW_MANIFEST/SIGNAL_TABLE_BY_SLUG produces 10
+    files, every one carrying the new 4-column signal-table header and zero old-bullet residue.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        output_dir = Path(tmp) / "test-plans"
+        exit_code = g.main(["--all", "--output-dir", str(output_dir)])
+
+        assert exit_code == 0, f"main(['--all', ...]) must exit 0, got {exit_code}"
+        written = sorted(output_dir.glob("*.md"))
+        assert len(written) == 10, f"expected exactly 10 files written, got {len(written)}: {written}"
+        for path in written:
+            text = path.read_text(encoding="utf-8")
+            assert "| Pass Signal | Fail Signal | Signal Source | Semantic Caveat |" in text, (
+                f"{path} must contain the 4-column signal-table header, got:\n{text}"
+            )
+            assert "A human operator confirms the observed output/state matches" not in text, (
+                f"{path} must not contain the old generic PASS-criteria bullet, got:\n{text}"
+            )
+
+
+def test_run_all_mode_fails_closed_on_missing_signal_table_entry() -> None:
+    """A FLOW_MANIFEST row whose slug has no SIGNAL_TABLE_BY_SLUG entry is reported as a
+    per-row FAIL (fail-closed) -- never silently regenerated with the old ungrounded bullet --
+    while every other real row still succeeds normally.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        output_dir = Path(tmp) / "test-plans"
+        bad_slug = "no-such-slug-fixture"
+        assert bad_slug not in sig.SIGNAL_TABLE_BY_SLUG, (
+            f"test fixture assumption broken: {bad_slug!r} unexpectedly has a "
+            f"SIGNAL_TABLE_BY_SLUG entry"
+        )
+        bad_row = dict(g.FLOW_MANIFEST[0])
+        bad_row["slug"] = bad_slug
+        bogus_manifest = [bad_row] + [dict(row) for row in g.FLOW_MANIFEST[1:]]
+
+        original_manifest = g.FLOW_MANIFEST
+        try:
+            g.FLOW_MANIFEST = bogus_manifest
+            import io
+            captured_stderr = io.StringIO()
+            original_stderr = sys.stderr
+            sys.stderr = captured_stderr
+            try:
+                exit_code = g.main(["--all", "--output-dir", str(output_dir)])
+            finally:
+                sys.stderr = original_stderr
+        finally:
+            g.FLOW_MANIFEST = original_manifest
+
+        stderr_text = captured_stderr.getvalue()
+        assert exit_code == 1, (
+            f"main(['--all', ...]) must exit 1 when the missing-signal-table row fails, got {exit_code}"
+        )
+        assert f"FAIL: {bad_slug}" in stderr_text, (
+            f"main(['--all', ...]) must print a FAIL:-prefixed message naming the row with no "
+            f"signal_table entry, got stderr: {stderr_text!r}"
+        )
+        assert "no signal_table entry" in stderr_text, (
+            f"the fail-closed error must explain the missing signal_table entry, got stderr: "
+            f"{stderr_text!r}"
+        )
+        bad_output = output_dir / f"{bad_slug}.md"
+        assert not bad_output.is_file(), (
+            f"main(['--all', ...]) must not write an output file for the row with no "
+            f"signal_table entry, but found {bad_output}"
+        )
+        for row in g.FLOW_MANIFEST[1:]:
+            good_output = output_dir / f"{row['slug']}.md"
+            assert good_output.is_file(), (
+                f"main(['--all', ...]) must still write every other real row's output file "
+                f"even when one row fails (per-row fail-closed), but found no {good_output}"
+            )
+
+
+# --------------------------------------------------------------------------- Phase 4 Plan 02 Task 2: real-file regression tests (regenerated 10-file set)
+
+def test_all_generated_plans_have_signal_table_no_old_bullet() -> None:
+    """Real-repo-state assertion: every real docs/test-plans/<slug>.md file (not a tempdir
+    fixture) carries the 4-column signal-table header and zero old-bullet residue, iterating
+    g.FLOW_MANIFEST (mirrors test_all_ten_flow_plans_exist_on_disk's existing real-file style).
+    """
+    output_dir = REPO_ROOT / "docs" / "test-plans"
+    for row in g.FLOW_MANIFEST:
+        plan_path = output_dir / f"{row['slug']}.md"
+        text = plan_path.read_text(encoding="utf-8")
+        assert "| Pass Signal | Fail Signal | Signal Source | Semantic Caveat |" in text, (
+            f"{plan_path} must contain the 4-column signal-table header, got:\n{text}"
+        )
+        assert "A human operator confirms the observed output/state matches" not in text, (
+            f"{plan_path} must not contain the old generic PASS-criteria bullet, got:\n{text}"
+        )
+
+
+def test_real_files_shared_caveat_and_mechanical_literal_consistency() -> None:
+    """Real-repo-state assertion: the 4 shared-caveat flows' real generated files each carry
+    the identical _GATE_AB_JUDGMENT_CAVEAT substring verbatim; the 4 mechanical flows' real
+    generated files each carry the exact 'None — fully mechanical' literal in their Semantic
+    Caveat cell.
+    """
+    output_dir = REPO_ROOT / "docs" / "test-plans"
+
+    for slug in _GATED_SLUGS:
+        plan_path = output_dir / f"{slug}.md"
+        text = plan_path.read_text(encoding="utf-8")
+        assert sig._GATE_AB_JUDGMENT_CAVEAT in text, (
+            f"{plan_path} (a shared Gate A/B caveat flow) must contain the full "
+            f"_GATE_AB_JUDGMENT_CAVEAT text verbatim, got:\n{text}"
+        )
+
+    for slug in _MECHANICAL_SLUGS:
+        plan_path = output_dir / f"{slug}.md"
+        text = plan_path.read_text(encoding="utf-8")
+        assert _MECHANICAL_LITERAL in text, (
+            f"{plan_path} (a fully mechanical flow) must contain the exact literal "
+            f"{_MECHANICAL_LITERAL!r} in its Semantic Caveat cell, got:\n{text}"
+        )
 
 
 def main() -> int:

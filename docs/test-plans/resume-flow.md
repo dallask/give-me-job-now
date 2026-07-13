@@ -24,7 +24,10 @@ No deterministic backstop exists for this step.
 **Expected:** running the steps above against `.claude/commands/gmj-runs.md`'s documented behavior produces the outcome described in that file's own frontmatter/body — inspect stdout/stderr and any named output paths for the concrete result.
 
 **PASS criteria:**
-- A human operator confirms the observed output/state matches ERGO-04's documented behavior above by reading the real output, not by delegating to a script's exit code alone.
+
+| Pass Signal | Fail Signal | Signal Source | Semantic Caveat |
+|---|---|---|---|
+| No single pass/fail signal exists at the inspection step itself. Nearest qualitative check: `/gmj-runs`'s `project_status()` function returns one of exactly 4 string values via a locked top-down, first-match-wins order: `"delivered"` (gate_results dual-pass, reusing `blocked_reason()`), `"failed"` (any nested `retry_counts[...][...]` value >= the frozen `retry_cap` int), `"pending"` (empty `gate_results` AND empty `retry_counts` AND `current_step` is `None`/`"gmj-artifact-composer"`), else `"running"`. The inspector only prints the resume command — it never itself resumes; the resume flow's own pass signal is that same 4-value status advancing toward `"delivered"` on the next invocation of the resumed command | Status stays `"failed"` after resuming (retry cap already exhausted with no further raise available) — or a resumed run's state file is malformed/missing, which `gmj_runs.py` degrades to `"unknown"` rather than raising | `scripts/pipeline/gmj_runs.py`'s `project_status()` 4-value vocabulary (`delivered`/`failed`/`pending`/`running`, plus inspector-only `unknown` on read-degrade) + `.pipeline/runs/<run_id>/state.json`'s `current_step`, `gate_results`, `retry_counts`, `retry_cap` fields | None — fully mechanical |
 
 ---
 
