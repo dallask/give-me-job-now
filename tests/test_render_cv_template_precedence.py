@@ -170,6 +170,35 @@ def test_config_absent_falls_back_to_documented_default() -> None:
             assert "Falling back to ReportLab built-in layout." in result.stderr
 
 
+def test_no_repo_root_anywhere_fails_loudly() -> None:
+    """PIPEFIX-04: a --config path inside a temp directory tree with NO CLAUDE.md and NO
+    .claude/ directory anywhere in its ancestry (all the way up to the filesystem root, as
+    far as the test can control) must exit nonzero with a structured stderr message naming
+    the unresolvable config path and NO traceback -- never a silent ReportLab-only render
+    from a wrong-guessed repo root."""
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        # Deliberately omit the CLAUDE.md stub _build_temp_repo_root would normally write,
+        # to prove the no-repo-root-anywhere fallback path fires.
+        config_dir = tmp_path / "some" / "nested" / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        candidate_yaml = config_dir / "candidate.yaml"
+        candidate_yaml.write_text('name: "Temp Candidate"\ntitle: "Engineer"\n', encoding="utf-8")
+        out = tmp_path / "out" / "temp-cv.pdf"
+        result = _run("--config", str(candidate_yaml), "--out", str(out), cwd=tmp_path)
+        assert result.returncode != 0, (
+            "a config path with no discoverable repo-root anchor must exit nonzero, "
+            f"got returncode={result.returncode}"
+        )
+        assert "Traceback (most recent call last)" not in result.stderr, (
+            f"expected a structured error, not a raw Python traceback: {result.stderr}"
+        )
+        assert str(candidate_yaml) in result.stderr, (
+            f"expected the unresolvable config path named in stderr: {result.stderr}"
+        )
+        assert not out.is_file(), "no PDF should be produced when the repo root cannot be resolved"
+
+
 def test_rotation_reuses_pick_across_two_renders_of_same_state() -> None:
     """D-05 at the CLI level: with cv.mode: random (a temp preferences.yaml, since the real
     committed config uses mode: default) and an identical --state path, two separate
