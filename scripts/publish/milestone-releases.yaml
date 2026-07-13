@@ -121,3 +121,14 @@ releases:
       - Backfilled the 3 missing release entries (v5.0.0, v6.0.0, v7.0.0) plus a mid-milestone v9.0.0 backfill into this same milestone-releases.yaml file
       - Verified release.yml/gmj_bootstrap_releases.py end-to-end against the live public mirror (idempotent re-run, 3 real defects found and fixed: anchor cross-repo survivability, a GITHUB_TOKEN workflow-permission block switched to a PUBLIC_REPO_PAT secret, checkout-token staleness)
       - Added scripts/publish/gmj_check_milestone_releases.py (deterministic gap-detection script) plus an advisory pytest wrapper auto-discovered by tests.yml, so a future shipped milestone can never silently miss its release entry again
+  - tag: v11.0.0
+    anchor_message: "docs: record v11.0 milestone entry and retrospective (testplan-gen)"
+    date: "2026-07-13"
+    title: "v11.0.0 — Automated Test-Plan Generator"
+    notes: |
+      Automated test-plan generator for the testplan-gen workstream (7 phases, 25 plans, 46 tasks):
+      - Froze docs/TESTPLAN-FORMAT-SPEC.md, a six-field per-test Markdown checklist shape plus non-executability acceptance criteria
+      - Built scripts/gmj_testplan_gen.py, a deterministic two-stage extractor+renderer rolled out to all 10 /how-to flows
+      - Schema-grounded per-flow signal tables backed by a standing drift-regression test wired into rules/docs-currency.md
+      - Delivered the bundled GSD execution-log hooks plus scripts/gmj_self_reflect.py, a report-only self-reflection analyzer
+      - Closed 7 concrete pipeline/self-reflection defects surfaced during a live supervised /gmj-pipeline-run --mode=autonomous run
