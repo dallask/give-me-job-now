@@ -248,16 +248,21 @@ def _validate_risk_tier(risk_tier: str, command_file: Path) -> str:
     return risk_tier
 
 
-def extract(command_file: Path, risk_tier: str, requirement_id_override: str | None = None) -> dict:
+def extract(
+    command_file: Path,
+    risk_tier: str,
+    requirement_id_override: str | None = None,
+    flow_slug_override: str | None = None,
+) -> dict:
     """Parse ``command_file`` (a ``.claude/commands/*.md`` file) into an in-memory dict IR.
 
     Reads the frontmatter (``---``-fenced, YAML) and body, pulling out: ``flow_name``/
-    ``slug`` (derived from the filename), the frontmatter ``description``, a ``flags`` list
-    (name + purpose, scanned from Usage/Flags-style sections), a ``behaviors`` list (real
-    commands/interaction steps scanned from body prose/code blocks), a ``requirement_id``,
-    and a ``no_bypass_flag`` boolean fact when the body states one explicitly. Returns a
-    plain dict (D-02's YAML-shaped IR) — never writes anything to disk (D-03: in-memory
-    only).
+    ``slug`` (derived from the filename, unless overridden — see ``flow_slug_override``
+    below), the frontmatter ``description``, a ``flags`` list (name + purpose, scanned from
+    Usage/Flags-style sections), a ``behaviors`` list (real commands/interaction steps
+    scanned from body prose/code blocks), a ``requirement_id``, and a ``no_bypass_flag``
+    boolean fact when the body states one explicitly. Returns a plain dict (D-02's
+    YAML-shaped IR) — never writes anything to disk (D-03: in-memory only).
 
     ``risk_tier`` is required and validated fail-closed against the 4 frozen tier names
     (``_VALID_RISK_TIERS``) via ``_validate_risk_tier`` — an unrecognized value raises
@@ -274,6 +279,16 @@ def extract(command_file: Path, risk_tier: str, requirement_id_override: str | N
     ``requirement_id_override`` is falsy/omitted, the existing fail-closed
     ``_extract_requirement_id()`` behavior is preserved unchanged.
 
+    ``flow_slug_override``, when truthy, is used verbatim as both ``ir["flow_name"]`` and
+    ``ir["slug"]`` instead of ``command_file.stem`` — required whenever more than one
+    FLOW_MANIFEST row shares the same ``command_file`` (e.g. the pipeline-run-hitl/
+    pipeline-run-autonomous pair both sourcing ``gmj-pipeline-run.md``, per Decision 1),
+    so each generated document's own title/body text names its own distinct flow instead of
+    both rows rendering byte-identical "gmj-pipeline-run" prose that gives a reader no way
+    to tell which risk-tier/mode a given file actually documents. When falsy/omitted, the
+    existing ``command_file.stem`` derivation is preserved unchanged (single-invocation CLI
+    mode never needed this distinction, since one command file always maps to one output).
+
     Raises ``FileNotFoundError`` if ``command_file`` does not exist; raises ``ValueError``
     if ``risk_tier`` is not one of the 4 frozen tiers, if the frontmatter fence is
     missing/malformed, the fenced block does not parse to a YAML mapping, or (absent an
@@ -287,7 +302,7 @@ def extract(command_file: Path, risk_tier: str, requirement_id_override: str | N
     text = command_file.read_text(encoding="utf-8")
     frontmatter, body = _split_frontmatter(text, command_file)
 
-    slug = command_file.stem
+    slug = flow_slug_override or command_file.stem
     description = str(frontmatter.get("description") or "")
     flags = _extract_flags(body)
     behaviors = _extract_behaviors(body)
@@ -297,6 +312,19 @@ def extract(command_file: Path, risk_tier: str, requirement_id_override: str | N
         requirement_id = _extract_requirement_id(frontmatter, body, command_file)
     no_bypass_flag = _extract_no_bypass_flag(body)
 
+    # Cite a portable, repo-relative source path when command_file resolves inside
+    # REPO_ROOT (the FLOW_MANIFEST rows always do, since they're built as
+    # REPO_ROOT / ".claude" / "commands" / ...), so generated docs never leak the
+    # invoking checkout's absolute filesystem path (e.g. a throwaway git-worktree
+    # directory that won't exist once the worktree is removed). A command_file
+    # supplied outside REPO_ROOT (not a FLOW_MANIFEST case today, but --command-file
+    # accepts any path per this module's own "generic by design" docstring) falls
+    # back to the resolved absolute path unchanged.
+    try:
+        source_file = str(command_file.resolve().relative_to(REPO_ROOT))
+    except ValueError:
+        source_file = str(command_file)
+
     ir: dict = {
         "flow_name": slug,
         "slug": slug,
@@ -304,7 +332,7 @@ def extract(command_file: Path, risk_tier: str, requirement_id_override: str | N
         "flags": flags,
         "behaviors": behaviors,
         "requirement_id": requirement_id,
-        "source_file": str(command_file),
+        "source_file": source_file,
         "risk_tier": risk_tier,
     }
     if no_bypass_flag:
@@ -523,10 +551,15 @@ def write_testplan(text: str, output_path: Path) -> None:
 # true tier — real LLM/API spend end to end, no human pause to abort). Both rows source the same
 # command_file; extract()'s own body-scan finds EXEC-07 (the "## CLI-only invocation (EXEC-07)"
 # heading) for both — accurate for both modes since EXEC-07 covers the shared CLI-invocation
-# capability itself, not a mode-specific claim, so no override is needed for either row. This
-# preserves both flows' asymmetric risk profile (Pitfall 2's own warning against flattening it
-# into one tier) and satisfies TPGEN-06's literal "all 10 flows" wording without requiring an
-# unconfirmable interpretive narrowing.
+# capability itself, not a mode-specific claim, so no requirement_id_override is needed for
+# either row. Both rows DO set flow_slug_override (their own manifest slug), since without it
+# extract()'s default command_file.stem derivation ("gmj-pipeline-run") would make both rows'
+# generated title/body text byte-identical except for the warning block -- a reader could not
+# tell pipeline-run-hitl.md and pipeline-run-autonomous.md apart from their body prose alone
+# (Plan 03's own real-run discovery; see 03-03-SUMMARY.md deviations). This preserves both
+# flows' asymmetric risk profile (Pitfall 2's own warning against flattening it into one tier)
+# and satisfies TPGEN-06's literal "all 10 flows" wording without requiring an unconfirmable
+# interpretive narrowing.
 #
 # Decision 2 (flow 5, RESEARCH.md Open Question 2): source
 # `.claude/commands/gmj-pipeline/scout.md` (the nearest real doc; RESEARCH.md's option (c)), with
@@ -558,11 +591,17 @@ FLOW_MANIFEST: list[dict] = [
         "requirement_id_override": None,
     },
     {
-        # Decision 1, Row A (flow 2 — HITL mode).
+        # Decision 1, Row A (flow 2 — HITL mode). flow_slug_override is required here:
+        # both this row and the next share command_file (gmj-pipeline-run.md), so without
+        # an override extract()'s default command_file.stem-derived flow_name/slug
+        # ("gmj-pipeline-run") would make both rows' generated title/body text byte-
+        # identical except for the warning block, defeating the point of two separate
+        # per-tier files (see extract()'s flow_slug_override docstring).
         "slug": "pipeline-run-hitl",
         "command_file": REPO_ROOT / ".claude" / "commands" / "gmj-pipeline-run.md",
         "risk_tier": "local-safe",
         "requirement_id_override": None,
+        "flow_slug_override": "pipeline-run-hitl",
     },
     {
         # Decision 1, Row B (flow 3 — autonomous mode, same source file as above).
@@ -570,6 +609,7 @@ FLOW_MANIFEST: list[dict] = [
         "command_file": REPO_ROOT / ".claude" / "commands" / "gmj-pipeline-run.md",
         "risk_tier": "live-cost",
         "requirement_id_override": None,
+        "flow_slug_override": "pipeline-run-autonomous",
     },
     {
         "slug": "multi-offer-batch",
@@ -728,6 +768,7 @@ def _run_all_mode(output_dir: Path) -> int:
                     row["command_file"],
                     risk_tier=row["risk_tier"],
                     requirement_id_override=row.get("requirement_id_override"),
+                    flow_slug_override=row.get("flow_slug_override"),
                 )
             text = render(ir)
             write_testplan(text, output_dir / f"{slug}.md")

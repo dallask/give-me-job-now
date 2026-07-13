@@ -1,5 +1,7 @@
 # Test Plan — gmj-cleanup-wizard
 
+> ⚠️ **destructive-if-confirmed**: This flow can permanently delete real local data if a human confirms the deletion prompt. Run only against a disposable fixture directory, never a real working copy with data you need, unless deletion is the intended outcome.
+
 This file verifies the `gmj-cleanup-wizard` flow for a human operator running it directly.
 
 ## Setup & Preconditions

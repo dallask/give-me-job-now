@@ -72,7 +72,11 @@ def test_committed_file_is_byte_identical_to_fresh_generator_run() -> None:
     original_cwd = Path.cwd()
     try:
         os.chdir(REPO_ROOT)
-        fresh = g.render(g.extract(_COMMAND_FILE_RELATIVE))
+        # risk_tier became a required extract() parameter in Phase 3 Plan 01 (after this
+        # drift guard was originally written in Phase 2) -- "destructive-if-confirmed" is
+        # the real, FLOW_MANIFEST-declared tier for the cleanup-wizard row, matching what
+        # the committed file was actually generated with.
+        fresh = g.render(g.extract(_COMMAND_FILE_RELATIVE, risk_tier="destructive-if-confirmed"))
     finally:
         os.chdir(original_cwd)
 
