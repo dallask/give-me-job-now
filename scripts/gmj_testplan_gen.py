@@ -495,6 +495,20 @@ def _render_steps_block(ir: dict) -> list[str]:
                 lines.append("```bash")
                 lines.append(cmd)
                 lines.append("```")
+        elif claude_lines and slash_lines:
+            # CR-01: a REPL-entry command plus its live-session follow-up is a genuine
+            # 2-step sequence, but bundling both into one fenced block with numbered 1./2.
+            # steps violates Non-Executability Criterion 2 (no single-block
+            # copy-paste-and-run-all without an intervening judgment/inspection point). Emit
+            # two separate fenced sub-blocks with an explicit inline note between them.
+            lines.append("```bash")
+            lines.append(claude_lines[0])
+            lines.append("```")
+            lines.append("")
+            lines.append("Inside the now-live REPL session, type:")
+            lines.append("```")
+            lines.append(slash_lines[0])
+            lines.append("```")
         elif len(real_commands) > 1:
             lines.append("```bash")
             for i, cmd in enumerate(real_commands, start=1):

@@ -392,7 +392,12 @@ def test_render_steps_block_keeps_slash_command_follow_up_after_claude_repl_entr
         steps_end = text.find("**Expected:**")
         assert steps_start != -1 and steps_end != -1, f"could not locate Steps/Expected markers in:\n{text}"
         steps_block = text[steps_start:steps_end]
-        code_blocks = "\n".join(re.findall(r"```bash\n(.*?)\n```", steps_block, flags=re.DOTALL))
+        # CR-01's fix (this same plan) splits the claude REPL-entry and its slash-command
+        # follow-up into two separate fenced sub-blocks -- the second one deliberately plain
+        # ``` (not ```bash), since it is typed inside a live REPL session, not a shell
+        # command. Match both fence flavors so this CR-02 assertion still observes both
+        # blocks' content under the new two-block rendering shape.
+        code_blocks = "\n".join(re.findall(r"```(?:bash)?\n(.*?)\n```", steps_block, flags=re.DOTALL))
 
         assert "claude --dangerously-skip-permissions" in code_blocks, (
             f"rendered Steps fenced code block(s) must still contain the claude REPL-entry "
@@ -402,6 +407,71 @@ def test_render_steps_block_keeps_slash_command_follow_up_after_claude_repl_entr
             f"CR-02 regression: rendered Steps fenced code block(s) must contain the "
             f"/gmj-fixture-pipeline follow-up command typed inside the REPL session, not "
             f"silently drop it, got code block(s):\n{code_blocks!r}\nfull Steps block:\n{steps_block}"
+        )
+
+
+def test_render_steps_block_separates_claude_entry_from_slash_follow_up_across_two_blocks() -> None:
+    """CR-01 regression: a `claude ...` REPL-entry line and its `/gmj-...` slash-command
+    follow-up must never be bundled into one uninterrupted fenced ```bash block with numbered
+    1./2. steps -- an explicit judgment/inspection point must separate them, per
+    docs/TESTPLAN-FORMAT-SPEC.md's Non-Executability Acceptance Criterion 2.
+
+    Reproduces the exact real-world shape that shipped docs/test-plans/pipeline-run-hitl.md
+    (and pipeline-run-autonomous.md, multi-offer-batch.md, resume-flow.md) with both lines
+    numbered `1.`/`2.` inside one shared fenced block, with no intervening judgment point.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = _write_fixture(tmp, "gmj-fixture-pipeline.md", _FIXTURE_CLI_ONLY_INVOCATION)
+        ir = g.extract(fixture, risk_tier="read-only")
+        text = g.render(ir)
+
+        steps_start = text.find("**Steps")
+        steps_end = text.find("**Expected:**")
+        assert steps_start != -1 and steps_end != -1, f"could not locate Steps/Expected markers in:\n{text}"
+        steps_block = text[steps_start:steps_end]
+
+        blocks = re.findall(r"```(?:bash)?\n(.*?)\n```", steps_block, flags=re.DOTALL)
+        assert len(blocks) >= 2, (
+            f"CR-01 regression: expected at least two separate fenced sub-blocks (claude "
+            f"REPL-entry, then its slash-command follow-up), got {len(blocks)} block(s): "
+            f"{blocks!r}\nfull Steps block:\n{steps_block}"
+        )
+
+        claude_block = next((b for b in blocks if "claude --dangerously-skip-permissions" in b), None)
+        assert claude_block is not None, f"no fenced block contains the claude REPL-entry line, got:\n{blocks!r}"
+        claude_block_lines = [ln for ln in claude_block.splitlines() if ln.strip()]
+        assert len(claude_block_lines) == 1, (
+            f"the claude REPL-entry line must be alone in its own fenced block (no sibling "
+            f"command line), got:\n{claude_block_lines!r}"
+        )
+
+        slash_block = next((b for b in blocks if "/gmj-fixture-pipeline" in b), None)
+        assert slash_block is not None, f"no fenced block contains the /gmj-fixture-pipeline follow-up, got:\n{blocks!r}"
+        assert slash_block != claude_block, (
+            "the slash-command follow-up must be in its own SEPARATE fenced block from the "
+            "claude REPL-entry line, not the same shared block"
+        )
+        slash_block_lines = [ln for ln in slash_block.splitlines() if ln.strip()]
+        assert len(slash_block_lines) == 1, (
+            f"the slash-command follow-up must be alone in its own fenced block, got:\n{slash_block_lines!r}"
+        )
+
+        # An explicit judgment/inspection point (non-fenced-code prose) must separate the two
+        # blocks -- Criterion 2's "intervening judgment/inspection point" requirement.
+        first_close = steps_block.find("```", steps_block.find("```") + 3)
+        second_open = steps_block.find("```", first_close + 3)
+        between = steps_block[first_close + 3 : second_open].strip()
+        assert between, (
+            f"expected non-empty prose (a judgment/inspection point) between the two fenced "
+            f"blocks, got empty string. Steps block:\n{steps_block}"
+        )
+        assert not between.startswith("```"), f"text between blocks must not itself start a fenced block: {between!r}"
+
+        # Neither block may contain a numbered 1./2. step prefix -- the exact CR-01 shape
+        # being eliminated (the two commands are no longer rendered as a single ordered
+        # numbered sequence in one block).
+        assert not any(re.match(r"^\s*\d+\.", b) for b in blocks), (
+            f"CR-01 regression: no block may contain a numbered step prefix, got:\n{blocks!r}"
         )
 
 
@@ -993,13 +1063,17 @@ def test_gated_flows_share_identical_gate_ab_caveat_substring() -> None:
 def test_signal_table_matches_investigate_source() -> None:
     """Every transcribed cell traces verbatim to 02-EVALUATION-CRITERIA.md's raw table text.
 
-    pass_signal/fail_signal/signal_source are always an exact match against the source row's
-    corresponding cell. semantic_caveat is checked per-case: the 4 mechanical slugs must equal
-    the D-04 literal; the 4 gated slugs' OWN row-specific trailing clause (the shared constant's
-    reference has already been asserted separately by
-    test_gated_flows_share_identical_gate_ab_caveat_substring) must be a substring of the
-    source row's caveat cell; all other (ungated, non-mechanical) slugs must match the source
-    row's caveat cell exactly.
+    pass_signal/fail_signal/signal_source are an exact match against the source row's
+    corresponding cell, modulo CR-02's un-escaping normalization: the source table's own `\\|`
+    Markdown-table-cell escape (needed only in ITS OWN table-rendering context) is compared
+    un-escaped back to a literal `|`, since gmj_testplan_signals.py intentionally stores the
+    un-escaped form (see that module's docstring) -- storing the raw `\\|` would be
+    double-escaped into `\\\\|` by gmj_testplan_gen.py's _escape_table_cell() at render time.
+    semantic_caveat is checked per-case: the 4 mechanical slugs must equal the D-04 literal; the
+    4 gated slugs' OWN row-specific trailing clause (the shared constant's reference has already
+    been asserted separately by test_gated_flows_share_identical_gate_ab_caveat_substring) must
+    be a substring of the source row's caveat cell; all other (ungated, non-mechanical) slugs
+    must match the source row's caveat cell exactly.
     """
     source_rows = _read_investigate_source_rows()
 
@@ -1010,18 +1084,27 @@ def test_signal_table_matches_investigate_source() -> None:
             f"expected 5 cells for flow {flow_num} ({slug!r}), got {len(source_cells)}: {source_cells}"
         )
         _flow, src_pass, src_fail, src_source, src_caveat = source_cells
+        # CR-02: the source table's own `\|` escape artifact is stored un-escaped (`|`) in
+        # gmj_testplan_signals.py by design -- normalize the source cells the same way before
+        # comparing, so this test asserts the CR-02-fixed shape, not the pre-fix raw artifact.
+        src_pass_normalized = src_pass.replace("\\|", "|")
+        src_fail_normalized = src_fail.replace("\\|", "|")
+        src_source_normalized = src_source.replace("\\|", "|")
 
-        assert row["pass_signal"] == src_pass, (
-            f"{slug!r}'s pass_signal must be verbatim-identical to the source table's flow "
-            f"{flow_num} Pass Signal cell -- got:\n{row['pass_signal']!r}\nexpected:\n{src_pass!r}"
+        assert row["pass_signal"] == src_pass_normalized, (
+            f"{slug!r}'s pass_signal must be verbatim-identical (modulo CR-02 `\\|`->`|` "
+            f"un-escaping) to the source table's flow {flow_num} Pass Signal cell -- got:\n"
+            f"{row['pass_signal']!r}\nexpected:\n{src_pass_normalized!r}"
         )
-        assert row["fail_signal"] == src_fail, (
-            f"{slug!r}'s fail_signal must be verbatim-identical to the source table's flow "
-            f"{flow_num} Fail Signal cell -- got:\n{row['fail_signal']!r}\nexpected:\n{src_fail!r}"
+        assert row["fail_signal"] == src_fail_normalized, (
+            f"{slug!r}'s fail_signal must be verbatim-identical (modulo CR-02 `\\|`->`|` "
+            f"un-escaping) to the source table's flow {flow_num} Fail Signal cell -- got:\n"
+            f"{row['fail_signal']!r}\nexpected:\n{src_fail_normalized!r}"
         )
-        assert row["signal_source"] == src_source, (
-            f"{slug!r}'s signal_source must be verbatim-identical to the source table's flow "
-            f"{flow_num} Signal Source cell -- got:\n{row['signal_source']!r}\nexpected:\n{src_source!r}"
+        assert row["signal_source"] == src_source_normalized, (
+            f"{slug!r}'s signal_source must be verbatim-identical (modulo CR-02 `\\|`->`|` "
+            f"un-escaping) to the source table's flow {flow_num} Signal Source cell -- got:\n"
+            f"{row['signal_source']!r}\nexpected:\n{src_source_normalized!r}"
         )
 
         if slug in _MECHANICAL_SLUGS:
@@ -1032,9 +1115,11 @@ def test_signal_table_matches_investigate_source() -> None:
         elif slug in _GATED_SLUGS and slug != "pipeline-run-hitl":
             # Flow 2 (pipeline-run-hitl) IS the canonical text -- checked via the exact-match
             # branch below. Flows 3/4/7 append their own row-specific trailing clause to the
-            # shared constant; that trailing clause must itself be a verbatim substring of the
-            # source row's own (short, "Same as Flow 2 —") caveat cell.
+            # shared constant, joined with CR-03's em-dash separator; strip both the constant
+            # AND that separator so the remaining addendum text matches the source row's own
+            # (short, "Same as Flow 2 —") caveat cell as a substring.
             addendum = row["semantic_caveat"].replace(sig._GATE_AB_JUDGMENT_CAVEAT, "", 1).strip()
+            addendum = addendum.lstrip("—").strip()
             assert addendum, (
                 f"{slug!r}'s semantic_caveat must carry its own row-specific trailing clause "
                 f"beyond the shared constant, got: {row['semantic_caveat']!r}"
@@ -1050,6 +1135,77 @@ def test_signal_table_matches_investigate_source() -> None:
                 f"flow {flow_num} Semantic Caveat cell -- got:\n{row['semantic_caveat']!r}\n"
                 f"expected:\n{src_caveat!r}"
             )
+
+
+# --------------------------------------------------------------------------- 04-03-PLAN Task 2: CR-02/CR-03 regressions
+
+def test_signal_table_cells_never_contain_pre_escaped_pipe_artifact() -> None:
+    """CR-02 regression: no SIGNAL_TABLE_BY_SLUG cell may carry a pre-escaped `\\|` artifact.
+
+    Checked directly against the stored data structure (not the rendered output), to catch
+    the defect at its exact root-cause location: gmj_testplan_gen.py's _escape_table_cell()
+    is solely responsible for introducing the Markdown escape at render time, so the stored
+    data itself must always hold a bare, unescaped `|`.
+    """
+    for slug, row in sig.SIGNAL_TABLE_BY_SLUG.items():
+        for field in ("pass_signal", "fail_signal", "signal_source", "semantic_caveat"):
+            value = row[field]
+            assert "\\|" not in value, (
+                f"CR-02 regression: {slug!r}'s {field!r} cell must never contain a raw `\\|` "
+                f"escape-artifact sequence -- _escape_table_cell() introduces that escape at "
+                f"render time, not the stored data. Got: {value!r}"
+            )
+
+
+def test_render_signal_table_never_double_escapes_a_pipe() -> None:
+    """CR-02 regression: render() must escape a clean, bare pipe exactly once, never twice.
+
+    A synthetic IR whose signal_table['fail_signal'] is a bare, correctly-unescaped pipe
+    (mirroring the corrected pipeline-run-autonomous cell) must render with the single-escaped
+    substring `"narrow"\\|"systemic"`, never the double-escaped `"narrow"\\\\|"systemic"`.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = _write_fixture(tmp, "gmj-fixture-flow.md", _FIXTURE_COMMAND_DOC)
+        synthetic_signal_table = {
+            "pass_signal": "p",
+            "fail_signal": '"narrow"|"systemic"',
+            "signal_source": "s",
+            "semantic_caveat": "c",
+        }
+        ir = g.extract(fixture, risk_tier="read-only", signal_table=synthetic_signal_table)
+        text = g.render(ir)
+
+        assert '"narrow"\\|"systemic"' in text, (
+            f"expected single-escaped '\"narrow\"\\|\"systemic\"' substring in rendered output, "
+            f"got:\n{text}"
+        )
+        assert '"narrow"\\\\|"systemic"' not in text, (
+            f"CR-02 regression: rendered output must never contain the double-escaped "
+            f"'\"narrow\"\\\\|\"systemic\"' artifact, got:\n{text}"
+        )
+
+
+def test_gated_flow_addenda_use_em_dash_separator_not_bare_space() -> None:
+    """CR-03 regression: the 3 dependent gated rows' addenda must join via an em-dash, not a
+    bare space -- a missing separator produces an ungrammatical run-on sentence with no clause
+    boundary between the shared _GATE_AB_JUDGMENT_CAVEAT constant and each row's own addendum.
+    """
+    dependent_gated_slugs = {"pipeline-run-autonomous", "multi-offer-batch", "scheduled-runs"}
+    for slug in dependent_gated_slugs:
+        caveat = sig.SIGNAL_TABLE_BY_SLUG[slug]["semantic_caveat"]
+        assert caveat.startswith(sig._GATE_AB_JUDGMENT_CAVEAT + " — "), (
+            f"CR-03 regression: {slug!r}'s semantic_caveat must join _GATE_AB_JUDGMENT_CAVEAT "
+            f"and its own addendum with an em-dash separator (' — '), matching the source "
+            f"table's own convention -- got: {caveat[:200]!r}"
+        )
+        # A bare-space join (the exact CR-03 defect shape) must not be what's actually present:
+        # confirm the character immediately after the shared constant is the em-dash, not the
+        # first letter of the addendum directly abutting the constant's last word.
+        remainder = caveat[len(sig._GATE_AB_JUDGMENT_CAVEAT):]
+        assert remainder.startswith(" — "), (
+            f"CR-03 regression: {slug!r}'s semantic_caveat has no em-dash clause boundary "
+            f"immediately after the shared constant -- got remainder: {remainder[:60]!r}"
+        )
 
 
 # --------------------------------------------------------------------------- Phase 4 Task 2: signal_table IR threading + render()
