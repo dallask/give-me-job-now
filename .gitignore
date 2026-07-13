@@ -21,6 +21,12 @@ __pycache__/
 tmp/
 .playwright-mcp/
 
+# Vacancy-oriented, per-offer generated configs (skill-specific CV YAMLs,
+# config/cv/cv.[skill].[lang].yaml) — derived per vacancy, never hand-edited,
+# never committed (keep directory tree via .gitkeep).
+config/cv/*
+!config/cv/.gitkeep
+
 # Generated collective outputs (keep directory trees via .gitkeep)
 output/cv/*
 !output/cv/.gitkeep
