@@ -106,6 +106,12 @@ def slug(s: str) -> str:
     return x or "cv"
 
 
+class RepoRootNotFoundError(Exception):
+    """Raised when no CLAUDE.md/.claude/ anchor is found anywhere in a --config path's
+    ancestry (PIPEFIX-04). Caught by main() and turned into a structured stderr message
+    + nonzero exit -- never silently guessed."""
+
+
 def repo_root_from_config(config_path: Path) -> Path:
     """Walk up from config file looking for CLAUDE.md or .claude/ as repo root anchor."""
     p = config_path.resolve().parent
@@ -113,8 +119,16 @@ def repo_root_from_config(config_path: Path) -> Path:
         if (p / "CLAUDE.md").is_file() or (p / ".claude").is_dir():
             return p
         p = p.parent
-    # fallback: assume config is one level below repo root
-    return config_path.resolve().parent.parent
+    # No CLAUDE.md/.claude/ anchor found anywhere up to the filesystem root: this is a
+    # caller-input problem (an invalid or unanchored --config path), not a "default
+    # missing" problem -- raise loudly instead of guessing config_path.parent.parent
+    # (PIPEFIX-04; the prior guess silently rendered from the wrong root and degraded
+    # to ReportLab with no warning).
+    raise RepoRootNotFoundError(
+        f"Could not resolve a repo root for --config {config_path}: "
+        "no CLAUDE.md file or .claude/ directory found anywhere in its ancestry "
+        "up to the filesystem root."
+    )
 
 
 def photo_raw(candidate: dict) -> str | None:
@@ -540,7 +554,11 @@ def main() -> int:
     config_path = args.config.expanduser().resolve()
     lang = lang_from_config_path(config_path, args.lang)
     candidate = load_candidate(config_path, lang)
-    repo_root = repo_root_from_config(config_path)
+    try:
+        repo_root = repo_root_from_config(config_path)
+    except RepoRootNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     labels = _load_labels(repo_root, lang)
 
     # Photo forwarding fallback (02-UAT.md gap 1): a per-offer skill-CV draft
