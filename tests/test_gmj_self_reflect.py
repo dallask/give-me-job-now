@@ -36,6 +36,7 @@ import gmj_self_reflect  # noqa: E402
 NORMAL_RUN = FIXTURES / "normal-run.jsonl"
 WORKTREE_DRIFT = FIXTURES / "recurring-worktree-drift.jsonl"
 PYCACHE_FAILURE = FIXTURES / "recurring-pycache-failure.jsonl"
+CAP_RAISE_MISUSE = FIXTURES / "recurring-cap-raise-misuse.jsonl"
 
 
 def _read_jsonl(path: Path) -> list[dict]:
@@ -152,6 +153,31 @@ def test_pycache_pollution_pattern_detected_with_fix() -> None:
 
     report = gmj_self_reflect.render_report(findings)
     assert "pycache-hook-log-pollution" in report
+
+
+def test_cap_raise_misuse_pattern_detected_with_fix() -> None:
+    """New gmj-pipeline-domain detector (REFLECT-07): fires on a repeated
+    gmj_check_cap.py --raised re-invocation sequence for the same offer/artifact-type,
+    mirroring the exact command-field shape confirmed against the real 2026-07-13 log."""
+    tmp = _copy_fixtures_to_tmp(CAP_RAISE_MISUSE)
+    findings = gmj_self_reflect.classify(tmp)
+    match = next((f for f in findings if f["pattern"] == "gmj-pipeline-cap-raise-misuse"), None)
+    assert match is not None, f"gmj-pipeline-cap-raise-misuse not found in findings: {findings}"
+    assert match["occurrences"] >= 2, f"expected >=2 occurrences, got {match['occurrences']}"
+    assert match["proposed_fix"], "expected a non-empty proposed_fix"
+
+    report = gmj_self_reflect.render_report(findings)
+    assert "gmj-pipeline-cap-raise-misuse" in report
+    assert match["proposed_fix"] in report
+
+
+def test_cap_raise_misuse_pattern_not_false_positive_on_normal_run() -> None:
+    """The new predicate must not fire on ordinary, non-repeated command text."""
+    entries = _read_jsonl(NORMAL_RUN)
+    findings = gmj_self_reflect.classify_from_entries(entries)
+    assert not any(f["pattern"] == "gmj-pipeline-cap-raise-misuse" for f in findings), (
+        f"gmj-pipeline-cap-raise-misuse false-positived on normal-run fixture: {findings}"
+    )
 
 
 def test_both_patterns_surfaced_together_from_combined_logs() -> None:
