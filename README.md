@@ -25,31 +25,16 @@
     inner content verbatim.
 -->
 
-<!-- PRIVATE-ONLY:START -->
-<p align="center">
-    <a href="docs/installation.md"><img src="https://img.shields.io/badge/python-3.x-blue?logo=python&logoColor=white" alt="Python"/></a>
-    <a href="docs/ARCHITECTURE.md"><img src="https://img.shields.io/badge/architecture-hub--and--spoke-informational" alt="Architecture"/></a>
-    <a href="https://github.com/anthropics/claude-code"><img src="https://img.shields.io/badge/built%20with-Claude%20Code-6b4fbb?logo=anthropic&logoColor=white" alt="Built with Claude Code"/></a>
-    <a href=".planning/ROADMAP.md"><img src="https://img.shields.io/badge/milestone-v4.0-success?logo=semanticrelease&logoColor=white" alt="Milestone"/></a>
-    <a href="#-license"><img src="https://img.shields.io/badge/license-MIT%20(public%20mirror)-blue?logo=opensourceinitiative&logoColor=white" alt="License"/></a>
-    <a href="http://example.com"><img src="https://img.shields.io/badge/author-Ievgen%20Kyvgyla-orange?logo=homepage&logoColor=white" alt="Author"/></a>
-    <a href="#-documentation-index"><img src="https://img.shields.io/badge/docs-16%20guides-blueviolet?logo=readthedocs&logoColor=white" alt="Docs"/></a>
-    <a href=".planning/ROADMAP.md"><img src="https://img.shields.io/badge/releases-v1.0%20--%20v4.0-blue?logo=git&logoColor=white" alt="Releases"/></a>
-    <a href=".github/workflows/tests.yml"><img src="https://img.shields.io/badge/tests-CI-yellowgreen?logo=pytest&logoColor=white" alt="Tests"/></a>
-</p>
-<!-- PRIVATE-ONLY:END -->
-<!-- PUBLIC-MIRROR:START
 <p align="center">
     <a href="docs/installation.md"><img src="https://img.shields.io/badge/python-3.x-blue?logo=python&logoColor=white" alt="Python"/></a>
     <a href="docs/ARCHITECTURE.md"><img src="https://img.shields.io/badge/architecture-hub--and--spoke-informational" alt="Architecture"/></a>
     <a href="https://github.com/anthropics/claude-code"><img src="https://img.shields.io/badge/built%20with-Claude%20Code-6b4fbb?logo=anthropic&logoColor=white" alt="Built with Claude Code"/></a>
     <a href="https://github.com/dallask/give-me-job-now/releases"><img src="https://img.shields.io/github/v/release/dallask/give-me-job-now?logo=git&logoColor=white" alt="Releases"/></a>
     <a href="#-license"><img src="https://img.shields.io/github/license/dallask/give-me-job-now?logo=opensourceinitiative&logoColor=white" alt="License"/></a>
-    <a href="http://example.com"><img src="https://img.shields.io/badge/author-Ievgen%20Kyvgyla-orange?logo=homepage&logoColor=white" alt="Author"/></a>
+    <a href="http://kivgila.pro"><img src="https://img.shields.io/badge/author-Ievgen%20Kyvgyla-orange?logo=homepage&logoColor=white" alt="Author"/></a>
     <a href="#-documentation-index"><img src="https://img.shields.io/badge/docs-16%20guides-blueviolet?logo=readthedocs&logoColor=white" alt="Docs"/></a>
     <a href="https://github.com/dallask/give-me-job-now/actions/workflows/tests.yml"><img src="https://img.shields.io/badge/tests-CI-yellowgreen?logo=pytest&logoColor=white" alt="Tests"/></a>
 </p>
-PUBLIC-MIRROR:END -->
 
 </div>
 
@@ -64,9 +49,6 @@ PUBLIC-MIRROR:END -->
 - [🔒 Truthfulness guarantee](#-truthfulness-guarantee)
 - [⚡ Quickstart](#-quickstart)
 - [📚 Documentation index](#-documentation-index)
-<!-- PRIVATE-ONLY:START -->
-- [🌐 Public portfolio mirror](#-public-portfolio-mirror)
-<!-- PRIVATE-ONLY:END -->
 - [💬 Support](#-support)
 - [🙏 Acknowledgements](#-acknowledgements)
 - [⚠️ Warning](#-warning)
@@ -216,20 +198,6 @@ end-to-end real-offer walkthrough, see **[docs/RUNBOOK.md](docs/RUNBOOK.md)**.
 
 ---
 
-<!-- PRIVATE-ONLY:START -->
-## 🌐 Public portfolio mirror
-
-This is the private working repository — it carries the real candidate profile and real
-generated offer artifacts, so it stays private by design. A **sanitized, PII-free portfolio
-mirror** (synthetic sample data, MIT-licensed) is published separately at
-**[github.com/dallask/give-me-job-now](https://github.com/dallask/give-me-job-now)** via
-`scripts/publish/gmj_publish_mirror.sh` and its CI wrapper
-(`.github/workflows/publish-mirror.yml`), with an automated semantic-release pipeline
-(`.github/workflows/release.yml`) backfilling a real, honest release history on the mirror.
-See `scripts/publish/README.md` for the full operator runbook.
-
----
-<!-- PRIVATE-ONLY:END -->
 
 ## 💬 Support
 
@@ -264,16 +232,7 @@ Feel free to ping me about any issues. I'll do my best to ignore them.
 
 ## 📄 License
 
-<!-- PRIVATE-ONLY:START -->
-This private repository is **not currently licensed for redistribution** — it contains a real
-candidate profile and real generated application artifacts, and stays closed by design. The
-**public portfolio mirror** (see [above](#-public-portfolio-mirror)) ships a sanitized, synthetic
-copy of the code under the **MIT License** — see that mirror's own `LICENSE` file
-(sourced from this repository's own root `LICENSE` file).
-<!-- PRIVATE-ONLY:END -->
-<!-- PUBLIC-MIRROR:START
 MIT — see [LICENSE](LICENSE).
-PUBLIC-MIRROR:END -->
 
 ---
 
@@ -281,6 +240,6 @@ PUBLIC-MIRROR:END -->
 
 **Truthful by construction. Offer-optimized by design.**
 
-Made by [Ievgen Kyvgyla](http://example.com)
+Made by [Ievgen Kyvgyla](http://kivgila.pro)
 
 </div>
