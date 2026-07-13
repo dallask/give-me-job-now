@@ -14,7 +14,8 @@ No preconditions — this flow has no setup requirements beyond the repo's stand
 
 **Steps (live):**
 ```bash
-claude --dangerously-skip-permissions
+1. claude --dangerously-skip-permissions
+2. /gmj-runs                 # terse newest-first timeline of every run
 ```
 
 **Steps (deterministic backstop):**

@@ -16,7 +16,8 @@ No preconditions — this flow has no setup requirements beyond the repo's stand
 
 **Steps (live):**
 ```bash
-claude --dangerously-skip-permissions
+1. claude --dangerously-skip-permissions
+2. /gmj-batch            # then state your selection (1,3,5 | all) and mode
 ```
 
 **Steps (deterministic backstop):**

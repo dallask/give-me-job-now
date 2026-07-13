@@ -14,7 +14,7 @@ No preconditions — this flow has no setup requirements beyond the repo's stand
 
 **Steps (live):**
 ```bash
-python3 scripts/preferences/gmj_validate_preferences.py --file <candidate-prefs-path> that `gmj-candidate-configurator` consumes verbatim:
+python3 scripts/preferences/gmj_validate_preferences.py --file <candidate-prefs-path>
 ```
 
 **Steps (deterministic backstop):**

@@ -14,7 +14,7 @@ No preconditions — this flow has no setup requirements beyond the repo's stand
 
 **Steps (live):**
 ```bash
-python3 scripts/cv/gmj_template_lint.py --template templates/cv/<slug>.html --sample-tokens "<name>,<company>,<date>" in {n} iteration(s) — saved to `templates/cv/{slug}.html`." (diff-ratio {r}). Not pixel-perfect by design; review and accept or refine the screenshot." chat, or name an existing template to render (`gmj-cv-generator <template-slug>`)." text ({flagged tokens}). All content must bind via `{{ candidate.* }}` — regenerating with data bindings." longer-than-sample CV. Widening/flowing the block before ship."
+python3 scripts/cv/gmj_template_lint.py --template templates/cv/<slug>.html --sample-tokens "<name>,<company>,<date>"
 ```
 
 **Steps (deterministic backstop):**
