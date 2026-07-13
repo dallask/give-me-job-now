@@ -43,6 +43,42 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import gmj_testplan_gen as g  # noqa: E402  (module under test)
+import gmj_testplan_signals as sig  # noqa: E402  (Phase 4 signal-table data module)
+
+INVESTIGATE_SIGNAL_TABLE = (
+    REPO_ROOT
+    / ".planning"
+    / "workstreams"
+    / "investigate"
+    / "phases"
+    / "02-evaluation-criteria-grounding"
+    / "02-EVALUATION-CRITERIA.md"
+)
+
+_MECHANICAL_LITERAL = "None — fully mechanical"
+
+# The exact 10 flow-number -> slug join key, per 04-RESEARCH.md's "FLOW_MANIFEST Join Key
+# (confirmed)" table -- used only to locate each slug's source row in the raw investigate
+# table text below, never to re-derive/duplicate the transcribed cell content itself.
+_SLUG_TO_FLOW_NUM = {
+    "initial-configuration": 1,
+    "pipeline-run-hitl": 2,
+    "pipeline-run-autonomous": 3,
+    "multi-offer-batch": 4,
+    "firecrawl-search": 5,
+    "cv-template": 6,
+    "scheduled-runs": 7,
+    "resume-flow": 8,
+    "operator-monitoring": 9,
+    "cleanup-wizard": 10,
+}
+
+# Slugs whose row shares the _GATE_AB_JUDGMENT_CAVEAT constant (by reference in the source
+# table's own prose -- "Same ... as Flow 2" / "Inherits Flow 3's ... caveat by reference").
+_GATED_SLUGS = {"pipeline-run-hitl", "pipeline-run-autonomous", "multi-offer-batch", "scheduled-runs"}
+
+# The 4 genuinely mechanical slugs (D-04) -- NOT scheduled-runs (Pitfall 2).
+_MECHANICAL_SLUGS = {"firecrawl-search", "resume-flow", "operator-monitoring", "cleanup-wizard"}
 
 
 # --------------------------------------------------------------------------- fixtures
@@ -877,6 +913,138 @@ def test_all_ten_flow_plans_exist_on_disk() -> None:
             assert not has_warning, (
                 f"{plan_path} is tagged risk_tier={row['risk_tier']!r} (not a warn-worthy "
                 f"tier) but its generated text unexpectedly contains a ⚠️ warning block"
+            )
+
+
+# --------------------------------------------------------------------------- Phase 4 Task 1: signal-table data module
+
+def _read_investigate_source_rows() -> dict[int, list[str]]:
+    """Parse 02-EVALUATION-CRITERIA.md's Signal Reference table at test time (never hand-copied).
+
+    Returns {flow_number: [flow_cell, pass_signal, fail_signal, signal_source, semantic_caveat]},
+    read directly from the raw file text every call -- this is the ONLY place this test file
+    reads the source table's cell content, so a future edit to the source table is picked up
+    automatically rather than checked against a second, potentially-stale hand-copied fixture.
+    """
+    text = INVESTIGATE_SIGNAL_TABLE.read_text(encoding="utf-8")
+    rows: dict[int, list[str]] = {}
+    for line in text.splitlines():
+        match = re.match(r"^\|\s*(\d+)\.", line)
+        if not match:
+            continue
+        # Split on unescaped pipes only (a cell may contain an escaped `\|`), then drop the
+        # leading/trailing empty strings produced by the row's own boundary `|` characters.
+        cells = [c.strip() for c in re.split(r"(?<!\\)\|", line)]
+        cells = cells[1:-1] if len(cells) >= 2 and cells[0] == "" and cells[-1] == "" else cells
+        rows[int(match.group(1))] = cells
+    return rows
+
+
+def test_signal_table_by_slug_has_all_ten_manifest_slugs() -> None:
+    """SIGNAL_TABLE_BY_SLUG's key set is exactly FLOW_MANIFEST's slug set (not a duplicate list)."""
+    manifest_slugs = {row["slug"] for row in g.FLOW_MANIFEST}
+    assert set(sig.SIGNAL_TABLE_BY_SLUG.keys()) == manifest_slugs, (
+        f"SIGNAL_TABLE_BY_SLUG's keys {sorted(sig.SIGNAL_TABLE_BY_SLUG.keys())} must exactly "
+        f"match FLOW_MANIFEST's slugs {sorted(manifest_slugs)}"
+    )
+    assert len(sig.SIGNAL_TABLE_BY_SLUG) == 10, (
+        f"expected exactly 10 entries, got {len(sig.SIGNAL_TABLE_BY_SLUG)}"
+    )
+
+
+def test_exactly_four_flows_are_fully_mechanical() -> None:
+    """Exactly firecrawl-search/resume-flow/operator-monitoring/cleanup-wizard are fully mechanical.
+
+    scheduled-runs (flow 7) must NOT carry the literal -- Pitfall 2 regression guard.
+    """
+    for slug in _MECHANICAL_SLUGS:
+        assert sig.SIGNAL_TABLE_BY_SLUG[slug]["semantic_caveat"] == _MECHANICAL_LITERAL, (
+            f"{slug!r} must have semantic_caveat == {_MECHANICAL_LITERAL!r} (D-04), got: "
+            f"{sig.SIGNAL_TABLE_BY_SLUG[slug]['semantic_caveat']!r}"
+        )
+    all_mechanical = {
+        slug for slug, row in sig.SIGNAL_TABLE_BY_SLUG.items()
+        if row["semantic_caveat"] == _MECHANICAL_LITERAL
+    }
+    assert all_mechanical == _MECHANICAL_SLUGS, (
+        f"expected exactly {sorted(_MECHANICAL_SLUGS)} to be fully mechanical, got "
+        f"{sorted(all_mechanical)}"
+    )
+    assert sig.SIGNAL_TABLE_BY_SLUG["scheduled-runs"]["semantic_caveat"] != _MECHANICAL_LITERAL, (
+        "Pitfall 2 regression: scheduled-runs (flow 7) must NOT be rendered as "
+        "'None — fully mechanical' -- it inherits the shared Gate A/B caveat by reference"
+    )
+
+
+def test_gated_flows_share_identical_gate_ab_caveat_substring() -> None:
+    """The full _GATE_AB_JUDGMENT_CAVEAT text appears verbatim in all 4 gated flows' caveat cells."""
+    for slug in _GATED_SLUGS:
+        assert sig._GATE_AB_JUDGMENT_CAVEAT in sig.SIGNAL_TABLE_BY_SLUG[slug]["semantic_caveat"], (
+            f"{slug!r}'s semantic_caveat must contain the full _GATE_AB_JUDGMENT_CAVEAT text "
+            f"verbatim as a substring (one source of truth, not independently-typed near-"
+            f"duplicates), got: {sig.SIGNAL_TABLE_BY_SLUG[slug]['semantic_caveat']!r}"
+        )
+
+
+def test_signal_table_matches_investigate_source() -> None:
+    """Every transcribed cell traces verbatim to 02-EVALUATION-CRITERIA.md's raw table text.
+
+    pass_signal/fail_signal/signal_source are always an exact match against the source row's
+    corresponding cell. semantic_caveat is checked per-case: the 4 mechanical slugs must equal
+    the D-04 literal; the 4 gated slugs' OWN row-specific trailing clause (the shared constant's
+    reference has already been asserted separately by
+    test_gated_flows_share_identical_gate_ab_caveat_substring) must be a substring of the
+    source row's caveat cell; all other (ungated, non-mechanical) slugs must match the source
+    row's caveat cell exactly.
+    """
+    source_rows = _read_investigate_source_rows()
+
+    for slug, flow_num in _SLUG_TO_FLOW_NUM.items():
+        row = sig.SIGNAL_TABLE_BY_SLUG[slug]
+        source_cells = source_rows[flow_num]
+        assert len(source_cells) == 5, (
+            f"expected 5 cells for flow {flow_num} ({slug!r}), got {len(source_cells)}: {source_cells}"
+        )
+        _flow, src_pass, src_fail, src_source, src_caveat = source_cells
+
+        assert row["pass_signal"] == src_pass, (
+            f"{slug!r}'s pass_signal must be verbatim-identical to the source table's flow "
+            f"{flow_num} Pass Signal cell -- got:\n{row['pass_signal']!r}\nexpected:\n{src_pass!r}"
+        )
+        assert row["fail_signal"] == src_fail, (
+            f"{slug!r}'s fail_signal must be verbatim-identical to the source table's flow "
+            f"{flow_num} Fail Signal cell -- got:\n{row['fail_signal']!r}\nexpected:\n{src_fail!r}"
+        )
+        assert row["signal_source"] == src_source, (
+            f"{slug!r}'s signal_source must be verbatim-identical to the source table's flow "
+            f"{flow_num} Signal Source cell -- got:\n{row['signal_source']!r}\nexpected:\n{src_source!r}"
+        )
+
+        if slug in _MECHANICAL_SLUGS:
+            assert row["semantic_caveat"] == _MECHANICAL_LITERAL, (
+                f"{slug!r}'s semantic_caveat must equal the D-04 literal {_MECHANICAL_LITERAL!r}, "
+                f"got: {row['semantic_caveat']!r}"
+            )
+        elif slug in _GATED_SLUGS and slug != "pipeline-run-hitl":
+            # Flow 2 (pipeline-run-hitl) IS the canonical text -- checked via the exact-match
+            # branch below. Flows 3/4/7 append their own row-specific trailing clause to the
+            # shared constant; that trailing clause must itself be a verbatim substring of the
+            # source row's own (short, "Same as Flow 2 —") caveat cell.
+            addendum = row["semantic_caveat"].replace(sig._GATE_AB_JUDGMENT_CAVEAT, "", 1).strip()
+            assert addendum, (
+                f"{slug!r}'s semantic_caveat must carry its own row-specific trailing clause "
+                f"beyond the shared constant, got: {row['semantic_caveat']!r}"
+            )
+            assert addendum in src_caveat, (
+                f"{slug!r}'s own trailing clause must be an exact substring of the source "
+                f"table's flow {flow_num} Semantic Caveat cell -- got addendum:\n{addendum!r}\n"
+                f"source cell:\n{src_caveat!r}"
+            )
+        else:
+            assert row["semantic_caveat"] == src_caveat, (
+                f"{slug!r}'s semantic_caveat must be verbatim-identical to the source table's "
+                f"flow {flow_num} Semantic Caveat cell -- got:\n{row['semantic_caveat']!r}\n"
+                f"expected:\n{src_caveat!r}"
             )
 
 
