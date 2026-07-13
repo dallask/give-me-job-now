@@ -353,12 +353,20 @@ Repeat until `gmj_route.py` signals `status: done` or a hard stop fires:
        present the proposed `current_cap`→`proposed_cap` raise (+1, fixed) to the operator as
        an explicit **approval prompt** — never auto-apply without asking. In `autonomous`
        mode, apply the raise automatically and **LOG it** (never silent). Either way, once the
-       raise is approved/applied, re-invoke `gmj_check_cap.py` with `--raised` for this
-       offer/type going forward within the SAME retry sequence, then continue the SAME
-       recompose→Gate A/B path as the `continue` branch above (`gmj_map_feedback.py` →
-       `Task(gmj-artifact-composer)`). A raised-cap recompose is **NOT** exempt from Gate A/B:
-       it must still pass both gates via the unchanged, non-bypassable gate mechanism, and if
-       it fails again the loop simply continues toward the (now raised) cap.
+       raise is approved (human-in-the-loop) or auto-applied and logged (autonomous), the hub
+       **MUST** run a mandatory, separate step BEFORE re-invoking `--raised`: invoke
+       `scripts/pipeline/gmj_check_cap.py --new-cap <proposed_cap>` (the exact same script,
+       the `--new-cap` flag added for PIPEFIX-01, passing the `proposed_cap` value just
+       received from the `propose_raise` report) to atomically persist the raised value into
+       **`state.json`'s `retry_cap` field**. This is a distinct, named step — do not fold it
+       into the vague "apply the raise" phrase or conflate it with the subsequent `--raised`
+       re-invocation. Only AFTER this write has completed, re-invoke `gmj_check_cap.py` with
+       `--raised` for this offer/type going forward within the SAME retry sequence, then
+       continue the SAME recompose→Gate A/B path as the `continue` branch above
+       (`gmj_map_feedback.py` → `Task(gmj-artifact-composer)`). A raised-cap recompose is
+       **NOT** exempt from Gate A/B: it must still pass both gates via the unchanged,
+       non-bypassable gate mechanism, and if it fails again the loop simply continues toward
+       the (now raised) cap.
      - **Exit 1 (`exhausted`, final) →** **HARD STOP.** Emit a report naming the failing
        artifact, the last gate's reason, AND the new `failure_class`
        (`systemic`/`narrow`) field from the report, so the operator can see at a glance
