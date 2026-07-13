@@ -405,6 +405,71 @@ def test_render_steps_block_keeps_slash_command_follow_up_after_claude_repl_entr
         )
 
 
+def test_render_steps_block_separates_claude_entry_from_slash_follow_up_across_two_blocks() -> None:
+    """CR-01 regression: a `claude ...` REPL-entry line and its `/gmj-...` slash-command
+    follow-up must never be bundled into one uninterrupted fenced ```bash block with numbered
+    1./2. steps -- an explicit judgment/inspection point must separate them, per
+    docs/TESTPLAN-FORMAT-SPEC.md's Non-Executability Acceptance Criterion 2.
+
+    Reproduces the exact real-world shape that shipped docs/test-plans/pipeline-run-hitl.md
+    (and pipeline-run-autonomous.md, multi-offer-batch.md, resume-flow.md) with both lines
+    numbered `1.`/`2.` inside one shared fenced block, with no intervening judgment point.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = _write_fixture(tmp, "gmj-fixture-pipeline.md", _FIXTURE_CLI_ONLY_INVOCATION)
+        ir = g.extract(fixture, risk_tier="read-only")
+        text = g.render(ir)
+
+        steps_start = text.find("**Steps")
+        steps_end = text.find("**Expected:**")
+        assert steps_start != -1 and steps_end != -1, f"could not locate Steps/Expected markers in:\n{text}"
+        steps_block = text[steps_start:steps_end]
+
+        blocks = re.findall(r"```(?:bash)?\n(.*?)\n```", steps_block, flags=re.DOTALL)
+        assert len(blocks) >= 2, (
+            f"CR-01 regression: expected at least two separate fenced sub-blocks (claude "
+            f"REPL-entry, then its slash-command follow-up), got {len(blocks)} block(s): "
+            f"{blocks!r}\nfull Steps block:\n{steps_block}"
+        )
+
+        claude_block = next((b for b in blocks if "claude --dangerously-skip-permissions" in b), None)
+        assert claude_block is not None, f"no fenced block contains the claude REPL-entry line, got:\n{blocks!r}"
+        claude_block_lines = [ln for ln in claude_block.splitlines() if ln.strip()]
+        assert len(claude_block_lines) == 1, (
+            f"the claude REPL-entry line must be alone in its own fenced block (no sibling "
+            f"command line), got:\n{claude_block_lines!r}"
+        )
+
+        slash_block = next((b for b in blocks if "/gmj-fixture-pipeline" in b), None)
+        assert slash_block is not None, f"no fenced block contains the /gmj-fixture-pipeline follow-up, got:\n{blocks!r}"
+        assert slash_block != claude_block, (
+            "the slash-command follow-up must be in its own SEPARATE fenced block from the "
+            "claude REPL-entry line, not the same shared block"
+        )
+        slash_block_lines = [ln for ln in slash_block.splitlines() if ln.strip()]
+        assert len(slash_block_lines) == 1, (
+            f"the slash-command follow-up must be alone in its own fenced block, got:\n{slash_block_lines!r}"
+        )
+
+        # An explicit judgment/inspection point (non-fenced-code prose) must separate the two
+        # blocks -- Criterion 2's "intervening judgment/inspection point" requirement.
+        first_close = steps_block.find("```", steps_block.find("```") + 3)
+        second_open = steps_block.find("```", first_close + 3)
+        between = steps_block[first_close + 3 : second_open].strip()
+        assert between, (
+            f"expected non-empty prose (a judgment/inspection point) between the two fenced "
+            f"blocks, got empty string. Steps block:\n{steps_block}"
+        )
+        assert not between.startswith("```"), f"text between blocks must not itself start a fenced block: {between!r}"
+
+        # Neither block may contain a numbered 1./2. step prefix -- the exact CR-01 shape
+        # being eliminated (the two commands are no longer rendered as a single ordered
+        # numbered sequence in one block).
+        assert not any(re.match(r"^\s*\d+\.", b) for b in blocks), (
+            f"CR-01 regression: no block may contain a numbered step prefix, got:\n{blocks!r}"
+        )
+
+
 # Shaped like the real .claude/commands/gmj-dashboard.md: two independent,
 # mutually-exclusive invocations of the SAME script (default vs. `--manage`) -- CR-03's bug
 # bundled both into one numbered fenced code block with no judgment point between them,
