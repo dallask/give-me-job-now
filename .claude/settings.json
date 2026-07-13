@@ -67,6 +67,15 @@
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/gmj-execution-log.sh"
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/gmj-execution-log.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
