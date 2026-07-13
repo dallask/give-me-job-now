@@ -24,9 +24,23 @@ Reads the per-(offer-slug, artifact_type) retry counter recorded by
 stop), ``2`` = propose_raise (bounded, fires at most once per offer/type per
 retry sequence — CONTEXT.md's "ONE bounded cap raise" decision). The
 "has this offer/type already used its one raise" state is tracked OUTSIDE this
-script by the caller (``--raised``) — no new ``state.json`` key is invented
-here and no cross-invocation filesystem side effect is added by this script
-itself, consistent with its existing pure-function-over-CLI-args shape.
+script by the caller (``--raised``).
+
+**Atomic cap-write (PIPEFIX-01, the ONLY state-mutating code path in this
+file):** an optional ``--new-cap <int>`` argument atomically persists a raised
+``retry_cap`` into ``state.json`` BEFORE the normal read-only 3-way verdict
+logic below runs (against the just-written, post-bump state). This closes the
+gap where a ``propose_raise`` (exit 2) response was followed by a ``--raised``
+re-invocation without ``state.retry_cap`` ever actually being bumped, which
+previously produced a false EXHAUSTED verdict on the SAME stale cap value. The
+new value is validated with the same isinstance-int-excluding-bool guard used
+for the read-path ``retry_cap`` check, and rejected if negative; on any
+validation failure nothing is written (structured stderr message, exit 1, no
+traceback). This mutation is triggered EXCLUSIVELY by the explicit ``--new-cap``
+flag — it is never a side effect of the read-only verdict logic, and a single
+invocation may both bump the cap and immediately return a verdict, or the flag
+may be its own standalone invocation (the orchestrator prescribes: bump first
+via a dedicated ``--new-cap`` call, THEN a separate ``--raised`` call).
 
 There is NO "deliver best-effort" / ship-last-attempt branch anywhere: cap
 exhaustion is a repudiation-proof stop, not a downgrade (Pitfall 2, T-07-12).
@@ -37,9 +51,10 @@ cap is rejected. Control flow mirrors ``scripts/offers/gmj_check_offer.py``
 compute → distinct stdout token + exit code).
 
 CLI: ``gmj_check_cap.py --state <path> --offer-slug <s> --artifact-type
-<cv|cover_letter|interview_prep> [--reason <str>] [--raised]`` exits 0
-(continue), 2 (propose_raise), or 1 (exhausted / missing file / invalid JSON /
-malformed cap); all errors go to stderr with no traceback.
+<cv|cover_letter|interview_prep> [--reason <str>] [--raised] [--new-cap <int>]``
+exits 0 (continue), 2 (propose_raise), or 1 (exhausted / missing file / invalid
+JSON / malformed cap / malformed or negative ``--new-cap``); all errors go to
+stderr with no traceback.
 """
 
 from __future__ import annotations
@@ -115,6 +130,17 @@ def main() -> int:
             "for this retry sequence (caller-tracked; see module docstring)."
         ),
     )
+    parser.add_argument(
+        "--new-cap",
+        type=int,
+        default=None,
+        help=(
+            "Atomically bump state.json's retry_cap to this value BEFORE the normal "
+            "verdict logic runs (PIPEFIX-01; see module docstring). Orthogonal to "
+            "--raised — both may be passed in one invocation, or --new-cap may be its "
+            "own standalone call preceding a separate --raised re-invocation."
+        ),
+    )
     args = parser.parse_args()
 
     state_path = args.state.expanduser()
@@ -130,6 +156,31 @@ def main() -> int:
     if not isinstance(state, dict):
         print("State file must contain a JSON object.", file=sys.stderr)
         return 1
+
+    # Atomic cap-write (PIPEFIX-01) — the ONLY state-mutating code path in this
+    # script, triggered exclusively by the explicit --new-cap flag. Applied
+    # BEFORE the read-only verdict logic below, so a single invocation (or a
+    # standalone --new-cap-only invocation) can bump the cap and have the
+    # subsequent verdict logic (this call or a later --raised re-invocation)
+    # see the already-bumped value.
+    if args.new_cap is not None:
+        existing_cap = state.get("retry_cap")
+        if not isinstance(existing_cap, int) or isinstance(existing_cap, bool):
+            print(
+                "Malformed state: 'retry_cap' must be a frozen integer "
+                "(required before --new-cap can bump it).",
+                file=sys.stderr,
+            )
+            return 1
+        if isinstance(args.new_cap, bool) or args.new_cap < 0:
+            print("--new-cap must be a non-negative integer.", file=sys.stderr)
+            return 1
+        # Read-modify-preserve: set retry_cap, keep every sibling key
+        # (including retry_counts) — mirrors gmj_state_write.py's own idiom.
+        state["retry_cap"] = args.new_cap
+        state_path.write_text(
+            json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
 
     offer_slug = args.offer_slug
     artifact_type = args.artifact_type
