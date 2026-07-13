@@ -179,6 +179,20 @@ def _sig_pycache_hook_log_pollution(entry: dict) -> bool:
     return any(n in text for n in needles)
 
 
+def _sig_pipeline_cap_raise_misuse(entry: dict) -> bool:
+    """Cap-raise protocol-misuse shaped signature (gmj-pipeline-domain, REFLECT-07).
+
+    Matches entries whose text contains both "gmj_check_cap.py" and "--raised" — the
+    exact command-line shape a `--raised` re-invocation of the retry-cap check produces,
+    confirmed against the real 2026-07-13 live-run log's `command` field. INVOCATION-
+    FREQUENCY ONLY: this predicate proves a `--raised` re-invocation was made and roughly
+    how many times from command-line text alone; it cannot see the invocation's exit
+    code or verdict from the JSONL log (see PATTERN_REGISTRY entry description).
+    """
+    text = _searchable_text(entry).lower()
+    return "gmj_check_cap.py" in text and "--raised" in text
+
+
 def _sig_repeated_identical_error(entries: list[dict]) -> list[dict]:
     """Generic fallback: 3+ entries sharing a near-identical error-shaped field value.
 
@@ -244,6 +258,32 @@ PATTERN_REGISTRY = [
             "additionally, have the test harness diff only the files each test itself "
             "wrote, not the whole working tree, to avoid concurrent-hook-log mutations "
             "being misattributed to the test under gate."
+        ),
+    },
+    {
+        "pattern_id": "gmj-pipeline-cap-raise-misuse",
+        "heading": "Pipeline cap-raise protocol misuse",
+        "description": (
+            "gmj_check_cap.py was re-invoked with --raised for the same offer/artifact-"
+            "type multiple times in a row. KNOWN LIMITATION: this detector proves a "
+            "--raised invocation WAS MADE and roughly how many times, from the logged "
+            "command-line text alone — it CANNOT see the invocation's exit code or "
+            "verdict from the JSONL log, so it signals 'this sequence was exercised "
+            "repeatedly,' never 'this sequence definitively failed' or 'the cap was "
+            "actually exhausted.' Do not read this finding as verdict-aware."
+        ),
+        "min_occurrences": 2,
+        "signature_predicate": _sig_pipeline_cap_raise_misuse,
+        "proposed_fix": (
+            "Verify the PIPEFIX-01 fix is actually being followed in sequence: "
+            "gmj-orchestrator.md's Exit-2 (propose_raise) branch must bump "
+            "state.json's retry_cap to the proposed_cap BEFORE re-invoking "
+            "gmj_check_cap.py --raised, and gmj_check_cap.py's --new-cap flag (if used) "
+            "must be the call that performs that atomic write. A repeated --raised "
+            "re-invocation without a preceding cap-write step is exactly the failure "
+            "shape PIPEFIX-01 addresses — confirm the cap-write actually happened "
+            "on disk (state.json's retry_cap value) before the --raised re-invocation, "
+            "not just that the doc-prescribed step was mentioned."
         ),
     },
 ]
