@@ -288,6 +288,112 @@ def test_over_cap_without_raise_marker_still_treated_as_final_exhausted() -> Non
     assert "failure_class" in report, report
 
 
+def test_new_cap_atomically_bumps_retry_cap_preserving_siblings() -> None:
+    # PIPEFIX-01: --new-cap writes the bumped retry_cap back to disk, preserving
+    # every sibling key (e.g. retry_counts) byte-for-byte in shape.
+    state_path = _seed_state(
+        {"retry_cap": 2, "retry_counts": {"acme": {"cv": 2}}}
+    )
+    result = _run(
+        "--state", str(state_path),
+        "--offer-slug", "acme",
+        "--artifact-type", "cv",
+        "--new-cap", "3",
+        "--raised",
+    )
+    assert result.returncode == 0, f"new-cap bump then below-bumped-cap must exit 0: {result.stderr}"
+    on_disk = json.loads(state_path.read_text(encoding="utf-8"))
+    assert on_disk["retry_cap"] == 3, f"retry_cap must be bumped on disk: {on_disk!r}"
+    assert on_disk["retry_counts"] == {"acme": {"cv": 2}}, (
+        f"sibling key retry_counts must be preserved: {on_disk!r}"
+    )
+
+
+def test_new_cap_rejects_malformed_or_missing_existing_cap() -> None:
+    # A malformed (bool) or missing existing retry_cap is rejected the same way
+    # the read-path guard rejects it — before any write happens.
+    state_path = _seed_state({"retry_cap": True, "retry_counts": {"acme": {"cv": 0}}})
+    result = _run(
+        "--state", str(state_path),
+        "--offer-slug", "acme",
+        "--artifact-type", "cv",
+        "--new-cap", "3",
+    )
+    assert result.returncode == 1, "bool existing retry_cap must be rejected (exit 1)"
+    assert result.stderr.strip(), "error must be reported to stderr"
+    on_disk = json.loads(state_path.read_text(encoding="utf-8"))
+    assert on_disk["retry_cap"] is True, "no partial write on rejection"
+
+    state_path2 = _seed_state({"retry_counts": {"acme": {"cv": 0}}})
+    result2 = _run(
+        "--state", str(state_path2),
+        "--offer-slug", "acme",
+        "--artifact-type", "cv",
+        "--new-cap", "3",
+    )
+    assert result2.returncode == 1, "missing existing retry_cap must be rejected (exit 1)"
+    assert result2.stderr.strip(), "error must be reported to stderr"
+
+    # Negative new-cap value is also rejected, no write.
+    state_path3 = _seed_state({"retry_cap": 2, "retry_counts": {"acme": {"cv": 2}}})
+    result3 = _run(
+        "--state", str(state_path3),
+        "--offer-slug", "acme",
+        "--artifact-type", "cv",
+        "--new-cap", "-1",
+    )
+    assert result3.returncode == 1, "negative --new-cap must be rejected (exit 1)"
+    assert result3.stderr.strip(), "error must be reported to stderr"
+    on_disk3 = json.loads(state_path3.read_text(encoding="utf-8"))
+    assert on_disk3["retry_cap"] == 2, "no partial write on negative --new-cap rejection"
+
+
+def test_full_bump_then_raised_sequence_prevents_false_exhausted() -> None:
+    # PIPEFIX-01 regression: seed retry_cap 2, retry_counts.acme.cv = 2 (AT cap).
+    # First prove the OLD (bug) sequence: --raised WITHOUT bumping the cap first
+    # still reproduces the false EXHAUSTED verdict (proves the bug is real and
+    # this regression test would have caught it).
+    state_path = _seed_state(
+        {"retry_cap": 2, "retry_counts": {"acme": {"cv": 2}}}
+    )
+    old_result = _run(
+        "--state", str(state_path),
+        "--offer-slug", "acme",
+        "--artifact-type", "cv",
+        "--raised",
+    )
+    assert old_result.returncode == 1, (
+        "OLD unbumped --raised sequence must still reproduce the false EXHAUSTED bug"
+    )
+    old_report = json.loads(old_result.stdout)
+    assert old_report["status"] == "exhausted", old_report
+
+    # Now apply the FIXED sequence: bump the cap via --new-cap first (a separate
+    # invocation, matching the orchestrator doc's prescribed bump-then-raised
+    # order), THEN re-invoke the SAME --raised call.
+    bump_result = _run(
+        "--state", str(state_path),
+        "--offer-slug", "acme",
+        "--artifact-type", "cv",
+        "--new-cap", "3",
+    )
+    assert bump_result.returncode == 0, f"cap bump must succeed: {bump_result.stderr}"
+    on_disk = json.loads(state_path.read_text(encoding="utf-8"))
+    assert on_disk["retry_cap"] == 3, on_disk
+
+    fixed_result = _run(
+        "--state", str(state_path),
+        "--offer-slug", "acme",
+        "--artifact-type", "cv",
+        "--raised",
+    )
+    assert fixed_result.returncode == 0, (
+        f"fixed bump-then-raised sequence must exit 0 (continue), not false-exhausted: "
+        f"{fixed_result.stderr}"
+    )
+    assert fixed_result.stdout.strip() == "continue", fixed_result.stdout
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
