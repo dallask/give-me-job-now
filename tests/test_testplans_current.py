@@ -18,9 +18,9 @@ value set, a script/file path, a config literal value, or a command flag) no lon
 against the live codebase, this gate turns RED and names exactly which flow/entity drifted.
 
 Check target (D-01): the hand-authored ``SIGNAL_TABLE_BY_SLUG`` source data in
-``scripts/gmj_testplan_signals.py`` — never the rendered per-flow Markdown output files under
-``docs/test-plans/*.md``. Those rendered files are a purely mechanical, downstream artifact of
-the source data; checking the source once is sufficient.
+``scripts/gmj_testplan_signals.py`` — never the rendered per-flow Markdown output files the
+generator writes under its own docs output directory. Those rendered files are a purely
+mechanical, downstream artifact of the source data; checking the source once is sufficient.
 
 Ground-truth entity sets are built directly from the SOURCE trees (``schemas/``, ``scripts/``,
 ``config/``) — NEVER from the ``gmj-core/`` packaged payload copy — so the gate tracks the
@@ -120,85 +120,105 @@ SCRIPT_SH_REF = re.compile(r"(?<![\w])scripts/[a-zA-Z0-9_/]+\.sh")
 PIPELINE_RUN_PATTERN = re.compile(r"(?<![\w])\.pipeline/runs/[^`\s]+")
 
 
-def _resolve_dotted_path(schema: dict, dotted_path: str) -> tuple[bool, str]:
-    """Walk ``dotted_path`` segments through a JSON-Schema dict's properties/$defs/oneOf/allOf.
+def _local_ref_target(schema: dict, ref: str) -> dict | None:
+    """Resolve a local ``#/$defs/<name>`` (or absolute-URN-suffixed) ``$ref`` within ``schema``.
 
-    Returns (found, detail). Fails closed (found=False) on any unresolved segment rather than
-    raising — a malformed/renamed path must report "field not found", never crash the gate.
+    Only same-document local refs are supported (the only kind these 3 schemas use) — an
+    absolute URN ref (e.g. ``urn:give-me-job:schema:gate_result#/$defs/offending_claim``) is
+    matched by its trailing ``#/$defs/...`` fragment, since this schema's own ``$id`` is that
+    same URN. Fails closed (returns ``None``) on anything else rather than raising.
+    """
+    frag = ref.split("#", 1)[-1] if "#" in ref else ref
+    if not frag.startswith("/$defs/"):
+        return None
+    name = frag[len("/$defs/") :]
+    target = schema.get("$defs", {}).get(name)
+    return target if isinstance(target, dict) else None
+
+
+def _expand_branches(schema: dict, node: dict) -> list[dict]:
+    """Return every concrete object-schema ``node`` could be, expanding ``$ref``/``oneOf``/``allOf``.
+
+    A field described only as ``{"$ref": "..."}`` or ``{"oneOf": [...]}`` (e.g.
+    ``content``'s ``oneOf`` of the 3 gate-variant $defs) has no ``properties`` of its own —
+    the real fields live inside each expanded branch. Returns a flat list of dicts, each a
+    candidate "this is what the field actually looks like" — the caller tries each.
+    """
+    branches: list[dict] = [node]
+    out: list[dict] = []
+    seen: list[int] = []
+    while branches:
+        current = branches.pop()
+        if id(current) in seen:
+            continue
+        seen.append(id(current))
+        if "$ref" in current:
+            target = _local_ref_target(schema, current["$ref"])
+            if target is not None:
+                branches.append(target)
+            continue
+        for branch_key in ("oneOf", "allOf"):
+            for sub in current.get(branch_key, []):
+                if isinstance(sub, dict):
+                    branches.append(sub)
+        out.append(current)
+    return out
+
+
+def _walk_segments(schema: dict, root: dict, segments: list[str]) -> dict | None:
+    """Walk ``segments`` through ``root``'s properties, expanding $ref/oneOf/allOf at each hop.
+
+    Returns the final field's own schema-fragment dict, or ``None`` if any segment fails to
+    resolve in every candidate branch. Fails closed rather than raising.
+    """
+    if not segments:
+        return None
+    nodes = _expand_branches(schema, root)
+    field: dict | None = None
+    for seg in segments:
+        next_nodes: list[dict] = []
+        field = None
+        for node in nodes:
+            props = node.get("properties")
+            if isinstance(props, dict) and seg in props and isinstance(props[seg], dict):
+                field = props[seg]
+                next_nodes.extend(_expand_branches(schema, field))
+        if field is None:
+            return None
+        nodes = next_nodes
+    return field
+
+
+def _resolve_field(schema: dict, dotted_path: str) -> dict | None:
+    """Resolve ``dotted_path`` against ``schema``, trying every plausible starting root.
+
+    Returns the final field's own schema-fragment dict (so a caller can read ``enum`` etc.),
+    or ``None`` if the path resolves nowhere. Fails closed rather than raising on a
+    malformed/renamed path.
     """
     segments = dotted_path.split(".")
-    # Collect every properties-dict this schema exposes: the root's own properties, plus
-    # every $def's properties (a citation may refer to a field inside a $def object, e.g.
-    # offending_claim.rule_violated lives inside $defs/offending_claim, not the schema root).
-    candidate_prop_maps: list[dict] = []
-    if isinstance(schema.get("properties"), dict):
-        candidate_prop_maps.append(schema["properties"])
-    for def_body in schema.get("$defs", {}).values():
-        if isinstance(def_body, dict) and isinstance(def_body.get("properties"), dict):
-            candidate_prop_maps.append(def_body["properties"])
-        # oneOf/allOf branches inside a $def (e.g. gate_a_content/gate_b_content variants
-        # live under the schema root's own oneOf, already $defs above; nested oneOf/allOf
-        # branches are walked too for completeness).
-        for branch_key in ("oneOf", "allOf"):
-            for branch in def_body.get(branch_key, []) if isinstance(def_body, dict) else []:
-                if isinstance(branch, dict) and isinstance(branch.get("properties"), dict):
-                    candidate_prop_maps.append(branch["properties"])
-    for branch_key in ("oneOf", "allOf"):
-        for branch in schema.get(branch_key, []):
-            if isinstance(branch, dict) and isinstance(branch.get("properties"), dict):
-                candidate_prop_maps.append(branch["properties"])
+    def_by_name = {
+        name: body for name, body in schema.get("$defs", {}).items() if isinstance(body, dict)
+    }
 
-    for props in candidate_prop_maps:
-        node = props
-        ok = True
-        for seg in segments:
-            if not isinstance(node, dict) or seg not in node:
-                ok = False
-                break
-            field = node[seg]
-            if not isinstance(field, dict):
-                ok = False
-                break
-            # Descend into the next segment's properties, if any (nested dotted path).
-            node = field.get("properties", {})
-        if ok:
-            return True, "resolved"
-    return False, "field not found"
+    # Ordinary case: walk the full dotted path from the schema root, or from each $def's own
+    # body (a citation may name a field that lives inside a $def object accessed only via
+    # $ref, e.g. content.verdict resolves through content's oneOf into $defs/gate_a_content).
+    roots: list[dict] = [schema, *def_by_name.values()]
+    for root in roots:
+        field = _walk_segments(schema, root, segments)
+        if field is not None:
+            return field
 
+    # A citation's leading segment may itself BE a $def name (e.g.
+    # "offending_claim.rule_violated", where "offending_claim" is a $defs key referenced only
+    # via $ref from an array's `items`, never a property anywhere) — retry with that leading
+    # segment pre-consumed directly against its own named $def body.
+    if segments and segments[0] in def_by_name:
+        field = _walk_segments(schema, def_by_name[segments[0]], segments[1:])
+        if field is not None:
+            return field
 
-def _resolve_enum(schema: dict, dotted_path: str) -> list[str] | None:
-    """Return the live ``enum`` array at ``dotted_path``, or ``None`` if unresolved."""
-    segments = dotted_path.split(".")
-    candidate_prop_maps: list[dict] = []
-    if isinstance(schema.get("properties"), dict):
-        candidate_prop_maps.append(schema["properties"])
-    for def_body in schema.get("$defs", {}).values():
-        if isinstance(def_body, dict) and isinstance(def_body.get("properties"), dict):
-            candidate_prop_maps.append(def_body["properties"])
-        for branch_key in ("oneOf", "allOf"):
-            for branch in def_body.get(branch_key, []) if isinstance(def_body, dict) else []:
-                if isinstance(branch, dict) and isinstance(branch.get("properties"), dict):
-                    candidate_prop_maps.append(branch["properties"])
-    for branch_key in ("oneOf", "allOf"):
-        for branch in schema.get(branch_key, []):
-            if isinstance(branch, dict) and isinstance(branch.get("properties"), dict):
-                candidate_prop_maps.append(branch["properties"])
-
-    for props in candidate_prop_maps:
-        node = props
-        ok = True
-        field: dict = {}
-        for seg in segments:
-            if not isinstance(node, dict) or seg not in node:
-                ok = False
-                break
-            field = node[seg]
-            if not isinstance(field, dict):
-                ok = False
-                break
-            node = field.get("properties", {})
-        if ok and "enum" in field:
-            return list(field["enum"])
     return None
 
 
@@ -216,10 +236,10 @@ def test_signal_table_field_paths_resolve() -> None:
             )
             continue
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
-        found, detail = _resolve_dotted_path(schema, dotted_path)
-        if not found:
+        field = _resolve_field(schema, dotted_path)
+        if field is None:
             violations.append(
-                f"{flow_slug}: {schema_relpath}: {dotted_path} — expected field present, actual: {detail}"
+                f"{flow_slug}: {schema_relpath}: {dotted_path} — expected field present, actual: field not found"
             )
     assert not violations, (
         "signal-table field-path citation(s) no longer resolve "
@@ -238,7 +258,8 @@ def test_signal_table_enum_values_resolve() -> None:
             )
             continue
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
-        live_enum = _resolve_enum(schema, dotted_path)
+        field = _resolve_field(schema, dotted_path)
+        live_enum = field.get("enum") if isinstance(field, dict) else None
         if live_enum is None:
             violations.append(
                 f"{flow_slug}: {schema_relpath}: {dotted_path} — expected enum present, actual: value not found"
@@ -286,8 +307,13 @@ def test_signal_table_script_and_path_refs_resolve() -> None:
         for m in PIPELINE_RUN_PATTERN.finditer(text):
             pattern = m.group(0).rstrip("'\"’.,")
             # Structural plausibility only: must contain a placeholder-shaped segment
-            # (angle-bracket <...> or brace-glob {...}) — never asserted to exist on disk.
-            if not (re.search(r"<[^>]+>", pattern) or re.search(r"\{[^}]+\}", pattern)):
+            # (angle-bracket <...>, brace-glob {...}, or a bare **/* glob wildcard) —
+            # never asserted to exist on disk (no run has ever executed in this checkout).
+            if not (
+                re.search(r"<[^>]+>", pattern)
+                or re.search(r"\{[^}]+\}", pattern)
+                or "**" in pattern
+            ):
                 violations.append(
                     f"{flow_slug}: {pattern} — expected glob-tolerant placeholder segment, "
                     "actual: no placeholder segment found"
