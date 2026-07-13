@@ -21,7 +21,7 @@ from xml.sax.saxutils import escape
 # Same import idiom as scripts/cv/gmj_draft_to_cv_yaml.py (scripts/artifacts on sys.path).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "artifacts"))
 from gmj_schema_fields import CONTACT, WEBSITE_GROUPS  # noqa: E402  (both must be USED, not just imported)
-from gmj_format_fields import contact_lines, languages_rows, expertise_skills_text  # noqa: E402  (single-owner shared formatter, PIPE-02)
+from gmj_format_fields import contact_lines, languages_rows, expertise_skills_text, education_rows  # noqa: E402  (single-owner shared formatter, PIPE-02/PIPEFIX-02)
 
 # Sibling-module import (scripts/cv/ itself) for the config-driven template resolver (TMPL-01/02).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -181,7 +181,17 @@ def _master_candidate_photo(repo_root: Path, lang: str) -> str | None:
 
 
 def candidate_for_template(candidate: dict, repo_root: Path) -> dict:
-    """Copy candidate dict; drop invalid photo paths so HTML img does not break."""
+    """Copy candidate dict; drop invalid photo paths so HTML img does not break.
+
+    Also pre-filters ``education`` through the single-owner :func:`education_rows`
+    shape-guard (PIPEFIX-02) BEFORE the candidate dict reaches the Jinja template
+    render call — since Jinja templates cannot import a Python helper directly, this
+    is the Python-side pre-filter call site for the Jinja/baxter.html render path
+    (mirroring render_reportlab()'s direct call to the SAME helper). A malformed row
+    (e.g. a bare string) is dropped with a visible stderr warning here; baxter.html's
+    existing edu.institution/edu.program Jinja-level guards become a redundant second
+    layer rather than the only line of defense.
+    """
     out = dict(candidate)
     if photo_raw(out) and not photo_path_for(out, repo_root):
         out.pop("photo", None)
@@ -190,6 +200,8 @@ def candidate_for_template(candidate: dict, repo_root: Path) -> dict:
             c2 = dict(c)
             c2.pop("photo", None)
             out["contact"] = c2
+    if "education" in out:
+        out["education"] = education_rows(out.get("education"))
     return out
 
 
@@ -396,10 +408,7 @@ def render_reportlab(candidate: dict, out_path: Path, *, repo_root: Path, labels
             story.append(Spacer(1, 6))
 
     edu = candidate.get("education") or []
-    edu_rows = [
-        row for row in edu
-        if isinstance(row, dict) and (row.get("institution") or row.get("program"))
-    ]
+    edu_rows = education_rows(edu)
     if edu_rows:
         story.append(Paragraph(f"<b>{escape(lbl('education', 'Education'))}</b>", h2_style))
         for row in edu_rows:

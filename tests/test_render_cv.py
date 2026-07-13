@@ -201,6 +201,157 @@ def test_skill_cv_degrades_to_placeholder_when_no_master_photo() -> None:
     )
 
 
+_WELL_FORMED_EDUCATION = [
+    {
+        "institution": "Kryvyi Rih Technical University",
+        "program": "Mining, Faculty of Mining & Metallurgy",
+        "location": "Kryvyi Rih, Ukraine",
+        "duration": "1997 - 2003",
+    },
+    {
+        "institution": "1C Bitrix Academy",
+        "program": "Bitrix Framework Developer Master",
+        "location": "Certification program",
+        "duration": "2014",
+    },
+]
+
+# The exact bug-reproduction shape: gmj_draft_to_cv_yaml.py's bridge writes the ENTIRE
+# claim-text STRING as the list element when a composer citation targets a whole-object
+# source_span like "education[0]" instead of a specific field within it (PIPEFIX-02,
+# 07-RESEARCH.md's confirmed root-cause reproduction).
+_MALFORMED_EDUCATION = [
+    "Education: Kryvyi Rih Technical University, Mining, Faculty of Mining & Metallurgy",
+]
+
+
+def _build_education_fixture_repo(tmp_dir: Path, education: object) -> Path:
+    """Build a throwaway repo root (CLAUDE.md anchor, templates/cv/ copied so the
+    default WeasyPrint/baxter.html path can activate) with a config/candidate.yaml
+    carrying the given ``education`` value. Returns the candidate.yaml path.
+
+    Mirrors ``_build_fake_repo``'s anchor+templates-copy pattern above, but scoped to
+    exactly the fields this task's education-row tests need (PIPEFIX-04's new
+    RepoRootNotFoundError hard-errors on a bare, unanchored tmp dir, so a real
+    CLAUDE.md anchor is required for --config paths used in these tests).
+    """
+    repo_root = tmp_dir / "fake-repo"
+    (repo_root / "config").mkdir(parents=True, exist_ok=True)
+    (repo_root / "CLAUDE.md").write_text("# fake repo anchor\n", encoding="utf-8")
+    real_templates_dir = REPO_ROOT / "templates" / "cv"
+    fake_templates_dir = repo_root / "templates" / "cv"
+    fake_templates_dir.mkdir(parents=True, exist_ok=True)
+    if real_templates_dir.is_dir():
+        shutil.copytree(real_templates_dir, fake_templates_dir, dirs_exist_ok=True)
+
+    fixture: dict = {
+        "name": "Test Candidate",
+        "title": "Test Title",
+        "contact": {"email": ["test@example.com"]},
+        "education": education,
+    }
+    candidate_path = repo_root / "config" / "candidate.yaml"
+    candidate_path.write_text(yaml.safe_dump(fixture), encoding="utf-8")
+    return candidate_path
+
+
+def test_well_formed_education_renders_non_empty_section_both_paths() -> None:
+    """Test 1: a well-formed education list (matching candidate.yaml's real shape)
+    renders a non-empty Education section in both the default (WeasyPrint/baxter.html)
+    path and the ReportLab (--no-template) path — institution/program text must be
+    visible in each rendered output."""
+    tmp_dir = Path(tempfile.mkdtemp())
+    fixture_yaml = _build_education_fixture_repo(tmp_dir, _WELL_FORMED_EDUCATION)
+
+    # ReportLab (--no-template) path: assert the render succeeds and produces a real
+    # PDF; the shared PyMuPDF-based render-quality check in
+    # test_well_formed_education_zero_missing_section_defects (Test 4) independently
+    # proves the section content is actually visible in extracted PDF text.
+    out_reportlab = tmp_dir / "out" / "reportlab-cv.pdf"
+    result = _run("--config", str(fixture_yaml), "--no-template", "--out", str(out_reportlab))
+    assert result.returncode == 0, f"--no-template invocation must exit 0: {result.stderr}"
+    assert out_reportlab.is_file(), f"missing PDF: {out_reportlab}"
+
+    if not _WEASYPRINT_AVAILABLE:
+        print("SKIP (weasyprint unavailable): default-path HTML assertion in test_well_formed_education_renders_non_empty_section_both_paths")
+        return
+
+    out_default = tmp_dir / "out" / "default-cv.pdf"
+    result = _run("--config", str(fixture_yaml), "--out", str(out_default))
+    assert result.returncode == 0, f"default invocation must exit 0: {result.stderr}"
+    html_sibling = out_default.with_suffix(".html")
+    assert html_sibling.is_file(), f"missing HTML sibling: {html_sibling}"
+    html = html_sibling.read_text(encoding="utf-8")
+    assert "Kryvyi Rih Technical University" in html, (
+        "well-formed education row's institution text must appear in the rendered HTML"
+    )
+    assert "1C Bitrix Academy" in html, (
+        "well-formed education row's institution text must appear in the rendered HTML"
+    )
+
+
+def test_malformed_education_row_warns_visibly_never_silent() -> None:
+    """Test 2 (the exact bug-reproduction case): a bare-string education list (the real
+    composer-citation-shape bug shape) must NOT silently produce an empty Education
+    section with zero error signal. The render must still exit 0 (never crash), but a
+    warning naming the malformed row must be visible on stderr for the ReportLab
+    (--no-template) path, and for the default WeasyPrint path when available."""
+    tmp_dir = Path(tempfile.mkdtemp())
+    fixture_yaml = _build_education_fixture_repo(tmp_dir, _MALFORMED_EDUCATION)
+
+    out_reportlab = tmp_dir / "out" / "reportlab-cv.pdf"
+    result = _run("--config", str(fixture_yaml), "--no-template", "--out", str(out_reportlab))
+    assert result.returncode == 0, f"--no-template invocation must exit 0 even with malformed education: {result.stderr}"
+    assert out_reportlab.is_file(), f"missing PDF: {out_reportlab}"
+    assert "malformed education row" in result.stderr, (
+        f"expected a visible malformed-education-row warning on stderr, got: {result.stderr!r}"
+    )
+    assert "index 0" in result.stderr, "warning must name the row's index"
+
+    if not _WEASYPRINT_AVAILABLE:
+        print("SKIP (weasyprint unavailable): default-path warning assertion in test_malformed_education_row_warns_visibly_never_silent")
+        return
+
+    out_default = tmp_dir / "out" / "default-cv.pdf"
+    result = _run("--config", str(fixture_yaml), "--out", str(out_default))
+    assert result.returncode == 0, f"default invocation must exit 0 even with malformed education: {result.stderr}"
+    assert "malformed education row" in result.stderr, (
+        f"expected a visible malformed-education-row warning on stderr (default path), got: {result.stderr!r}"
+    )
+
+
+def test_well_formed_education_zero_missing_section_defects() -> None:
+    """Test 4 (render-quality verification per PIPEFIX-02's acceptance criterion):
+    running gmj_check_render_quality.py against a PDF rendered from the well-formed-
+    education fixture reports zero missing_section defects for the education key."""
+    if not _WEASYPRINT_AVAILABLE:
+        print("SKIP (weasyprint unavailable): test_well_formed_education_zero_missing_section_defects")
+        return
+    tmp_dir = Path(tempfile.mkdtemp())
+    fixture_yaml = _build_education_fixture_repo(tmp_dir, _WELL_FORMED_EDUCATION)
+
+    out_pdf = tmp_dir / "out" / "default-cv.pdf"
+    result = _run("--config", str(fixture_yaml), "--out", str(out_pdf))
+    assert result.returncode == 0, f"default invocation must exit 0: {result.stderr}"
+    assert out_pdf.is_file(), f"missing PDF: {out_pdf}"
+
+    check_script = REPO_ROOT / "scripts" / "pipeline" / "gmj_check_render_quality.py"
+    check_result = subprocess.run(
+        [
+            sys.executable, str(check_script),
+            "--pdf", str(out_pdf),
+            "--candidate-yaml", str(fixture_yaml),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+    )
+    assert check_result.returncode == 0, f"render-quality check must exit 0: {check_result.stderr}"
+    assert "missing_section: education" not in check_result.stdout, (
+        f"expected zero missing_section defects for education, got: {check_result.stdout!r}"
+    )
+
+
 def test_master_candidate_direct_render_unchanged_by_fallback() -> None:
     """Test 3: rendering config/candidate.yaml directly (existing default invocation)
     with its own real photo key must be byte-identical in behavior to before this
