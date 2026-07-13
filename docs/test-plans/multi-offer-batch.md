@@ -16,8 +16,12 @@ No preconditions — this flow has no setup requirements beyond the repo's stand
 
 **Steps (live):**
 ```bash
-1. claude --dangerously-skip-permissions
-2. /gmj-batch            # then state your selection (1,3,5 | all) and mode
+claude --dangerously-skip-permissions
+```
+
+Inside the now-live REPL session, type:
+```
+/gmj-batch            # then state your selection (1,3,5 | all) and mode
 ```
 
 **Steps (deterministic backstop):**
@@ -29,7 +33,7 @@ No deterministic backstop exists for this step.
 
 | Pass Signal | Fail Signal | Signal Source | Semantic Caveat |
 |---|---|---|---|
-| Per offer, per artifact type, the same `gate_results` dual-pass predicate as Flow 2, rolled up in `batch_manifest.json`'s per-offer `runs.{cv,cover_letter,interview_prep}` entries with `status: "delivered"`. Batch-level rollup: `gmj_runs.py`'s `_offer_status_counts()` projects `by_offer_status` as a 5-value vocabulary count over the same statuses | Any offer/type entry with `status: "gate_exhausted"` or `status: "error"` in `batch_manifest.json`'s `runs` object — one offer's gate exhaustion is isolated and never stalls or corrupts a sibling offer's run | `schemas/batch_manifest.schema.json`'s `offers[].runs.{cv,cover_letter,interview_prep}.status` enum (`["waiting","in_flight","delivered","gate_exhausted","error"]`) + `.pipeline/runs/<batch_id>/batch_manifest.json` + `gmj_dispatch_cap.py`'s frozen `max_parallel_offers` bound (default 3, `config/pipeline.config.yaml`) | Gate A's verdict is a gmj-truth-verifier judgment call: `rule_violated` enum values (`unresolved_span`, `scope_inflation`, `numeric_invention`, `cross_entry_merge` — `schemas/gate_result.schema.json`'s `offending_claim` $def) encode a reframe-vs-fabrication line that is a judgment call, not machine-checkable. Gate B's hard-block half (`coverage.score >= coverage_threshold`, currently 0.7 in `config/fit_thresholds.yaml`) is mechanical, but the underlying coverage-map input and `why.missing_must_haves` narrative depend on an LLM composer's claim-to-must-have mapping judgment batching adds no new semantic-truth risk beyond the per-offer pipeline's own Gate A/B judgment calls, isolated per `retry_counts[offer][type]` |
+| Per offer, per artifact type, the same `gate_results` dual-pass predicate as Flow 2, rolled up in `batch_manifest.json`'s per-offer `runs.{cv,cover_letter,interview_prep}` entries with `status: "delivered"`. Batch-level rollup: `gmj_runs.py`'s `_offer_status_counts()` projects `by_offer_status` as a 5-value vocabulary count over the same statuses | Any offer/type entry with `status: "gate_exhausted"` or `status: "error"` in `batch_manifest.json`'s `runs` object — one offer's gate exhaustion is isolated and never stalls or corrupts a sibling offer's run | `schemas/batch_manifest.schema.json`'s `offers[].runs.{cv,cover_letter,interview_prep}.status` enum (`["waiting","in_flight","delivered","gate_exhausted","error"]`) + `.pipeline/runs/<batch_id>/batch_manifest.json` + `gmj_dispatch_cap.py`'s frozen `max_parallel_offers` bound (default 3, `config/pipeline.config.yaml`) | Gate A's verdict is a gmj-truth-verifier judgment call: `rule_violated` enum values (`unresolved_span`, `scope_inflation`, `numeric_invention`, `cross_entry_merge` — `schemas/gate_result.schema.json`'s `offending_claim` $def) encode a reframe-vs-fabrication line that is a judgment call, not machine-checkable. Gate B's hard-block half (`coverage.score >= coverage_threshold`, currently 0.7 in `config/fit_thresholds.yaml`) is mechanical, but the underlying coverage-map input and `why.missing_must_haves` narrative depend on an LLM composer's claim-to-must-have mapping judgment — batching adds no new semantic-truth risk beyond the per-offer pipeline's own Gate A/B judgment calls, isolated per `retry_counts[offer][type]` |
 
 ---
 
