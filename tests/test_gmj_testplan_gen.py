@@ -1048,6 +1048,101 @@ def test_signal_table_matches_investigate_source() -> None:
             )
 
 
+# --------------------------------------------------------------------------- Phase 4 Task 2: signal_table IR threading + render()
+
+_SYNTHETIC_SIGNAL_TABLE = {
+    "pass_signal": "p",
+    "fail_signal": "f",
+    "signal_source": "s",
+    "semantic_caveat": "c",
+}
+
+
+def test_extract_signal_table_field_threads_through_ir() -> None:
+    """extract(..., signal_table=...) returns an IR whose ir['signal_table'] equals the input unchanged."""
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = _write_fixture(tmp, "gmj-fixture-flow.md", _FIXTURE_COMMAND_DOC)
+        ir = g.extract(fixture, risk_tier="read-only", signal_table=_SYNTHETIC_SIGNAL_TABLE)
+
+        assert ir.get("signal_table") == _SYNTHETIC_SIGNAL_TABLE, (
+            f"extract(signal_table=...) must thread the 4-key dict through the IR unchanged "
+            f"(pass-through, no re-derivation), got: {ir.get('signal_table')!r}"
+        )
+
+
+def test_extract_signal_table_omitted_by_default() -> None:
+    """extract() with no signal_table argument produces an IR with no truthy signal_table key."""
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = _write_fixture(tmp, "gmj-fixture-flow.md", _FIXTURE_COMMAND_DOC)
+        ir = g.extract(fixture, risk_tier="read-only")
+
+        assert not ir.get("signal_table"), (
+            f"extract() called with no signal_table argument must not force a truthy "
+            f"signal_table key onto the IR (optional parameter, single-invocation "
+            f"--command-file mode's existing call sites remain unaffected), got: "
+            f"{ir.get('signal_table')!r}"
+        )
+
+
+def test_render_signal_table_produces_four_column_markdown_table() -> None:
+    """render() on an IR carrying signal_table produces a 4-column Markdown table under PASS criteria."""
+    ir = _synthetic_ir()
+    ir["signal_table"] = _SYNTHETIC_SIGNAL_TABLE
+    text = g.render(ir)
+
+    assert "| Pass Signal | Fail Signal | Signal Source | Semantic Caveat |" in text, (
+        f"render() must emit the 4-column table header when ir['signal_table'] is present, "
+        f"got:\n{text}"
+    )
+    for value in _SYNTHETIC_SIGNAL_TABLE.values():
+        assert value in text, f"render() output must contain the signal_table cell value {value!r}, got:\n{text}"
+    assert "A human operator confirms the observed output/state matches" not in text, (
+        f"render() must replace the OLD generic PASS-criteria bullet when signal_table is "
+        f"present, got:\n{text}"
+    )
+
+
+def test_render_falls_back_to_generic_bullet_when_signal_table_absent() -> None:
+    """render() on an IR with no signal_table key falls back to the pre-Phase-4 generic bullet."""
+    ir = _synthetic_ir()
+    assert "signal_table" not in ir, "sanity check: _synthetic_ir() must not carry signal_table by default"
+    text = g.render(ir)
+
+    assert "A human operator confirms the observed output/state matches" in text, (
+        f"render() must fall back to the pre-Phase-4 generic PASS-criteria bullet when "
+        f"ir.get('signal_table') is absent (documented single-invocation-mode degraded-mode "
+        f"fallback), got:\n{text}"
+    )
+    assert "| Pass Signal | Fail Signal | Signal Source | Semantic Caveat |" not in text, (
+        f"render() must not emit an empty/broken table when signal_table is absent, got:\n{text}"
+    )
+
+    ir_none = _synthetic_ir()
+    ir_none["signal_table"] = None
+    text_none = g.render(ir_none)
+    assert "A human operator confirms the observed output/state matches" in text_none, (
+        f"render() must also fall back to the generic bullet when signal_table is explicitly "
+        f"None, got:\n{text_none}"
+    )
+
+
+def test_render_none_fully_mechanical_literal_reads_naturally() -> None:
+    """render() renders the D-04 'None — fully mechanical' literal exactly inside the caveat cell."""
+    ir = _synthetic_ir()
+    ir["signal_table"] = {
+        "pass_signal": "p",
+        "fail_signal": "f",
+        "signal_source": "s",
+        "semantic_caveat": "None — fully mechanical",
+    }
+    text = g.render(ir)
+
+    assert "None — fully mechanical" in text, (
+        f"render() must render the exact D-04 literal string inside the Semantic Caveat "
+        f"table cell, got:\n{text}"
+    )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0

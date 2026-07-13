@@ -37,6 +37,8 @@ from pathlib import Path
 
 import yaml
 
+import gmj_testplan_signals as _signals
+
 REPO_ROOT = Path(__file__).resolve().parent.parent  # scripts/ -> repo root
 
 # Matches the parenthetical requirement-ID citation convention this repo's command docs
@@ -274,6 +276,7 @@ def extract(
     risk_tier: str,
     requirement_id_override: str | None = None,
     flow_slug_override: str | None = None,
+    signal_table: dict | None = None,
 ) -> dict:
     """Parse ``command_file`` (a ``.claude/commands/*.md`` file) into an in-memory dict IR.
 
@@ -309,6 +312,16 @@ def extract(
     to tell which risk-tier/mode a given file actually documents. When falsy/omitted, the
     existing ``command_file.stem`` derivation is preserved unchanged (single-invocation CLI
     mode never needed this distinction, since one command file always maps to one output).
+
+    ``signal_table``, when truthy, is a 4-key dict (``pass_signal``/``fail_signal``/
+    ``signal_source``/``semantic_caveat``) threaded verbatim into ``ir["signal_table"]`` --
+    a pure pass-through, never re-derived or re-validated by this function (the caller, e.g.
+    ``_run_all_mode()`` looking up ``gmj_testplan_signals.SIGNAL_TABLE_BY_SLUG`` by ``slug``,
+    owns that verbatim-transcription guarantee). Optional and falsy-by-default: when omitted,
+    the IR carries no ``signal_table`` key at all (mirrors the existing ``no_bypass_flag``
+    optional-key convention), so single-invocation ``--command-file`` mode's existing call
+    sites remain unaffected and ``render()`` falls back to its pre-Phase-4 generic PASS-criteria
+    bullet for such IRs.
 
     Raises ``FileNotFoundError`` if ``command_file`` does not exist; raises ``ValueError``
     if ``risk_tier`` is not one of the 4 frozen tiers, if the frontmatter fence is
@@ -358,6 +371,8 @@ def extract(
     }
     if no_bypass_flag:
         ir["no_bypass_flag"] = True
+    if signal_table:
+        ir["signal_table"] = signal_table
     return ir
 
 
@@ -501,6 +516,45 @@ def _render_steps_block(ir: dict) -> list[str]:
     return lines
 
 
+def _escape_table_cell(value: str) -> str:
+    """Escape a literal pipe `|` inside a Markdown table cell so it can never break the table."""
+    return value.replace("|", "\\|")
+
+
+def _render_signal_table_block(ir: dict) -> list[str]:
+    """Build the PASS-criteria block: a 4-column signal table from ir['signal_table'] (D-03).
+
+    Reads ``ir.get("signal_table")``: when truthy, renders a Markdown table (Pass Signal /
+    Fail Signal / Signal Source / Semantic Caveat) from its 4 verbatim-transcribed cell
+    values. When falsy (absent or None -- e.g. a single-invocation ``--command-file`` IR with
+    no manifest-driven signal-table lookup), falls back unchanged to the pre-Phase-4 generic
+    PASS-criteria bullet -- an explicit, tested, documented degraded-mode fallback, never a
+    raise (see 04-RESEARCH.md's asymmetric fail-closed/graceful-fallback design: ``--all``
+    mode's mandatory-signal-table enforcement is Plan 02's concern, out of this helper's
+    scope).
+    """
+    lines: list[str] = []
+    lines.append("**PASS criteria:**")
+    signal_table = ir.get("signal_table")
+    if signal_table:
+        lines.append("")
+        lines.append("| Pass Signal | Fail Signal | Signal Source | Semantic Caveat |")
+        lines.append("|---|---|---|---|")
+        pass_signal = _escape_table_cell(str(signal_table.get("pass_signal", "")))
+        fail_signal = _escape_table_cell(str(signal_table.get("fail_signal", "")))
+        signal_source = _escape_table_cell(str(signal_table.get("signal_source", "")))
+        semantic_caveat = _escape_table_cell(str(signal_table.get("semantic_caveat", "")))
+        lines.append(f"| {pass_signal} | {fail_signal} | {signal_source} | {semantic_caveat} |")
+    else:
+        requirement_id = ir.get("requirement_id")
+        lines.append(
+            f"- A human operator confirms the observed output/state matches {requirement_id}'s "
+            "documented behavior above by reading the real output, not by delegating to a "
+            "script's exit code alone."
+        )
+    return lines
+
+
 def render(ir: dict) -> str:
     """Consume the extract()-produced IR to build spec-conformant Markdown.
 
@@ -511,6 +565,11 @@ def render(ir: dict) -> str:
     backstop applies], **Expected:**, **PASS criteria:**); (4) a closing
     generation-provenance note naming the IR's source_file and this module as the
     generation source (no schema file named, per D-06).
+
+    The **PASS criteria:** block is built by ``_render_signal_table_block(ir)``: a 4-column
+    Markdown table (Pass Signal / Fail Signal / Signal Source / Semantic Caveat) when
+    ``ir.get("signal_table")`` is truthy, falling back to the pre-Phase-4 generic bullet
+    otherwise (D-03; see that helper's own docstring for the fallback rationale).
 
     Raises ValueError if ``ir['requirement_id']`` is missing/empty — render() must fail
     closed rather than emit a **Proves:** line with no ID or a placeholder, independent of
@@ -581,12 +640,7 @@ def render(ir: dict) -> str:
         "inspect stdout/stderr and any named output paths for the concrete result."
     )
     lines.append("")
-    lines.append("**PASS criteria:**")
-    lines.append(
-        f"- A human operator confirms the observed output/state matches {requirement_id}'s "
-        "documented behavior above by reading the real output, not by delegating to a "
-        "script's exit code alone."
-    )
+    lines.extend(_render_signal_table_block(ir))
     lines.append("")
 
     # (4) Closing generation-provenance note.
@@ -728,6 +782,7 @@ FLOW_MANIFEST: list[dict] = [
             "requirement_id": "OPS-02",
             "source_file": "docs/RUNBOOK.md",
             "risk_tier": "live-cost",
+            "signal_table": _signals.SIGNAL_TABLE_BY_SLUG["scheduled-runs"],
         },
     },
     {
@@ -868,6 +923,7 @@ def _run_all_mode(output_dir: Path) -> int:
                     risk_tier=row["risk_tier"],
                     requirement_id_override=row.get("requirement_id_override"),
                     flow_slug_override=row.get("flow_slug_override"),
+                    signal_table=_signals.SIGNAL_TABLE_BY_SLUG.get(row["slug"]),
                 )
             text = render(ir)
             write_testplan(text, output_dir / f"{slug}.md")
