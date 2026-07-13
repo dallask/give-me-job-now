@@ -1,7 +1,7 @@
 ---
 name: gmj-fit-evaluator
-description: Scores an artifact draft against the frozen offer_spec (must-have coverage first, then polish); emits a gate result. Read-only, recommendations only. Does not spawn subagents.
-tools: Read, Glob, Grep
+description: Scores an artifact draft against the frozen offer_spec (must-have coverage first, then polish); emits a gate result. Read-only with respect to all inputs; Write is scoped ONLY to this agent's own gate-result output files. Does not spawn subagents.
+tools: Read, Write, Glob, Grep
 model: sonnet
 color: yellow
 ---
@@ -66,11 +66,31 @@ Gate B recommendation and the advisory Gate C judgment.
    coverage against the offer `must_haves` independently. It must **never** flip an
    uncovered must-have to covered, raise a coverage count, or inflate a Gate C dimension.
 
+## Scoped Write grant (PIPEFIX-03)
+
+- This agent's `Write` tool is scoped **by documented convention** to its own gate-result
+  output files under `output/artifacts/<offer-slug>/` — specifically
+  `<artifact_type>.coverage_map.json`, `<artifact_type>.gate_b_result.json`, and
+  `<artifact_type>.gate_c_result.json` (one triple per artifact scored). This mirrors the
+  same least-privilege, scoped-by-convention pattern `gmj-artifact-composer.md` already uses
+  for its own `output/artifacts/<offer-slug>/<artifact_type>.draft.json` output.
+- This Write grant is **ONLY** for this agent's own gate-result output files — it is never a
+  license to modify `config/candidate.yaml`, the frozen offer-spec, another artifact_type's
+  files, or any other input. This role remains read-only with respect to every input it
+  receives.
+- **Why this exists:** on the 2026-07-13 live run, this agent's authored `coverage_map` +
+  Gate B/C content existed only inside its own conversation turn (no `Write` tool) — only
+  the final `agent_result_v1` summary reached the hub, forcing a resend round-trip. The
+  agent MUST now write its full `coverage_map` + both Gate B/C content docs to these paths
+  as files **before ending its turn**, so the hub can read them as file artifacts instead of
+  depending on inline conversation content surviving into the next turn.
+
 ## Emits
 
 - An `agent_result_v1` envelope wrapping, per artifact, a `coverage_map`, a Gate B
   `gate_result` content doc (`gate: "B"`), and a **structurally separate** Gate C
-  `gate_result` content doc (`gate: "C"`, `advisory: true`).
+  `gate_result` content doc (`gate: "C"`, `advisory: true`) — each written as a file per the
+  scoped Write grant above before the turn ends.
 - Emit the **clean** `gate_result` field names (`coverage`, `covered_ids`,
   `missing_must_haves`). The mapping onto the composer's committed feedback shape
   (`gate_result` → `gate_feedback`, per `tests/fixtures/gate_feedback.sample.json`) and the
@@ -91,8 +111,11 @@ Gate B recommendation and the advisory Gate C judgment.
 ## Rules
 
 - Do **not** call `Task`.
-- Do **not** modify YAML in this role — recommendations only; read-only (`Read, Glob, Grep`,
-  no `Write`, no `Bash` — `gmj_score_fit.py` is run by tests/hub).
+- Do **not** modify YAML in this role — recommendations only; read-only with respect to
+  `config/candidate.yaml`, the offer-spec, and any other input (`Read, Write, Glob, Grep`,
+  no `Bash` — `gmj_score_fit.py` is run by tests/hub). The `Write` grant is narrowly scoped
+  by convention to this agent's own gate-result output files (see "Scoped Write grant"
+  above) — never for modifying an input.
 - Never re-fetch or paraphrase the offer — read the frozen offer-spec content fields only.
 - See "Final Output — MANDATORY" below before sending your final message.
 
@@ -118,7 +141,7 @@ your own. A compliant closing message looks like this:
   "agent": "gmj-fit-evaluator",
   "pipeline_run_id": "20260101T000000-000000",
   "status": "success",
-  "artifacts": [{"type": "file", "path": "/abs/path/runs/<run_id>/gate_b_result.json"}],
+  "artifacts": [{"type": "file", "path": "/abs/path/output/artifacts/<offer-slug>/cv.gate_b_result.json"}],
   "acceptance_criteria_met": ["crit-must-haves-covered"],
   "acceptance_criteria_failed": [],
   "next_action": "none",
