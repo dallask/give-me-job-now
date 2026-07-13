@@ -797,6 +797,27 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.all:
+        # --output/--risk-tier/--requirement-id-override are single-invocation-mode-only
+        # flags; _run_all_mode() never reads them (each FLOW_MANIFEST row carries its own
+        # risk_tier/requirement_id_override, and --output-dir is the --all-mode output
+        # knob). Fail closed and name every ignored flag rather than silently discarding a
+        # value the user believed would narrow/override the manifest (WR-02).
+        ignored = []
+        if args.output:
+            ignored.append(f"--output={args.output}")
+        if args.risk_tier:
+            ignored.append(f"--risk-tier={args.risk_tier}")
+        if args.requirement_id_override:
+            ignored.append(f"--requirement-id-override={args.requirement_id_override}")
+        if ignored:
+            print(
+                "FAIL: --all does not accept " + ", ".join(ignored) + " -- these flags only "
+                "apply to single-invocation (--command-file) mode and would be silently "
+                "ignored; --all's per-row risk_tier/requirement_id_override come from "
+                "FLOW_MANIFEST, and its output location is --output-dir.",
+                file=sys.stderr,
+            )
+            return 1
         return _run_all_mode(args.output_dir)
 
     if not args.output:
