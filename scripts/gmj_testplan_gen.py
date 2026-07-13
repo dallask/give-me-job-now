@@ -835,7 +835,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         text = render(ir)
     except Exception as exc:  # noqa: BLE001  fail-closed: never write a degraded output
-        print(f"FAIL: {exc}", file=sys.stderr)
+        # Include type(exc).__name__ so an unexpected TypeError/AttributeError (likely a
+        # real bug) is visually distinguishable in CI/stderr output from an expected,
+        # documented ValueError/FileNotFoundError extraction failure (WR-03).
+        print(f"FAIL: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
 
     write_testplan(text, args.output)
@@ -869,7 +872,12 @@ def _run_all_mode(output_dir: Path) -> int:
             text = render(ir)
             write_testplan(text, output_dir / f"{slug}.md")
         except Exception as exc:  # noqa: BLE001  per-row fail-closed: never abort the whole batch
-            print(f"FAIL: {slug}: {exc}", file=sys.stderr)
+            # Include type(exc).__name__ so an unexpected TypeError/AttributeError (likely a
+            # real bug in a future manifest/extractor edit) is visually distinguishable in
+            # CI/stderr output from an expected, documented ValueError/FileNotFoundError
+            # extraction failure (WR-03). The "FAIL: {slug}:" prefix is preserved verbatim
+            # for existing stderr-matching test/tooling contracts.
+            print(f"FAIL: {slug}: {type(exc).__name__}: {exc}", file=sys.stderr)
             failed_slugs.append(slug)
             continue
 
