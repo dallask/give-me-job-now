@@ -1,6 +1,6 @@
 [project]
 name = "give-me-job"
-version = "4.0.0"
+version = "11.1.0"
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
