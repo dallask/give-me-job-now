@@ -1425,6 +1425,99 @@ def test_real_files_shared_caveat_and_mechanical_literal_consistency() -> None:
         )
 
 
+# --------------------------------------------------------------------------- Phase 4 Plan 04: real-file regression tests (post-regeneration, one per CR)
+
+_CR01_SLUGS = ("pipeline-run-hitl", "pipeline-run-autonomous", "multi-offer-batch", "resume-flow")
+_CR03_SLUGS = ("pipeline-run-autonomous", "multi-offer-batch", "scheduled-runs")
+
+
+def test_real_files_no_single_block_claude_then_slash_bundling() -> None:
+    """CR-01 real-file regression: none of the 4 previously CR-01-affected real
+    docs/test-plans/<slug>.md files bundle a `claude` REPL-entry line and its
+    slash-command follow-up into one numbered fenced block. Reads the actual committed
+    files from disk (not a tempdir fixture/synthetic IR), mirroring
+    test_render_steps_block_separates_claude_entry_from_slash_follow_up_across_two_blocks's
+    block-extraction regex but asserted against the real, regenerated output this phase
+    shipped.
+    """
+    output_dir = REPO_ROOT / "docs" / "test-plans"
+    for slug in _CR01_SLUGS:
+        plan_path = output_dir / f"{slug}.md"
+        text = plan_path.read_text(encoding="utf-8")
+
+        steps_start = text.find("**Steps")
+        steps_end = text.find("**Expected:**")
+        assert steps_start != -1 and steps_end != -1, (
+            f"{plan_path}: could not locate Steps/Expected markers in:\n{text}"
+        )
+        steps_block = text[steps_start:steps_end]
+
+        blocks = re.findall(r"```(?:bash)?\n(.*?)\n```", steps_block, flags=re.DOTALL)
+        for block in blocks:
+            numbered_lines = [
+                ln for ln in block.splitlines() if ln.strip() and re.match(r"^\s*\d+\.\s", ln)
+            ]
+            assert len(numbered_lines) <= 1, (
+                f"CR-01 regression: {plan_path} has a fenced block with {len(numbered_lines)} "
+                f"numbered command lines bundled together (the exact CR-01 shape) — every "
+                f"block must have zero or one numbered command line, never two, got block:\n"
+                f"{block!r}"
+            )
+
+
+def test_real_files_never_contain_escaped_pipe_artifact() -> None:
+    """CR-02 real-file regression: no file under docs/test-plans/*.md contains the
+    double-escaped `\\\\|` artifact anywhere (the exact CR-02 defect shape --
+    _escape_table_cell() re-escaping an already-backslash-escaped pipe copied in from the
+    source document's own table-escaping context), checked against every real generated
+    file (via output_dir.glob, not a hard-coded subset) rather than the source data
+    structure (which 04-03-PLAN.md's Task 2 already covers) -- this test covers the
+    end-to-end rendered-file layer.
+
+    A single-escaped `\\|` (one backslash) is the CORRECT, intended Markdown table-cell
+    escape of a literal `|` character inside a cell value (e.g. `"narrow"\\|"systemic"`
+    in pipeline-run-autonomous.md, escaping the real `|` in that JSON snippet) and must
+    NOT be flagged -- only the double-escaped `\\\\|` artifact is the defect this test
+    guards against, per 04-VERIFICATION.md's exact finding: "`_escape_table_cell()`
+    double-escapes to `\\\\|`, not just `\\|`".
+    """
+    output_dir = REPO_ROOT / "docs" / "test-plans"
+    for plan_path in sorted(output_dir.glob("*.md")):
+        text = plan_path.read_text(encoding="utf-8")
+        assert "\\\\|" not in text, (
+            f"CR-02 regression: {plan_path} contains the double-escaped-pipe artifact "
+            f"`\\\\|` somewhere in its rendered text — this must never reach a real "
+            f"committed file"
+        )
+
+
+def test_real_files_gated_caveat_has_em_dash_boundary() -> None:
+    """CR-03 real-file regression: the 3 previously CR-03-affected real
+    docs/test-plans/<slug>.md files' Semantic Caveat cells join the shared
+    _GATE_AB_JUDGMENT_CAVEAT constant to each row's own addendum with an em-dash
+    separator (" — "), not a bare space directly followed by the addendum — proving the
+    separator survived end-to-end into the real rendered file, not just the source data
+    structure.
+    """
+    output_dir = REPO_ROOT / "docs" / "test-plans"
+    for slug in _CR03_SLUGS:
+        plan_path = output_dir / f"{slug}.md"
+        text = plan_path.read_text(encoding="utf-8")
+
+        idx = text.find(sig._GATE_AB_JUDGMENT_CAVEAT)
+        assert idx != -1, (
+            f"{plan_path}: could not locate _GATE_AB_JUDGMENT_CAVEAT text verbatim in the "
+            f"rendered file"
+        )
+        following = text[idx + len(sig._GATE_AB_JUDGMENT_CAVEAT):]
+        assert following.startswith(" — "), (
+            f"CR-03 regression: {plan_path}'s text immediately following "
+            f"_GATE_AB_JUDGMENT_CAVEAT must begin with an em-dash separator (' — '), got "
+            f"{following[:20]!r} — a bare space directly followed by the addendum is the "
+            f"exact run-on-sentence shape CR-03 fixed"
+        )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = 0
