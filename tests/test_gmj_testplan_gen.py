@@ -33,6 +33,7 @@ directories outside a tempdir.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 import tempfile
@@ -235,6 +236,190 @@ python3 scripts/gmj_fixture_flow.py --repo-root <path>
             f"sanity check: the real numbered-list item must still be extracted, "
             f"got behaviors: {behaviors!r}"
         )
+
+
+# --------------------------------------------------------------------------- Phase 3 Review Fix (CR-01/CR-02/CR-03) regression tests
+
+# Shaped like the real .claude/commands/gmj-template.md: a fenced ```bash``` command inside
+# one heading section, THEN a separate, later, unrelated heading with multi-line bulleted
+# content -- this is the exact shape that let CR-01's prose-leak bug reach production
+# (cv-template.md/initial-configuration.md) with zero test failures, since every prior
+# fixture only ever had at most one heading section of bulleted content after a captured
+# code-block line.
+_FIXTURE_CROSS_SECTION_LEAK = """\
+# /gmj-fixture-flow — a synthetic fixture command doc
+
+---
+allowed-tools: Bash(*)
+description: A synthetic fixture flow for extractor testing (REQ-01).
+---
+
+## Steps section
+
+Run the lint gate:
+
+```bash
+python3 scripts/gmj_fixture_lint.py --template templates/cv/<slug>.html
+```
+
+## Unrelated later section
+
+Operator messages (machine-truthful; never claim pixel-perfect):
+
+- **Success (match reached):** "Template `{slug}` matched the design (diff-ratio {r} ≤ 0.10)
+  in {n} iteration(s) — saved to `templates/cv/{slug}.html}`."
+- **Error (lint fail):** "Template rejected: it contains literal sample-profile
+  text ({flagged tokens}). All content must bind via `{{ candidate.* }}`."
+"""
+
+
+def test_extract_behaviors_never_leaks_later_unrelated_section_onto_code_block_command() -> None:
+    """CR-01 regression: a fenced code-block command must never absorb a LATER, unrelated
+    heading section's bulleted/indented continuation lines.
+
+    Reproduces the exact real-world shape that shipped corrupted content in
+    docs/test-plans/cv-template.md and docs/test-plans/initial-configuration.md: a captured
+    code-block command in one section, followed by a separate later heading whose bulleted
+    list items happen to look like continuation lines (indented, non-bullet-prefixed
+    wrapped text). None of the pre-existing fixtures placed a second, later, unrelated
+    section after a captured code-block line, so this cross-section leak path was
+    structurally never exercised before this test.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = _write_fixture(tmp, "gmj-fixture-flow.md", _FIXTURE_CROSS_SECTION_LEAK)
+        ir = g.extract(fixture, risk_tier="read-only")
+
+        behaviors = ir.get("behaviors") or []
+        command_behaviors = [b for b in behaviors if b.strip().startswith("python3 ")]
+        assert command_behaviors, (
+            f"sanity check: the real code-block command must still be extracted, "
+            f"got behaviors: {behaviors!r}"
+        )
+        for cmd in command_behaviors:
+            for forbidden in ("saved to", "matched the design", "diff-ratio", "flagged tokens", "candidate.*"):
+                assert forbidden not in cmd, (
+                    f"_extract_behaviors() must never fold a LATER, unrelated heading "
+                    f"section's bulleted content onto an earlier captured code-block "
+                    f"command (CR-01 regression) -- found forbidden fragment {forbidden!r} "
+                    f"glued onto captured command: {cmd!r}"
+                )
+        assert command_behaviors[0].strip() == (
+            "python3 scripts/gmj_fixture_lint.py --template templates/cv/<slug>.html"
+        ), (
+            f"the captured command must be exactly the fenced code-block line, with "
+            f"nothing appended from a later section, got: {command_behaviors[0]!r}"
+        )
+
+
+# Shaped like the real .claude/commands/gmj-pipeline-run.md's "## CLI-only invocation"
+# block: a bare `claude ...` REPL-entry line followed by exactly one `/gmj-...` follow-up
+# line typed inside the session -- CR-02's bug dropped the follow-up line entirely because
+# it didn't start with python3/claude/bash.
+_FIXTURE_CLI_ONLY_INVOCATION = """\
+# /gmj-fixture-pipeline — a synthetic fixture command doc
+
+---
+allowed-tools: Bash(*)
+description: A synthetic fixture flow for extractor testing (REQ-01).
+---
+
+## CLI-only invocation
+
+```bash
+claude --dangerously-skip-permissions
+# then, in the session:
+/gmj-fixture-pipeline   # then state your mode / offer / run_id
+```
+"""
+
+
+def test_render_steps_block_keeps_slash_command_follow_up_after_claude_repl_entry() -> None:
+    """CR-02 regression: a `claude ...` REPL-entry line's `/gmj-...` follow-up command must
+    survive into the rendered Steps block, not be silently dropped.
+
+    Reproduces the exact real-world shape that shipped
+    docs/test-plans/pipeline-run-hitl.md, pipeline-run-autonomous.md, multi-offer-batch.md,
+    and resume-flow.md with ONLY a bare `claude --dangerously-skip-permissions` step and no
+    mention anywhere of the actual slash command a human must type next.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = _write_fixture(tmp, "gmj-fixture-pipeline.md", _FIXTURE_CLI_ONLY_INVOCATION)
+        ir = g.extract(fixture, risk_tier="read-only")
+        text = g.render(ir)
+
+        # Scope the assertion to the fenced code block(s) inside the Steps section, not the
+        # whole document -- the flow's title/source-file-path/provenance note all legitimately
+        # contain the substring "/gmj-fixture-pipeline" (as part of a filesystem path), so a
+        # whole-document substring check would false-pass even when the Steps block itself
+        # silently dropped the slash-command follow-up line (the actual CR-02 bug).
+        steps_start = text.find("**Steps")
+        steps_end = text.find("**Expected:**")
+        assert steps_start != -1 and steps_end != -1, f"could not locate Steps/Expected markers in:\n{text}"
+        steps_block = text[steps_start:steps_end]
+        code_blocks = "\n".join(re.findall(r"```bash\n(.*?)\n```", steps_block, flags=re.DOTALL))
+
+        assert "claude --dangerously-skip-permissions" in code_blocks, (
+            f"rendered Steps fenced code block(s) must still contain the claude REPL-entry "
+            f"line, got:\n{code_blocks!r}"
+        )
+        assert re.search(r"^\s*(?:\d+\.\s*)?/gmj-fixture-pipeline\b", code_blocks, flags=re.MULTILINE), (
+            f"CR-02 regression: rendered Steps fenced code block(s) must contain the "
+            f"/gmj-fixture-pipeline follow-up command typed inside the REPL session, not "
+            f"silently drop it, got code block(s):\n{code_blocks!r}\nfull Steps block:\n{steps_block}"
+        )
+
+
+# Shaped like the real .claude/commands/gmj-dashboard.md: two independent,
+# mutually-exclusive invocations of the SAME script (default vs. `--manage`) -- CR-03's bug
+# bundled both into one numbered fenced code block with no judgment point between them,
+# violating the spec's "no single-block copy-paste-and-run-all" Non-Executability Criterion.
+_FIXTURE_INDEPENDENT_ALTERNATIVES = """\
+# /gmj-fixture-dashboard — a synthetic fixture command doc
+
+---
+allowed-tools: Bash(*)
+description: A synthetic fixture flow for extractor testing (REQ-01).
+---
+
+## Invocation
+
+```bash
+python3 scripts/fixture/gmj_fixture_dashboard.py            # read-only (default)
+python3 scripts/fixture/gmj_fixture_dashboard.py --manage   # opt into the action layer
+```
+"""
+
+
+def test_render_steps_block_splits_independent_alternatives_into_separate_blocks() -> None:
+    """CR-03 regression: independent, mutually-exclusive command alternatives must never be
+    bundled into a single uninterrupted fenced code block.
+
+    Reproduces the exact real-world shape that shipped docs/test-plans/operator-monitoring.md
+    with two mutually-exclusive gmj_dashboard.py invocations numbered 1./2. inside one
+    ```bash``` block -- exactly the "Pitfall 1: auto-execution drift" pattern
+    docs/TESTPLAN-FORMAT-SPEC.md's Non-Executability Acceptance Criterion 2 forbids.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = _write_fixture(tmp, "gmj-fixture-dashboard.md", _FIXTURE_INDEPENDENT_ALTERNATIVES)
+        ir = g.extract(fixture, risk_tier="read-only")
+        text = g.render(ir)
+
+        # Both invocations must still be present somewhere in the rendered output...
+        assert "gmj_fixture_dashboard.py" in text and "--manage" in text, (
+            f"both independent alternatives must still appear in the rendered output, "
+            f"got:\n{text}"
+        )
+        # ...but never inside the SAME fenced code block together (no single-block
+        # copy-paste-and-run-all of two independent, mutually-exclusive entry points).
+        code_blocks = re.findall(r"```bash\n(.*?)\n```", text, flags=re.DOTALL)
+        for block in code_blocks:
+            command_lines = [ln for ln in block.splitlines() if ln.strip()]
+            assert len(command_lines) <= 1, (
+                f"CR-03 regression: no single fenced code block may contain more than one "
+                f"command when the underlying behaviors are independent, mutually-exclusive "
+                f"alternatives rather than a genuine ordered sequence -- found a block with "
+                f"{len(command_lines)} command lines: {command_lines!r}\nfull output:\n{text}"
+            )
 
 
 # --------------------------------------------------------------------------- Phase 3 Task 1: risk_tier / requirement_id_override
