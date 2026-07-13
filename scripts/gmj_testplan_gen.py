@@ -152,18 +152,34 @@ def _extract_behaviors(body: str) -> list[str]:
     same behavior string so the extracted text is never silently truncated mid-sentence at the
     source file's line-wrap point. Both leading and trailing ``**`` bold markers are stripped
     from the captured text.
+
+    Continuation-folding is scoped to the current ``##``/``###`` heading section, mirroring
+    ``_extract_flags()``'s own ``in_flag_section`` reset on every heading: crossing into a new
+    section clears the "fold onto the last-captured behavior" eligibility, so a later,
+    unrelated section's bulleted/indented prose can never get silently glued onto a behavior
+    captured under a previous heading (or inside a previous fenced code block).
     """
     behaviors: list[str] = []
     lines = body.splitlines()
     in_code_block = False
+    # Tracks which heading section the most recently captured behavior belongs to, so
+    # continuation-folding never crosses a heading boundary (see docstring above).
+    current_section = 0
+    last_behavior_section: int | None = None
     for line in lines:
         stripped = line.strip()
         if stripped.startswith("```"):
             in_code_block = not in_code_block
             continue
+        if not in_code_block:
+            heading_match = re.match(r"^#{1,6}\s+(.*)$", line)
+            if heading_match:
+                current_section += 1
+                continue
         if in_code_block and stripped:
             if not stripped.startswith("#"):
                 behaviors.append(stripped)
+                last_behavior_section = current_section
             continue
         numbered_match = re.match(r"^\d+\.\s+(.+)$", stripped)
         if numbered_match:
@@ -174,13 +190,18 @@ def _extract_behaviors(body: str) -> list[str]:
             text = numbered_match.group(1).strip()
             text = re.sub(r"^\*\*(.+?)\*\*", r"\1", text, count=1)
             behaviors.append(text.strip())
+            last_behavior_section = current_section
             continue
-        # Continuation line: indented (part of the same list item), non-blank, and not
-        # itself a new bullet/heading/numbered-item — fold it onto the most recently
-        # captured behavior, mirroring _extract_flags()'s continuation handling.
+        # Continuation line: indented (part of the same list item), non-blank, not itself a
+        # new bullet/heading/numbered-item, AND in the same heading section as the most
+        # recently captured behavior — fold it onto that behavior, mirroring
+        # _extract_flags()'s continuation handling. The section-match guard is what stops a
+        # later, unrelated section's continuation-looking lines from leaking onto a behavior
+        # captured under an earlier heading (or fenced code block).
         if (
             behaviors
             and not in_code_block
+            and last_behavior_section == current_section
             and line.strip()
             and line[:1] in (" ", "\t")
             and not stripped.startswith(("-", "*", "#", "```"))
@@ -385,8 +406,6 @@ def _capability_sentence(ir: dict) -> str:
     if not parts:
         parts.append(f"the {ir.get('flow_name') or ir.get('slug') or 'flow'} behaves as documented")
     return "; ".join(parts) + "."
-
-
 def _render_steps_block(ir: dict) -> list[str]:
     """Build the Steps section lines for one generated test case, per the Deterministic Backstop Convention."""
     lines: list[str] = []
