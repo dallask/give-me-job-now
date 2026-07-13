@@ -14,8 +14,12 @@ No preconditions — this flow has no setup requirements beyond the repo's stand
 
 **Steps (live):**
 ```bash
-1. claude --dangerously-skip-permissions
-2. /gmj-pipeline-run   # then state your mode / offer / run_id
+claude --dangerously-skip-permissions
+```
+
+Inside the now-live REPL session, type:
+```
+/gmj-pipeline-run   # then state your mode / offer / run_id
 ```
 
 **Steps (deterministic backstop):**
