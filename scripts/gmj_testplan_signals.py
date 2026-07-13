@@ -20,9 +20,17 @@ would be meaningless once each flow's generated file is read standalone, with no
 table row for context), this module resolves the reference structurally --
 ``_GATE_AB_JUDGMENT_CAVEAT`` holds Flow 2's full canonical caveat text once, and each of the 3
 other gated rows' ``semantic_caveat`` value is that same constant plus its own row's verbatim
-trailing addendum sentence, concatenated at import time. This is the one narrow "assist"
+trailing addendum sentence, concatenated at import time with an em-dash-surrounded-by-spaces
+separator between the constant and the addendum -- matching the source table's own
+"Same Gate A/B judgment-call caveat as Flow 2 -- <addendum>" convention exactly, so the join
+never collapses into a bare-space run-on sentence with no clause boundary (a documented,
+regression-tested normalization, not an accidental omission). This is the one narrow "assist"
 (structural de-duplication, not wording synthesis) this module performs; every other cell is a
-direct 1:1 transcription with zero rewriting.
+direct 1:1 transcription with zero rewriting. Relatedly, any backslash-escaped-pipe Markdown-
+table-cell-escape artifact copied verbatim from the source document's own escaping context is
+un-escaped back to a literal ``|`` before storage here, since this module's cells are re-escaped
+fresh by ``gmj_testplan_gen.py``'s ``_escape_table_cell()`` at render time -- storing a
+pre-escaped pipe would be double-escaped on render.
 
 **D-04 literal.** The 4 genuinely mechanical flows (no LLM/agent judgment component at all --
 firecrawl-search, resume-flow, operator-monitoring, cleanup-wizard) render the literal string
@@ -53,15 +61,15 @@ SIGNAL_TABLE_BY_SLUG: dict[str, dict[str, str]] = {
     },
     'pipeline-run-autonomous': {
         "pass_signal": 'Identical mechanical predicate to Flow 2 (`gate_results` dual-pass via `gmj_check_delivery.py`) — `execution_mode` only gates the human pause after a gate PASS, never the gate mechanism itself',
-        "fail_signal": 'Same as Flow 2, plus `gmj_check_cap.py`\'s 3-way exit contract: exit 0 (`"continue"`), exit 2 (`{"status":"propose_raise",...}` — first time `current_count == cap` and not yet raised), exit 1 (`{"status":"exhausted","failure_class":"narrow"\\|"systemic",...}` — final, no further retry)',
+        "fail_signal": 'Same as Flow 2, plus `gmj_check_cap.py`\'s 3-way exit contract: exit 0 (`"continue"`), exit 2 (`{"status":"propose_raise",...}` — first time `current_count == cap` and not yet raised), exit 1 (`{"status":"exhausted","failure_class":"narrow"|"systemic",...}` — final, no further retry)',
         "signal_source": "Same `state.json`/`gmj_check_delivery.py` as Flow 2, plus `scripts/pipeline/gmj_check_cap.py`'s 3-way exit code (0/1/2) and its JSON `status` (`continue`/`propose_raise`/`exhausted`) and `failure_class` (`narrow`/`systemic`) fields",
-        "semantic_caveat": _GATE_AB_JUDGMENT_CAVEAT + " " + 'autonomous mode removes only the human pause, never the machine gate, so the same reframe-vs-fabrication judgment call is present, now with no human present to catch a borderline case before the auto-approved raise or delivery',
+        "semantic_caveat": _GATE_AB_JUDGMENT_CAVEAT + " — " + 'autonomous mode removes only the human pause, never the machine gate, so the same reframe-vs-fabrication judgment call is present, now with no human present to catch a borderline case before the auto-approved raise or delivery',
     },
     'multi-offer-batch': {
         "pass_signal": 'Per offer, per artifact type, the same `gate_results` dual-pass predicate as Flow 2, rolled up in `batch_manifest.json`\'s per-offer `runs.{cv,cover_letter,interview_prep}` entries with `status: "delivered"`. Batch-level rollup: `gmj_runs.py`\'s `_offer_status_counts()` projects `by_offer_status` as a 5-value vocabulary count over the same statuses',
         "fail_signal": 'Any offer/type entry with `status: "gate_exhausted"` or `status: "error"` in `batch_manifest.json`\'s `runs` object — one offer\'s gate exhaustion is isolated and never stalls or corrupts a sibling offer\'s run',
         "signal_source": '`schemas/batch_manifest.schema.json`\'s `offers[].runs.{cv,cover_letter,interview_prep}.status` enum (`["waiting","in_flight","delivered","gate_exhausted","error"]`) + `.pipeline/runs/<batch_id>/batch_manifest.json` + `gmj_dispatch_cap.py`\'s frozen `max_parallel_offers` bound (default 3, `config/pipeline.config.yaml`)',
-        "semantic_caveat": _GATE_AB_JUDGMENT_CAVEAT + " " + "batching adds no new semantic-truth risk beyond the per-offer pipeline's own Gate A/B judgment calls, isolated per `retry_counts[offer][type]`",
+        "semantic_caveat": _GATE_AB_JUDGMENT_CAVEAT + " — " + "batching adds no new semantic-truth risk beyond the per-offer pipeline's own Gate A/B judgment calls, isolated per `retry_counts[offer][type]`",
     },
     'firecrawl-search': {
         "pass_signal": '`scripts/offers/gmj_firecrawl_search.py` is invoked only when `config/preferences.yaml`\'s `search_provider` field equals the single allowed enum value `"firecrawl"` (`schemas/preferences.schema.json` `search_provider` property, `enum: ["firecrawl"]`); a successful run produces the same shortlist/offer-spec artifacts as any other scout transport',
@@ -76,10 +84,10 @@ SIGNAL_TABLE_BY_SLUG: dict[str, dict[str, str]] = {
         "semantic_caveat": 'The compare==ship visual-diff judgment of "is this close enough to the design" is bounded by a hard numeric threshold (<= 0.10), so the threshold check itself is mechanical — but the decision to accept a best-kept version at cap-exhaustion (rather than hard-failing) is a designed compare==ship judgment call the agent\'s own output contract makes explicit',
     },
     'scheduled-runs': {
-        "pass_signal": 'The wrapper\'s own exit code mirrors the underlying `claude -p "/gmj-batch mode=autonomous"` invocation\'s exit code verbatim — no retry loop, ever. No overlap detected: lock acquired via `fcntl.flock(LOCK_EX \\| LOCK_NB)` at `.pipeline/cron.lock` (or `--lock-path` override) succeeds. Downstream pass signal is Flow 4\'s batch-manifest `delivered` rollup',
+        "pass_signal": 'The wrapper\'s own exit code mirrors the underlying `claude -p "/gmj-batch mode=autonomous"` invocation\'s exit code verbatim — no retry loop, ever. No overlap detected: lock acquired via `fcntl.flock(LOCK_EX | LOCK_NB)` at `.pipeline/cron.lock` (or `--lock-path` override) succeeds. Downstream pass signal is Flow 4\'s batch-manifest `delivered` rollup',
         "fail_signal": "Overlap detected — wrapper prints `gmj_cron_run: another run holds <lock_path>; exiting` to stderr and exits 1 (fail-closed, no queue, no retry). Missing `claude` on PATH — wrapper prints `gmj_cron_run: 'claude' not found on PATH; check cron/launchd PATH env` and exits non-zero. Missing `--lock-path` value or unknown argument also exits 1 with a named stderr message",
         "signal_source": "`scripts/ops/gmj_cron_run.sh` exit code (verbatim pass-through of `claude -p`'s own exit code) + `.pipeline/cron.lock` (fcntl-lock presence/absence) + operator-visible stderr text, surfaced to cron's mail-on-error or `launchd`'s `StandardErrorPath` log",
-        "semantic_caveat": _GATE_AB_JUDGMENT_CAVEAT + " " + 'this flow always drives the autonomous path, with the added operational fact that no human is present at all to observe a borderline case in real time',
+        "semantic_caveat": _GATE_AB_JUDGMENT_CAVEAT + " — " + 'this flow always drives the autonomous path, with the added operational fact that no human is present at all to observe a borderline case in real time',
     },
     'resume-flow': {
         "pass_signal": 'No single pass/fail signal exists at the inspection step itself. Nearest qualitative check: `/gmj-runs`\'s `project_status()` function returns one of exactly 4 string values via a locked top-down, first-match-wins order: `"delivered"` (gate_results dual-pass, reusing `blocked_reason()`), `"failed"` (any nested `retry_counts[...][...]` value >= the frozen `retry_cap` int), `"pending"` (empty `gate_results` AND empty `retry_counts` AND `current_step` is `None`/`"gmj-artifact-composer"`), else `"running"`. The inspector only prints the resume command — it never itself resumes; the resume flow\'s own pass signal is that same 4-value status advancing toward `"delivered"` on the next invocation of the resumed command',
